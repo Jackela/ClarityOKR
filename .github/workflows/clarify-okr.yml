@@ -22,8 +22,10 @@ jobs:
         with:
           node-version: 20
           cache: 'pnpm'
-      - name: Enable pnpm
-        run: corepack enable pnpm
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.0.0
+          run_install: false
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Lint
