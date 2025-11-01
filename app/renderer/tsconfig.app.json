@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./out-tsc/app",
+    "types": [],
+    "module": "ES2020",
+    "moduleResolution": "Node"
+  },
+  "files": [
+    "src/main.ts"
+  ],
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.d.ts"
+  ],
+  "exclude": [
+    "src/**/*.spec.ts",
+    "src/test.ts"
+  ]
+}

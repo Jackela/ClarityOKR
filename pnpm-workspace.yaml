@@ -1,0 +1,7 @@
+packages:
+  - "app/main"
+  - "app/renderer"
+  - "packages/contracts"
+  - "tests/unit"
+  - "tests/component"
+  - "tests/e2e"

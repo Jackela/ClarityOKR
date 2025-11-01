@@ -1,0 +1,20 @@
+{
+  "name": "@clarityokr/main",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/main.js",
+  "types": "dist/main.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "clean": "rimraf dist tsconfig.build.tsbuildinfo",
+    "dev": "electron --inspect=5858 .",
+    "lint": "eslint src --ext .ts"
+  },
+  "dependencies": {
+    "@clarityokr/contracts": "workspace:^",
+    "electron": "^30.0.0"
+  },
+  "devDependencies": {
+    "typescript": "~5.4.5"
+  }
+}

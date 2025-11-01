@@ -1,0 +1,34 @@
+# Node & package managers
+node_modules/
+.pnpm-store/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build outputs
+dist/
+build/
+tmp-dist/
+tmp/
+.angular/
+
+# Test artifacts
+coverage/
+playwright-report/
+test-results/
+
+# IDE & editor state
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS cruft
+.DS_Store
+Thumbs.db
+
+# Environment & secrets
+.env
+.env.*
