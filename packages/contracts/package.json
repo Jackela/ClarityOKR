@@ -1,0 +1,21 @@
+{
+  "name": "@clarityokr/contracts",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "clean": "rimraf dist",
+    "lint": "pnpm exec eslint src --ext .ts",
+    "test": "pnpm -r --filter @clarityokr/tests-unit run test -- --selectProjects=contracts"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "typescript": "~5.4.5",
+    "eslint": "^8.57.0"
+  }
+}

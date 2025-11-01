@@ -1,0 +1,74 @@
+{
+  "id": "07b94112-eb63-4d7a-997d-501596840995",
+  "initialIntent": "提高效率",
+  "status": "completed",
+  "createdAt": "2025-11-01T05:27:44.711Z",
+  "updatedAt": "2025-11-01T05:27:45.394Z",
+  "steps": [
+    {
+      "id": "de73c583-2b00-4e6f-94c6-157ef6b9d0ac",
+      "question": "你希望澄清哪一方面的目标?",
+      "sequence": 0,
+      "context": "初始意图: 提高效率",
+      "options": [
+        {
+          "id": "scope",
+          "label": "聚焦范围",
+          "scopeTag": "dimension"
+        },
+        {
+          "id": "metric",
+          "label": "衡量指标",
+          "scopeTag": "dimension"
+        },
+        {
+          "id": "timeline",
+          "label": "时间范围",
+          "scopeTag": "dimension"
+        }
+      ]
+    },
+    {
+      "id": "dbe07fb5-746f-44cb-8c4d-2070e1d5f66e",
+      "question": "再补充一个细节, 让意图更清晰",
+      "sequence": 1,
+      "context": "选择最关键的下一步",
+      "options": [
+        {
+          "id": "audience",
+          "label": "影响对象",
+          "scopeTag": "detail"
+        },
+        {
+          "id": "constraint",
+          "label": "主要约束",
+          "scopeTag": "detail"
+        }
+      ]
+    },
+    {
+      "id": "8b43157c-b0ae-4602-94fe-7eba5aa093dd",
+      "question": "再补充一个细节, 让意图更清晰",
+      "sequence": 2,
+      "context": "选择最关键的下一步",
+      "options": [
+        {
+          "id": "audience",
+          "label": "影响对象",
+          "scopeTag": "detail"
+        },
+        {
+          "id": "constraint",
+          "label": "主要约束",
+          "scopeTag": "detail"
+        }
+      ]
+    }
+  ],
+  "selectedOptionIds": [
+    "scope",
+    "constraint"
+  ],
+  "confidence": 0.9,
+  "pendingQuestionId": null
+}
