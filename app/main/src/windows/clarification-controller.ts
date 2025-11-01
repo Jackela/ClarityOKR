@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/consistent-type-imports, import/order */
 import { randomUUID } from 'node:crypto';
 
 import {
@@ -15,8 +16,8 @@ import type {
   OKRDocument,
   UserActionLogEntry
 } from '@clarityokr/contracts';
-import electron from 'electron';
-import type { IpcMainEvent } from 'electron';
+
+import electron, { type IpcMainEvent } from 'electron';
 
 const { ipcMain, webContents } = electron;
 
@@ -111,7 +112,7 @@ export class ClarificationController {
         okrId: null,
         payloadSummary: `prompt:${nextPrompt.id}`
       }).catch((error) => {
-        console.error('Failed to record generate action', error);
+        this.logUnexpectedError('Failed to record generate action', error);
       });
 
       console.info('[main] prompt resolved', { promptId: nextPrompt.id, sequence: nextPrompt.sequence });
@@ -205,7 +206,7 @@ export class ClarificationController {
       okrId: null,
       payloadSummary: `selected:${response.optionId}`
     }).catch((error) => {
-      console.error('Failed to record selection action', error);
+      this.logUnexpectedError('Failed to record selection action', error);
     });
 
     const nextPrompt = await this.agent.nextPrompt(session.initialIntent, session.steps);
@@ -228,7 +229,7 @@ export class ClarificationController {
       okrId: null,
       payloadSummary: `prompt:${nextPrompt.id}`
     }).catch((error) => {
-      console.error('Failed to record follow-up prompt', error);
+      this.logUnexpectedError('Failed to record follow-up prompt', error);
     });
   }
 
@@ -248,6 +249,29 @@ export class ClarificationController {
       regenerationPolicy: 'append',
       manualEdits: []
     } satisfies OKRDocument;
+  }
+
+  private logUnexpectedError(message: string, error: unknown): void {
+    if (error instanceof Error) {
+      console.error(message, error);
+      return;
+    }
+
+    let serialized: string;
+
+    if (typeof error === 'string') {
+      serialized = error;
+    } else if (typeof error === 'object' && error !== null) {
+      try {
+        serialized = JSON.stringify(error, undefined, 2);
+      } catch {
+        serialized = '[object Object]';
+      }
+    } else {
+      serialized = String(error);
+    }
+
+    console.error(message, new Error(serialized));
   }
 
   private createKeyResults(intentSummary: string): KeyResult[] {

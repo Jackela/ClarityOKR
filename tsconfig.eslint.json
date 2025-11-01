@@ -1,19 +1,36 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "noEmit": true
+    "noEmit": true,
+    "module": "ESNext",
+    "moduleResolution": "NodeNext",
+    "types": [
+      "node"
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@clarityokr/contracts": [
+        "packages/contracts/src/index.ts"
+      ],
+      "@clarityokr/contracts/*": [
+        "packages/contracts/src/*"
+      ]
+    }
   },
   "files": [],
-  "references": [
-    { "path": "./packages/contracts" },
-    { "path": "./app/main" },
-    { "path": "./app/renderer" }
-  ],
   "include": [
     "packages/contracts/src/**/*.ts",
+    "packages/contracts/src/**/*.mts",
+    "packages/contracts/src/**/*.cts",
     "app/main/src/**/*.ts",
+    "app/main/src/**/*.mts",
+    "app/main/src/**/*.cts",
     "app/renderer/src/**/*.ts",
     "app/renderer/src/**/*.d.ts",
-    "tests/e2e/**/*.ts"
+    "app/renderer/src/**/*.mts",
+    "app/renderer/src/**/*.cts",
+    "tests/e2e/**/*.ts",
+    "tests/unit/**/*.ts",
+    "tests/component/**/*.ts"
   ]
 }

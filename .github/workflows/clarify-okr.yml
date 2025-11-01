@@ -21,22 +21,38 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
       - uses: pnpm/action-setup@v4
         with:
           version: 9.0.0
           run_install: false
+          cache: true
+          cache-dependency-path: pnpm-lock.yaml
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install chromium
+      - name: Install Playwright system deps
+        run: pnpm exec playwright install-deps chromium
+      - name: Install Electron system deps
+        run: |
+          if command -v sudo >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y libatk-bridge2.0-0 libgtk-3-0 libnss3 libxss1 libasound2 libxtst6 libdrm2 libgbm1 xvfb
+          else
+            apt-get update
+            apt-get install -y libatk-bridge2.0-0 libgtk-3-0 libnss3 libxss1 libasound2 libxtst6 libdrm2 libgbm1 xvfb
+          fi
       - name: Lint
         run: pnpm run lint
       - name: Typecheck
         run: pnpm run typecheck
+      - name: Build
+        run: pnpm run build
       - name: Unit tests
         run: pnpm run test:unit
       - name: Component tests
         run: pnpm run test:component
       - name: E2E tests
-        run: pnpm run test:e2e
+        run: xvfb-run -a pnpm run test:e2e
         env:
           ELECTRON_PATH: ./node_modules/.bin/electron

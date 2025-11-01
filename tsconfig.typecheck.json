@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@clarityokr/contracts": [
+        "packages/contracts/src/index.ts"
+      ],
+      "@clarityokr/contracts/*": [
+        "packages/contracts/src/*"
+      ]
+    }
+  }
+}

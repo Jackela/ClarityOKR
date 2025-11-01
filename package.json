@@ -10,7 +10,7 @@
   "packageManager": "pnpm@9.0.0",
   "scripts": {
     "lint": "pnpm exec eslint .",
-    "typecheck": "pnpm exec tsc --noEmit",
+    "typecheck": "pnpm exec tsc --noEmit -p tsconfig.typecheck.json",
     "build": "pnpm run build:contracts && pnpm run build:renderer && pnpm run build:main",
     "build:contracts": "pnpm --filter @clarityokr/contracts run build",
     "build:renderer": "pnpm --filter @clarityokr/renderer run build",
@@ -18,13 +18,14 @@
     "dev": "pnpm --filter @clarityokr/desktop run dev",
     "test": "pnpm run test:unit && pnpm run test:component && pnpm run test:e2e",
     "test:unit": "pnpm --filter @clarityokr/tests-unit run test",
-    "test:component": "CHROME_BIN=$(node -e \"console.log(require('@playwright/test').chromium.executablePath())\") pnpm --dir app/renderer exec ng test --watch=false --browsers=ChromeHeadless",
+    "test:component": "CHROME_BIN=$(node -e \"console.log(require('@playwright/test').chromium.executablePath())\") pnpm --filter @clarityokr/renderer run test",
     "test:e2e": "pnpm --filter @clarityokr/tests-e2e run test",
     "lint:fix": "pnpm exec eslint . --fix",
     "format": "prettier --check .",
     "format:write": "prettier --write ."
   },
   "devDependencies": {
+    "@ampproject/remapping": "^2.3.0",
     "@angular-devkit/build-angular": "17.3.12",
     "@playwright/test": "^1.44.0",
     "@types/jasmine": "4.3.6",

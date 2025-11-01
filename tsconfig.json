@@ -1,13 +1,15 @@
 {
   "extends": "./tsconfig.base.json",
-  "compilerOptions": {
-    "composite": true,
-    "declaration": false
-  },
   "files": [],
   "references": [
-    { "path": "./packages/contracts" },
-    { "path": "./app/main" },
-    { "path": "./app/renderer" }
+    {
+      "path": "./packages/contracts"
+    },
+    {
+      "path": "./app/main"
+    },
+    {
+      "path": "./app/renderer"
+    }
   ]
 }

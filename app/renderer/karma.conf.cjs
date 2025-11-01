@@ -22,7 +22,13 @@ module.exports = function (config) {
       ]
     },
     reporters: ['progress', 'kjhtml'],
-    browsers: ['ChromeHeadless'],
+    customLaunchers: {
+      ChromeHeadlessCI: {
+        base: 'ChromeHeadless',
+        flags: ['--no-sandbox', '--disable-dev-shm-usage']
+      }
+    },
+    browsers: [process.env.CI ? 'ChromeHeadlessCI' : 'ChromeHeadless'],
     restartOnFileChange: false,
     singleRun: true,
     browserNoActivityTimeout: 60000
