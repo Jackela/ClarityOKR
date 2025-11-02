@@ -32,12 +32,19 @@ jobs:
         with:
           node-version: 20
           cache-dependency-path: pnpm-lock.yaml
-      - uses: pnpm/action-setup@v4
+      - if: ${{ github.actor != 'nektos/act' }}
+        uses: pnpm/action-setup@v5
         with:
           version: 9.0.0
           run_install: false
           cache: true
           cache-dependency-path: pnpm-lock.yaml
+
+      - name: Ensure pnpm is available (act fallback)
+        run: |
+          if ! command -v pnpm >/dev/null 2>&1; then
+            npm install -g pnpm@9.0.0
+          fi
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Install Playwright browsers
