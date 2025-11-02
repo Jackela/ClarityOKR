@@ -63,8 +63,8 @@ jobs:
     name: Electron E2E (Playwright)
     needs: build-and-test
     runs-on: ubuntu-latest
-    # Skip on local act runs, and allow manual opt-in via workflow_dispatch input
-    if: ${{ github.actor != 'nektos/act' && (github.event_name != 'workflow_dispatch' || github.event.inputs.run_e2e == 'true') }}
+    # Allow manual opt-in via workflow_dispatch input
+    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.run_e2e == 'true' }}
     env:
       LLM_API_KEY: test
       LLM_MODEL: gpt-4o-mini
