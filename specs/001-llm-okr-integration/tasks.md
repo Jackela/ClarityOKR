@@ -32,7 +32,7 @@ description: "Task list for LLM-driven clarification and OKR generation"
 ## Phase 2: Foundational (Blocking Prerequisites)
 
 - [X] T010 [ALL] Electron main: load `.env` and read `LLM_API_KEY`, `LLM_BASE_URL?`, `LLM_MODEL?` in `src/main/env.ts`; unit tests in `tests/unit/main/env.spec.ts`
-- [ ] T011 [ALL] Electron main: expose typed IPC handlers (without secrets) in `src/main/ipc.llm.ts`; tests in `tests/integration/ipc.llm.spec.ts`
+- [X] T011 [ALL] Electron main: expose typed IPC handlers (without secrets) in `src/main/ipc.llm.ts`; tests in `tests/integration/ipc.llm.spec.ts`
 - [X] T012 [ALL] Service refactor: introduce `OkrAgentService` with `private async callLlmApi(...)` in `src/services/okr-agent.service.ts`; no implementation yet; tests red in `tests/integration/okr-agent.spec.ts`
 - [X] T013 [P] [ALL] Implement zod validators for `ClarificationQuestion`, `OkrDraft` shapes per `contracts/openapi.yaml` in `src/validators/*`; unit tests in `tests/unit/validators/*.spec.ts`
 - [X] T014 [P] [ALL] Add idempotent retry helper and timeout wrapper in `src/lib/retry-timeout.ts`; unit tests in `tests/unit/lib/retry-timeout.spec.ts`
@@ -95,8 +95,8 @@ description: "Task list for LLM-driven clarification and OKR generation"
 
 ## Phase 6: E2E & Docs
 
-- [ ] T050 [P] [ALL] Playwright E2E: US1 happy path (clarification → dynamic next question) in `tests/e2e/clarification.spec.ts`
-- [ ] T051 [P] [ALL] Playwright E2E: US2 happy path (generate draft) in `tests/e2e/draft.spec.ts`
+- [X] T050 [P] [ALL] Playwright E2E: US1 happy path (clarification → dynamic next question) in `tests/e2e/specs/clarification/*`
+- [X] T051 [P] [ALL] Playwright E2E: US2 happy path (generate draft) in `tests/e2e/specs/llm/draft.e2e.spec.ts`
 - [X] T052 [P] [ALL] JSDoc: public services and IPC handlers updated across `src/**`
 - [X] T053 [P] [ALL] Validate `quickstart.md` instructions and update if needed
 
