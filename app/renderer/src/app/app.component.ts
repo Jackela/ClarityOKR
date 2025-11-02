@@ -349,19 +349,19 @@ export class AppComponent implements OnDestroy {
       const turns: Array<{ questionId: string; optionId: string; timestamp: string }> = [];
       this.llmGateway
         .generateDraft({ turns })
-        .subscribe({
-          next: (payload: { draft?: { objectives?: Array<{ title?: string }> } }) => {
-            const first = payload?.draft?.objectives?.[0];
+        .subscribe(
+          (payload: unknown) => {
+            const first = (payload as { draft?: { objectives?: Array<{ title?: string }> } })?.draft?.objectives?.[0];
             if (first && typeof first.title === 'string' && first.title) {
               this.generatedSummary = first.title;
             }
           },
-          error: (err: unknown) => {
+          (err: unknown) => {
             // eslint-disable-next-line no-console
             console.warn('[renderer] LLM draft generation failed', err);
             this.statusMessage = '生成失败或超时，请稍后重试。';
           }
-        });
+        );
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('[renderer] generate failed', error);
