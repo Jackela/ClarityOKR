@@ -5,3 +5,4 @@ packages:
   - "tests/unit"
   - "tests/component"
   - "tests/e2e"
+  - "tests/integration"

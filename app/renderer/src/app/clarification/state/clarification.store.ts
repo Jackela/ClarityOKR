@@ -1,8 +1,7 @@
 import { Injectable } from '@angular/core';
+import type { ClarificationPrompt } from '@clarityokr/contracts';
 import { ComponentStore } from '@ngrx/component-store';
 import { map } from 'rxjs';
-
-import type { ClarificationPrompt } from '@clarityokr/contracts';
 
 export interface ClarificationState {
   currentPrompt: ClarificationPrompt | null;
@@ -10,6 +9,7 @@ export interface ClarificationState {
   selectedOptionIds: string[];
   isReadyToGenerate: boolean;
   validationError: string | null;
+  isLoading: boolean;
 }
 
 const initialState: ClarificationState = {
@@ -17,17 +17,19 @@ const initialState: ClarificationState = {
   history: [],
   selectedOptionIds: [],
   isReadyToGenerate: false,
-  validationError: null
+  validationError: null,
+  isLoading: false
 };
 
 @Injectable({ providedIn: 'root' })
 export class ClarificationStore extends ComponentStore<ClarificationState> {
-  readonly currentPrompt$ = this.select((state) => state.currentPrompt);
-  readonly validationError$ = this.select((state) => state.validationError);
-  readonly selectedOptionIds$ = this.select((state) => state.selectedOptionIds);
-  readonly isReadyToGenerate$ = this.select((state) => state.isReadyToGenerate);
-  readonly history$ = this.select((state) => state.history);
+  readonly currentPrompt$ = this.select<ClarificationPrompt | null>((state) => state.currentPrompt);
+  readonly validationError$ = this.select<string | null>((state) => state.validationError);
+  readonly selectedOptionIds$ = this.select<string[]>((state) => state.selectedOptionIds);
+  readonly isReadyToGenerate$ = this.select<boolean>((state) => state.isReadyToGenerate);
+  readonly history$ = this.select<ClarificationPrompt[]>((state) => state.history);
   readonly hasPrompt$ = this.currentPrompt$.pipe(map((prompt) => prompt !== null));
+  readonly isLoading$ = this.select<boolean>((state) => state.isLoading);
 
   constructor() {
     super(initialState);
@@ -85,5 +87,10 @@ export class ClarificationStore extends ComponentStore<ClarificationState> {
   readonly setValidationError = this.updater((state, message: string | null) => ({
     ...state,
     validationError: message
+  }));
+
+  readonly setLoading = this.updater((state, loading: boolean) => ({
+    ...state,
+    isLoading: loading
   }));
 }

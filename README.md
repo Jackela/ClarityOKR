@@ -65,12 +65,47 @@ The workspace uses strict TypeScript (`strict: true`) and ESM imports everywhere
 | `pnpm run test:component` | Angular component specs (headless Chrome via Playwright binary) |
 | `pnpm run test:e2e` | Playwright Electron E2E suite (runs serially in CI) |
 
+### CI and local runners (act)
+
+- CI runs on GitHub Actions (`.github/workflows/ci.yml`):
+  - Node 20 + pnpm via Corepack
+  - Lint → Typecheck → Unit → Integration
+  - E2E job runs with xvfb and Playwright. It is skipped when `ACT=true` (to keep `act` runs fast), and can be opted-in on `workflow_dispatch` with `run_e2e: true`.
+
+- Run CI locally with `act`:
+  - Unit + Integration: `act -j build-and-test -W .github/workflows/ci.yml -P ubuntu-latest=catthehacker/ubuntu:act-latest`
+  - (Optional) E2E: `act -j e2e -W .github/workflows/ci.yml -P ubuntu-latest=catthehacker/ubuntu:act-latest -s LLM_API_KEY=test` (requires Playwright deps in the container)
+
+### E2E LLM mocking
+
+- E2E tests start a local HTTP server and set `LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL` for Electron.
+- No external network calls are made; tests are deterministic and self-contained.
+
 Follow a TDD/BDD loop—author specs before implementation, especially for sticky window functionality, edit mode flows, regenerate/copy actions, and telemetry.
 
 ## CI Notes
 
-GitHub Actions workflow (`.github/workflows/clarify-okr.yml`) uses Node 20 with `pnpm/action-setup@v4` to install pnpm 9, then runs lint, type-check, unit, component, and E2E suites.  
-If you add new packages or scripts, update the workflow accordingly. Ensure Playwright dependencies are installed (`pnpm exec playwright install chromium`) on first run locally.
+GitHub Actions workflow (`.github/workflows/ci.yml`) uses Node 20 + pnpm (Corepack) and runs Lint → Typecheck → Unit → Integration; a separate E2E job runs Playwright Electron with xvfb. The E2E job uploads traces on failure.
+
+### Running CI locally with `act`
+
+1) Use the same runner image as GitHub:
+
+   - Copy `.actrc.sample` to `$HOME/.actrc` or run with `-P ubuntu-latest=catthehacker/ubuntu:act-22.04`.
+
+2) Run unit + integration only (fast path):
+
+   - `act -j build-and-test -W .github/workflows/ci.yml -P ubuntu-latest=catthehacker/ubuntu:act-22.04`
+
+3) Run E2E as well (slower):
+
+   - `act workflow_dispatch -W .github/workflows/ci.yml -e .github/act-e2e-event.json -P ubuntu-latest=catthehacker/ubuntu:act-22.04 -s ACT=false -s LLM_API_KEY=test`
+
+   Notes:
+   - The `-s ACT=false` forces the E2E job to run (workflow uses `if: env.ACT != 'true'`).
+   - The dispatch event passes `inputs.run_e2e=true` to opt into E2E.
+   - The workflow installs Playwright browsers and deps in the container (`npx playwright install --with-deps`).
+
 
 ## Coding Guidelines
 

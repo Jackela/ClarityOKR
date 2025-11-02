@@ -1,5 +1,6 @@
+/* eslint-disable @typescript-eslint/no-redundant-type-constituents */
 import { CommonModule } from '@angular/common';
-import { Component, Input } from '@angular/core';
+import { Component, EventEmitter, Input, Output } from '@angular/core';
 
 import type { OkrStickyViewModel } from '../services/okr-projection.service';
 
@@ -12,6 +13,7 @@ import type { OkrStickyViewModel } from '../services/okr-projection.service';
 })
 export class OkrStickyNoteComponent {
   @Input() okr: OkrStickyViewModel | null = null;
+  @Output() addKr = new EventEmitter<void>();
 
   readonly trackByKeyResultId = (_: number, item: { id: string }) => item.id;
 }

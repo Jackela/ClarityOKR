@@ -1,6 +1,8 @@
 export const IPC_CHANNELS = {
   CLARIFICATION_PROMPT: 'clarityokr:clarification:prompt',
   CLARIFICATION_RESPOND: 'clarityokr:clarification:respond',
+  LLM_NEXT_QUESTION: 'clarityokr:llm:next-question',
+  LLM_GENERATE_DRAFT: 'clarityokr:llm:generate-draft',
   OKR_GENERATE: 'clarityokr:okr:generate',
   OKR_REGENERATE: 'clarityokr:okr:regenerate',
   SESSION_PERSIST: 'clarityokr:session:persist',

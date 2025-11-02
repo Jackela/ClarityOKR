@@ -1,6 +1,7 @@
 import { _electron as electron, expect, test } from '@playwright/test';
 import { execSync } from 'node:child_process';
 import { existsSync, promises as fs } from 'node:fs';
+import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -18,8 +19,58 @@ function ensureBuildArtifacts(): void {
   }
 }
 
+function startMockLlmServer(port = 7777) {
+  let counter = 0;
+  const server = http.createServer(async (req, res) => {
+    if (req.method === 'POST' && req.url && req.url.includes('/v1/responses')) {
+      // first 2 calls as next-question, then draft
+      counter += 1;
+      if (counter <= 2) {
+        const body = JSON.stringify({
+          question: {
+            id: `q${counter + 1}`,
+            text: '再补充一个细节',
+            options: [
+              { id: 'a', label: 'A', value: 'a' },
+              { id: 'b', label: 'B', value: 'b' }
+            ]
+          }
+        });
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(body);
+        return;
+      }
+      const draft = JSON.stringify({
+        draft: {
+          objectives: [
+            {
+              id: 'o1',
+              title: '提高效率',
+              description: '自动生成',
+              keyResults: [
+                { id: 'kr1', statement: 'KR1', target: '10%', measurement: 'rate' },
+                { id: 'kr2', statement: 'KR2', target: 5, measurement: 'count' },
+                { id: 'kr3', statement: 'KR3', target: '2s', measurement: 'latency' }
+              ]
+            }
+          ]
+        }
+      });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(draft);
+      return;
+    }
+    res.statusCode = 404;
+    res.end();
+  });
+  return new Promise<http.Server>((resolve) => {
+    server.listen(port, () => resolve(server));
+  });
+}
+
 test.beforeAll(() => {
-  ensureBuildArtifacts();
+  // Always rebuild to pick up latest code
+  execSync('pnpm run build', { cwd: ROOT, stdio: 'inherit' });
 });
 
 test.beforeEach(async () => {
@@ -34,7 +85,8 @@ test.beforeEach(async () => {
 });
 
 test('clarification interview completes and enables OKR generation', async () => {
-  const electronApp = await electron.launch({ args: ['.'], cwd: ROOT });
+  const server = await startMockLlmServer();
+  const electronApp = await electron.launch({ args: ['.'], cwd: ROOT, env: { ...process.env, LLM_API_KEY: 'test', LLM_BASE_URL: 'http://127.0.0.1:7777', LLM_MODEL: 'test' } });
   const childProcess = electronApp.process();
   childProcess.stderr?.on('data', (data) => {
     process.stderr.write(data);
@@ -89,4 +141,5 @@ test('clarification interview completes and enables OKR generation', async () =>
   await expect(okrSummary).toContainText('提高效率');
 
   await electronApp.close();
+  await new Promise<void>((resolve) => server.close(() => resolve()));
 });

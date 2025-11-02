@@ -1,8 +1,5 @@
-import { createRequire } from 'node:module';
+import { contextBridge, ipcRenderer } from 'electron';
 import type { IpcRendererEvent } from 'electron';
-
-const require = createRequire(import.meta.url);
-const { contextBridge, ipcRenderer } = require('electron') as typeof import('electron');
 
 type ClarifyOkrApi = {
   send: (channel: string, payload?: unknown) => void;
