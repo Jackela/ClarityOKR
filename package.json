@@ -18,7 +18,7 @@
     "dev": "pnpm --filter @clarityokr/desktop run dev",
     "test": "pnpm run test:unit && pnpm run test:integration && pnpm run test:component && pnpm run test:e2e",
     "test:unit": "pnpm --filter @clarityokr/tests-unit run test",
-    "test:component": "CHROME_BIN=$(node -e \"console.log(require('@playwright/test').chromium.executablePath())\") pnpm --filter @clarityokr/renderer run test",
+    "test:component": "node scripts/run-component-tests.cjs",
     "test:e2e": "pnpm --filter @clarityokr/tests-e2e run test",
     "lint:fix": "pnpm exec eslint . --fix",
     "format": "prettier --check .",
