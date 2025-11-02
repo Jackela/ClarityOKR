@@ -35,6 +35,7 @@ jobs:
       - name: Install Playwright system deps
         run: pnpm exec playwright install-deps chromium
       - name: Install Electron system deps
+        if: ${{ github.actor != 'nektos/act' }}
         run: |
           if command -v sudo >/dev/null 2>&1; then
             sudo apt-get update
