@@ -19,6 +19,9 @@ coverage/
 playwright-report/
 test-results/
 
+# App runtime data (local sessions, generated OKRs)
+data/
+
 # IDE & editor state
 .vscode/
 .idea/

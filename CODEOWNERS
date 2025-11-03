@@ -1,0 +1,15 @@
+# Global owner(s)
+* @Jackela
+
+# Main process
+app/main/ @Jackela
+
+# Renderer
+app/renderer/ @Jackela
+
+# Contracts
+packages/contracts/ @Jackela
+
+# Tests
+tests/ @Jackela
+

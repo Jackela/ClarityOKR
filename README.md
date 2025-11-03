@@ -1,4 +1,6 @@
-# ClarityOKR
+# ClarityOKR  
+[![CI](https://github.com/Jackela/ClarityOKR/actions/workflows/ci.yml/badge.svg)](https://github.com/Jackela/ClarityOKR/actions/workflows/ci.yml)
+[![Clarify OKR CI](https://github.com/Jackela/ClarityOKR/actions/workflows/clarify-okr.yml/badge.svg)](https://github.com/Jackela/ClarityOKR/actions/workflows/clarify-okr.yml)
 
 ClarityOKR is a desktop AI assistant that turns fuzzy intent into actionable Objectives and Key Results (OKRs).  
 The app runs on an Electron + Angular stack written in strict TypeScript (ESM-only) and follows SOLID, Domain-Driven Design, and Fail-Fast principles across the main process, renderer, and shared contracts.
@@ -70,11 +72,12 @@ The workspace uses strict TypeScript (`strict: true`) and ESM imports everywhere
 - CI runs on GitHub Actions (`.github/workflows/ci.yml`):
   - Node 20 + pnpm via Corepack
   - Lint → Typecheck → Unit → Integration
-  - E2E job runs with xvfb and Playwright. It is skipped when `ACT=true` (to keep `act` runs fast), and can be opted-in on `workflow_dispatch` with `run_e2e: true`.
+  - E2E job runs with xvfb and Playwright via `workflow_dispatch` and `run_e2e: true` input.
 
-- Run CI locally with `act`:
-  - Unit + Integration: `act -j build-and-test -W .github/workflows/ci.yml -P ubuntu-latest=catthehacker/ubuntu:act-latest`
-  - (Optional) E2E: `act -j e2e -W .github/workflows/ci.yml -P ubuntu-latest=catthehacker/ubuntu:act-latest -s LLM_API_KEY=test` (requires Playwright deps in the container)
+- Run CI locally with `act` (uses Ubuntu 24.04 runner):
+  - Configure once: `.actrc` already maps `ubuntu-latest` to `ghcr.io/catthehacker/ubuntu:act-24.04` and sets Electron flags.
+  - Unit + Integration: `act -j build-and-test -W .github/workflows/ci.yml`
+  - Clarify OKR workflow with E2E: `pwsh scripts/act-run-clarify-okr-e2e.ps1` (adds inputs and correct image/flags)
 
 ### E2E LLM mocking
 
@@ -87,24 +90,17 @@ Follow a TDD/BDD loop—author specs before implementation, especially for stick
 
 GitHub Actions workflow (`.github/workflows/ci.yml`) uses Node 20 + pnpm (Corepack) and runs Lint → Typecheck → Unit → Integration; a separate E2E job runs Playwright Electron with xvfb. The E2E job uploads traces on failure.
 
-### Running CI locally with `act`
+### Running CI locally with `act` (detailed)
 
-1) Use the same runner image as GitHub:
-
-   - Copy `.actrc.sample` to `$HOME/.actrc` or run with `-P ubuntu-latest=catthehacker/ubuntu:act-22.04`.
+1) Use the same runner image as GitHub (already configured via `.actrc`):
+   - `-P ubuntu-latest=ghcr.io/catthehacker/ubuntu:act-24.04`
 
 2) Run unit + integration only (fast path):
+   - `act -j build-and-test -W .github/workflows/ci.yml`
 
-   - `act -j build-and-test -W .github/workflows/ci.yml -P ubuntu-latest=catthehacker/ubuntu:act-22.04`
-
-3) Run E2E as well (slower):
-
-   - `act workflow_dispatch -W .github/workflows/ci.yml -e .github/act-e2e-event.json -P ubuntu-latest=catthehacker/ubuntu:act-22.04 -s ACT=false -s LLM_API_KEY=test`
-
-   Notes:
-   - The `-s ACT=false` forces the E2E job to run (workflow uses `if: env.ACT != 'true'`).
-   - The dispatch event passes `inputs.run_e2e=true` to opt into E2E.
-   - The workflow installs Playwright browsers and deps in the container (`npx playwright install --with-deps`).
+3) Run Clarify OKR + E2E:
+   - `pwsh scripts/act-run-clarify-okr-e2e.ps1`
+   - The workflow installs Playwright browsers + system deps, and uses xvfb.
 
 
 ## Coding Guidelines

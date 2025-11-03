@@ -49,6 +49,13 @@ jobs:
         run: pnpm exec playwright install chromium
       - name: Install Playwright system deps
         run: pnpm exec playwright install-deps chromium
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            pw-${{ runner.os }}-
 
       - name: Install Electron system deps (act only)
         if: ${{ github.actor == 'nektos/act' }}
