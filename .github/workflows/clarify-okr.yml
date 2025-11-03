@@ -34,7 +34,6 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - uses: pnpm/action-setup@v4
         with:
-          version: 9.0.0
           run_install: false
           cache: true
           cache-dependency-path: pnpm-lock.yaml

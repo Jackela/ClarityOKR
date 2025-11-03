@@ -38,7 +38,6 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: ${{ env.PNPM_VERSION }}
           run_install: false
 
       - name: Ensure pnpm is available (act fallback)
@@ -75,8 +74,8 @@ jobs:
     name: Electron E2E (Playwright)
     needs: build-and-test
     runs-on: ubuntu-latest
-    # Allow manual opt-in via workflow_dispatch input
-    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.run_e2e == 'true' }}
+    # Run only when manually triggered with input
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_e2e == 'true' }}
     env:
       LLM_API_KEY: test
       LLM_MODEL: gpt-4o-mini
