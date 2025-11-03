@@ -97,7 +97,7 @@ test.beforeEach(async () => {
 });
 
 test('sticky window stays always-on-top with OKR contents rendered', async () => {
-  const electronApp = await electron.launch({ args: ['.'], cwd: ROOT });
+  const electronApp = await electron.launch({ args: ['.', ...extraElectronArgs()], cwd: ROOT });
   const mainWindow = await electronApp.firstWindow();
 
   mainWindow.on('console', (message) => {
@@ -132,3 +132,7 @@ test('sticky window stays always-on-top with OKR contents rendered', async () =>
 
   await electronApp.close();
 });
+function extraElectronArgs(): string[] {
+  const raw = process.env.ELECTRON_EXTRA_LAUNCH_ARGS || '';
+  return raw.trim() ? raw.trim().split(/\s+/) : [];
+}

@@ -68,6 +68,11 @@ function startMockLlmServer(port = 7777) {
   });
 }
 
+function extraElectronArgs(): string[] {
+  const raw = process.env.ELECTRON_EXTRA_LAUNCH_ARGS || '';
+  return raw.trim() ? raw.trim().split(/\s+/) : [];
+}
+
 test.beforeAll(() => {
   // Always rebuild to pick up latest code
   execSync('pnpm run build', { cwd: ROOT, stdio: 'inherit' });
@@ -86,7 +91,7 @@ test.beforeEach(async () => {
 
 test('clarification interview completes and enables OKR generation', async () => {
   const server = await startMockLlmServer();
-  const electronApp = await electron.launch({ args: ['.'], cwd: ROOT, env: { ...process.env, LLM_API_KEY: 'test', LLM_BASE_URL: 'http://127.0.0.1:7777', LLM_MODEL: 'test' } });
+  const electronApp = await electron.launch({ args: ['.', ...extraElectronArgs()], cwd: ROOT, env: { ...process.env, LLM_API_KEY: 'test', LLM_BASE_URL: 'http://127.0.0.1:7777', LLM_MODEL: 'test' } });
   const childProcess = electronApp.process();
   childProcess.stderr?.on('data', (data) => {
     process.stderr.write(data);

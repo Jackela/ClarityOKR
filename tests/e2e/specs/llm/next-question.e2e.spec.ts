@@ -37,7 +37,7 @@ test('LLM next-question updates prompt after selection', async () => {
   const { execSync } = await import('node:child_process');
   execSync('pnpm run build', { cwd: ROOT, stdio: 'inherit' });
   const server = await startMockLlmServer();
-  const electronApp = await electron.launch({ args: ['.'], cwd: ROOT, env: { ...process.env, LLM_API_KEY: 'test', LLM_BASE_URL: 'http://127.0.0.1:7777', LLM_MODEL: 'test' } });
+  const electronApp = await electron.launch({ args: ['.', ...extraElectronArgs()], cwd: ROOT, env: { ...process.env, LLM_API_KEY: 'test', LLM_BASE_URL: 'http://127.0.0.1:7777', LLM_MODEL: 'test' } });
   const window = await electronApp.firstWindow();
 
   await window.waitForLoadState('domcontentloaded');
@@ -55,3 +55,7 @@ test('LLM next-question updates prompt after selection', async () => {
   await electronApp.close();
   await new Promise<void>((resolve) => server.close(() => resolve()));
 });
+function extraElectronArgs(): string[] {
+  const raw = process.env.ELECTRON_EXTRA_LAUNCH_ARGS || '';
+  return raw.trim() ? raw.trim().split(/\s+/) : [];
+}

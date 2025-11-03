@@ -97,7 +97,7 @@ test.beforeEach(async () => {
 });
 
 test('user can reopen sticky window after closing it', async () => {
-  const electronApp = await electron.launch({ args: ['.'], cwd: ROOT });
+  const electronApp = await electron.launch({ args: ['.', ...extraElectronArgs()], cwd: ROOT });
   const mainWindow = await electronApp.firstWindow();
 
   const mainWindowId = await electronApp.evaluate(
@@ -130,3 +130,7 @@ test('user can reopen sticky window after closing it', async () => {
 
   await electronApp.close();
 });
+function extraElectronArgs(): string[] {
+  const raw = process.env.ELECTRON_EXTRA_LAUNCH_ARGS || '';
+  return raw.trim() ? raw.trim().split(/\s+/) : [];
+}
