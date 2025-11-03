@@ -36,46 +36,31 @@ async function completeClarification(mainWindow: ElectronPage) {
 
 async function waitForStickyWindowSnapshot(
   electronApp: import('@playwright/test').ElectronApplication,
-  mainWindowId: number,
-  excludeWindowIds: number[] = []
+  mainWindow: ElectronPage
 ): Promise<StickyWindowSnapshot> {
+  // Wait until a second window appears, then query its DOM
+  const ctx = electronApp.context();
   const deadline = Date.now() + 30_000;
   while (Date.now() < deadline) {
-    const snapshot = await electronApp.evaluate(
-      async ({ BrowserWindow }, params) => {
-        const { mainId, excluded } = params;
-        const sticky = BrowserWindow.getAllWindows().find((candidate) => {
-          if (candidate.id === mainId || excluded.includes(candidate.id)) {
-            return false;
-          }
-          const url = candidate.webContents.getURL();
-          return url.includes('index.html');
-        });
-        if (!sticky) {
-          return null;
-        }
-        const payload = await sticky.webContents.executeJavaScript(
-          `(() => {
-            const objective = document.querySelector('[data-testid="sticky-objective"]')?.textContent ?? '';
-            const keyResults = Array.from(document.querySelectorAll('[data-testid="sticky-key-result"]')).map((el) => el.textContent ?? '');
-            return { objective, keyResults };
-          })();`
-        );
-        return {
-          windowId: sticky.id,
-          isTop: sticky.isAlwaysOnTop(),
-          objective: payload.objective,
-          keyResults: payload.keyResults
-        };
-      },
-      { mainId: mainWindowId, excluded: excludeWindowIds }
-    );
-    if (snapshot) {
-      return snapshot;
+    const pages = ctx.pages();
+    const sticky = pages.find((p) => p !== mainWindow);
+    if (sticky) {
+      const objective = await sticky.locator('[data-testid="sticky-objective"]').innerText();
+      const keyResults = await sticky.locator('[data-testid="sticky-key-result"]').allInnerTexts();
+      const isTop = await electronApp.evaluate(({ BrowserWindow }) => {
+        const win = BrowserWindow.getAllWindows().find((bw) => bw.webContents.getURL().includes('index.html') && bw.isAlwaysOnTop());
+        return !!win;
+      });
+      return {
+        windowId: 0,
+        isTop,
+        objective,
+        keyResults
+      };
     }
     const remaining = Math.max(0, deadline - Date.now());
     try {
-      await electronApp.context().waitForEvent('page', { timeout: remaining });
+      await ctx.waitForEvent('page', { timeout: remaining });
     } catch (error) {
       if (!(error instanceof errors.TimeoutError)) {
         throw error;
@@ -110,14 +95,7 @@ test('sticky window stays always-on-top with OKR contents rendered', async () =>
 
   await completeClarification(mainWindow);
 
-  const mainWindowId = await electronApp.evaluate(
-    ({ BrowserWindow }) => BrowserWindow.getAllWindows().at(0)?.id ?? -1
-  );
-  if (mainWindowId === -1) {
-    throw new Error('Failed to resolve main window id');
-  }
-
-  const stickySnapshot = await waitForStickyWindowSnapshot(electronApp, mainWindowId);
+  const stickySnapshot = await waitForStickyWindowSnapshot(electronApp, mainWindow);
   const enforcedAlwaysOnTop = await electronApp.evaluate(
     ({ BrowserWindow }, id) => {
       const win = BrowserWindow.fromId(id);

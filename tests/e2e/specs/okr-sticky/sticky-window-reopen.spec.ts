@@ -34,7 +34,7 @@ async function completeClarification(mainWindow: ElectronPage) {
   await generateButton.click();
 }
 
-async function waitForStickyWindowSnapshot(
+async function waitForStickyWindowSnapshotOld(
   electronApp: import('@playwright/test').ElectronApplication,
   mainWindowId: number,
   excludeWindowIds: number[] = []
@@ -85,6 +85,28 @@ async function waitForStickyWindowSnapshot(
   throw new Error('Timed out waiting for sticky window');
 }
 
+async function waitForStickyWindow(
+  electronApp: import('@playwright/test').ElectronApplication,
+  mainWindow: ElectronPage
+): Promise<ElectronPage> {
+  const ctx = electronApp.context();
+  const deadline = Date.now() + 30_000;
+  while (Date.now() < deadline) {
+    const pages = ctx.pages();
+    const sticky = pages.find((p) => p !== mainWindow);
+    if (sticky) return sticky;
+    const remaining = Math.max(0, deadline - Date.now());
+    try {
+      await ctx.waitForEvent('page', { timeout: remaining });
+    } catch (error) {
+      if (!(error instanceof errors.TimeoutError)) {
+        throw error;
+      }
+    }
+  }
+  throw new Error('Timed out waiting for sticky window');
+}
+
 test.beforeEach(async () => {
   const cleanupTargets = [SESSION_PERSIST_PATH, OKR_PERSIST_PATH];
   await Promise.all(
@@ -103,33 +125,19 @@ test('user can reopen sticky window after closing it', async () => {
   childProcess.stdout?.on('data', (data) => process.stdout.write(data));
   const mainWindow = await electronApp.waitForEvent('window', { timeout: 60_000 });
 
-  const mainWindowId = await electronApp.evaluate(
-    ({ BrowserWindow }) => BrowserWindow.getAllWindows().at(0)?.id ?? -1
-  );
-  if (mainWindowId === -1) {
-    throw new Error('Failed to resolve main window id');
-  }
-
   await completeClarification(mainWindow);
 
-  const initialStickySnapshot = await waitForStickyWindowSnapshot(electronApp, mainWindowId);
+  const initialStickyWindow = await waitForStickyWindow(electronApp, mainWindow);
 
-  await electronApp.evaluate(
-    ({ BrowserWindow }, id) => {
-      BrowserWindow.fromId(id)?.close();
-    },
-    initialStickySnapshot.windowId
-  );
+  await initialStickyWindow.close();
 
   await expect(mainWindow.locator('[data-testid="sticky-reopen"]')).toBeVisible();
   await mainWindow.click('[data-testid="sticky-reopen"]');
 
-  const reopenedStickySnapshot = await waitForStickyWindowSnapshot(electronApp, mainWindowId, [
-    initialStickySnapshot.windowId
-  ]);
-
-  expect(reopenedStickySnapshot.objective).toContain('提高效率');
-  expect(reopenedStickySnapshot.keyResults.length).toBeGreaterThan(0);
+  const reopenedStickyWindow = await waitForStickyWindow(electronApp, mainWindow);
+  await expect(reopenedStickyWindow.locator('[data-testid="sticky-objective"]')).toContainText('提高效率');
+  const kr = await reopenedStickyWindow.locator('[data-testid="sticky-key-result"]').allInnerTexts();
+  expect(kr.length).toBeGreaterThan(0);
 
   await electronApp.close();
 });
