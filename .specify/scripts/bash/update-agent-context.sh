@@ -91,7 +91,7 @@ log_info() {
 }
 
 log_success() {
-    echo "✓ $1"
+    echo "? $1"
 }
 
 log_error() {

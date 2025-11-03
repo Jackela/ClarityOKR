@@ -3,6 +3,8 @@ export const IPCChannels = {
   CLARIFICATION_RESPOND: 'clarityokr:clarification:respond',
   OKR_GENERATE: 'clarityokr:okr:generate',
   OKR_REGENERATE: 'clarityokr:okr:regenerate',
+  LLM_NEXT_QUESTION: 'clarityokr:llm:next-question',
+  LLM_GENERATE_DRAFT: 'clarityokr:llm:generate-draft',
   SESSION_PERSIST: 'clarityokr:session:persist',
   CLIPBOARD_EXPORT: 'clarityokr:clipboard:export',
   STICKY_REOPEN: 'clarityokr:sticky:reopen',

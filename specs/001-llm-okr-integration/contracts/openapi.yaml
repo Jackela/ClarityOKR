@@ -1,0 +1,164 @@
+openapi: 3.0.3
+info:
+  title: ClarityOKR LLM Integration
+  version: 1.0.0
+  description: Contracts for clarification next-question and OKR draft generation
+paths:
+  /clarification/next-question:
+    post:
+      summary: Get next clarification question and options
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NextQuestionRequest'
+      responses:
+        '200':
+          description: Next question
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClarificationQuestion'
+        '400':
+          description: Validation error
+        '429':
+          description: Rate limited
+        '500':
+          description: Provider error
+  /okr/draft:
+    post:
+      summary: Generate OKR draft from clarification context
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OkrDraftRequest'
+      responses:
+        '200':
+          description: OKR draft
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkrDraft'
+        '400':
+          description: Validation error
+        '429':
+          description: Rate limited
+        '500':
+          description: Provider error
+components:
+  schemas:
+    ClarificationTurn:
+      type: object
+      required: [questionId, optionId, timestamp]
+      properties:
+        questionId:
+          type: string
+        optionId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+    ClarificationContext:
+      type: object
+      required: [turns]
+      properties:
+        turns:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClarificationTurn'
+        notes:
+          type: array
+          items:
+            type: string
+    ClarificationOption:
+      type: object
+      required: [id, label, value]
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        value:
+          type: string
+    ClarificationQuestion:
+      type: object
+      required: [id, text, options]
+      properties:
+        id:
+          type: string
+        text:
+          type: string
+        options:
+          type: array
+          minItems: 2
+          maxItems: 6
+          items:
+            $ref: '#/components/schemas/ClarificationOption'
+    Objective:
+      type: object
+      required: [id, title, description, keyResults]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        keyResults:
+          type: array
+          minItems: 3
+          maxItems: 5
+          items:
+            $ref: '#/components/schemas/KeyResult'
+    KeyResult:
+      type: object
+      required: [id, statement, target, measurement]
+      properties:
+        id:
+          type: string
+        statement:
+          type: string
+        target:
+          oneOf:
+            - type: string
+            - type: number
+        measurement:
+          type: string
+    OkrDraft:
+      type: object
+      required: [objectives]
+      properties:
+        objectives:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/Objective'
+        assumptions:
+          type: array
+          items:
+            type: string
+        notes:
+          type: string
+    NextQuestionRequest:
+      type: object
+      required: [context, lastChoice]
+      properties:
+        context:
+          $ref: '#/components/schemas/ClarificationContext'
+        lastChoice:
+          type: object
+          required: [questionId, optionId]
+          properties:
+            questionId:
+              type: string
+            optionId:
+              type: string
+    OkrDraftRequest:
+      type: object
+      required: [context]
+      properties:
+        context:
+          $ref: '#/components/schemas/ClarificationContext'

@@ -1,7 +1,7 @@
-import { BrowserWindow } from 'electron';
 import path from 'node:path';
 
 import type { OKRDocument } from '@clarityokr/contracts';
+import { BrowserWindow } from 'electron';
 
 import { IPCChannels } from '../bootstrap/ipc-channels.js';
 
@@ -21,7 +21,7 @@ export class StickyWindowManager {
 
     if (this.window && !this.window.isDestroyed()) {
       this.window.focus();
-      await this.sendDocument(document);
+      this.sendDocument(document);
       return;
     }
 
@@ -71,7 +71,7 @@ export class StickyWindowManager {
       this.window?.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
       console.info('[main] sticky window post-load always-on-top state', this.window?.isAlwaysOnTop());
       console.info('[main] sticky window ready, pushing document');
-      void this.sendDocument(document);
+      this.sendDocument(document);
     });
 
     this.window.show();
@@ -84,7 +84,7 @@ export class StickyWindowManager {
     await this.open(this.lastDocument);
   }
 
-  private async sendDocument(document: OKRDocument): Promise<void> {
+  private sendDocument(document: OKRDocument): void {
     if (!this.window || this.window.isDestroyed()) {
       return;
     }

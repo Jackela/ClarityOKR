@@ -11,6 +11,16 @@ on:
       - 'specs/001-clarify-okr-flow/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
+  workflow_dispatch:
+    inputs:
+      skip_sys_deps:
+        description: "Skip Electron system dependencies installation"
+        required: false
+        default: "false"
+      skip_e2e:
+        description: "Skip Playwright Electron E2E"
+        required: false
+        default: "false"
 
 jobs:
   build-and-test:
@@ -21,12 +31,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache-dependency-path: pnpm-lock.yaml
       - uses: pnpm/action-setup@v4
         with:
-          version: 9.0.0
           run_install: false
           cache: true
           cache-dependency-path: pnpm-lock.yaml
+
+      - name: Ensure pnpm is available (act fallback)
+        run: |
+          if ! command -v pnpm >/dev/null 2>&1; then
+            npm install -g pnpm@9.0.0
+          fi
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Install Playwright browsers
@@ -34,6 +50,7 @@ jobs:
       - name: Install Playwright system deps
         run: pnpm exec playwright install-deps chromium
       - name: Install Electron system deps
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.skip_sys_deps != 'true' }}
         run: |
           if command -v sudo >/dev/null 2>&1; then
             sudo apt-get update
@@ -44,6 +61,7 @@ jobs:
           fi
       - name: Lint
         run: pnpm run lint
+        if: ${{ github.actor != 'nektos/act' || env.ALLOW_LINT == 'true' }}
       - name: Typecheck
         run: pnpm run typecheck
       - name: Build
@@ -53,6 +71,12 @@ jobs:
       - name: Component tests
         run: pnpm run test:component
       - name: E2E tests
-        run: xvfb-run -a pnpm run test:e2e
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.skip_e2e != 'true' }}
+        run: |
+          if command -v xvfb-run >/dev/null 2>&1; then
+            xvfb-run -a pnpm run test:e2e
+          else
+            pnpm run test:e2e
+          fi
         env:
           ELECTRON_PATH: ./node_modules/.bin/electron

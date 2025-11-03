@@ -1,7 +1,8 @@
-import electron from 'electron';
-import type { BrowserWindow as ElectronBrowserWindow, Event as ElectronEvent } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import electron from 'electron';
+import type { BrowserWindow as ElectronBrowserWindow, Event as ElectronEvent } from 'electron';
 
 import { ActionLogWriter } from './persistence/action-log-writer.js';
 import { OkrRepository } from './persistence/okr-repository.js';
@@ -64,12 +65,12 @@ async function createWindow(): Promise<void> {
   });
 }
 
-app.whenReady().then(async () => {
-  await createWindow();
+void app.whenReady().then(() => {
+  void createWindow();
 
-  app.on('activate', async () => {
+  app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      await createWindow();
+      void createWindow();
     }
   });
 });

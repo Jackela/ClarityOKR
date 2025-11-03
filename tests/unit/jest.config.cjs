@@ -3,7 +3,7 @@ const { defaultsESM } = require('ts-jest/presets');
 module.exports = {
   ...defaultsESM,
   testEnvironment: 'node',
-  roots: ['<rootDir>/clarification', '<rootDir>/okr-sticky'],
+  roots: ['<rootDir>/clarification','<rootDir>/okr-sticky','<rootDir>/main','<rootDir>/lib'],
   extensionsToTreatAsEsm: ['.ts'],
   transform: {
     '^.+\\.(ts|tsx)$': ['ts-jest', { tsconfig: '../../tsconfig.base.json', useESM: true }]
@@ -13,3 +13,4 @@ module.exports = {
     '^(\\.{1,2}/.*)\\.js$': '$1'
   }
 };
+

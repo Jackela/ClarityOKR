@@ -1,6 +1,5 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
-
 import type { ClarificationPrompt } from '@clarityokr/contracts';
 
 @Component({
@@ -11,6 +10,7 @@ import type { ClarificationPrompt } from '@clarityokr/contracts';
     <section *ngIf="prompt">
       <h2 data-testid="prompt-question">{{ prompt.question }}</h2>
       <p class="context">{{ prompt.context }}</p>
+      <p class="loading" *ngIf="loading" data-testid="clarification-loading">正在加载下一步…</p>
       <div class="option-grid" role="group" aria-label="Clarification options">
         <button
           type="button"
@@ -80,6 +80,11 @@ import type { ClarificationPrompt } from '@clarityokr/contracts';
         font-size: 0.9rem;
         margin-bottom: 1rem;
       }
+      .loading {
+        color: #0f766e;
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+      }
       .generate {
         padding: 0.75rem 1.75rem;
         border-radius: 999px;
@@ -99,6 +104,7 @@ export class ClarificationWizardComponent {
   @Input() prompt: ClarificationPrompt | null = null;
   @Input() isReadyToGenerate = false;
   @Input() validationError: string | null = null;
+  @Input() loading = false;
 
   @Output() readonly optionSelected = new EventEmitter<string>();
   @Output() readonly generate = new EventEmitter<void>();

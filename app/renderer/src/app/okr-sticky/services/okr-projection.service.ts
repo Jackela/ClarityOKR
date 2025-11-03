@@ -1,5 +1,4 @@
 import { Injectable } from '@angular/core';
-
 import type { OKRDocument, RegenerationPolicy } from '@clarityokr/contracts';
 
 export interface KeyResultViewModel {

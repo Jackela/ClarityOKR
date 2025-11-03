@@ -33,3 +33,7 @@ Thumbs.db
 .env
 .env.*
 .codex/
+/.codex
+*.log
+\.env
+\.env.*

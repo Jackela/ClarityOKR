@@ -1,0 +1,7 @@
+{
+  "ref": "refs/heads/main",
+  "inputs": {
+    "run_e2e": "true"
+  }
+}
+
