@@ -1,0 +1,9 @@
+-P ubuntu-latest=ghcr.io/catthehacker/ubuntu:act-24.04
+-P ubuntu-24.04=ghcr.io/catthehacker/ubuntu:act-24.04
+
+# Simulate non-root user like GitHub hosted runners
+--container-options "--user 1001:1001"
+
+# Ensure Electron runs without SUID sandbox in local containers too
+--env ELECTRON_EXTRA_LAUNCH_ARGS=--no-sandbox --disable-setuid-sandbox
+
