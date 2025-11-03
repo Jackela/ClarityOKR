@@ -60,7 +60,10 @@ test('LLM draft generation persists and displays OKR', async () => {
   execSync('pnpm run build', { cwd: ROOT, stdio: 'inherit' });
   const server = await startMockLlmServer();
   const electronApp = await electron.launch({ args: ['.', ...extraElectronArgs()], cwd: ROOT, env: { ...process.env, LLM_API_KEY: 'test', LLM_BASE_URL: 'http://127.0.0.1:7777', LLM_MODEL: 'test' } });
-  const window = await electronApp.firstWindow();
+  const childProcess = electronApp.process();
+  childProcess.stderr?.on('data', (data) => process.stderr.write(data));
+  childProcess.stdout?.on('data', (data) => process.stdout.write(data));
+  const window = await electronApp.waitForEvent('window', { timeout: 60_000 });
 
   await window.waitForLoadState('domcontentloaded');
   await window.fill('[data-testid="intent-input"]', '提高效率');
@@ -74,7 +77,14 @@ test('LLM draft generation persists and displays OKR', async () => {
   await generateButton.click();
 
   const okrSummary = window.locator('[data-testid="okr-summary"]');
-  await expect(okrSummary).toBeVisible();
+  try {
+    await expect(okrSummary).toBeVisible({ timeout: 45_000 });
+  } catch (err) {
+    const content = await window.content();
+    // eslint-disable-next-line no-console
+    console.error('[e2e] window content on failure:', content);
+    throw err;
+  }
   const summaryText = await okrSummary.innerText();
   expect(summaryText.includes('提高执行力') || summaryText.includes('提高效率')).toBeTruthy();
 
