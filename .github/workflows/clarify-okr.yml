@@ -49,6 +49,22 @@ jobs:
         run: pnpm exec playwright install chromium
       - name: Install Playwright system deps
         run: pnpm exec playwright install-deps chromium
+
+      - name: Install Electron system deps (act only)
+        if: ${{ github.actor == 'nektos/act' }}
+        run: |
+          apt-get update
+          # Ubuntu 24.04 uses t64 suffix for some libs
+          apt-get install -y \
+            libatk-bridge2.0-0 \
+            libgtk-3-0 \
+            libnss3 \
+            libxss1 \
+            libasound2t64 \
+            libxtst6 \
+            libdrm2 \
+            libgbm1 \
+            xvfb
       # Rely on Playwright's install-deps; manual Electron system deps removed for ubuntu-latest compatibility
       - name: Lint
         run: pnpm run lint
