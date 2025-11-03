@@ -107,6 +107,14 @@ async function waitForStickyWindow(
   throw new Error('Timed out waiting for sticky window');
 }
 
+async function debugWindows(electronApp: import('@playwright/test').ElectronApplication) {
+  const urls = await electronApp.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows().map((w) => ({ id: w.id, url: w.webContents.getURL(), isTop: w.isAlwaysOnTop() }))
+  );
+  // eslint-disable-next-line no-console
+  console.info('[e2e] windows:', JSON.stringify(urls));
+}
+
 test.beforeEach(async () => {
   const cleanupTargets = [SESSION_PERSIST_PATH, OKR_PERSIST_PATH];
   await Promise.all(
@@ -126,15 +134,28 @@ test('user can reopen sticky window after closing it', async () => {
   const mainWindow = await electronApp.waitForEvent('window', { timeout: 60_000 });
 
   await completeClarification(mainWindow);
+  await debugWindows(electronApp);
 
-  const initialStickyWindow = await waitForStickyWindow(electronApp, mainWindow);
+  let initialStickyWindow: ElectronPage;
+  try {
+    initialStickyWindow = await waitForStickyWindow(electronApp, mainWindow);
+  } catch (err) {
+    await debugWindows(electronApp);
+    throw err;
+  }
 
   await initialStickyWindow.close();
 
   await expect(mainWindow.locator('[data-testid="sticky-reopen"]')).toBeVisible();
   await mainWindow.click('[data-testid="sticky-reopen"]');
 
-  const reopenedStickyWindow = await waitForStickyWindow(electronApp, mainWindow);
+  let reopenedStickyWindow: ElectronPage;
+  try {
+    reopenedStickyWindow = await waitForStickyWindow(electronApp, mainWindow);
+  } catch (err) {
+    await debugWindows(electronApp);
+    throw err;
+  }
   await expect(reopenedStickyWindow.locator('[data-testid="sticky-objective"]')).toContainText('提高效率');
   const kr = await reopenedStickyWindow.locator('[data-testid="sticky-key-result"]').allInnerTexts();
   expect(kr.length).toBeGreaterThan(0);

@@ -70,6 +70,14 @@ async function waitForStickyWindowSnapshot(
   throw new Error('Timed out waiting for sticky window');
 }
 
+async function debugWindows(electronApp: import('@playwright/test').ElectronApplication) {
+  const urls = await electronApp.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows().map((w) => ({ id: w.id, url: w.webContents.getURL(), isTop: w.isAlwaysOnTop() }))
+  );
+  // eslint-disable-next-line no-console
+  console.info('[e2e] windows:', JSON.stringify(urls));
+}
+
 test.beforeEach(async () => {
   const cleanupTargets = [SESSION_PERSIST_PATH, OKR_PERSIST_PATH];
   await Promise.all(
@@ -94,8 +102,15 @@ test('sticky window stays always-on-top with OKR contents rendered', async () =>
   });
 
   await completeClarification(mainWindow);
+  await debugWindows(electronApp);
 
-  const stickySnapshot = await waitForStickyWindowSnapshot(electronApp, mainWindow);
+  let stickySnapshot: StickyWindowSnapshot;
+  try {
+    stickySnapshot = await waitForStickyWindowSnapshot(electronApp, mainWindow);
+  } catch (err) {
+    await debugWindows(electronApp);
+    throw err;
+  }
   const enforcedAlwaysOnTop = await electronApp.evaluate(
     ({ BrowserWindow }, id) => {
       const win = BrowserWindow.fromId(id);
