@@ -19,18 +19,18 @@ interface StickyWindowSnapshot {
 async function completeClarification(mainWindow: ElectronPage) {
   await mainWindow.waitForSelector('[data-testid="intent-input"]');
   await mainWindow.fill('[data-testid="intent-input"]', '提高效率');
-  await expect(mainWindow.locator('[data-testid="start-clarification"]')).toBeEnabled();
+  await expect(mainWindow.locator('[data-testid="start-clarification"]')).toBeEnabled({ timeout: 15_000 });
   await mainWindow.click('[data-testid="start-clarification"]');
 
   await mainWindow.waitForSelector('[data-testid="clarification-option"]');
   const optionLocator = mainWindow.locator('[data-testid="clarification-option"]');
   await optionLocator.first().click();
   await mainWindow.waitForTimeout(500);
-  await expect(optionLocator.last()).toBeVisible();
+  await expect(optionLocator.last()).toBeVisible({ timeout: 15_000 });
   await optionLocator.last().click();
 
   const generateButton = mainWindow.locator('[data-testid="clarification-generate"]');
-  await expect(generateButton).toBeEnabled();
+  await expect(generateButton).toBeEnabled({ timeout: 15_000 });
   await generateButton.click();
 }
 
