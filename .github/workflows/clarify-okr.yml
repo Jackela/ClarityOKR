@@ -63,11 +63,21 @@ jobs:
         run: pnpm run test:component
       - name: E2E tests
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.skip_e2e != 'true' }}
+        env:
+          ELECTRON_PATH: ./node_modules/.bin/electron
+          # Pass extra Chromium args to avoid SUID sandbox failures on ubuntu-latest
+          ELECTRON_EXTRA_LAUNCH_ARGS: --no-sandbox --disable-setuid-sandbox
         run: |
+          # Ensure Electron chrome-sandbox has proper permissions to satisfy Chromium sandbox if used
+          if command -v sudo >/dev/null 2>&1; then
+            SANDBOX_PATH=$(node -p "require('path').join(require('path').dirname(require.resolve('electron')), 'dist', 'chrome-sandbox')") || true
+            if [ -f "$SANDBOX_PATH" ]; then
+              sudo chown root:root "$SANDBOX_PATH" || true
+              sudo chmod 4755 "$SANDBOX_PATH" || true
+            fi
+          fi
           if command -v xvfb-run >/dev/null 2>&1; then
             xvfb-run -a pnpm run test:e2e
           else
             pnpm run test:e2e
           fi
-        env:
-          ELECTRON_PATH: ./node_modules/.bin/electron
