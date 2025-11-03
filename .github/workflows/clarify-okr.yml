@@ -64,6 +64,16 @@ jobs:
             libxtst6 \
             libdrm2 \
             libgbm1 \
+            libxcomposite1 \
+            libxrandr2 \
+            libxdamage1 \
+            libglib2.0-0 \
+            libxkbcommon0 \
+            libx11-xcb1 \
+            libxshmfence1 \
+            libcups2 \
+            libpangocairo-1.0-0 \
+            libpango-1.0-0 \
             xvfb
       # Rely on Playwright's install-deps; manual Electron system deps removed for ubuntu-latest compatibility
       - name: Lint
@@ -82,7 +92,9 @@ jobs:
         env:
           ELECTRON_PATH: ./node_modules/.bin/electron
           # Pass extra Chromium args to avoid SUID sandbox failures on ubuntu-latest
-          ELECTRON_EXTRA_LAUNCH_ARGS: --no-sandbox --disable-setuid-sandbox
+          ELECTRON_EXTRA_LAUNCH_ARGS: --no-sandbox --disable-setuid-sandbox --disable-gpu --disable-dev-shm-usage
+          ELECTRON_DISABLE_SANDBOX: 'true'
+          ELECTRON_ENABLE_LOGGING: 'true'
         run: |
           # Ensure Electron chrome-sandbox has proper permissions to satisfy Chromium sandbox if used
           if command -v sudo >/dev/null 2>&1; then
@@ -93,7 +105,7 @@ jobs:
             fi
           fi
           if command -v xvfb-run >/dev/null 2>&1; then
-            xvfb-run -a pnpm run test:e2e
+            xvfb-run -a -s "-screen 0 1280x800x24" pnpm run test:e2e
           else
             pnpm run test:e2e
           fi

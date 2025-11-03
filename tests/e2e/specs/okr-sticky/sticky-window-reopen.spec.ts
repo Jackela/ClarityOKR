@@ -98,7 +98,10 @@ test.beforeEach(async () => {
 
 test('user can reopen sticky window after closing it', async () => {
   const electronApp = await electron.launch({ args: ['.', ...extraElectronArgs()], cwd: ROOT });
-  const mainWindow = await electronApp.firstWindow();
+  const childProcess = electronApp.process();
+  childProcess.stderr?.on('data', (data) => process.stderr.write(data));
+  childProcess.stdout?.on('data', (data) => process.stdout.write(data));
+  const mainWindow = await electronApp.waitForEvent('window', { timeout: 60_000 });
 
   const mainWindowId = await electronApp.evaluate(
     ({ BrowserWindow }) => BrowserWindow.getAllWindows().at(0)?.id ?? -1

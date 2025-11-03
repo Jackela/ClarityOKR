@@ -98,7 +98,10 @@ test.beforeEach(async () => {
 
 test('sticky window stays always-on-top with OKR contents rendered', async () => {
   const electronApp = await electron.launch({ args: ['.', ...extraElectronArgs()], cwd: ROOT });
-  const mainWindow = await electronApp.firstWindow();
+  const childProcess = electronApp.process();
+  childProcess.stderr?.on('data', (data) => process.stderr.write(data));
+  childProcess.stdout?.on('data', (data) => process.stdout.write(data));
+  const mainWindow = await electronApp.waitForEvent('window', { timeout: 60_000 });
 
   mainWindow.on('console', (message) => {
     // eslint-disable-next-line no-console
