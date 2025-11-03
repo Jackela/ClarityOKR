@@ -153,6 +153,9 @@ test('sticky window stays always-on-top with OKR contents rendered', async () =>
 
   await completeClarification(mainWindow);
   await debugWindows(electronApp);
+  // Explicitly open sticky window from main UI
+  await expect(mainWindow.locator('[data-testid="sticky-reopen"]')).toBeVisible({ timeout: 15_000 });
+  await mainWindow.click('[data-testid="sticky-reopen"]');
 
   let stickySnapshot: StickyWindowSnapshot;
   try {

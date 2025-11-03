@@ -185,6 +185,8 @@ test('user can reopen sticky window after closing it', async () => {
 
   await completeClarification(mainWindow);
   await debugWindows(electronApp);
+  await expect(mainWindow.locator('[data-testid="sticky-reopen"]')).toBeVisible({ timeout: 15_000 });
+  await mainWindow.click('[data-testid="sticky-reopen"]');
 
   let initialStickyWindow: ElectronPage;
   try {
