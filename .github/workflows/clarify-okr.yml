@@ -49,16 +49,7 @@ jobs:
         run: pnpm exec playwright install chromium
       - name: Install Playwright system deps
         run: pnpm exec playwright install-deps chromium
-      - name: Install Electron system deps
-        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.skip_sys_deps != 'true' }}
-        run: |
-          if command -v sudo >/dev/null 2>&1; then
-            sudo apt-get update
-            sudo apt-get install -y libatk-bridge2.0-0 libgtk-3-0 libnss3 libxss1 libasound2 libxtst6 libdrm2 libgbm1 xvfb
-          else
-            apt-get update
-            apt-get install -y libatk-bridge2.0-0 libgtk-3-0 libnss3 libxss1 libasound2 libxtst6 libdrm2 libgbm1 xvfb
-          fi
+      # Rely on Playwright's install-deps; manual Electron system deps removed for ubuntu-latest compatibility
       - name: Lint
         run: pnpm run lint
         if: ${{ github.actor != 'nektos/act' || env.ALLOW_LINT == 'true' }}
