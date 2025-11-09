@@ -9,6 +9,8 @@ This checklist helps you validate changes locally before pushing to GitHub, catc
 - **Better debugging**: Access to container shell, verbose logs, and local file system
 - **Offline development**: Work without network access to GitHub
 
+**⚠️ CRITICAL**: Local validation is **not a guarantee**. Even if all local checks pass, **always monitor the actual GitHub Actions run**. Environment differences (kernel, timing, caching, secrets) can cause divergence. See [CI Simulation Guide - Known Divergence](./ci-simulation.md#known-divergence-between-local-and-remote) for details.
+
 ## Quick Decision Tree
 
 ```

@@ -280,6 +280,21 @@ The Ubuntu image runs as `root` by default. If you encounter permission issues:
 
 ## Validation
 
+**⚠️ IMPORTANT LIMITATION**: Local `act` validation is a **best-effort simulation**, not a guarantee. Even if all local checks pass, **you should still monitor the actual GitHub Actions run** for the following reasons:
+
+### Known Divergence Between Local and Remote
+
+| Aspect | Local (act) | Remote (GitHub Actions) | Impact |
+|--------|-------------|-------------------------|---------|
+| **Environment** | Docker container | GitHub-hosted VM | Different kernel, system libs |
+| **Timing** | Single-threaded by default | Parallel runners | Race conditions may only appear remotely |
+| **Caching** | No persistent cache | Workflow-level cache | Dependency resolution may differ |
+| **Secrets** | Local dummy values | Real GitHub secrets | Auth-dependent code untested locally |
+| **Artifacts** | Lost after run | Uploaded to GitHub | Can't validate artifact generation |
+| **GitHub API** | Unavailable | Available | PR comments, checks won't work |
+
+**Best Practice**: Treat `act` as a **fast feedback tool to catch obvious failures**, not a replacement for actual CI validation.
+
 ### Comparing Local vs GitHub Outputs
 
 1. **Run workflow locally:**
@@ -305,12 +320,45 @@ The Ubuntu image runs as `root` by default. If you encounter permission issues:
    echo $?  # Should be 0 for success, non-zero for failure
    ```
 
-### Known Differences
+### Testing Recommendations
 
-- **Timing**: Local runs may be slower (no caching, fresh container each time)
-- **Logs**: GitHub Actions logs are prettier (colors, collapsible sections)
-- **Artifacts**: Local artifacts aren't uploaded (exist in container only)
-- **Concurrency**: `act` runs jobs sequentially by default (use `--parallel` for concurrent)
+**Before relying on these scripts for critical validation:**
+
+1. **Test in dry-run mode first:**
+   ```bash
+   pwsh scripts/act-run-ci.ps1 -DryRun -Verbose
+   ```
+
+2. **Compare with a known-good GitHub Actions run:**
+   - Push a simple change to a test branch
+   - Let GitHub Actions run completely
+   - Run the same workflow locally with `act`
+   - Compare outputs line-by-line
+
+3. **Verify exit codes:**
+   ```bash
+   pwsh scripts/act-run-ci.ps1
+   echo $LASTEXITCODE  # Should be 0 for success
+   ```
+
+4. **Check for PowerShell compatibility:**
+   - Test on Windows PowerShell 5.1: `powershell -File scripts/act-run-ci.ps1 -DryRun`
+   - Test on PowerShell Core 7+: `pwsh scripts/act-run-ci.ps1 -DryRun`
+   - Test on Linux with pwsh: `pwsh scripts/act-run-ci.ps1 -DryRun`
+
+**Known Script Limitations:**
+
+- Scripts have **not been tested in production environments**
+- Docker image validation regex may need adjustment for different image formats
+- PowerShell array handling in `$actCommand` may behave differently across versions
+- Exit code propagation assumes `$LASTEXITCODE` is set correctly
+
+### When Local Passes But Remote Fails
+
+- **Timing issues**: E2E tests with race conditions
+- **Environment variables**: Missing or different values
+- **File permissions**: Container runs as root, GitHub runs as runner
+- **Network conditions**: Dependency downloads may timeout on GitHub but not locally
 
 ## Advanced Usage
 
