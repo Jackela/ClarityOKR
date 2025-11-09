@@ -1,3 +1,5 @@
+# When modifying this workflow, update docs/ci-simulation.md
+# to reflect changes in local simulation behavior
 name: CI
 
 on:

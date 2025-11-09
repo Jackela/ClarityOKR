@@ -1,11 +1,22 @@
 <#
 .SYNOPSIS
-    Runs the Clarify OKR workflow with E2E tests using act (local GitHub Actions simulation).
+    Runs the main CI workflow using act (local GitHub Actions simulation).
 
 .DESCRIPTION
-    This script executes the Clarify OKR CI workflow locally using nektos/act, enabling
-    developers to validate changes before pushing to GitHub. Includes Docker image validation,
-    verbose logging, and dry-run mode for debugging.
+    This script executes the CI workflow locally using nektos/act with flexible job selection,
+    enabling developers to run specific parts of the CI pipeline for faster iteration.
+
+.PARAMETER Job
+    Specifies which job(s) to run:
+    - build-and-test: Lint, typecheck, build, unit, and integration tests (default)
+    - e2e: E2E tests (requires build-and-test to pass first)
+    - all: Run all jobs sequentially
+
+.PARAMETER RunE2E
+    Enables the E2E job via workflow_dispatch input (run_e2e=true).
+
+.PARAMETER SkipLint
+    Sets ALLOW_LINT=false to skip linting (faster iteration, not recommended for final validation).
 
 .PARAMETER Pull
     Pulls the latest Ubuntu 24.04 runner image before executing the workflow.
@@ -20,22 +31,32 @@
     Skips Docker image existence check (useful if image is known to exist).
 
 .EXAMPLE
-    pwsh scripts/act-run-clarify-okr-e2e.ps1
-    Runs the workflow with default settings.
+    pwsh scripts/act-run-ci.ps1
+    Runs the build-and-test job with default settings.
 
 .EXAMPLE
-    pwsh scripts/act-run-clarify-okr-e2e.ps1 -Pull
-    Pulls the Docker image first, then runs the workflow.
+    pwsh scripts/act-run-ci.ps1 -Job e2e -RunE2E
+    Runs the E2E job with workflow_dispatch event.
 
 .EXAMPLE
-    pwsh scripts/act-run-clarify-okr-e2e.ps1 -DryRun -Verbose
-    Shows the full act command with verbose output without executing it.
+    pwsh scripts/act-run-ci.ps1 -SkipLint
+    Runs build-and-test without linting for faster iteration.
+
+.EXAMPLE
+    pwsh scripts/act-run-ci.ps1 -DryRun -Verbose
+    Shows the full act command without executing it.
 
 .LINK
     docs/ci-simulation.md
 #>
 
 Param(
+  [Parameter(Position = 0)]
+  [ValidateSet("build-and-test", "e2e", "all")]
+  [string]$Job = "build-and-test",
+
+  [switch]$RunE2E,
+  [switch]$SkipLint,
   [switch]$Pull,
   [switch]$Verbose,
   [switch]$DryRun,
@@ -45,8 +66,7 @@ Param(
 # Configuration
 $ImageName = "ghcr.io/catthehacker/ubuntu:act-24.04"
 $Platform = "-P ubuntu-latest=$ImageName"
-$WorkflowFile = ".github/workflows/clarify-okr.yml"
-$JobName = "build-and-test"
+$WorkflowFile = ".github/workflows/ci.yml"
 
 # Function to test if Docker image exists locally
 function Test-DockerImage {
@@ -108,30 +128,67 @@ if (-not $SkipValidation) {
   }
 }
 
-# Build act command
-$actCommand = @(
-  "act"
-  "workflow_dispatch"
-  "-W"
-  $WorkflowFile
-  "-j"
-  $JobName
-  "--input"
-  "skip_sys_deps=true"
-  "--input"
-  "skip_e2e=false"
-  $Platform
-)
+# Build base act command
+$actCommand = @("act")
+
+# Determine event type and job selection based on parameters
+if ($Job -eq "e2e" -or $RunE2E) {
+  # E2E requires workflow_dispatch event with run_e2e input
+  $actCommand += @(
+    "workflow_dispatch"
+    "-W"
+    $WorkflowFile
+    "--input"
+    "run_e2e=true"
+  )
+
+  # Add specific job if not "all"
+  if ($Job -eq "e2e") {
+    $actCommand += @("-j", "e2e")
+  }
+} else {
+  # Standard push event for build-and-test
+  $actCommand += @(
+    "push"
+    "-W"
+    $WorkflowFile
+  )
+
+  # Add specific job if not "all"
+  if ($Job -ne "all") {
+    $actCommand += @("-j", $Job)
+  }
+}
+
+# Add platform flag
+$actCommand += $Platform
+
+# Add environment variables
+if ($SkipLint) {
+  $actCommand += @("--env", "ALLOW_LINT=false")
+  if ($Verbose) {
+    Write-Host "[VERBOSE] Lint will be skipped (ALLOW_LINT=false)" -ForegroundColor Cyan
+  }
+}
 
 # Log command details if verbose
 if ($Verbose) {
   Write-Host ""
   Write-Host "[VERBOSE] === Act Command Details ===" -ForegroundColor Cyan
-  Write-Host "[VERBOSE] Event Type: workflow_dispatch" -ForegroundColor Cyan
+  Write-Host "[VERBOSE] Job Selection: $Job" -ForegroundColor Cyan
   Write-Host "[VERBOSE] Workflow File: $WorkflowFile" -ForegroundColor Cyan
-  Write-Host "[VERBOSE] Job Name: $JobName" -ForegroundColor Cyan
   Write-Host "[VERBOSE] Platform: $Platform" -ForegroundColor Cyan
-  Write-Host "[VERBOSE] Inputs: skip_sys_deps=true, skip_e2e=false" -ForegroundColor Cyan
+
+  if ($RunE2E -or $Job -eq "e2e") {
+    Write-Host "[VERBOSE] Event: workflow_dispatch (run_e2e=true)" -ForegroundColor Cyan
+  } else {
+    Write-Host "[VERBOSE] Event: push" -ForegroundColor Cyan
+  }
+
+  if ($SkipLint) {
+    Write-Host "[VERBOSE] Environment: ALLOW_LINT=false" -ForegroundColor Cyan
+  }
+
   Write-Host "[VERBOSE] Full Command: $($actCommand -join ' ')" -ForegroundColor Cyan
   Write-Host "[VERBOSE] ===========================" -ForegroundColor Cyan
   Write-Host ""
@@ -154,8 +211,16 @@ if ($DryRun) {
 
 # Execute act command
 Write-Host ""
-Write-Host "Running Clarify OKR workflow with E2E tests..." -ForegroundColor Green
-Write-Host "This may take 15-20 minutes depending on your system." -ForegroundColor Gray
+Write-Host "Running CI workflow (Job: $Job)..." -ForegroundColor Green
+
+if ($Job -eq "all") {
+  Write-Host "This will run all jobs sequentially (may take 20+ minutes)." -ForegroundColor Gray
+} elseif ($Job -eq "e2e") {
+  Write-Host "This will run E2E tests (15-20 minutes)." -ForegroundColor Gray
+} else {
+  Write-Host "This will run lint, typecheck, build, and tests (5-10 minutes)." -ForegroundColor Gray
+}
+
 Write-Host ""
 
 & $actCommand[0] $actCommand[1..($actCommand.Length - 1)]

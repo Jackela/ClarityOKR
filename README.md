@@ -69,39 +69,25 @@ The workspace uses strict TypeScript (`strict: true`) and ESM imports everywhere
 
 ### CI and local runners (act)
 
-- CI runs on GitHub Actions (`.github/workflows/ci.yml`):
-  - Node 20 + pnpm via Corepack
-  - Lint → Typecheck → Unit → Integration
-  - E2E job runs with xvfb and Playwright via `workflow_dispatch` and `run_e2e: true` input.
+GitHub Actions workflows run on Node 20 + pnpm with Lint → Typecheck → Build → Tests. E2E tests run with Playwright + Xvfb for headless Electron testing.
 
-- Run CI locally with `act` (uses Ubuntu 24.04 runner):
-  - Configure once: `.actrc` already maps `ubuntu-latest` to `ghcr.io/catthehacker/ubuntu:act-24.04` and sets Electron flags.
-  - Unit + Integration: `act -j build-and-test -W .github/workflows/ci.yml`
-  - Clarify OKR workflow with E2E: `pwsh scripts/act-run-clarify-okr-e2e.ps1` (adds inputs and correct image/flags)
+**Run CI locally using `act`:**
+
+```bash
+# Quick validation (lint + typecheck + build + unit tests)
+pwsh scripts/act-run-ci.ps1
+
+# Full validation including E2E
+pwsh scripts/act-run-clarify-okr-e2e.ps1
+```
+
+For complete setup instructions, troubleshooting, and advanced usage, see **[docs/ci-simulation.md](docs/ci-simulation.md)**.
 
 ### E2E LLM mocking
 
-- E2E tests start a local HTTP server and set `LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL` for Electron.
-- No external network calls are made; tests are deterministic and self-contained.
+E2E tests start a local HTTP server and set `LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL` for Electron. No external network calls are made; tests are deterministic and self-contained.
 
 Follow a TDD/BDD loop—author specs before implementation, especially for sticky window functionality, edit mode flows, regenerate/copy actions, and telemetry.
-
-## CI Notes
-
-GitHub Actions workflow (`.github/workflows/ci.yml`) uses Node 20 + pnpm (Corepack) and runs Lint → Typecheck → Unit → Integration; a separate E2E job runs Playwright Electron with xvfb. The E2E job uploads traces on failure.
-
-### Running CI locally with `act` (detailed)
-
-1) Use the same runner image as GitHub (already configured via `.actrc`):
-   - `-P ubuntu-latest=ghcr.io/catthehacker/ubuntu:act-24.04`
-
-2) Run unit + integration only (fast path):
-   - `act -j build-and-test -W .github/workflows/ci.yml`
-
-3) Run Clarify OKR + E2E:
-   - `pwsh scripts/act-run-clarify-okr-e2e.ps1`
-   - The workflow installs Playwright browsers + system deps, and uses xvfb.
-
 
 ## Coding Guidelines
 

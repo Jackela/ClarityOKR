@@ -23,9 +23,30 @@ Thank you for your interest in improving ClarityOKR!
 - TDD/BDD: write failing tests first; include tests with changes.
 - Keep changes focused and small; update docs when behavior changes.
 
+## Local CI Validation
+
+Before pushing changes, validate them locally using `act` to catch failures early and reduce CI iteration cycles.
+
+**Quick Commands:**
+
+```bash
+# Standard validation (lint + typecheck + build + tests)
+pwsh scripts/act-run-ci.ps1
+
+# Full validation with E2E tests
+pwsh scripts/act-run-clarify-okr-e2e.ps1
+```
+
+**Resources:**
+
+- **[Pre-Push Validation Checklist](docs/ci-validation-checklist.md)** - Step-by-step validation workflow
+- **[CI Simulation Guide](docs/ci-simulation.md)** - Complete setup, troubleshooting, and advanced usage
+
+Local validation provides faster feedback than GitHub Actions and helps ensure your changes will pass CI before pushing.
+
 ## CI guidance
 - Workflows live in `.github/workflows/`.
-- Use `act` to exercise workflows locally; see README for details.
+- See [docs/ci-simulation.md](docs/ci-simulation.md) for local testing with `act`.
 
 ## AI Coding Tool Directories
 
