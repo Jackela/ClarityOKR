@@ -1,8 +1,9 @@
-/* eslint-disable @typescript-eslint/unbound-method, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-redundant-type-constituents */
 import { Component, OnDestroy } from '@angular/core';
 import { FormControl, Validators } from '@angular/forms';
 import type { ClarificationPrompt } from '@clarityokr/contracts';
-import { combineLatest, Observable, Subject } from 'rxjs';
+import { okrDraftResponseSchema } from '@clarityokr/contracts';
+import type { Observable } from 'rxjs';
+import { combineLatest, Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 
 import { ClarificationOrchestratorService } from './clarification/services/clarification-orchestrator.service';
@@ -53,7 +54,7 @@ import { OkrStickyGatewayService } from './okr-sticky/services/okr-sticky-gatewa
           <p class="status-message" *ngIf="statusMessage">{{ statusMessage }}</p>
         </section>
 
-        <section class="wizard-panel" *ngIf="(currentPrompt$ | async) as prompt">
+        <section class="wizard-panel" *ngIf="currentPrompt$ | async as prompt">
           <clarityokr-clarification-wizard
             [prompt]="prompt"
             [isReadyToGenerate]="(isReady$ | async) ?? false"
@@ -71,13 +72,22 @@ import { OkrStickyGatewayService } from './okr-sticky/services/okr-sticky-gatewa
     </ng-container>
 
     <ng-template #stickyShell>
-      <clarityokr-sticky-note [okr]="stickyNote$ | async" (addKr)="onAddKeyResult()"></clarityokr-sticky-note>
+      <clarityokr-sticky-note
+        [okr]="stickyNote$ | async"
+        (addKr)="onAddKeyResult()"
+      ></clarityokr-sticky-note>
     </ng-template>
   `,
   styles: [
     `
       :host {
-        font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+        font-family:
+          'Segoe UI',
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          'Helvetica Neue',
+          sans-serif;
         color: #0f172a;
         display: block;
         min-height: 100vh;
@@ -131,7 +141,9 @@ import { OkrStickyGatewayService } from './okr-sticky/services/okr-sticky-gatewa
         border: 1px solid rgba(37, 99, 235, 0.25);
         font-size: 1rem;
         background-color: rgba(37, 99, 235, 0.06);
-        transition: border-color 120ms ease, box-shadow 120ms ease;
+        transition:
+          border-color 120ms ease,
+          box-shadow 120ms ease;
       }
 
       .intent-input:focus {
@@ -149,7 +161,9 @@ import { OkrStickyGatewayService } from './okr-sticky/services/okr-sticky-gatewa
         color: #fff;
         font-weight: 600;
         cursor: pointer;
-        transition: transform 120ms ease, box-shadow 120ms ease;
+        transition:
+          transform 120ms ease,
+          box-shadow 120ms ease;
       }
 
       .intent-submit:disabled {
@@ -196,13 +210,13 @@ import { OkrStickyGatewayService } from './okr-sticky/services/okr-sticky-gatewa
         padding: 1.5rem;
         border: 1px solid rgba(79, 70, 229, 0.25);
       }
-    `
-  ]
+    `,
+  ],
 })
 export class AppComponent implements OnDestroy {
   readonly intentControl = new FormControl('', {
     nonNullable: true,
-    validators: [Validators.required, Validators.minLength(2)]
+    validators: [Validators.required, Validators.minLength(2)],
   });
 
   readonly currentPrompt$: Observable<ClarificationPrompt | null>;
@@ -228,32 +242,30 @@ export class AppComponent implements OnDestroy {
     private readonly orchestrator: ClarificationOrchestratorService,
     private readonly store: ClarificationStore,
     private readonly stickyGateway: OkrStickyGatewayService,
-    private readonly llmGateway: LlmGatewayService
+    private readonly llmGateway: LlmGatewayService,
   ) {
-    this.currentPrompt$ = this.store.currentPrompt$ as Observable<ClarificationPrompt | null>;
-    this.validationError$ = this.store.validationError$ as Observable<string | null>;
-    this.isReady$ = this.store.isReadyToGenerate$ as Observable<boolean>;
-    this.isLoading$ = this.store.isLoading$ as Observable<boolean>;
-    this.stickyNote$ = this.stickyGateway.viewModel$ as Observable<OkrStickyViewModel | null>;
-    this.hasStickyNote$ = this.stickyGateway.hasStickyNote$ as Observable<boolean>;
-    this.store.currentPrompt$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe((prompt: ClarificationPrompt | null) => {
-        this.latestPrompt = prompt;
-        if (prompt) {
-          // eslint-disable-next-line no-console
-          console.info('[renderer] prompt received', {
-            promptId: prompt.id,
-            sequence: prompt.sequence,
-            question: prompt.question
-          });
-          this.isClarifying = false;
-        }
-      });
+    this.currentPrompt$ = this.store.currentPrompt$;
+    this.validationError$ = this.store.validationError$;
+    this.isReady$ = this.store.isReadyToGenerate$;
+    this.isLoading$ = this.store.isLoading$;
+    this.stickyNote$ = this.stickyGateway.viewModel$;
+    this.hasStickyNote$ = this.stickyGateway.hasStickyNote$;
+    this.store.currentPrompt$.pipe(takeUntil(this.destroy$)).subscribe((prompt) => {
+      this.latestPrompt = prompt;
+      if (prompt) {
+        // eslint-disable-next-line no-console
+        console.info('[renderer] prompt received', {
+          promptId: prompt.id,
+          sequence: prompt.sequence,
+          question: prompt.question,
+        });
+        this.isClarifying = false;
+      }
+    });
 
     combineLatest([this.store.history$, this.store.selectedOptionIds$])
       .pipe(takeUntil(this.destroy$))
-      .subscribe(([history, selected]: [ClarificationPrompt[], string[]]) => {
+      .subscribe(([history, selected]) => {
         if (history.length >= 2 && selected.length > 0) {
           this.orchestrator.markReady(true);
         }
@@ -277,17 +289,15 @@ export class AppComponent implements OnDestroy {
     console.info('[renderer] beginClarification invoked', {
       intent: this.intentControl.value,
       valid: this.intentControl.valid,
-      sessionId: this.sessionId
+      sessionId: this.sessionId,
     });
 
-    this.orchestrator
-      .requestPrompt(this.sessionId, this.intentControl.value)
-      .subscribe({
-        error: (error: unknown) => {
-          this.statusMessage = error instanceof Error ? error.message : String(error);
-          this.isClarifying = false;
-        }
-      });
+    this.orchestrator.requestPrompt(this.sessionId, this.intentControl.value).subscribe({
+      error: (error: unknown) => {
+        this.statusMessage = error instanceof Error ? error.message : String(error);
+        this.isClarifying = false;
+      },
+    });
   }
 
   onOptionSelected(optionId: string): void {
@@ -302,13 +312,11 @@ export class AppComponent implements OnDestroy {
       return;
     }
 
-    this.orchestrator
-      .recordSelection(this.sessionId, this.latestPrompt.id, optionId)
-      .subscribe({
-        error: (error: unknown) => {
-          this.statusMessage = error instanceof Error ? error.message : String(error);
-        }
-      });
+    this.orchestrator.recordSelection(this.sessionId, this.latestPrompt.id, optionId).subscribe({
+      error: (error: unknown) => {
+        this.statusMessage = error instanceof Error ? error.message : String(error);
+      },
+    });
 
     // Also request next question via LLM gateway; non-blocking
     const historyTurns: Array<{ questionId: string; optionId: string; timestamp: string }> = [];
@@ -327,7 +335,7 @@ export class AppComponent implements OnDestroy {
           this.statusMessage = '请求超时或失败，请重试。';
           this.llmBusy = false;
           this.store.setLoading(false);
-        }
+        },
       });
   }
 
@@ -347,21 +355,22 @@ export class AppComponent implements OnDestroy {
 
       // Also request OKR draft via LLM (non-blocking for UI)
       const turns: Array<{ questionId: string; optionId: string; timestamp: string }> = [];
-      this.llmGateway
-        .generateDraft({ turns })
-        .subscribe(
-          (payload: unknown) => {
-            const first = (payload as { draft?: { objectives?: Array<{ title?: string }> } })?.draft?.objectives?.[0];
-            if (first && typeof first.title === 'string' && first.title) {
+      this.llmGateway.generateDraft({ turns }).subscribe(
+        (payload: unknown) => {
+          const parsed = okrDraftResponseSchema.safeParse(payload);
+          if (parsed.success) {
+            const first = parsed.data.draft.objectives[0];
+            if (first?.title) {
               this.generatedSummary = first.title;
             }
-          },
-          (err: unknown) => {
-            // eslint-disable-next-line no-console
-            console.warn('[renderer] LLM draft generation failed', err);
-            this.statusMessage = '生成失败或超时，请稍后重试。';
           }
-        );
+        },
+        (err: unknown) => {
+          // eslint-disable-next-line no-console
+          console.warn('[renderer] LLM draft generation failed', err);
+          this.statusMessage = '生成失败或超时，请稍后重试。';
+        },
+      );
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('[renderer] generate failed', error);
