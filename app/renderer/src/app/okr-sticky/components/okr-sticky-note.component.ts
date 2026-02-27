@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-redundant-type-constituents */
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 
 import type { OkrStickyViewModel } from '../services/okr-projection.service';
 
@@ -9,7 +9,8 @@ import type { OkrStickyViewModel } from '../services/okr-projection.service';
   standalone: true,
   imports: [CommonModule],
   templateUrl: './okr-sticky-note.component.html',
-  styleUrls: ['./okr-sticky-note.component.scss']
+  styleUrls: ['./okr-sticky-note.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class OkrStickyNoteComponent {
   @Input() okr: OkrStickyViewModel | null = null;

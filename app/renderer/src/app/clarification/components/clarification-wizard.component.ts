@@ -1,13 +1,20 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import type { ClarificationPrompt } from '@clarityokr/contracts';
 
 @Component({
   selector: 'clarityokr-clarification-wizard',
   standalone: true,
   imports: [CommonModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section *ngIf="prompt">
+      <div class="progress-indicator" *ngIf="totalSteps > 0">
+        <span class="progress-text">步骤 {{ currentStep + 1 }} / {{ totalSteps }}</span>
+        <div class="progress-bar">
+          <div class="progress-fill" [style.width.%]="((currentStep + 1) / totalSteps) * 100"></div>
+        </div>
+      </div>
       <h2 data-testid="prompt-question">{{ prompt.question }}</h2>
       <p class="context">{{ prompt.context }}</p>
       <p class="loading" *ngIf="loading" data-testid="clarification-loading">正在加载下一步…</p>
@@ -89,6 +96,29 @@ import type { ClarificationPrompt } from '@clarityokr/contracts';
         font-size: var(--font-size-base);
         margin-bottom: var(--spacing-sm);
       }
+      .progress-indicator {
+        margin-bottom: 1rem;
+      }
+      .progress-text {
+        font-size: var(--font-size-sm);
+        color: var(--color-text-muted);
+      }
+      .progress-bar {
+        height: 4px;
+        background: var(--color-primary-lighter);
+        border-radius: var(--radius-full);
+        margin-top: 0.5rem;
+        overflow: hidden;
+      }
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(
+          135deg,
+          var(--color-primary) 0%,
+          var(--color-primary-darker) 100%
+        );
+        transition: width 300ms ease;
+      }
       .generate {
         padding: var(--spacing-md) 1.75rem;
         border-radius: var(--radius-full);
@@ -109,6 +139,8 @@ export class ClarificationWizardComponent {
   @Input() isReadyToGenerate = false;
   @Input() validationError: string | null = null;
   @Input() loading = false;
+  @Input() currentStep = 0;
+  @Input() totalSteps = 5;
 
   @Output() readonly optionSelected = new EventEmitter<string>();
   @Output() readonly generate = new EventEmitter<void>();
