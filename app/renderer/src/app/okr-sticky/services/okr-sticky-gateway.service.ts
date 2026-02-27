@@ -1,9 +1,8 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-redundant-type-constituents */
 import { Injectable } from '@angular/core';
 import {
   generateOKRRequestSchema,
   generateOKRResponseSchema,
-  okrDocumentSchema
+  okrDocumentSchema,
 } from '@clarityokr/contracts';
 import type { GenerateOKRRequest, OKRDocument } from '@clarityokr/contracts';
 import { BehaviorSubject, Observable } from 'rxjs';
@@ -28,7 +27,10 @@ export class OkrStickyGatewayService {
 
   async generate(sessionId: string, intentSummary: string): Promise<OkrStickyViewModel> {
     const bridge = this.ensureBridge();
-    const payload = generateOKRRequestSchema.parse({ sessionId, intentSummary } satisfies GenerateOKRRequest);
+    const payload = generateOKRRequestSchema.parse({
+      sessionId,
+      intentSummary,
+    } satisfies GenerateOKRRequest);
     // eslint-disable-next-line no-console
     console.info('[renderer] requesting OKR generation (LLM)', payload);
     const response = await bridge.invoke(IPC_CHANNELS.LLM_GENERATE_DRAFT, { context: undefined });
@@ -57,7 +59,8 @@ export class OkrStickyGatewayService {
         return;
       }
 
-      const parsedDocument = okrDocumentSchema.safeParse((payload as { okr?: unknown })?.okr ?? payload);
+      const okrPayload = payload as { okr?: unknown };
+      const parsedDocument = okrDocumentSchema.safeParse(okrPayload.okr ?? payload);
       if (parsedDocument.success) {
         // eslint-disable-next-line no-console
         console.info('[renderer] received OKR document broadcast', parsedDocument.data.id);
@@ -66,7 +69,10 @@ export class OkrStickyGatewayService {
       }
 
       // eslint-disable-next-line no-console
-      console.error('[renderer] Failed to parse OKR payload from main process', parsedResponse.error);
+      console.error(
+        '[renderer] Failed to parse OKR payload from main process',
+        parsedResponse.error,
+      );
     });
   }
 
@@ -79,9 +85,10 @@ export class OkrStickyGatewayService {
   addKeyResult(): void {
     const current = this.viewModelSubject.getValue();
     if (!current) return;
-    const id = (globalThis.crypto && 'randomUUID' in globalThis.crypto)
-      ? (globalThis.crypto as { randomUUID: () => string }).randomUUID()
-      : Math.random().toString(36).slice(2);
+    const id =
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2);
     const next = {
       ...current,
       keyResults: [
@@ -90,9 +97,9 @@ export class OkrStickyGatewayService {
           id,
           statement: '新关键结果',
           metricLabel: null,
-          ownerLabel: null
-        }
-      ]
+          ownerLabel: null,
+        },
+      ],
     } satisfies OkrStickyViewModel;
     this.viewModelSubject.next(next);
   }
@@ -129,6 +136,6 @@ export class OkrStickyGatewayService {
     if (typeof window === 'undefined') {
       return undefined;
     }
-    return (window as Window & { clarifyOkr?: ClarifyOkrApi }).clarifyOkr;
+    return window.clarifyOkr;
   }
 }
