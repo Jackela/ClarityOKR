@@ -81,66 +81,64 @@ import { OkrStickyGatewayService } from './okr-sticky/services/okr-sticky-gatewa
   styles: [
     `
       :host {
-        font-family:
-          'Segoe UI',
-          system-ui,
-          -apple-system,
-          BlinkMacSystemFont,
-          'Helvetica Neue',
-          sans-serif;
-        color: #0f172a;
+        font-family: var(--font-family);
+        color: var(--color-text);
         display: block;
         min-height: 100vh;
-        background: linear-gradient(180deg, #f3f4ff 0%, #ffffff 45%);
+        background: linear-gradient(
+          180deg,
+          var(--color-bg-gradient-start) 0%,
+          var(--color-bg-gradient-end) 45%
+        );
       }
 
       .app-shell {
         margin: 0 auto;
         max-width: 960px;
-        padding: 2.5rem 1.125rem 4rem;
+        padding: var(--spacing-3xl) 1.125rem 4rem;
         display: flex;
         flex-direction: column;
-        gap: 2rem;
+        gap: var(--spacing-2xl);
       }
 
       .intent-panel {
-        background: #fff;
-        border-radius: 1.25rem;
+        background: var(--color-bg-card);
+        border-radius: var(--radius-xl);
         padding: 1.75rem;
-        box-shadow: 0 24px 48px rgba(15, 23, 42, 0.08);
+        box-shadow: var(--shadow-card);
       }
 
       .intent-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 1rem;
-        margin-bottom: 1.5rem;
+        gap: var(--spacing-lg);
+        margin-bottom: var(--spacing-xl);
       }
 
       .headline {
         margin: 0;
-        font-size: 2rem;
+        font-size: var(--font-size-xl);
         font-weight: 700;
       }
 
       .intent-form {
         display: grid;
-        gap: 0.75rem;
+        gap: var(--spacing-md);
       }
 
       .intent-label {
         font-weight: 600;
-        font-size: 0.9rem;
-        color: rgba(15, 23, 42, 0.75);
+        font-size: var(--font-size-base);
+        color: var(--color-text-muted);
       }
 
       .intent-input {
-        padding: 0.9rem 1rem;
-        border-radius: 0.85rem;
+        padding: 0.9rem var(--spacing-lg);
+        border-radius: var(--radius-lg);
         border: 1px solid rgba(37, 99, 235, 0.25);
-        font-size: 1rem;
-        background-color: rgba(37, 99, 235, 0.06);
+        font-size: var(--font-size-md);
+        background-color: var(--color-primary-lighter);
         transition:
           border-color 120ms ease,
           box-shadow 120ms ease;
@@ -149,15 +147,19 @@ import { OkrStickyGatewayService } from './okr-sticky/services/okr-sticky-gatewa
       .intent-input:focus {
         outline: none;
         border-color: rgba(37, 99, 235, 0.65);
-        box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+        box-shadow: 0 0 0 4px var(--color-primary-light);
       }
 
       .intent-submit {
         align-self: flex-start;
-        padding: 0.75rem 1.75rem;
-        border-radius: 999px;
+        padding: var(--spacing-md) 1.75rem;
+        border-radius: var(--radius-full);
         border: none;
-        background: linear-gradient(135deg, #2563eb 0%, #4338ca 100%);
+        background: linear-gradient(
+          135deg,
+          var(--color-primary) 0%,
+          var(--color-primary-darker) 100%
+        );
         color: #fff;
         font-weight: 600;
         cursor: pointer;
@@ -174,15 +176,15 @@ import { OkrStickyGatewayService } from './okr-sticky/services/okr-sticky-gatewa
 
       .intent-submit:not(:disabled):hover {
         transform: translateY(-1px);
-        box-shadow: 0 12px 24px rgba(37, 99, 235, 0.2);
+        box-shadow: var(--shadow-button-hover);
       }
 
       .sticky-reopen {
         border: none;
-        background: rgba(37, 99, 235, 0.12);
-        color: #1d4ed8;
-        padding: 0.5rem 1rem;
-        border-radius: 999px;
+        background: var(--color-primary-light);
+        color: var(--color-primary-dark);
+        padding: var(--spacing-sm) var(--spacing-lg);
+        border-radius: var(--radius-full);
         cursor: pointer;
         font-weight: 600;
         transition: background 120ms ease;
@@ -193,22 +195,22 @@ import { OkrStickyGatewayService } from './okr-sticky/services/okr-sticky-gatewa
       }
 
       .status-message {
-        margin-top: 0.75rem;
-        color: #b91c1c;
+        margin-top: var(--spacing-md);
+        color: var(--color-error);
       }
 
       .wizard-panel {
-        background: #fff;
-        border-radius: 1.25rem;
+        background: var(--color-bg-card);
+        border-radius: var(--radius-xl);
         padding: 1.75rem;
-        box-shadow: 0 24px 48px rgba(15, 23, 42, 0.08);
+        box-shadow: var(--shadow-card);
       }
 
       .result-panel {
-        background: rgba(79, 70, 229, 0.08);
-        border-radius: 1rem;
-        padding: 1.5rem;
-        border: 1px solid rgba(79, 70, 229, 0.25);
+        background: var(--color-purple-light);
+        border-radius: var(--spacing-lg);
+        padding: var(--spacing-xl);
+        border: 1px solid var(--color-purple-border);
       }
     `,
   ],
