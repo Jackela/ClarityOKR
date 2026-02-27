@@ -1,0 +1,61 @@
+<ng-container *ngIf="!isStickyShell; else stickyShell">
+  <main class="app-shell">
+    <section class="intent-panel">
+      <div class="intent-header">
+        <h1 class="headline">ClarityOKR</h1>
+        <button
+          *ngIf="(hasStickyNote$ | async) === true"
+          type="button"
+          class="sticky-reopen"
+          data-testid="sticky-reopen"
+          (click)="reopenSticky()"
+        >
+          重新打开便签
+        </button>
+      </div>
+      <form class="intent-form" (submit)="beginClarification($event)">
+        <label class="intent-label" for="intent-input">初始目标意图</label>
+        <input
+          id="intent-input"
+          type="text"
+          class="intent-input"
+          [formControl]="intentControl"
+          [attr.aria-invalid]="intentControl.invalid"
+          data-testid="intent-input"
+          placeholder="例如：提高效率"
+        />
+        <button
+          type="submit"
+          class="intent-submit"
+          data-testid="start-clarification"
+          [disabled]="intentControl.invalid || isClarifying"
+        >
+          开始澄清
+        </button>
+      </form>
+      <p class="status-message" *ngIf="statusMessage">{{ statusMessage }}</p>
+    </section>
+
+    <section class="wizard-panel" *ngIf="currentPrompt$ | async as prompt">
+      <clarityokr-clarification-wizard
+        [prompt]="prompt"
+        [isReadyToGenerate]="(isReady$ | async) ?? false"
+        [validationError]="(validationError$ | async) ?? null"
+        [loading]="(isLoading$ | async) ?? false"
+        (optionSelected)="onOptionSelected($event)"
+        (generate)="onGenerate()"
+      ></clarityokr-clarification-wizard>
+    </section>
+
+    <section class="result-panel" *ngIf="generatedSummary">
+      <h2 data-testid="okr-summary">{{ generatedSummary }}</h2>
+    </section>
+  </main>
+</ng-container>
+
+<ng-template #stickyShell>
+  <clarityokr-sticky-note
+    [okr]="stickyNote$ | async"
+    (addKr)="onAddKeyResult()"
+  ></clarityokr-sticky-note>
+</ng-template>
