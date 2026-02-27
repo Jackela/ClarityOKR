@@ -1,8 +1,6 @@
-:root {
-  font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
-}
+@import './styles/_tokens.scss';
 
 body {
   margin: 0;
-  background: #f3f4ff;
+  background: var(--color-bg);
 }
