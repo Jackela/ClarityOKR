@@ -120,3 +120,41 @@ export interface ClipboardExportResult {
   okrMarkdown: string;
   copiedAt: string;
 }
+
+export interface LlmQuestionOption {
+  id: string;
+  label: string;
+  value?: string;
+}
+
+export interface LlmQuestion {
+  id: string;
+  text: string;
+  options: LlmQuestionOption[];
+}
+
+export interface LlmNextQuestionResponse {
+  question: LlmQuestion;
+}
+
+export interface LlmKeyResult {
+  id?: string;
+  statement?: string;
+  target?: number | string;
+  measurement?: string;
+}
+
+export interface LlmObjective {
+  id?: string;
+  title?: string;
+  description?: string;
+  keyResults?: LlmKeyResult[];
+}
+
+export interface LlmDraft {
+  objectives?: LlmObjective[];
+}
+
+export interface LlmDraftResponse {
+  draft?: LlmDraft;
+}
