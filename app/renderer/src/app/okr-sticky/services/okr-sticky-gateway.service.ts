@@ -5,22 +5,25 @@ import {
   okrDocumentSchema,
 } from '@clarityokr/contracts';
 import type { GenerateOKRRequest, OKRDocument } from '@clarityokr/contracts';
-import { BehaviorSubject, Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
+import type { Observable } from 'rxjs';
 
 import { IPC_CHANNELS } from '../../shared/ipc-channel.tokens';
 import type { ClarifyOkrApi } from '../../shared/window';
 
 import { OkrProjectionService, type OkrStickyViewModel } from './okr-projection.service';
+import { OkrStickyStore } from '../state/okr-sticky.store';
 
 @Injectable({ providedIn: 'root' })
 export class OkrStickyGatewayService {
-  private readonly viewModelSubject = new BehaviorSubject<OkrStickyViewModel | null>(null);
+  readonly viewModel$: Observable<OkrStickyViewModel | null>;
+  readonly hasStickyNote$: Observable<boolean>;
 
-  readonly viewModel$: Observable<OkrStickyViewModel | null> = this.viewModelSubject.asObservable();
-  readonly hasStickyNote$: Observable<boolean> = this.viewModel$.pipe(map((vm) => vm !== null));
-
-  constructor(private readonly projection: OkrProjectionService) {
+  constructor(
+    private readonly projection: OkrProjectionService,
+    private readonly store: OkrStickyStore,
+  ) {
+    this.viewModel$ = this.store.viewModel$;
+    this.hasStickyNote$ = this.store.hasStickyNote$;
     this.registerListeners();
     void this.hydrateFromMain();
   }
@@ -78,30 +81,12 @@ export class OkrStickyGatewayService {
 
   private storeDocument(document: OKRDocument): OkrStickyViewModel {
     const viewModel = this.projection.project(document);
-    this.viewModelSubject.next(viewModel);
+    this.store.setViewModel(viewModel);
     return viewModel;
   }
 
   addKeyResult(): void {
-    const current = this.viewModelSubject.getValue();
-    if (!current) return;
-    const id =
-      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-        ? crypto.randomUUID()
-        : Math.random().toString(36).slice(2);
-    const next = {
-      ...current,
-      keyResults: [
-        ...current.keyResults,
-        {
-          id,
-          statement: '新关键结果',
-          metricLabel: null,
-          ownerLabel: null,
-        },
-      ],
-    } satisfies OkrStickyViewModel;
-    this.viewModelSubject.next(next);
+    this.store.addKeyResult();
   }
 
   private async hydrateFromMain(): Promise<void> {
