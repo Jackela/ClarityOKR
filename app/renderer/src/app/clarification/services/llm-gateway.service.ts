@@ -12,7 +12,8 @@ type ClarificationContext = {
 type LastChoice = { questionId: string; optionId: string };
 
 function bridgeOrThrow(): ClarifyOkrApi {
-  const candidate = (window as Window & { clarifyOkr?: ClarifyOkrApi }).clarifyOkr;
+  const win = window as unknown as Window & { clarifyOkr?: ClarifyOkrApi };
+  const candidate = win.clarifyOkr;
   if (!candidate) throw new Error('ClarifyOKR bridge is unavailable.');
   return candidate;
 }
