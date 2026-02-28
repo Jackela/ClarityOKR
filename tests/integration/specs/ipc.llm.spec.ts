@@ -1,10 +1,10 @@
 import nock from 'nock';
-import { jest } from '@jest/globals';
 
 import { ClarificationController } from '../../../app/main/src/windows/clarification-controller';
 import { IPCChannels } from '../../../app/main/src/bootstrap/ipc-channels';
+import { LlmIntegrationService } from '../../../app/main/src/services/llm-integration.service';
+import { OkrBuilderService } from '../../../app/main/src/services/okr-builder.service';
 
-// Simple Electron stubs to capture handlers and observe broadcasts
 const handlers: Record<string, Function> = {};
 const sent: Array<{ channel: string; payload: unknown }> = [];
 
@@ -13,21 +13,20 @@ const electStub = {
     handle: (channel: string, cb: Function) => {
       handlers[channel] = cb;
     },
-    on: (_channel: string, _cb: Function) => void 0
+    on: (_channel: string, _cb: Function) => void 0,
   },
   webContents: {
     getAllWebContents: () => [
       {
         send: (channel: string, payload: unknown) => {
           sent.push({ channel, payload });
-        }
-      }
+        },
+      },
     ],
-    fromId: (_id: number) => ({ send: (_ch: string, _payload: unknown) => void 0 })
-  }
+    fromId: (_id: number) => ({ send: (_ch: string, _payload: unknown) => void 0 }),
+  },
 } as any;
 
-// Minimal repository/service stubs for controller wiring
 class SessionRepositoryStub {
   state = {
     session: {
@@ -39,27 +38,68 @@ class SessionRepositoryStub {
       steps: [],
       selectedOptionIds: [],
       confidence: 0,
-      pendingQuestionId: null
-    }
+      pendingQuestionId: null,
+    },
   };
-  async load() { return this.state; }
-  async saveSession(s: any) { this.state.session = s; }
+  async load() {
+    return this.state;
+  }
+  async saveSession(s: any) {
+    this.state.session = s;
+  }
 }
 
-class OkrRepositoryStub { async loadLatest() { return null; } async save() { return; } }
-class ActionLogWriterStub { async append() { return; } }
-class StickyWindowManagerStub { async open() { return; } }
+class OkrRepositoryStub {
+  async loadLatest() {
+    return null;
+  }
+  async save() {
+    return;
+  }
+}
+class ActionLogWriterStub {
+  async append() {
+    return;
+  }
+}
+class StickyWindowManagerStub {
+  async open() {
+    return;
+  }
+}
+class LlmServiceStub {
+  async getNextQuestion() {
+    return { question: { id: 'q-test', text: 'Test?', options: [] } };
+  }
+  async generateDraft() {
+    return { draft: { objectives: [] } };
+  }
+}
+class OkrBuilderStub {
+  mapLlmQuestionToPrompt(q: any, seq: number) {
+    return { id: q.id, sequence: seq, question: q.text, context: '', options: q.options || [] };
+  }
+  buildOkrFromLlmDraft(session: any, draft: any) {
+    return {
+      id: 'okr-test',
+      objective: 'Test Objective',
+      keyResults: [],
+      sourceSessionId: session.id,
+      generatedAt: new Date().toISOString(),
+      regenerationPolicy: 'overwrite',
+      manualEdits: [],
+    };
+  }
+}
 
 describe('Integration: IPC LLM handlers (main)', () => {
   beforeAll(() => {
-    // Provide test env for LLM client
     process.env.LLM_API_KEY = 'test-key';
     process.env.LLM_BASE_URL = 'http://127.0.0.1:7777';
     process.env.LLM_MODEL = 'test-model';
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
     sent.length = 0;
   });
 
@@ -72,16 +112,28 @@ describe('Integration: IPC LLM handlers (main)', () => {
           text: 'What is the priority?',
           options: [
             { id: 'hi', label: 'High' },
-            { id: 'lo', label: 'Low' }
-          ]
-        }
+            { id: 'lo', label: 'Low' },
+          ],
+        },
       });
 
-    // @ts-ignore use stubs
-    new ClarificationController(new SessionRepositoryStub(), new OkrRepositoryStub(), new ActionLogWriterStub(), new StickyWindowManagerStub(), electStub);
+    const deps = {
+      sessionRepository: new SessionRepositoryStub() as any,
+      okrRepository: new OkrRepositoryStub() as any,
+      actionLogWriter: new ActionLogWriterStub() as any,
+      stickyWindowManager: new StickyWindowManagerStub() as any,
+      llmService: new LlmIntegrationService() as any,
+      okrBuilder: new OkrBuilderStub() as any,
+      elect: electStub,
+    };
+
+    new ClarificationController(deps);
 
     const h = handlers[IPCChannels.LLM_NEXT_QUESTION];
-    const res = await h(null, { context: { turns: [] }, lastChoice: { questionId: 'init', optionId: 'hi' } });
+    const res = await h(null, {
+      context: { turns: [] },
+      lastChoice: { questionId: 'init', optionId: 'hi' },
+    });
 
     expect(res).toHaveProperty('question.id', 'q-next');
     expect(JSON.stringify(res)).not.toContain(process.env.LLM_API_KEY!);
@@ -100,14 +152,13 @@ describe('Integration: IPC LLM handlers (main)', () => {
               keyResults: [
                 { id: 'kr1', statement: 'Reduce bugs', target: 10, measurement: 'count' },
                 { id: 'kr2', statement: 'Lower escape rate', target: '5%', measurement: 'rate' },
-                { id: 'kr3', statement: 'Faster MTTR', target: '2h', measurement: 'latency' }
-              ]
-            }
-          ]
-        }
+                { id: 'kr3', statement: 'Faster MTTR', target: '2h', measurement: 'latency' },
+              ],
+            },
+          ],
+        },
       });
 
-    // Seed session with one step so context inference has data
     const sessionRepo = new SessionRepositoryStub();
     sessionRepo.state.session.steps = [
       {
@@ -117,13 +168,22 @@ describe('Integration: IPC LLM handlers (main)', () => {
         context: 'seed',
         options: [
           { id: 'a', label: 'A', scopeTag: 'llm' },
-          { id: 'b', label: 'B', scopeTag: 'llm' }
-        ]
-      }
+          { id: 'b', label: 'B', scopeTag: 'llm' },
+        ],
+      },
     ];
 
-    // @ts-ignore use stubs
-    new ClarificationController(sessionRepo, new OkrRepositoryStub(), new ActionLogWriterStub(), new StickyWindowManagerStub(), electStub);
+    const deps = {
+      sessionRepository: sessionRepo as any,
+      okrRepository: new OkrRepositoryStub() as any,
+      actionLogWriter: new ActionLogWriterStub() as any,
+      stickyWindowManager: new StickyWindowManagerStub() as any,
+      llmService: new LlmIntegrationService() as any,
+      okrBuilder: new OkrBuilderStub() as any,
+      elect: electStub,
+    };
+
+    new ClarificationController(deps);
 
     const h = handlers[IPCChannels.LLM_GENERATE_DRAFT];
     const res = await h(null, { context: { turns: [] } });
@@ -131,7 +191,6 @@ describe('Integration: IPC LLM handlers (main)', () => {
     expect(res).toHaveProperty('okr.objective');
     expect(JSON.stringify(res)).not.toContain(process.env.LLM_API_KEY!);
     expect(scope.isDone()).toBe(true);
-    // Verify broadcast occurred
     const broadcasted = sent.some((m) => m.channel === IPCChannels.OKR_GENERATE);
     expect(broadcasted).toBe(true);
   });
