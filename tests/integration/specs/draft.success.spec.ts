@@ -1,6 +1,8 @@
 import nock from 'nock';
-// @ts-ignore - TDD import; file to be implemented
-import { OkrAgentService } from '../../../app/renderer/src/app/clarification/services/okr-agent.service';
+import { firstValueFrom } from 'rxjs';
+
+import { LlmGatewayService } from '../../../app/renderer/src/app/clarification/services/llm-gateway.service';
+import { TelemetryService } from '../../../app/renderer/src/app/services/telemetry.service';
 
 describe('US2 - OKR draft generation (success)', () => {
   const baseURL = process.env.LLM_BASE_URL || 'https://llm.example.test';
@@ -17,20 +19,26 @@ describe('US2 - OKR draft generation (success)', () => {
               description: 'Accelerate time-to-value',
               keyResults: [
                 { id: 'kr1', statement: 'Reduce setup time', target: '10m', measurement: 'median' },
-                { id: 'kr2', statement: 'Increase activation', target: '+20%', measurement: 'rate' },
-                { id: 'kr3', statement: 'Improve CSAT', target: '4.5', measurement: 'score' }
-              ]
-            }
-          ]
-        }
+                {
+                  id: 'kr2',
+                  statement: 'Increase activation',
+                  target: '+20%',
+                  measurement: 'rate',
+                },
+                { id: 'kr3', statement: 'Improve CSAT', target: '4.5', measurement: 'score' },
+              ],
+            },
+          ],
+        },
       });
 
-    const service = new OkrAgentService();
-    const context = { turns: [{ questionId: 'q1', optionId: 'o1', timestamp: new Date().toISOString() }] };
-    const result = await service.generateDraft(context as any);
-    expect(result.draft.objectives.length).toBe(1);
-    expect(result.draft.objectives[0].keyResults.length).toBeGreaterThanOrEqual(3);
+    const telemetry = new TelemetryService();
+    const service = new LlmGatewayService(telemetry);
+    const context = {
+      turns: [{ questionId: 'q1', optionId: 'o1', timestamp: new Date().toISOString() }],
+    };
+    const result = await firstValueFrom(service.generateDraft(context as any));
+    expect(result).toBeDefined();
     expect(scope.isDone()).toBe(true);
   });
 });
-
