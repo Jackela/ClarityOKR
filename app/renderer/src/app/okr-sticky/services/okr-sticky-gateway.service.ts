@@ -7,8 +7,8 @@ import {
 import type { GenerateOKRRequest, OKRDocument } from '@clarityokr/contracts';
 import type { Observable } from 'rxjs';
 
+import { getClarityBridge, getClarityBridgeOrUndefined } from '../../shared/bridge.js';
 import { IPC_CHANNELS } from '../../shared/ipc-channel.tokens';
-import type { ClarifyOkrApi } from '../../shared/window';
 
 import { OkrProjectionService, type OkrStickyViewModel } from './okr-projection.service';
 import { OkrStickyStore } from '../state/okr-sticky.store';
@@ -29,7 +29,7 @@ export class OkrStickyGatewayService {
   }
 
   async generate(sessionId: string, intentSummary: string): Promise<OkrStickyViewModel> {
-    const bridge = this.ensureBridge();
+    const bridge = getClarityBridge();
     const payload = generateOKRRequestSchema.parse({
       sessionId,
       intentSummary,
@@ -43,12 +43,12 @@ export class OkrStickyGatewayService {
   }
 
   async reopenSticky(): Promise<void> {
-    const bridge = this.ensureBridge();
+    const bridge = getClarityBridge();
     await bridge.invoke(IPC_CHANNELS.STICKY_REOPEN, undefined);
   }
 
   private registerListeners(): void {
-    const bridge = this.bridgeOrUndefined();
+    const bridge = getClarityBridgeOrUndefined();
     if (!bridge) {
       return;
     }
@@ -90,7 +90,7 @@ export class OkrStickyGatewayService {
   }
 
   private async hydrateFromMain(): Promise<void> {
-    const bridge = this.bridgeOrUndefined();
+    const bridge = getClarityBridgeOrUndefined();
     if (!bridge) {
       return;
     }
@@ -107,20 +107,5 @@ export class OkrStickyGatewayService {
       // eslint-disable-next-line no-console
       console.error('[renderer] failed to hydrate sticky note', error);
     }
-  }
-
-  private ensureBridge(): ClarifyOkrApi {
-    const bridge = this.bridgeOrUndefined();
-    if (!bridge) {
-      throw new Error('ClarifyOKR bridge is unavailable.');
-    }
-    return bridge;
-  }
-
-  private bridgeOrUndefined(): ClarifyOkrApi | undefined {
-    if (typeof window === 'undefined') {
-      return undefined;
-    }
-    return window.clarifyOkr;
   }
 }
