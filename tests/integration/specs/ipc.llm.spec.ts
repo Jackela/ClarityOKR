@@ -25,7 +25,7 @@ const electStub = {
     ],
     fromId: (_id: number) => ({ send: (_ch: string, _payload: unknown) => void 0 }),
   },
-} as any;
+};
 
 class SessionRepositoryStub {
   state = {
@@ -67,26 +67,57 @@ class StickyWindowManagerStub {
     return;
   }
 }
+
 class LlmServiceStub {
   async getNextQuestion() {
-    return { question: { id: 'q-test', text: 'Test?', options: [] } };
+    return {
+      question: {
+        id: 'q-test',
+        text: 'Test?',
+        options: [
+          { id: 'a', label: 'A' },
+          { id: 'b', label: 'B' },
+        ],
+      },
+    };
   }
   async generateDraft() {
-    return { draft: { objectives: [] } };
+    return {
+      draft: {
+        objectives: [
+          {
+            id: 'o-1',
+            title: 'Test Objective',
+            keyResults: [
+              { id: 'kr1', statement: 'KR 1', target: 10, measurement: 'count' },
+              { id: 'kr2', statement: 'KR 2', target: '5%', measurement: 'rate' },
+              { id: 'kr3', statement: 'KR 3', target: '2h', measurement: 'latency' },
+            ],
+          },
+        ],
+      },
+    };
   }
 }
+
 class OkrBuilderStub {
   mapLlmQuestionToPrompt(q: any, seq: number) {
-    return { id: q.id, sequence: seq, question: q.text, context: '', options: q.options || [] };
+    return {
+      id: q.id,
+      sequence: seq,
+      question: q.text,
+      context: '',
+      options: (q.options || []).map((o: any) => ({ ...o, scopeTag: 'llm' })),
+    };
   }
   buildOkrFromLlmDraft(session: any, draft: any) {
     return {
       id: 'okr-test',
-      objective: 'Test Objective',
-      keyResults: [],
+      objective: draft.objectives[0]?.title || 'Test Objective',
+      keyResults: draft.objectives[0]?.keyResults || [],
       sourceSessionId: session.id,
       generatedAt: new Date().toISOString(),
-      regenerationPolicy: 'overwrite',
+      regenerationPolicy: 'overwrite' as const,
       manualEdits: [],
     };
   }
@@ -122,7 +153,7 @@ describe('Integration: IPC LLM handlers (main)', () => {
       okrRepository: new OkrRepositoryStub() as any,
       actionLogWriter: new ActionLogWriterStub() as any,
       stickyWindowManager: new StickyWindowManagerStub() as any,
-      llmService: new LlmIntegrationService() as any,
+      llmService: new LlmServiceStub() as any,
       okrBuilder: new OkrBuilderStub() as any,
       elect: electStub,
     };
@@ -178,7 +209,7 @@ describe('Integration: IPC LLM handlers (main)', () => {
       okrRepository: new OkrRepositoryStub() as any,
       actionLogWriter: new ActionLogWriterStub() as any,
       stickyWindowManager: new StickyWindowManagerStub() as any,
-      llmService: new LlmIntegrationService() as any,
+      llmService: new LlmServiceStub() as any,
       okrBuilder: new OkrBuilderStub() as any,
       elect: electStub,
     };
