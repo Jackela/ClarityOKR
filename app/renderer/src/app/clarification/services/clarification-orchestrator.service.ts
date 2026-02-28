@@ -7,7 +7,7 @@ import {
 import { from, Observable, of, throwError } from 'rxjs';
 import { catchError, map, tap } from 'rxjs/operators';
 
-import { getClarityBridge, getClarityBridgeOrUndefined } from '../../shared/bridge.js';
+import { getClarityBridge, getClarityBridgeOrUndefined } from '../../shared/bridge';
 import { IPC_CHANNELS } from '../../shared/ipc-channel.tokens';
 import { ClarificationStore } from '../state/clarification.store';
 

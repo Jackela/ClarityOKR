@@ -68,7 +68,7 @@ export class OkrBuilderService {
   }
 
   private mapKeyResults(krs: LlmObjective['keyResults']): KeyResult[] {
-    return krs.slice(0, 5).map((kr) => ({
+    return (krs ?? []).slice(0, 5).map((kr) => ({
       id: String(kr?.id ?? randomUUID()),
       statement: String(kr?.statement ?? ''),
       successMetric: this.buildSuccessMetric(kr),

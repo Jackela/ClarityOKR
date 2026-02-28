@@ -7,7 +7,7 @@ import {
 import type { GenerateOKRRequest, OKRDocument } from '@clarityokr/contracts';
 import type { Observable } from 'rxjs';
 
-import { getClarityBridge, getClarityBridgeOrUndefined } from '../../shared/bridge.js';
+import { getClarityBridge, getClarityBridgeOrUndefined } from '../../shared/bridge';
 import { IPC_CHANNELS } from '../../shared/ipc-channel.tokens';
 
 import { OkrProjectionService, type OkrStickyViewModel } from './okr-projection.service';
