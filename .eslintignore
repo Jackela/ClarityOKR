@@ -3,3 +3,11 @@ node_modules/
 coverage/
 playwright-report/
 app/renderer/dist/
+*.md
+*.json
+*.html
+*.scss
+*.css
+*.cjs
+*.mjs
+CODEOWNERS
