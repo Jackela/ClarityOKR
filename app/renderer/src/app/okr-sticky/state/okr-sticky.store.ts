@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { ComponentStore } from '@ngrx/component-store';
-import type { OkrStickyViewModel } from '../services/okr-projection.service';
+
+import type { OkrStickyViewModel, KeyResultViewModel } from '../services/okr-projection.service';
 
 export interface OkrStickyState {
   viewModel: OkrStickyViewModel | null;
@@ -19,31 +20,35 @@ export class OkrStickyStore extends ComponentStore<OkrStickyState> {
     super(initialState);
   }
 
-  readonly setViewModel = this.updater((state, viewModel: OkrStickyViewModel | null) => ({
-    ...state,
-    viewModel,
-  }));
+  readonly setViewModel = this.updater(
+    (state, viewModel: OkrStickyViewModel | null): OkrStickyState => ({
+      ...state,
+      viewModel,
+    }),
+  );
 
-  readonly addKeyResult = this.updater((state) => {
+  readonly addKeyResult = this.updater((state): OkrStickyState => {
     if (!state.viewModel) return state;
-    const id =
-      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-        ? crypto.randomUUID()
-        : Math.random().toString(36).slice(2);
+    const id = this.generateId();
+    const newKeyResult: KeyResultViewModel = {
+      id,
+      statement: '新关键结果',
+      metricLabel: null,
+      ownerLabel: null,
+    };
     return {
       ...state,
       viewModel: {
         ...state.viewModel,
-        keyResults: [
-          ...state.viewModel.keyResults,
-          {
-            id,
-            statement: '新关键结果',
-            metricLabel: null,
-            ownerLabel: null,
-          },
-        ],
+        keyResults: [...state.viewModel.keyResults, newKeyResult],
       },
     };
   });
+
+  private generateId(): string {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+    return Math.random().toString(36).slice(2);
+  }
 }

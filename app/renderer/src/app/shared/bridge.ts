@@ -1,7 +1,8 @@
 import type { ClarifyOkrApi } from './window';
 
 export function getClarityBridge(): ClarifyOkrApi {
-  const bridge = (window as Window & { clarifyOkr?: ClarifyOkrApi }).clarifyOkr;
+  const win = window as unknown as Window & { clarifyOkr?: ClarifyOkrApi };
+  const bridge = win.clarifyOkr;
   if (!bridge) {
     throw new Error('ClarityOKR IPC bridge is not available. Ensure preload script is loaded.');
   }
@@ -12,5 +13,6 @@ export function getClarityBridgeOrUndefined(): ClarifyOkrApi | undefined {
   if (typeof window === 'undefined') {
     return undefined;
   }
-  return window.clarifyOkr;
+  const win = window as unknown as Window & { clarifyOkr?: ClarifyOkrApi };
+  return win.clarifyOkr;
 }
