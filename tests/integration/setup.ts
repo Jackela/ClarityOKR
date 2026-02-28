@@ -1,14 +1,32 @@
 import nock from 'nock';
-import fetch from 'node-fetch';
+
+// Mock browser globals for Node test environment
+(global as any).window = {
+  clarifyOkr: undefined,
+};
+
+(global as any).performance = {
+  now: () => Date.now(),
+};
+
+(global as any).crypto = {
+  randomUUID: () => 'mock-uuid-1234',
+};
+
+nock.disableNetConnect();
 
 beforeAll(() => {
-  // Route global fetch through node-fetch so nock can intercept
-  // @ts-ignore
-  globalThis.fetch = fetch as any;
-  nock.disableNetConnect();
-  // Allow localhost for any internal runtime interactions if needed
-  nock.enableNetConnect('127.0.0.1');
-  nock.enableNetConnect('localhost');
+  process.env.LLM_API_KEY = 'test-api-key';
+  process.env.LLM_BASE_URL = 'http://127.0.0.1:7777';
+  process.env.LLM_MODEL = 'test-model';
+});
+
+afterEach(() => {
+  nock.cleanAll();
+});
+
+afterAll(() => {
+  nock.enableNetConnect();
 });
 
 afterEach(() => {

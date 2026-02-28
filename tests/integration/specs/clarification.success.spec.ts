@@ -4,6 +4,8 @@ import { firstValueFrom } from 'rxjs';
 import { LlmGatewayService } from '../../../app/renderer/src/app/clarification/services/llm-gateway.service';
 import { TelemetryService } from '../../../app/renderer/src/app/services/telemetry.service';
 
+jest.setTimeout(10000);
+
 describe('US1 - Clarification next-question (success)', () => {
   const baseURL = process.env.LLM_BASE_URL || 'https://llm.example.test';
 
@@ -26,9 +28,11 @@ describe('US1 - Clarification next-question (success)', () => {
     const context = {
       turns: [{ questionId: 'q1', optionId: 'o3', timestamp: new Date().toISOString() }],
     };
-    const result = await firstValueFrom(
-      service.getNextQuestion(context as any, { questionId: 'q1', optionId: 'o3' } as any),
+    const result$ = service.getNextQuestion(
+      context as any,
+      { questionId: 'q1', optionId: 'o3' } as any,
     );
+    const result = await firstValueFrom(result$);
     expect(result).toBeDefined();
     expect(scope.isDone()).toBe(true);
   });

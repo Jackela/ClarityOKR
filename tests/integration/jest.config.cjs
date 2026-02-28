@@ -2,7 +2,7 @@ const { defaultsESM } = require('ts-jest/presets');
 
 module.exports = {
   ...defaultsESM,
-  testEnvironment: 'jsdom',
+  testEnvironment: 'node',
   roots: ['<rootDir>/specs'],
   extensionsToTreatAsEsm: ['.ts'],
   setupFilesAfterEnv: ['<rootDir>/setup.ts'],
