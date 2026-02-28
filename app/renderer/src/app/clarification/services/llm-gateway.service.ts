@@ -3,9 +3,8 @@ import { defer, Observable } from 'rxjs';
 import { finalize, tap } from 'rxjs/operators';
 
 import { TelemetryService } from '../../services/telemetry.service';
-import { IPC_CHANNELS } from '../../shared/ipc-channel.tokens';
-
 import type { ClarifyOkrApi } from '../../shared/ipc-bridge.types';
+import { IPC_CHANNELS } from '../../shared/ipc-channel.tokens';
 
 type ClarificationContext = {
   turns: Array<{ questionId: string; optionId: string; timestamp: string }>;

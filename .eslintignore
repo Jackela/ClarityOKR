@@ -10,4 +10,10 @@ app/renderer/dist/
 *.css
 *.cjs
 *.mjs
+*.yaml
+*.yml
+*.ps1
+*.sh
+*.txt
+*.py
 CODEOWNERS
