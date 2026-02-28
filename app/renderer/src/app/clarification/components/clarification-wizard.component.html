@@ -1,0 +1,33 @@
+<section *ngIf="prompt">
+  <div class="progress-indicator" *ngIf="totalSteps > 0">
+    <span class="progress-text">步骤 {{ currentStep + 1 }} / {{ totalSteps }}</span>
+    <div class="progress-bar">
+      <div class="progress-fill" [style.width.%]="((currentStep + 1) / totalSteps) * 100"></div>
+    </div>
+  </div>
+  <h2 data-testid="prompt-question">{{ prompt.question }}</h2>
+  <p class="context">{{ prompt.context }}</p>
+  <p class="loading" *ngIf="loading" data-testid="clarification-loading">正在加载下一步…</p>
+  <div class="option-grid" role="group" aria-label="Clarification options">
+    <button
+      type="button"
+      class="option"
+      data-testid="clarification-option"
+      *ngFor="let option of prompt.options"
+      (click)="optionSelected.emit(option.id)"
+    >
+      <span class="option-label">{{ option.label }}</span>
+      <small *ngIf="option.description" class="option-description">{{ option.description }}</small>
+    </button>
+  </div>
+  <p class="validation" *ngIf="validationError">{{ validationError }}</p>
+  <button
+    type="button"
+    class="generate"
+    data-testid="clarification-generate"
+    [disabled]="!isReadyToGenerate"
+    (click)="generate.emit()"
+  >
+    生成 OKR
+  </button>
+</section>
