@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
 import { Injectable } from '@angular/core';
 import { defer, Observable } from 'rxjs';
 import { finalize, tap } from 'rxjs/operators';
@@ -7,7 +6,9 @@ import { TelemetryService } from '../../services/telemetry.service';
 import { IPC_CHANNELS } from '../../shared/ipc-channel.tokens';
 import type { ClarifyOkrApi } from '../../shared/window';
 
-type ClarificationContext = { turns: Array<{ questionId: string; optionId: string; timestamp: string }> };
+type ClarificationContext = {
+  turns: Array<{ questionId: string; optionId: string; timestamp: string }>;
+};
 type LastChoice = { questionId: string; optionId: string };
 
 function bridgeOrThrow(): ClarifyOkrApi {
@@ -25,7 +26,7 @@ export class LlmGatewayService {
     const started = performance.now();
     return defer(() => bridge.invoke(IPC_CHANNELS.LLM_NEXT_QUESTION, { context, lastChoice })).pipe(
       tap(() => this.telemetry.recordCall('next-question', 'success', performance.now() - started)),
-      finalize(() => void 0)
+      finalize(() => void 0),
     );
   }
 
@@ -35,9 +36,14 @@ export class LlmGatewayService {
     return defer(() => bridge.invoke(IPC_CHANNELS.LLM_GENERATE_DRAFT, { context })).pipe(
       tap({
         next: () => this.telemetry.recordCall('draft', 'success', performance.now() - started),
-        error: (e) => this.telemetry.recordCall('draft', /timeout/i.test(String(e)) ? 'timeout' : 'error', performance.now() - started)
+        error: (e) =>
+          this.telemetry.recordCall(
+            'draft',
+            /timeout/i.test(String(e)) ? 'timeout' : 'error',
+            performance.now() - started,
+          ),
       }),
-      finalize(() => void 0)
+      finalize(() => void 0),
     );
   }
 }
