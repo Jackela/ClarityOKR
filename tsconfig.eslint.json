@@ -4,17 +4,11 @@
     "noEmit": true,
     "module": "ESNext",
     "moduleResolution": "NodeNext",
-    "types": [
-      "node"
-    ],
+    "types": ["node"],
     "baseUrl": ".",
     "paths": {
-      "@clarityokr/contracts": [
-        "packages/contracts/src/index.ts"
-      ],
-      "@clarityokr/contracts/*": [
-        "packages/contracts/src/*"
-      ]
+      "@clarityokr/contracts": ["packages/contracts/src/index.ts"],
+      "@clarityokr/contracts/*": ["packages/contracts/src/*"]
     }
   },
   "files": [],

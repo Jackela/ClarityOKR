@@ -9,10 +9,10 @@ import type { Observable } from 'rxjs';
 
 import { getClarityBridge, getClarityBridgeOrUndefined } from '../../shared/bridge';
 import { IPC_CHANNELS } from '../../shared/ipc-channel.tokens';
+import { OkrStickyStore } from '../state/okr-sticky.store';
 
 import type { OkrStickyViewModel } from './okr-projection.service';
 import { OkrProjectionService } from './okr-projection.service';
-import { OkrStickyStore } from '../state/okr-sticky.store';
 
 @Injectable({ providedIn: 'root' })
 export class OkrStickyGatewayService {
