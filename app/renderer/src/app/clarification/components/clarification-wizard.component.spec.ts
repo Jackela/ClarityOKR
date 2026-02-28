@@ -47,7 +47,7 @@ describe('ClarificationWizardComponent', () => {
     expect(optionSelectedSpy).toHaveBeenCalledWith('opt-1');
   });
 
-  it('disables generate button until ready flag is true', () => {
+  it('disables generate button until ready flag is true', async () => {
     component.prompt = buildPrompt();
     component.isReadyToGenerate = false;
     fixture.detectChanges();
@@ -56,6 +56,8 @@ describe('ClarificationWizardComponent', () => {
       'button.generate',
     ) as HTMLButtonElement | null;
     expect(generateButton?.disabled).toBeTrue();
+
+    await fixture.whenStable();
 
     fixture.componentRef.setInput('isReadyToGenerate', true);
     fixture.detectChanges();
