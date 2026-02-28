@@ -13,8 +13,8 @@ function buildPrompt(): ClarificationPrompt {
     context: 'Select the area to explore first',
     options: [
       { id: 'opt-1', label: 'Team productivity', description: undefined, scopeTag: 'team' },
-      { id: 'opt-2', label: 'Customer success', description: undefined, scopeTag: 'customer' }
-    ]
+      { id: 'opt-2', label: 'Customer success', description: undefined, scopeTag: 'customer' },
+    ],
   } satisfies ClarificationPrompt;
 }
 
@@ -24,7 +24,7 @@ describe('ClarificationWizardComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [ClarificationWizardComponent]
+      imports: [ClarificationWizardComponent],
     }).compileComponents();
 
     fixture = TestBed.createComponent(ClarificationWizardComponent);
@@ -35,7 +35,9 @@ describe('ClarificationWizardComponent', () => {
     component.prompt = buildPrompt();
     fixture.detectChanges();
 
-    const optionNodes = fixture.nativeElement.querySelectorAll('button.option') as NodeListOf<HTMLButtonElement>;
+    const optionNodes = fixture.nativeElement.querySelectorAll(
+      'button.option',
+    ) as NodeListOf<HTMLButtonElement>;
     const buttons: HTMLButtonElement[] = Array.from(optionNodes);
     const optionSelectedSpy = jasmine.createSpy('optionSelected');
     component.optionSelected.subscribe(optionSelectedSpy);
@@ -50,10 +52,12 @@ describe('ClarificationWizardComponent', () => {
     component.isReadyToGenerate = false;
     fixture.detectChanges();
 
-    const generateButton = fixture.nativeElement.querySelector('button.generate') as HTMLButtonElement | null;
+    const generateButton = fixture.nativeElement.querySelector(
+      'button.generate',
+    ) as HTMLButtonElement | null;
     expect(generateButton?.disabled).toBeTrue();
 
-    component.isReadyToGenerate = true;
+    fixture.componentRef.setInput('isReadyToGenerate', true);
     fixture.detectChanges();
 
     expect(generateButton?.disabled).toBeFalse();
