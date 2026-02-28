@@ -12,7 +12,6 @@ import {
 import type {
   ClarificationPrompt,
   ClarificationSession,
-  OKRDocument,
   UserActionLogEntry,
 } from '@clarityokr/contracts';
 

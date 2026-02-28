@@ -1,4 +1,4 @@
-import type { ClarifyOkrApi } from './window';
+import type { ClarifyOkrApi } from './ipc-bridge.types';
 
 export function getClarityBridge(): ClarifyOkrApi {
   if (typeof window === 'undefined') {

@@ -13,21 +13,25 @@ const initialState: OkrStickyState = {
 
 @Injectable({ providedIn: 'root' })
 export class OkrStickyStore extends ComponentStore<OkrStickyState> {
-  readonly viewModel$ = this.select((state) => state.viewModel);
-  readonly hasStickyNote$ = this.select((state) => state.viewModel !== null);
+  readonly viewModel$ = this.select(
+    (state: OkrStickyState): OkrStickyViewModel | null => state.viewModel,
+  );
+  readonly hasStickyNote$ = this.select(
+    (state: OkrStickyState): boolean => state.viewModel !== null,
+  );
 
   constructor() {
     super(initialState);
   }
 
   readonly setViewModel = this.updater(
-    (state, viewModel: OkrStickyViewModel | null): OkrStickyState => ({
+    (state: OkrStickyState, viewModel: OkrStickyViewModel | null): OkrStickyState => ({
       ...state,
       viewModel,
     }),
   );
 
-  readonly addKeyResult = this.updater((state): OkrStickyState => {
+  readonly addKeyResult = this.updater((state: OkrStickyState): OkrStickyState => {
     if (!state.viewModel) return state;
     const id = this.generateId();
     const newKeyResult: KeyResultViewModel = {
@@ -36,11 +40,12 @@ export class OkrStickyStore extends ComponentStore<OkrStickyState> {
       metricLabel: null,
       ownerLabel: null,
     };
+    const currentViewModel: OkrStickyViewModel = state.viewModel;
     return {
       ...state,
       viewModel: {
-        ...state.viewModel,
-        keyResults: [...state.viewModel.keyResults, newKeyResult],
+        ...currentViewModel,
+        keyResults: [...currentViewModel.keyResults, newKeyResult],
       },
     };
   });

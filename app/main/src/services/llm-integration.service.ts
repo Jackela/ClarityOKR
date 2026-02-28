@@ -92,11 +92,15 @@ export class LlmIntegrationService {
     lastChoice: LastChoice,
   ): Promise<LlmNextQuestionResponse> {
     const payload = { context, lastChoice, model: this.model, type: 'next-question' };
-    return this.callLlmApi('/v1/responses', payload, this.validateNextQuestion);
+    return this.callLlmApi('/v1/responses', payload, (x): x is LlmNextQuestionResponse =>
+      this.validateNextQuestion(x),
+    );
   }
 
   async generateDraft(context: ClarificationContext): Promise<LlmDraftResponse> {
     const payload = { context, model: this.model, type: 'okr-draft' };
-    return this.callLlmApi('/v1/responses', payload, this.validateDraft);
+    return this.callLlmApi('/v1/responses', payload, (x): x is LlmDraftResponse =>
+      this.validateDraft(x),
+    );
   }
 }
