@@ -65,19 +65,49 @@ class StaticPromptAgent implements ClarificationAgent {
   }
 }
 
+export interface ClarificationControllerDeps {
+  sessionRepository: SessionRepository;
+  okrRepository: OkrRepository;
+  actionLogWriter: ActionLogWriter;
+  stickyWindowManager: StickyWindowManager;
+  llmService: LlmIntegrationService;
+  okrBuilder: OkrBuilderService;
+  elect?: typeof electron;
+}
+
 export class ClarificationController {
   private readonly agent: ClarificationAgent = new StaticPromptAgent();
-  private readonly llm = new LlmIntegrationService();
-  private readonly okrBuilder = new OkrBuilderService();
 
-  constructor(
-    private readonly sessionRepository: SessionRepository,
-    private readonly okrRepository: OkrRepository,
-    private readonly actionLogWriter: ActionLogWriter,
-    private readonly stickyWindowManager: StickyWindowManager,
-    private readonly elect: typeof electron = electron,
-  ) {
+  constructor(private readonly deps: ClarificationControllerDeps) {
     this.registerHandlers();
+  }
+
+  private get llm(): LlmIntegrationService {
+    return this.deps.llmService;
+  }
+
+  private get okrBuilder(): OkrBuilderService {
+    return this.deps.okrBuilder;
+  }
+
+  private get sessionRepository(): SessionRepository {
+    return this.deps.sessionRepository;
+  }
+
+  private get okrRepository(): OkrRepository {
+    return this.deps.okrRepository;
+  }
+
+  private get actionLogWriter(): ActionLogWriter {
+    return this.deps.actionLogWriter;
+  }
+
+  private get stickyWindowManager(): StickyWindowManager {
+    return this.deps.stickyWindowManager;
+  }
+
+  private get elect(): typeof electron {
+    return this.deps.elect ?? electron;
   }
 
   private registerHandlers(): void {

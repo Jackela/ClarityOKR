@@ -7,6 +7,8 @@ import type { BrowserWindow as ElectronBrowserWindow, Event as ElectronEvent } f
 import { ActionLogWriter } from './persistence/action-log-writer.js';
 import { OkrRepository } from './persistence/okr-repository.js';
 import { SessionRepository } from './persistence/session-repository.js';
+import { LlmIntegrationService } from './services/llm-integration.service.js';
+import { OkrBuilderService } from './services/okr-builder.service.js';
 import { ClarificationController } from './windows/clarification-controller.js';
 import { StickyWindowManager } from './windows/sticky-window-manager.js';
 
@@ -21,12 +23,20 @@ const okrRepository = new OkrRepository();
 const actionLogWriter = new ActionLogWriter();
 const stickyWindowManager = new StickyWindowManager({
   preloadPath,
-  rendererDistPath
+  rendererDistPath,
 });
+const llmService = new LlmIntegrationService();
+const okrBuilder = new OkrBuilderService();
 
 let mainWindow: ElectronBrowserWindow | null = null;
-// Instantiate IPC controllers once the process starts.
-new ClarificationController(sessionRepository, okrRepository, actionLogWriter, stickyWindowManager);
+new ClarificationController({
+  sessionRepository,
+  okrRepository,
+  actionLogWriter,
+  stickyWindowManager,
+  llmService,
+  okrBuilder,
+});
 
 app.disableHardwareAcceleration();
 app.commandLine.appendSwitch('disable-gpu');
@@ -42,8 +52,8 @@ async function createWindow(): Promise<void> {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
-      preload: preloadPath
-    }
+      preload: preloadPath,
+    },
   });
 
   if (process.env.ELECTRON_START_URL) {
@@ -60,9 +70,12 @@ async function createWindow(): Promise<void> {
     console.info('[main] renderer loaded');
   });
 
-  mainWindow.webContents.on('did-fail-load', (_event: ElectronEvent, errorCode: number, errorDescription: string) => {
-    console.error('[main] renderer failed to load', errorCode, errorDescription);
-  });
+  mainWindow.webContents.on(
+    'did-fail-load',
+    (_event: ElectronEvent, errorCode: number, errorDescription: string) => {
+      console.error('[main] renderer failed to load', errorCode, errorDescription);
+    },
+  );
 }
 
 void app.whenReady().then(() => {
