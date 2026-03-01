@@ -4,7 +4,7 @@ name: Clarify OKR CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
     paths:
       - 'app/**'
@@ -16,13 +16,13 @@ on:
   workflow_dispatch:
     inputs:
       skip_sys_deps:
-        description: "Skip Electron system dependencies installation"
+        description: 'Skip Electron system dependencies installation'
         required: false
-        default: "false"
+        default: 'false'
       skip_e2e:
-        description: "Skip Playwright Electron E2E"
+        description: 'Skip Playwright Electron E2E'
         required: false
-        default: "false"
+        default: 'false'
 
 jobs:
   build-and-test:
@@ -99,15 +99,15 @@ jobs:
       - name: E2E tests
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.skip_e2e != 'true' }}
         env:
-          ELECTRON_PATH: ./node_modules/.bin/electron
           # Pass extra Chromium args to avoid SUID sandbox failures on ubuntu-latest
           ELECTRON_EXTRA_LAUNCH_ARGS: --no-sandbox --disable-setuid-sandbox --disable-gpu --disable-dev-shm-usage
           ELECTRON_DISABLE_SANDBOX: 'true'
           ELECTRON_ENABLE_LOGGING: 'true'
         run: |
           # Ensure Electron chrome-sandbox has proper permissions to satisfy Chromium sandbox if used
+          # In pnpm workspace, electron is installed in app/main/node_modules, not at root
           if command -v sudo >/dev/null 2>&1; then
-            SANDBOX_PATH=$(node -p "require('path').join(require('path').dirname(require.resolve('electron')), 'dist', 'chrome-sandbox')") || true
+            SANDBOX_PATH=$(cd app/main && node -p "require('path').join(require('path').dirname(require.resolve('electron')), 'dist', 'chrome-sandbox')") || true
             if [ -f "$SANDBOX_PATH" ]; then
               sudo chown root:root "$SANDBOX_PATH" || true
               sudo chmod 4755 "$SANDBOX_PATH" || true
