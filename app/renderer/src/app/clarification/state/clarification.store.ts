@@ -10,6 +10,7 @@ export interface ClarificationState {
   isReadyToGenerate: boolean;
   validationError: string | null;
   isLoading: boolean;
+  error: string | null;
 }
 
 const initialState: ClarificationState = {
@@ -18,7 +19,8 @@ const initialState: ClarificationState = {
   selectedOptionIds: [],
   isReadyToGenerate: false,
   validationError: null,
-  isLoading: false
+  isLoading: false,
+  error: null,
 };
 
 @Injectable({ providedIn: 'root' })
@@ -30,6 +32,7 @@ export class ClarificationStore extends ComponentStore<ClarificationState> {
   readonly history$ = this.select<ClarificationPrompt[]>((state) => state.history);
   readonly hasPrompt$ = this.currentPrompt$.pipe(map((prompt) => prompt !== null));
   readonly isLoading$ = this.select<boolean>((state) => state.isLoading);
+  readonly error$ = this.select<string | null>((state) => state.error);
 
   constructor() {
     super(initialState);
@@ -49,7 +52,7 @@ export class ClarificationStore extends ComponentStore<ClarificationState> {
       history: [...state.history, prompt],
       selectedOptionIds: [],
       validationError: null,
-      isReadyToGenerate: false
+      isReadyToGenerate: false,
     };
   });
 
@@ -63,7 +66,7 @@ export class ClarificationStore extends ComponentStore<ClarificationState> {
     if (!optionExists) {
       return {
         ...state,
-        validationError: `Option ${optionId} was not provided for prompt ${prompt.id}.`
+        validationError: `Option ${optionId} was not provided for prompt ${prompt.id}.`,
       };
     }
 
@@ -75,22 +78,32 @@ export class ClarificationStore extends ComponentStore<ClarificationState> {
     return {
       ...state,
       selectedOptionIds: nextSelected,
-      validationError: null
+      validationError: null,
     };
   });
 
   readonly markReady = this.updater((state, ready: boolean) => ({
     ...state,
-    isReadyToGenerate: ready
+    isReadyToGenerate: ready,
   }));
 
   readonly setValidationError = this.updater((state, message: string | null) => ({
     ...state,
-    validationError: message
+    validationError: message,
   }));
 
   readonly setLoading = this.updater((state, loading: boolean) => ({
     ...state,
-    isLoading: loading
+    isLoading: loading,
+  }));
+
+  readonly setError = this.updater((state, error: string | null) => ({
+    ...state,
+    error,
+  }));
+
+  readonly clearError = this.updater((state) => ({
+    ...state,
+    error: null,
   }));
 }

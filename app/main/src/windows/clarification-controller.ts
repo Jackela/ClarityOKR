@@ -7,14 +7,14 @@ import {
   clarificationPromptResponseSchema,
   clarificationSessionSchema,
   generateOKRRequestSchema,
-  generateOKRResponseSchema
+  generateOKRResponseSchema,
 } from '@clarityokr/contracts';
 import type {
   ClarificationPrompt,
   ClarificationSession,
   KeyResult,
   OKRDocument,
-  UserActionLogEntry
+  UserActionLogEntry,
 } from '@clarityokr/contracts';
 
 import electron, { type IpcMainEvent } from 'electron';
@@ -24,7 +24,7 @@ import type {
   LlmNextQuestionRequest,
   LlmNextQuestionResponse,
   OkrDraftRequest,
-  OkrDraftResponse
+  OkrDraftResponse,
 } from '../main/ipc.llm.js';
 import { OkrAgentService } from '../services/okr-agent.service.js';
 import { ActionLogWriter } from '../persistence/action-log-writer.js';
@@ -47,8 +47,8 @@ class StaticPromptAgent implements ClarificationAgent {
         options: [
           { id: 'scope', label: '聚焦范围', scopeTag: 'dimension' },
           { id: 'metric', label: '衡量指标', scopeTag: 'dimension' },
-          { id: 'timeline', label: '时间范围', scopeTag: 'dimension' }
-        ]
+          { id: 'timeline', label: '时间范围', scopeTag: 'dimension' },
+        ],
       });
     }
 
@@ -59,8 +59,8 @@ class StaticPromptAgent implements ClarificationAgent {
       context: '选择最关键的下一步',
       options: [
         { id: 'audience', label: '影响对象', scopeTag: 'detail' },
-        { id: 'constraint', label: '主要约束', scopeTag: 'detail' }
-      ]
+        { id: 'constraint', label: '主要约束', scopeTag: 'detail' },
+      ],
     });
   }
 }
@@ -73,7 +73,7 @@ export class ClarificationController {
     private readonly okrRepository: OkrRepository,
     private readonly actionLogWriter: ActionLogWriter,
     private readonly stickyWindowManager: StickyWindowManager,
-    private readonly elect: typeof electron = electron
+    private readonly elect: typeof electron = electron,
   ) {
     this.registerHandlers();
   }
@@ -85,7 +85,7 @@ export class ClarificationController {
       console.info('[main] prompt request received', {
         sessionId: request.sessionId,
         intent: request.intent,
-        hasPersistedSession: Boolean(persisted.session)
+        hasPersistedSession: Boolean(persisted.session),
       });
 
       const now = new Date().toISOString();
@@ -103,20 +103,52 @@ export class ClarificationController {
         steps: [],
         selectedOptionIds: [],
         confidence: 0,
-        pendingQuestionId: null
+        pendingQuestionId: null,
       };
 
       // Use LLM to generate the initial prompt as well
       const llm = new OkrAgentService();
-      const data = await llm.getNextQuestion({ turns: [] }, { questionId: 'init', optionId: request.intent });
-      type NextQ = { question: { id: string; text: string; options: Array<{ id: string; label: string; value?: string }> } };
-      const q = (data as NextQ).question;
+      let data: unknown;
+      try {
+        data = await llm.getNextQuestion(
+          { turns: [] },
+          { questionId: 'init', optionId: request.intent },
+        );
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        console.error('[main] LLM getNextQuestion failed:', errorMsg);
+        throw new Error(`Failed to generate clarification prompt: ${errorMsg}`);
+      }
+
+      if (!data || typeof data !== 'object') {
+        throw new Error('Empty or invalid response from LLM service');
+      }
+
+      type NextQ = {
+        question: {
+          id: string;
+          text: string;
+          options: Array<{ id: string; label: string; value?: string }>;
+        };
+      };
+      const typedData = data as NextQ;
+
+      if (!typedData.question || !typedData.question.id || !typedData.question.text) {
+        throw new Error('LLM response missing required question fields');
+      }
+
+      const q = typedData.question;
       const nextPrompt: ClarificationPrompt = {
         id: q.id,
         sequence: 0,
         question: q.text,
         context: 'LLM generated',
-        options: (q.options ?? []).map((o) => ({ id: o.id, label: o.label, description: undefined, scopeTag: 'llm' }))
+        options: (q.options ?? []).map((o) => ({
+          id: o.id,
+          label: o.label,
+          description: undefined,
+          scopeTag: 'llm',
+        })),
       };
 
       session.steps = [...session.steps, nextPrompt];
@@ -128,12 +160,15 @@ export class ClarificationController {
         actionType: 'generate',
         sessionId: session.id,
         okrId: null,
-        payloadSummary: `prompt:${nextPrompt.id}`
+        payloadSummary: `prompt:${nextPrompt.id}`,
       }).catch((error) => {
         this.logUnexpectedError('Failed to record generate action', error);
       });
 
-      console.info('[main] prompt resolved', { promptId: nextPrompt.id, sequence: nextPrompt.sequence });
+      console.info('[main] prompt resolved', {
+        promptId: nextPrompt.id,
+        sequence: nextPrompt.sequence,
+      });
       return clarificationPromptResponseSchema.parse({ prompt: nextPrompt });
     });
 
@@ -155,7 +190,7 @@ export class ClarificationController {
 
       console.info('[main] generating OKR document', {
         sessionId: session.id,
-        okrId: okr.id
+        okrId: okr.id,
       });
 
       session.status = 'completed';
@@ -170,7 +205,7 @@ export class ClarificationController {
         actionType: 'generate',
         sessionId: session.id,
         okrId: okr.id,
-        payloadSummary: `okr:${okr.id}`
+        payloadSummary: `okr:${okr.id}`,
       });
 
       await this.stickyWindowManager.open(okr);
@@ -195,92 +230,162 @@ export class ClarificationController {
 
     // LLM-backed handlers for real-time clarification and OKR generation
     const agent = new OkrAgentService();
-    this.elect.ipcMain.handle(IPCChannels.LLM_NEXT_QUESTION, async (_event, payload): Promise<LlmNextQuestionResponse> => {
-      const body = payload as LlmNextQuestionRequest;
-      const data = (await agent.getNextQuestion(body.context, body.lastChoice)) as LlmNextQuestionResponse;
+    this.elect.ipcMain.handle(
+      IPCChannels.LLM_NEXT_QUESTION,
+      async (_event, payload): Promise<LlmNextQuestionResponse> => {
+        const body = payload as LlmNextQuestionRequest;
 
-      // Map LLM question into ClarificationPrompt and broadcast
-      const persisted = await this.sessionRepository.load();
-      const sessionCandidate = persisted.session;
-      if (!sessionCandidate) {
+        let data: LlmNextQuestionResponse;
+        try {
+          data = (await agent.getNextQuestion(
+            body.context,
+            body.lastChoice,
+          )) as LlmNextQuestionResponse;
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+          console.error('[main] LLM getNextQuestion failed:', errorMsg);
+          throw new Error(`Failed to get next question: ${errorMsg}`);
+        }
+
+        if (!data || typeof data !== 'object' || !data.question) {
+          throw new Error('Empty or invalid response from LLM next question service');
+        }
+
+        // Map LLM question into ClarificationPrompt and broadcast
+        const persisted = await this.sessionRepository.load();
+        const sessionCandidate = persisted.session;
+        if (!sessionCandidate) {
+          return data;
+        }
+        const session = clarificationSessionSchema.parse(sessionCandidate);
+        const sequence = session.steps.length;
+        const q = data.question;
+        const prompt: ClarificationPrompt = {
+          id: q.id,
+          sequence,
+          question: q.text,
+          context: 'LLM generated',
+          options: (q.options ?? []).map((o) => ({
+            id: o.id,
+            label: o.label,
+            description: undefined,
+            scopeTag: 'llm',
+          })),
+        };
+        session.steps.push(prompt);
+        session.pendingQuestionId = prompt.id;
+        session.updatedAt = new Date().toISOString();
+        await this.sessionRepository.saveSession(session);
+        this.elect.webContents
+          .getAllWebContents()
+          .forEach((wc) => wc.send(IPCChannels.CLARIFICATION_PROMPT, { prompt }));
         return data;
-      }
-      const session = clarificationSessionSchema.parse(sessionCandidate);
-      const sequence = session.steps.length;
-      const q = data.question;
-      const prompt: ClarificationPrompt = {
-        id: q.id,
-        sequence,
-        question: q.text,
-        context: 'LLM generated',
-        options: (q.options ?? []).map((o) => ({ id: o.id, label: o.label, description: undefined, scopeTag: 'llm' }))
-      };
-      session.steps.push(prompt);
-      session.pendingQuestionId = prompt.id;
-      session.updatedAt = new Date().toISOString();
-      await this.sessionRepository.saveSession(session);
-      this.elect.webContents.getAllWebContents().forEach((wc) => wc.send(IPCChannels.CLARIFICATION_PROMPT, { prompt }));
-      return data;
-    });
+      },
+    );
 
-    this.elect.ipcMain.handle(IPCChannels.LLM_GENERATE_DRAFT, async (_event, payload): Promise<OkrDraftResponse> => {
-      const body = payload as OkrDraftRequest;
-      const persisted = await this.sessionRepository.load();
-      const session = persisted.session
-        ? clarificationSessionSchema.parse(persisted.session)
-        : null;
+    this.elect.ipcMain.handle(
+      IPCChannels.LLM_GENERATE_DRAFT,
+      async (_event, payload): Promise<OkrDraftResponse> => {
+        const body = payload as OkrDraftRequest;
+        const persisted = await this.sessionRepository.load();
+        const session = persisted.session
+          ? clarificationSessionSchema.parse(persisted.session)
+          : null;
 
-      if (!session) {
-        throw new Error('No active session found for LLM draft generation.');
-      }
+        if (!session) {
+          throw new Error('No active session found for LLM draft generation.');
+        }
 
-      const context = body.context ?? { turns: session.steps.map((p) => ({ questionId: p.id, optionId: 'unknown', timestamp: new Date().toISOString() })) };
-      const llmDraft = await agent.generateDraft(context);
+        const context = body.context ?? {
+          turns: session.steps.map((p) => ({
+            questionId: p.id,
+            optionId: 'unknown',
+            timestamp: new Date().toISOString(),
+          })),
+        };
 
-      type DraftKR = { id?: string; statement?: string; target?: unknown; measurement?: string };
-      type DraftObj = { id?: string; title?: string; description?: string; keyResults?: DraftKR[] };
-      type DraftPayload = { draft?: { objectives?: DraftObj[] } };
-      const draft = (llmDraft as DraftPayload).draft;
-      const first = draft?.objectives?.[0];
-      if (!first) {
-        throw new Error('LLM draft response missing objectives.');
-      }
+        let llmDraft: unknown;
+        try {
+          llmDraft = await agent.generateDraft(context);
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+          console.error('[main] LLM generateDraft failed:', errorMsg);
+          throw new Error(`Failed to generate OKR draft: ${errorMsg}`);
+        }
 
-      const okr: OKRDocument = {
-        id: randomUUID(),
-        objective: first.title ?? first.description ?? '自动生成的目标',
-        keyResults: (first.keyResults ?? []).slice(0, 5).map((kr) => ({
-          id: String(kr?.id ?? randomUUID()),
-          statement: String(kr?.statement ?? ''),
-          successMetric: typeof kr?.target !== 'undefined' && typeof kr?.measurement === 'string' ? `${String(kr.target)} ${kr.measurement}` : undefined,
-          owner: undefined
-        })),
-        sourceSessionId: session.id,
-        generatedAt: new Date().toISOString(),
-        lastEditedAt: null,
-        regenerationPolicy: 'append',
-        manualEdits: []
-      };
+        if (!llmDraft || typeof llmDraft !== 'object') {
+          throw new Error('Empty or invalid response from LLM draft service');
+        }
 
-      await this.okrRepository.save(okr);
+        type DraftKR = { id?: string; statement?: string; target?: unknown; measurement?: string };
+        type DraftObj = {
+          id?: string;
+          title?: string;
+          description?: string;
+          keyResults?: DraftKR[];
+        };
+        type DraftPayload = { draft?: { objectives?: DraftObj[] } };
+        const draft = (llmDraft as DraftPayload).draft;
 
-      const response = generateOKRResponseSchema.parse({ okr, session });
-      this.elect.webContents.getAllWebContents().forEach((wc) => wc.send(IPCChannels.OKR_GENERATE, response));
-      return response;
-    });
+        if (
+          !draft ||
+          !draft.objectives ||
+          !Array.isArray(draft.objectives) ||
+          draft.objectives.length === 0
+        ) {
+          throw new Error('LLM draft response missing required objectives field');
+        }
+
+        const first = draft.objectives[0];
+        if (!first || (!first.title && !first.description)) {
+          throw new Error('LLM draft objective missing required title or description');
+        }
+
+        const okr: OKRDocument = {
+          id: randomUUID(),
+          objective: first.title ?? first.description ?? '自动生成的目标',
+          keyResults: (first.keyResults ?? []).slice(0, 5).map((kr) => ({
+            id: String(kr?.id ?? randomUUID()),
+            statement: String(kr?.statement ?? ''),
+            successMetric:
+              typeof kr?.target !== 'undefined' && typeof kr?.measurement === 'string'
+                ? `${String(kr.target)} ${kr.measurement}`
+                : undefined,
+            owner: undefined,
+          })),
+          sourceSessionId: session.id,
+          generatedAt: new Date().toISOString(),
+          lastEditedAt: null,
+          regenerationPolicy: 'append',
+          manualEdits: [],
+        };
+
+        await this.okrRepository.save(okr);
+
+        const response = generateOKRResponseSchema.parse({ okr, session });
+        this.elect.webContents
+          .getAllWebContents()
+          .forEach((wc) => wc.send(IPCChannels.OKR_GENERATE, response));
+        return response;
+      },
+    );
   }
 
   private async logAction(entry: Omit<UserActionLogEntry, 'id' | 'occurredAt'>): Promise<void> {
     const action: UserActionLogEntry = {
       id: randomUUID(),
       occurredAt: new Date().toISOString(),
-      ...entry
+      ...entry,
     };
 
     await this.actionLogWriter.append(action);
   }
 
-  private async handleResponse(event: IpcMainEvent, payload: unknown, opts: { generateNext: boolean } = { generateNext: true }): Promise<void> {
+  private async handleResponse(
+    event: IpcMainEvent,
+    payload: unknown,
+    opts: { generateNext: boolean } = { generateNext: true },
+  ): Promise<void> {
     const response = clarificationOptionSelectionSchema.parse(payload);
     const persisted = await this.sessionRepository.load();
     const sessionCandidate = persisted.session;
@@ -299,7 +404,7 @@ export class ClarificationController {
       actionType: 'edit',
       sessionId: session.id,
       okrId: null,
-      payloadSummary: `selected:${response.optionId}`
+      payloadSummary: `selected:${response.optionId}`,
     }).catch((error) => {
       this.logUnexpectedError('Failed to record selection action', error);
     });
@@ -312,18 +417,18 @@ export class ClarificationController {
 
       const targetContents = this.elect.webContents.fromId(event.sender.id);
       targetContents?.send(IPCChannels.CLARIFICATION_PROMPT, {
-        prompt: nextPrompt
+        prompt: nextPrompt,
       });
       console.info('[main] emitted follow-up prompt', {
         sessionId: session.id,
         promptId: nextPrompt.id,
-        sequence: nextPrompt.sequence
+        sequence: nextPrompt.sequence,
       });
       void this.logAction({
         actionType: 'generate',
         sessionId: session.id,
         okrId: null,
-        payloadSummary: `prompt:${nextPrompt.id}`
+        payloadSummary: `prompt:${nextPrompt.id}`,
       }).catch((error) => {
         this.logUnexpectedError('Failed to record follow-up prompt', error);
       });
@@ -344,7 +449,7 @@ export class ClarificationController {
       generatedAt,
       lastEditedAt: null,
       regenerationPolicy: 'append',
-      manualEdits: []
+      manualEdits: [],
     } satisfies OKRDocument;
   }
 
@@ -377,14 +482,14 @@ export class ClarificationController {
         id: randomUUID(),
         statement: `为“${intentSummary}”设定可衡量的流程节奏`,
         successMetric: '每周复盘 1 次',
-        owner: '团队负责人'
+        owner: '团队负责人',
       },
       {
         id: randomUUID(),
         statement: `建立 ${intentSummary} 成果指标追踪`,
         successMetric: '关键指标提升 15%',
-        owner: undefined
-      }
+        owner: undefined,
+      },
     ];
   }
 }

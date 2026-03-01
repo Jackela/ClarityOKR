@@ -53,14 +53,16 @@ import { OkrStickyGatewayService } from './okr-sticky/services/okr-sticky-gatewa
           <p class="status-message" *ngIf="statusMessage">{{ statusMessage }}</p>
         </section>
 
-        <section class="wizard-panel" *ngIf="(currentPrompt$ | async) as prompt">
+        <section class="wizard-panel" *ngIf="currentPrompt$ | async as prompt">
           <clarityokr-clarification-wizard
             [prompt]="prompt"
             [isReadyToGenerate]="(isReady$ | async) ?? false"
             [validationError]="(validationError$ | async) ?? null"
             [loading]="(isLoading$ | async) ?? false"
+            [error]="(error$ | async) ?? null"
             (optionSelected)="onOptionSelected($event)"
             (generate)="onGenerate()"
+            (retry)="onRetry()"
           ></clarityokr-clarification-wizard>
         </section>
 
@@ -71,13 +73,22 @@ import { OkrStickyGatewayService } from './okr-sticky/services/okr-sticky-gatewa
     </ng-container>
 
     <ng-template #stickyShell>
-      <clarityokr-sticky-note [okr]="stickyNote$ | async" (addKr)="onAddKeyResult()"></clarityokr-sticky-note>
+      <clarityokr-sticky-note
+        [okr]="stickyNote$ | async"
+        (addKr)="onAddKeyResult()"
+      ></clarityokr-sticky-note>
     </ng-template>
   `,
   styles: [
     `
       :host {
-        font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+        font-family:
+          'Segoe UI',
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          'Helvetica Neue',
+          sans-serif;
         color: #0f172a;
         display: block;
         min-height: 100vh;
@@ -131,7 +142,9 @@ import { OkrStickyGatewayService } from './okr-sticky/services/okr-sticky-gatewa
         border: 1px solid rgba(37, 99, 235, 0.25);
         font-size: 1rem;
         background-color: rgba(37, 99, 235, 0.06);
-        transition: border-color 120ms ease, box-shadow 120ms ease;
+        transition:
+          border-color 120ms ease,
+          box-shadow 120ms ease;
       }
 
       .intent-input:focus {
@@ -149,7 +162,9 @@ import { OkrStickyGatewayService } from './okr-sticky/services/okr-sticky-gatewa
         color: #fff;
         font-weight: 600;
         cursor: pointer;
-        transition: transform 120ms ease, box-shadow 120ms ease;
+        transition:
+          transform 120ms ease,
+          box-shadow 120ms ease;
       }
 
       .intent-submit:disabled {
@@ -196,19 +211,20 @@ import { OkrStickyGatewayService } from './okr-sticky/services/okr-sticky-gatewa
         padding: 1.5rem;
         border: 1px solid rgba(79, 70, 229, 0.25);
       }
-    `
-  ]
+    `,
+  ],
 })
 export class AppComponent implements OnDestroy {
   readonly intentControl = new FormControl('', {
     nonNullable: true,
-    validators: [Validators.required, Validators.minLength(2)]
+    validators: [Validators.required, Validators.minLength(2)],
   });
 
   readonly currentPrompt$: Observable<ClarificationPrompt | null>;
   readonly validationError$: Observable<string | null>;
   readonly isReady$: Observable<boolean>;
   readonly isLoading$: Observable<boolean>;
+  readonly error$: Observable<string | null>;
   readonly stickyNote$: Observable<OkrStickyViewModel | null>;
   readonly hasStickyNote$: Observable<boolean>;
   readonly isStickyShell =
@@ -228,12 +244,13 @@ export class AppComponent implements OnDestroy {
     private readonly orchestrator: ClarificationOrchestratorService,
     private readonly store: ClarificationStore,
     private readonly stickyGateway: OkrStickyGatewayService,
-    private readonly llmGateway: LlmGatewayService
+    private readonly llmGateway: LlmGatewayService,
   ) {
     this.currentPrompt$ = this.store.currentPrompt$ as Observable<ClarificationPrompt | null>;
     this.validationError$ = this.store.validationError$ as Observable<string | null>;
     this.isReady$ = this.store.isReadyToGenerate$ as Observable<boolean>;
     this.isLoading$ = this.store.isLoading$ as Observable<boolean>;
+    this.error$ = this.store.error$ as Observable<string | null>;
     this.stickyNote$ = this.stickyGateway.viewModel$ as Observable<OkrStickyViewModel | null>;
     this.hasStickyNote$ = this.stickyGateway.hasStickyNote$ as Observable<boolean>;
     this.store.currentPrompt$
@@ -245,7 +262,7 @@ export class AppComponent implements OnDestroy {
           console.info('[renderer] prompt received', {
             promptId: prompt.id,
             sequence: prompt.sequence,
-            question: prompt.question
+            question: prompt.question,
           });
           this.isClarifying = false;
         }
@@ -277,17 +294,15 @@ export class AppComponent implements OnDestroy {
     console.info('[renderer] beginClarification invoked', {
       intent: this.intentControl.value,
       valid: this.intentControl.valid,
-      sessionId: this.sessionId
+      sessionId: this.sessionId,
     });
 
-    this.orchestrator
-      .requestPrompt(this.sessionId, this.intentControl.value)
-      .subscribe({
-        error: (error: unknown) => {
-          this.statusMessage = error instanceof Error ? error.message : String(error);
-          this.isClarifying = false;
-        }
-      });
+    this.orchestrator.requestPrompt(this.sessionId, this.intentControl.value).subscribe({
+      error: (error: unknown) => {
+        this.statusMessage = error instanceof Error ? error.message : String(error);
+        this.isClarifying = false;
+      },
+    });
   }
 
   onOptionSelected(optionId: string): void {
@@ -302,13 +317,11 @@ export class AppComponent implements OnDestroy {
       return;
     }
 
-    this.orchestrator
-      .recordSelection(this.sessionId, this.latestPrompt.id, optionId)
-      .subscribe({
-        error: (error: unknown) => {
-          this.statusMessage = error instanceof Error ? error.message : String(error);
-        }
-      });
+    this.orchestrator.recordSelection(this.sessionId, this.latestPrompt.id, optionId).subscribe({
+      error: (error: unknown) => {
+        this.statusMessage = error instanceof Error ? error.message : String(error);
+      },
+    });
 
     // Also request next question via LLM gateway; non-blocking
     const historyTurns: Array<{ questionId: string; optionId: string; timestamp: string }> = [];
@@ -327,7 +340,7 @@ export class AppComponent implements OnDestroy {
           this.statusMessage = '请求超时或失败，请重试。';
           this.llmBusy = false;
           this.store.setLoading(false);
-        }
+        },
       });
   }
 
@@ -347,21 +360,20 @@ export class AppComponent implements OnDestroy {
 
       // Also request OKR draft via LLM (non-blocking for UI)
       const turns: Array<{ questionId: string; optionId: string; timestamp: string }> = [];
-      this.llmGateway
-        .generateDraft({ turns })
-        .subscribe(
-          (payload: unknown) => {
-            const first = (payload as { draft?: { objectives?: Array<{ title?: string }> } })?.draft?.objectives?.[0];
-            if (first && typeof first.title === 'string' && first.title) {
-              this.generatedSummary = first.title;
-            }
-          },
-          (err: unknown) => {
-            // eslint-disable-next-line no-console
-            console.warn('[renderer] LLM draft generation failed', err);
-            this.statusMessage = '生成失败或超时，请稍后重试。';
+      this.llmGateway.generateDraft({ turns }).subscribe(
+        (payload: unknown) => {
+          const first = (payload as { draft?: { objectives?: Array<{ title?: string }> } })?.draft
+            ?.objectives?.[0];
+          if (first && typeof first.title === 'string' && first.title) {
+            this.generatedSummary = first.title;
           }
-        );
+        },
+        (err: unknown) => {
+          // eslint-disable-next-line no-console
+          console.warn('[renderer] LLM draft generation failed', err);
+          this.statusMessage = '生成失败或超时，请稍后重试。';
+        },
+      );
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('[renderer] generate failed', error);
