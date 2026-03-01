@@ -4,17 +4,26 @@ import type { OKRDocument } from '@clarityokr/contracts';
 
 import { ensureDataDir, readJson, writeJson } from './utils.js';
 
-const DATA_DIR = join(process.cwd(), 'data');
-const OKR_FILE = join(DATA_DIR, 'okr-document.json');
+const DEFAULT_DATA_DIR = join(process.cwd(), 'data');
 
 export class OkrRepository {
+  private readonly dataDir: string;
+
+  constructor(dataDir?: string) {
+    this.dataDir = dataDir ?? DEFAULT_DATA_DIR;
+  }
+
+  private get okrFile(): string {
+    return join(this.dataDir, 'okr-document.json');
+  }
+
   async loadLatest(): Promise<OKRDocument | null> {
-    await ensureDataDir(DATA_DIR);
-    return readJson<OKRDocument>(OKR_FILE);
+    await ensureDataDir(this.dataDir);
+    return readJson<OKRDocument>(this.okrFile);
   }
 
   async save(document: OKRDocument): Promise<void> {
-    await ensureDataDir(DATA_DIR);
-    await writeJson(OKR_FILE, document);
+    await ensureDataDir(this.dataDir);
+    await writeJson(this.okrFile, document);
   }
 }

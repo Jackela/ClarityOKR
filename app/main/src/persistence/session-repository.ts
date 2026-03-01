@@ -1,13 +1,9 @@
+import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
 
 import type { ClarificationSession, OKRDocument, UserActionLogEntry } from '@clarityokr/contracts';
 
 import { ensureDataDir, readJson, writeJson } from './utils.js';
-
-const DATA_DIR = join(process.cwd(), 'data');
-const SESSION_FILE = join(DATA_DIR, 'clarification-session.json');
-const OKR_FILE = join(DATA_DIR, 'okr-document.json');
-const ACTION_LOG_FILE = join(DATA_DIR, 'action-log.json');
 
 export interface PersistedState {
   session: ClarificationSession | null;
@@ -16,13 +12,25 @@ export interface PersistedState {
 }
 
 export class SessionRepository {
+  private readonly dataDir: string;
+  private readonly sessionFile: string;
+  private readonly okrFile: string;
+  private readonly actionLogFile: string;
+
+  constructor(dataDir?: string) {
+    this.dataDir = dataDir ?? join(process.cwd(), 'data');
+    this.sessionFile = join(this.dataDir, 'clarification-session.json');
+    this.okrFile = join(this.dataDir, 'okr-document.json');
+    this.actionLogFile = join(this.dataDir, 'action-log.json');
+  }
+
   async load(): Promise<PersistedState> {
-    await ensureDataDir(DATA_DIR);
+    await ensureDataDir(this.dataDir);
 
     const [session, okr, actions] = await Promise.all([
-      readJson<ClarificationSession>(SESSION_FILE),
-      readJson<OKRDocument>(OKR_FILE),
-      readJson<UserActionLogEntry[]>(ACTION_LOG_FILE),
+      readJson<ClarificationSession>(this.sessionFile),
+      readJson<OKRDocument>(this.okrFile),
+      readJson<UserActionLogEntry[]>(this.actionLogFile),
     ]);
 
     return {
@@ -33,37 +41,35 @@ export class SessionRepository {
   }
 
   async saveSession(session: ClarificationSession | null): Promise<void> {
-    await ensureDataDir(DATA_DIR);
+    await ensureDataDir(this.dataDir);
 
     if (session) {
-      await writeJson(SESSION_FILE, session);
+      await writeJson(this.sessionFile, session);
     } else {
-      const { promises: fs } = await import('node:fs');
-      await fs.rm(SESSION_FILE, { force: true });
+      await fs.rm(this.sessionFile, { force: true });
     }
   }
 
   async saveOKRDocument(document: OKRDocument | null): Promise<void> {
-    await ensureDataDir(DATA_DIR);
+    await ensureDataDir(this.dataDir);
 
     if (document) {
-      await writeJson(OKR_FILE, document);
+      await writeJson(this.okrFile, document);
     } else {
-      const { promises: fs } = await import('node:fs');
-      await fs.rm(OKR_FILE, { force: true });
+      await fs.rm(this.okrFile, { force: true });
     }
   }
 
   async appendActionLog(entry: UserActionLogEntry): Promise<void> {
-    await ensureDataDir(DATA_DIR);
+    await ensureDataDir(this.dataDir);
 
-    const current = (await readJson<UserActionLogEntry[]>(ACTION_LOG_FILE)) ?? [];
+    const current = (await readJson<UserActionLogEntry[]>(this.actionLogFile)) ?? [];
     current.push(entry);
-    await writeJson(ACTION_LOG_FILE, current);
+    await writeJson(this.actionLogFile, current);
   }
 
   async replaceActionLog(entries: UserActionLogEntry[]): Promise<void> {
-    await ensureDataDir(DATA_DIR);
-    await writeJson(ACTION_LOG_FILE, entries);
+    await ensureDataDir(this.dataDir);
+    await writeJson(this.actionLogFile, entries);
   }
 }

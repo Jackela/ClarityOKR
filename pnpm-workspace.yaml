@@ -1,8 +1,9 @@
 packages:
-  - "app/main"
-  - "app/renderer"
-  - "packages/contracts"
-  - "tests/unit"
-  - "tests/component"
-  - "tests/e2e"
-  - "tests/integration"
+  - 'app/main'
+  - 'app/renderer'
+  - 'packages/contracts'
+  - 'tests/unit'
+  - 'tests/component'
+  - 'tests/e2e'
+  - 'tests/integration'
+  - 'tests/performance'

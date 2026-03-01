@@ -1,7 +1,7 @@
 import { promises as fs } from 'node:fs';
 
-export async function ensureDataDir(dir: string): Promise<void> {
-  await fs.mkdir(dir, { recursive: true });
+export async function ensureDataDir(dataDir: string): Promise<void> {
+  await fs.mkdir(dataDir, { recursive: true });
 }
 
 export async function readJson<T>(file: string): Promise<T | null> {
@@ -15,9 +15,11 @@ export async function readJson<T>(file: string): Promise<T | null> {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
       return null;
     }
+
     if (error instanceof SyntaxError) {
       return null;
     }
+
     throw error;
   }
 }
