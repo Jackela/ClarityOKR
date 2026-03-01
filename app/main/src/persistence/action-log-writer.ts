@@ -3,12 +3,7 @@ import { join } from 'node:path';
 
 import type { UserActionLogEntry } from '@clarityokr/contracts';
 
-const DATA_DIR = join(process.cwd(), 'data');
-const ACTION_LOG_FILE = join(DATA_DIR, 'action-log.json');
-
-async function ensureDataDir(): Promise<void> {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-}
+const DEFAULT_DATA_DIR = join(process.cwd(), 'data');
 
 async function readJson<T>(file: string): Promise<T | null> {
   try {
@@ -36,15 +31,27 @@ async function writeJson<T>(file: string, value: T): Promise<void> {
 }
 
 export class ActionLogWriter {
+  private readonly dataDir: string;
+  private readonly actionLogFile: string;
+
+  constructor(dataDir?: string) {
+    this.dataDir = dataDir ?? DEFAULT_DATA_DIR;
+    this.actionLogFile = join(this.dataDir, 'action-log.json');
+  }
+
+  private async ensureDataDir(): Promise<void> {
+    await fs.mkdir(this.dataDir, { recursive: true });
+  }
+
   async append(entry: UserActionLogEntry): Promise<void> {
-    await ensureDataDir();
-    const current = (await readJson<UserActionLogEntry[]>(ACTION_LOG_FILE)) ?? [];
+    await this.ensureDataDir();
+    const current = (await readJson<UserActionLogEntry[]>(this.actionLogFile)) ?? [];
     current.push(entry);
-    await writeJson(ACTION_LOG_FILE, current);
+    await writeJson(this.actionLogFile, current);
   }
 
   async all(): Promise<UserActionLogEntry[]> {
-    await ensureDataDir();
-    return (await readJson<UserActionLogEntry[]>(ACTION_LOG_FILE)) ?? [];
+    await this.ensureDataDir();
+    return (await readJson<UserActionLogEntry[]>(this.actionLogFile)) ?? [];
   }
 }
