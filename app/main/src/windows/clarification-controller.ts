@@ -17,7 +17,7 @@ import type {
   UserActionLogEntry,
 } from '@clarityokr/contracts';
 
-import electron, { type IpcMainEvent } from 'electron';
+import electron from 'electron';
 
 import { IPCChannels } from '../bootstrap/ipc-channels.js';
 import type {
@@ -32,42 +32,7 @@ import { OkrRepository } from '../persistence/okr-repository.js';
 import { SessionRepository } from '../persistence/session-repository.js';
 import { StickyWindowManager } from './sticky-window-manager.js';
 
-interface ClarificationAgent {
-  nextPrompt(intent: string, history: ClarificationPrompt[]): Promise<ClarificationPrompt>;
-}
-
-class StaticPromptAgent implements ClarificationAgent {
-  nextPrompt(intent: string, history: ClarificationPrompt[]): Promise<ClarificationPrompt> {
-    if (history.length === 0) {
-      return Promise.resolve({
-        id: randomUUID(),
-        sequence: 0,
-        question: '你希望澄清哪一方面的目标?',
-        context: `初始意图: ${intent}`,
-        options: [
-          { id: 'scope', label: '聚焦范围', scopeTag: 'dimension' },
-          { id: 'metric', label: '衡量指标', scopeTag: 'dimension' },
-          { id: 'timeline', label: '时间范围', scopeTag: 'dimension' },
-        ],
-      });
-    }
-
-    return Promise.resolve({
-      id: randomUUID(),
-      sequence: history.length,
-      question: '再补充一个细节, 让意图更清晰',
-      context: '选择最关键的下一步',
-      options: [
-        { id: 'audience', label: '影响对象', scopeTag: 'detail' },
-        { id: 'constraint', label: '主要约束', scopeTag: 'detail' },
-      ],
-    });
-  }
-}
-
 export class ClarificationController {
-  private readonly agent: ClarificationAgent = new StaticPromptAgent();
-
   constructor(
     private readonly sessionRepository: SessionRepository,
     private readonly okrRepository: OkrRepository,
@@ -174,7 +139,7 @@ export class ClarificationController {
 
     this.elect.ipcMain.on(IPCChannels.CLARIFICATION_RESPOND, (event, payload) => {
       // Persist selection only; next prompt will be produced by LLM path
-      void this.handleResponse(event, payload, { generateNext: false });
+      void this.handleResponse(payload);
     });
 
     this.elect.ipcMain.handle(IPCChannels.OKR_GENERATE, async (_event, payload) => {
@@ -381,11 +346,7 @@ export class ClarificationController {
     await this.actionLogWriter.append(action);
   }
 
-  private async handleResponse(
-    event: IpcMainEvent,
-    payload: unknown,
-    opts: { generateNext: boolean } = { generateNext: true },
-  ): Promise<void> {
+  private async handleResponse(payload: unknown): Promise<void> {
     const response = clarificationOptionSelectionSchema.parse(payload);
     const persisted = await this.sessionRepository.load();
     const sessionCandidate = persisted.session;
@@ -408,31 +369,6 @@ export class ClarificationController {
     }).catch((error) => {
       this.logUnexpectedError('Failed to record selection action', error);
     });
-
-    if (opts.generateNext) {
-      const nextPrompt = await this.agent.nextPrompt(session.initialIntent, session.steps);
-      session.steps.push(nextPrompt);
-      session.pendingQuestionId = nextPrompt.id;
-      await this.sessionRepository.saveSession(session);
-
-      const targetContents = this.elect.webContents.fromId(event.sender.id);
-      targetContents?.send(IPCChannels.CLARIFICATION_PROMPT, {
-        prompt: nextPrompt,
-      });
-      console.info('[main] emitted follow-up prompt', {
-        sessionId: session.id,
-        promptId: nextPrompt.id,
-        sequence: nextPrompt.sequence,
-      });
-      void this.logAction({
-        actionType: 'generate',
-        sessionId: session.id,
-        okrId: null,
-        payloadSummary: `prompt:${nextPrompt.id}`,
-      }).catch((error) => {
-        this.logUnexpectedError('Failed to record follow-up prompt', error);
-      });
-    }
   }
 
   private buildOkrDocument(session: ClarificationSession, intentSummary: string): OKRDocument {
