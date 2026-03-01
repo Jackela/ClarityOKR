@@ -214,6 +214,9 @@ importers:
       '@types/node':
         specifier: ^20.12.7
         version: 20.19.24
+      cross-env:
+        specifier: ^7.0.3
+        version: 7.0.3
       typescript:
         specifier: ~5.4.5
         version: 5.4.5
