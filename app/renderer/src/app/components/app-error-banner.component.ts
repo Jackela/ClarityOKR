@@ -1,5 +1,7 @@
-import { Component, EventEmitter, inject, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Component, EventEmitter, inject, Output } from '@angular/core';
+import { map } from 'rxjs';
+
 import { ErrorService } from '../services/error.service';
 
 @Component({
@@ -38,11 +40,11 @@ import { ErrorService } from '../services/error.service';
   ],
 })
 export class AppErrorBannerComponent {
-  private errorService = inject(ErrorService);
+  private readonly errorService = inject(ErrorService);
 
-  @Output() retry = new EventEmitter<void>();
+  @Output() readonly retry = new EventEmitter<void>();
 
-  errorMessage$ = this.errorService.error$;
+  readonly errorMessage$ = this.errorService.error$.pipe(map((state) => state?.message ?? null));
 
   onRetry(): void {
     this.retry.emit();
