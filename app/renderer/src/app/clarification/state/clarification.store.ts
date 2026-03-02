@@ -3,42 +3,99 @@ import type { ClarificationPrompt } from '@clarityokr/contracts';
 import { ComponentStore } from '@ngrx/component-store';
 import { map } from 'rxjs';
 
+export type WorkflowState =
+  | 'idle'
+  | 'loading'
+  | 'prompting'
+  | 'ready'
+  | 'generating'
+  | 'completed'
+  | 'error';
+
 export interface ClarificationState {
+  workflowState: WorkflowState;
+  sessionId: string | null;
   currentPrompt: ClarificationPrompt | null;
+  selectionsByPromptId: Record<string, string>;
   history: ClarificationPrompt[];
-  selectedOptionIds: string[];
-  isReadyToGenerate: boolean;
   validationError: string | null;
-  isLoading: boolean;
-  error: string | null;
+  error: { message: string; recoverable: boolean } | null;
 }
 
 const initialState: ClarificationState = {
+  workflowState: 'idle',
+  sessionId: null,
   currentPrompt: null,
+  selectionsByPromptId: {},
   history: [],
-  selectedOptionIds: [],
-  isReadyToGenerate: false,
   validationError: null,
-  isLoading: false,
   error: null,
+};
+
+const VALID_TRANSITIONS: Record<WorkflowState, WorkflowState[]> = {
+  idle: ['loading'],
+  loading: ['prompting', 'error'],
+  prompting: ['loading', 'ready', 'error'],
+  ready: ['generating', 'prompting'],
+  generating: ['completed', 'error'],
+  completed: ['loading'],
+  error: ['loading', 'idle'],
 };
 
 @Injectable({ providedIn: 'root' })
 export class ClarificationStore extends ComponentStore<ClarificationState> {
-  readonly currentPrompt$ = this.select<ClarificationPrompt | null>((state) => state.currentPrompt);
-  readonly validationError$ = this.select<string | null>((state) => state.validationError);
-  readonly selectedOptionIds$ = this.select<string[]>((state) => state.selectedOptionIds);
-  readonly isReadyToGenerate$ = this.select<boolean>((state) => state.isReadyToGenerate);
-  readonly history$ = this.select<ClarificationPrompt[]>((state) => state.history);
+  readonly workflowState$ = this.select((state) => state.workflowState);
+  readonly currentPrompt$ = this.select((state) => state.currentPrompt);
+  readonly history$ = this.select((state) => state.history);
+  readonly validationError$ = this.select((state) => state.validationError);
+  readonly error$ = this.select((state) => state.error);
+  readonly errorMessage$ = this.select((state) => state.error?.message ?? null);
+  readonly sessionId$ = this.select((state) => state.sessionId);
+
+  readonly isLoading$ = this.select(
+    (state) => state.workflowState === 'loading' || state.workflowState === 'generating',
+  );
+
+  readonly isReadyToGenerate$ = this.select((state) => state.workflowState === 'ready');
+
   readonly hasPrompt$ = this.currentPrompt$.pipe(map((prompt) => prompt !== null));
-  readonly isLoading$ = this.select<boolean>((state) => state.isLoading);
-  readonly error$ = this.select<string | null>((state) => state.error);
+
+  readonly currentSelection$ = this.select((state) => {
+    if (!state.currentPrompt) return null;
+    return state.selectionsByPromptId[state.currentPrompt.id] ?? null;
+  });
+
+  readonly selectionCount$ = this.select((state) => Object.keys(state.selectionsByPromptId).length);
+
+  readonly selectedOptionIds$ = this.select((state) => Object.values(state.selectionsByPromptId));
 
   constructor() {
     super(initialState);
   }
 
+  private isValidTransition(from: WorkflowState, to: WorkflowState): boolean {
+    return VALID_TRANSITIONS[from]?.includes(to) ?? false;
+  }
+
   readonly reset = this.updater(() => initialState);
+
+  readonly setSessionId = this.updater((state, sessionId: string | null) => ({
+    ...state,
+    sessionId,
+  }));
+
+  readonly transitionTo = this.updater((state, nextState: WorkflowState) => {
+    if (!this.isValidTransition(state.workflowState, nextState)) {
+      console.warn(`[store] Invalid transition: ${state.workflowState} → ${nextState}`);
+      return state;
+    }
+    return { ...state, workflowState: nextState };
+  });
+
+  readonly forceTransition = this.updater((state, nextState: WorkflowState) => ({
+    ...state,
+    workflowState: nextState,
+  }));
 
   readonly setPrompt = this.updater((state, prompt: ClarificationPrompt) => {
     const optionCount = prompt.options.length;
@@ -46,19 +103,25 @@ export class ClarificationStore extends ComponentStore<ClarificationState> {
       throw new Error('Clarification prompts must supply between 2 and 5 options.');
     }
 
+    const nextWorkflowState = state.workflowState === 'loading' ? 'prompting' : state.workflowState;
+
     return {
       ...state,
       currentPrompt: prompt,
       history: [...state.history, prompt],
-      selectedOptionIds: [],
       validationError: null,
-      isReadyToGenerate: false,
+      workflowState: nextWorkflowState,
     };
   });
 
   readonly recordSelection = this.updater((state, optionId: string) => {
     const prompt = state.currentPrompt;
     if (!prompt) {
+      return state;
+    }
+
+    if (state.workflowState !== 'prompting' && state.workflowState !== 'ready') {
+      console.warn(`[store] recordSelection called in invalid state: ${state.workflowState}`);
       return state;
     }
 
@@ -70,21 +133,53 @@ export class ClarificationStore extends ComponentStore<ClarificationState> {
       };
     }
 
-    const alreadySelected = state.selectedOptionIds.includes(optionId);
-    const nextSelected = alreadySelected
-      ? state.selectedOptionIds
-      : [...state.selectedOptionIds, optionId];
+    const newSelections = { ...state.selectionsByPromptId, [prompt.id]: optionId };
+    const selectionCount = Object.keys(newSelections).length;
+    const nextWorkflowState = selectionCount >= 2 ? 'ready' : 'prompting';
 
     return {
       ...state,
-      selectedOptionIds: nextSelected,
+      selectionsByPromptId: newSelections,
       validationError: null,
+      workflowState: nextWorkflowState,
     };
   });
 
-  readonly markReady = this.updater((state, ready: boolean) => ({
+  readonly setLoading = this.updater((state) => {
+    if (!this.isValidTransition(state.workflowState, 'loading')) {
+      return state;
+    }
+    return { ...state, workflowState: 'loading', error: null };
+  });
+
+  readonly setGenerating = this.updater((state) => {
+    if (!this.isValidTransition(state.workflowState, 'generating')) {
+      return state;
+    }
+    return { ...state, workflowState: 'generating', error: null };
+  });
+
+  readonly setCompleted = this.updater((state) => {
+    if (!this.isValidTransition(state.workflowState, 'completed')) {
+      return state;
+    }
+    return { ...state, workflowState: 'completed' };
+  });
+
+  readonly setError = this.updater(
+    (state, error: string | { message: string; recoverable: boolean } | null) => {
+      const errorObj = typeof error === 'string' ? { message: error, recoverable: true } : error;
+      return {
+        ...state,
+        error: errorObj,
+        workflowState: errorObj ? 'error' : state.workflowState,
+      };
+    },
+  );
+
+  readonly clearError = this.updater((state) => ({
     ...state,
-    isReadyToGenerate: ready,
+    error: null,
   }));
 
   readonly setValidationError = this.updater((state, message: string | null) => ({
@@ -92,18 +187,8 @@ export class ClarificationStore extends ComponentStore<ClarificationState> {
     validationError: message,
   }));
 
-  readonly setLoading = this.updater((state, loading: boolean) => ({
+  readonly markReady = this.updater((state, ready: boolean) => ({
     ...state,
-    isLoading: loading,
-  }));
-
-  readonly setError = this.updater((state, error: string | null) => ({
-    ...state,
-    error,
-  }));
-
-  readonly clearError = this.updater((state) => ({
-    ...state,
-    error: null,
+    workflowState: ready ? 'ready' : state.workflowState,
   }));
 }

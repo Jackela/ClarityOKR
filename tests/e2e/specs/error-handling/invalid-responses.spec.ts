@@ -58,8 +58,8 @@ test.describe('Invalid LLM Response Handling', () => {
     await window.fill('[data-testid="intent-input"]', '提高效率');
     await window.click('[data-testid="start-clarification"]');
 
-    await window.waitForSelector('[data-testid="clarification-error"]', { timeout: 10000 });
-    const errorElement = window.locator('[data-testid="clarification-error"]');
+    await window.waitForSelector('[data-testid="error-message"]', { timeout: 10000 });
+    const errorElement = window.locator('[data-testid="error-message"]');
     await expect(errorElement).toBeVisible();
 
     const errorText = await errorElement.innerText();
@@ -91,8 +91,8 @@ test.describe('Invalid LLM Response Handling', () => {
     await window.fill('[data-testid="intent-input"]', '提高效率');
     await window.click('[data-testid="start-clarification"]');
 
-    await window.waitForSelector('[data-testid="clarification-error"]', { timeout: 10000 });
-    const errorElement = window.locator('[data-testid="clarification-error"]');
+    await window.waitForSelector('[data-testid="error-message"]', { timeout: 10000 });
+    const errorElement = window.locator('[data-testid="error-message"]');
     await expect(errorElement).toBeVisible();
 
     const errorText = await errorElement.innerText();
@@ -124,8 +124,8 @@ test.describe('Invalid LLM Response Handling', () => {
     await window.fill('[data-testid="intent-input"]', '提高效率');
     await window.click('[data-testid="start-clarification"]');
 
-    await window.waitForSelector('[data-testid="clarification-error"]', { timeout: 10000 });
-    const errorElement = window.locator('[data-testid="clarification-error"]');
+    await window.waitForSelector('[data-testid="error-message"]', { timeout: 10000 });
+    const errorElement = window.locator('[data-testid="error-message"]');
     await expect(errorElement).toBeVisible();
 
     const errorText = await errorElement.innerText();

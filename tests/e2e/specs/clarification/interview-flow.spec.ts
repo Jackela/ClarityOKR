@@ -32,9 +32,9 @@ function startMockLlmServer(port = 7777) {
             text: '再补充一个细节',
             options: [
               { id: 'a', label: 'A', value: 'a' },
-              { id: 'b', label: 'B', value: 'b' }
-            ]
-          }
+              { id: 'b', label: 'B', value: 'b' },
+            ],
+          },
         });
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(body);
@@ -50,11 +50,11 @@ function startMockLlmServer(port = 7777) {
               keyResults: [
                 { id: 'kr1', statement: 'KR1', target: '10%', measurement: 'rate' },
                 { id: 'kr2', statement: 'KR2', target: 5, measurement: 'count' },
-                { id: 'kr3', statement: 'KR3', target: '2s', measurement: 'latency' }
-              ]
-            }
-          ]
-        }
+                { id: 'kr3', statement: 'KR3', target: '2s', measurement: 'latency' },
+              ],
+            },
+          ],
+        },
       });
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(draft);
@@ -85,13 +85,22 @@ test.beforeEach(async () => {
       if (existsSync(target)) {
         await fs.unlink(target);
       }
-    })
+    }),
   );
 });
 
 test('clarification interview completes and enables OKR generation', async () => {
   const server = await startMockLlmServer();
-  const electronApp = await electron.launch({ args: ['.', ...extraElectronArgs()], cwd: ROOT, env: { ...process.env, LLM_API_KEY: 'test', LLM_BASE_URL: 'http://127.0.0.1:7777', LLM_MODEL: 'test' } });
+  const electronApp = await electron.launch({
+    args: ['.', ...extraElectronArgs()],
+    cwd: ROOT,
+    env: {
+      ...process.env,
+      LLM_API_KEY: 'test',
+      LLM_BASE_URL: 'http://127.0.0.1:7777',
+      LLM_MODEL: 'test',
+    },
+  });
   const childProcess = electronApp.process();
   childProcess.stderr?.on('data', (data) => {
     process.stderr.write(data);
@@ -129,6 +138,12 @@ test('clarification interview completes and enables OKR generation', async () =>
 
   const optionLocator = window.locator('[data-testid="clarification-option"]');
   await optionLocator.first().click();
+  await window.waitForSelector('[data-testid="clarification-loading"]', { timeout: 5000 });
+  await window.waitForSelector('[data-testid="clarification-loading"]', {
+    state: 'hidden',
+    timeout: 30_000,
+  });
+  await window.waitForSelector('[data-testid="clarification-option"]', { timeout: 5000 });
 
   // Wait for follow-up question to arrive and select an option.
   await window.waitForFunction(() => {

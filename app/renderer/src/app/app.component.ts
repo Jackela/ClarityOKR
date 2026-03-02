@@ -53,9 +53,9 @@ import { OkrStickyGatewayService } from './okr-sticky/services/okr-sticky-gatewa
           <p class="status-message" *ngIf="statusMessage">{{ statusMessage }}</p>
         </section>
 
-        <section class="wizard-panel" *ngIf="currentPrompt$ | async as prompt">
+        <section class="wizard-panel" *ngIf="(currentPrompt$ | async) || (error$ | async)">
           <clarityokr-clarification-wizard
-            [prompt]="prompt"
+            [prompt]="currentPrompt$ | async"
             [isReadyToGenerate]="(isReady$ | async) ?? false"
             [validationError]="(validationError$ | async) ?? null"
             [loading]="(isLoading$ | async) ?? false"

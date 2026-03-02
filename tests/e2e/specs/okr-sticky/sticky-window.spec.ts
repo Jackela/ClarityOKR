@@ -20,15 +20,25 @@ interface StickyWindowSnapshot {
 async function completeClarification(mainWindow: ElectronPage) {
   await mainWindow.waitForSelector('[data-testid="intent-input"]');
   await mainWindow.fill('[data-testid="intent-input"]', '提高效率');
-  await expect(mainWindow.locator('[data-testid="start-clarification"]')).toBeEnabled({ timeout: 15_000 });
+  await expect(mainWindow.locator('[data-testid="start-clarification"]')).toBeEnabled({
+    timeout: 15_000,
+  });
   await mainWindow.click('[data-testid="start-clarification"]');
 
   await mainWindow.waitForSelector('[data-testid="clarification-option"]');
   const optionLocator = mainWindow.locator('[data-testid="clarification-option"]');
   await optionLocator.first().click();
-  await mainWindow.waitForTimeout(500);
-  await expect(optionLocator.last()).toBeVisible({ timeout: 15_000 });
+  await mainWindow.waitForSelector('[data-testid="clarification-loading"]', { timeout: 5000 });
+  await mainWindow.waitForSelector('[data-testid="clarification-loading"]', {
+    state: 'hidden',
+    timeout: 30_000,
+  });
   await optionLocator.last().click();
+  await mainWindow.waitForSelector('[data-testid="clarification-loading"]', { timeout: 5000 });
+  await mainWindow.waitForSelector('[data-testid="clarification-loading"]', {
+    state: 'hidden',
+    timeout: 30_000,
+  });
 
   const generateButton = mainWindow.locator('[data-testid="clarification-generate"]');
   await expect(generateButton).toBeEnabled({ timeout: 15_000 });
@@ -47,9 +57,9 @@ function startMockLlmServer(port = 7777) {
             text: '请选择下一步',
             options: [
               { id: 'a', label: 'A', value: 'a' },
-              { id: 'b', label: 'B', value: 'b' }
-            ]
-          }
+              { id: 'b', label: 'B', value: 'b' },
+            ],
+          },
         });
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(body);
@@ -65,11 +75,11 @@ function startMockLlmServer(port = 7777) {
               keyResults: [
                 { id: 'kr1', statement: 'KR1', target: '10%', measurement: 'rate' },
                 { id: 'kr2', statement: 'KR2', target: 5, measurement: 'count' },
-                { id: 'kr3', statement: 'KR3', target: '2s', measurement: 'latency' }
-              ]
-            }
-          ]
-        }
+                { id: 'kr3', statement: 'KR3', target: '2s', measurement: 'latency' },
+              ],
+            },
+          ],
+        },
       });
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(draft);
@@ -85,7 +95,7 @@ function startMockLlmServer(port = 7777) {
 
 async function waitForStickyWindowSnapshot(
   electronApp: import('@playwright/test').ElectronApplication,
-  mainWindow: ElectronPage
+  mainWindow: ElectronPage,
 ): Promise<StickyWindowSnapshot> {
   // Wait until a second window appears, then query its DOM
   const ctx = electronApp.context();
@@ -97,14 +107,16 @@ async function waitForStickyWindowSnapshot(
       const objective = await sticky.locator('[data-testid="sticky-objective"]').innerText();
       const keyResults = await sticky.locator('[data-testid="sticky-key-result"]').allInnerTexts();
       const isTop = await electronApp.evaluate(({ BrowserWindow }) => {
-        const win = BrowserWindow.getAllWindows().find((bw) => bw.webContents.getURL().includes('index.html') && bw.isAlwaysOnTop());
+        const win = BrowserWindow.getAllWindows().find(
+          (bw) => bw.webContents.getURL().includes('index.html') && bw.isAlwaysOnTop(),
+        );
         return !!win;
       });
       return {
         windowId: 0,
         isTop,
         objective,
-        keyResults
+        keyResults,
       };
     }
     const remaining = Math.max(0, deadline - Date.now());
@@ -121,7 +133,11 @@ async function waitForStickyWindowSnapshot(
 
 async function debugWindows(electronApp: import('@playwright/test').ElectronApplication) {
   const urls = await electronApp.evaluate(({ BrowserWindow }) =>
-    BrowserWindow.getAllWindows().map((w) => ({ id: w.id, url: w.webContents.getURL(), isTop: w.isAlwaysOnTop() }))
+    BrowserWindow.getAllWindows().map((w) => ({
+      id: w.id,
+      url: w.webContents.getURL(),
+      isTop: w.isAlwaysOnTop(),
+    })),
   );
   // eslint-disable-next-line no-console
   console.info('[e2e] windows:', JSON.stringify(urls));
@@ -134,13 +150,22 @@ test.beforeEach(async () => {
       if (existsSync(target)) {
         await fs.unlink(target);
       }
-    })
+    }),
   );
 });
 
 test('sticky window stays always-on-top with OKR contents rendered', async () => {
   const server = await startMockLlmServer();
-  const electronApp = await electron.launch({ args: ['.', ...extraElectronArgs()], cwd: ROOT, env: { ...process.env, LLM_API_KEY: 'test', LLM_BASE_URL: 'http://127.0.0.1:7777', LLM_MODEL: 'test' } });
+  const electronApp = await electron.launch({
+    args: ['.', ...extraElectronArgs()],
+    cwd: ROOT,
+    env: {
+      ...process.env,
+      LLM_API_KEY: 'test',
+      LLM_BASE_URL: 'http://127.0.0.1:7777',
+      LLM_MODEL: 'test',
+    },
+  });
   const childProcess = electronApp.process();
   childProcess.stderr?.on('data', (data) => process.stderr.write(data));
   childProcess.stdout?.on('data', (data) => process.stdout.write(data));
@@ -154,7 +179,9 @@ test('sticky window stays always-on-top with OKR contents rendered', async () =>
   await completeClarification(mainWindow);
   await debugWindows(electronApp);
   // Explicitly open sticky window from main UI
-  await expect(mainWindow.locator('[data-testid="sticky-reopen"]')).toBeVisible({ timeout: 15_000 });
+  await expect(mainWindow.locator('[data-testid="sticky-reopen"]')).toBeVisible({
+    timeout: 15_000,
+  });
   await mainWindow.click('[data-testid="sticky-reopen"]');
 
   let stickySnapshot: StickyWindowSnapshot;
@@ -164,17 +191,14 @@ test('sticky window stays always-on-top with OKR contents rendered', async () =>
     await debugWindows(electronApp);
     throw err;
   }
-  const enforcedAlwaysOnTop = await electronApp.evaluate(
-    ({ BrowserWindow }, id) => {
-      const win = BrowserWindow.fromId(id);
-      if (!win) {
-        return false;
-      }
-      win.setAlwaysOnTop(true, 'screen-saver');
-      return win.isAlwaysOnTop();
-    },
-    stickySnapshot.windowId
-  );
+  const enforcedAlwaysOnTop = await electronApp.evaluate(({ BrowserWindow }, id) => {
+    const win = BrowserWindow.fromId(id);
+    if (!win) {
+      return false;
+    }
+    win.setAlwaysOnTop(true, 'screen-saver');
+    return win.isAlwaysOnTop();
+  }, stickySnapshot.windowId);
   if (!process.env.CI && !process.env.ACT) {
     expect(enforcedAlwaysOnTop).toBe(true);
   }

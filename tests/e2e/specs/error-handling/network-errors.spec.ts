@@ -117,7 +117,8 @@ test('shows error message when LLM API is unreachable', async () => {
   await expect(window.locator('[data-testid="start-clarification"]')).toBeEnabled();
   await window.click('[data-testid="start-clarification"]');
 
-  await window.waitForSelector('[data-testid="error-message"]', { timeout: 10_000 });
+  await window.waitForSelector('[data-testid="clarification-loading"]', { timeout: 10_000 });
+  await window.waitForSelector('[data-testid="error-message"]', { timeout: 15_000 });
   const errorElement = window.locator('[data-testid="error-message"]');
   await expect(errorElement).toBeVisible();
   await expect(errorElement).toContainText(/unavailable|error|failed/i);
@@ -157,7 +158,8 @@ test('shows retry button when network error occurs', async () => {
   await expect(window.locator('[data-testid="start-clarification"]')).toBeEnabled();
   await window.click('[data-testid="start-clarification"]');
 
-  await window.waitForSelector('[data-testid="error-message"]', { timeout: 10_000 });
+  await window.waitForSelector('[data-testid="clarification-loading"]', { timeout: 10_000 });
+  await window.waitForSelector('[data-testid="error-message"]', { timeout: 15_000 });
   const retryButton = window.locator('[data-testid="retry-button"]');
   await expect(retryButton).toBeVisible();
   await expect(retryButton).toBeEnabled();
@@ -197,12 +199,14 @@ test('recovers when retry succeeds after initial network failure', async () => {
   await expect(window.locator('[data-testid="start-clarification"]')).toBeEnabled();
   await window.click('[data-testid="start-clarification"]');
 
-  await window.waitForSelector('[data-testid="error-message"]', { timeout: 10_000 });
+  await window.waitForSelector('[data-testid="clarification-loading"]', { timeout: 10_000 });
+  await window.waitForSelector('[data-testid="error-message"]', { timeout: 15_000 });
   const retryButton = window.locator('[data-testid="retry-button"]');
   await expect(retryButton).toBeEnabled();
   await retryButton.click();
 
-  await window.waitForSelector('[data-testid="clarification-option"]', { timeout: 10_000 });
+  await window.waitForSelector('[data-testid="clarification-loading"]', { timeout: 10_000 });
+  await window.waitForSelector('[data-testid="clarification-option"]', { timeout: 15_000 });
   const optionLocator = window.locator('[data-testid="clarification-option"]');
   await expect(optionLocator.first()).toBeVisible();
 

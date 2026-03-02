@@ -3,7 +3,7 @@ import { Injectable, NgZone } from '@angular/core';
 import {
   clarificationOptionSelectionSchema,
   clarificationPromptRequestSchema,
-  clarificationPromptResponseSchema
+  clarificationPromptResponseSchema,
 } from '@clarityokr/contracts';
 import { from, Observable, of, throwError } from 'rxjs';
 import { catchError, map, tap } from 'rxjs/operators';
@@ -16,7 +16,10 @@ import { ClarificationStore } from '../state/clarification.store';
 export class ClarificationOrchestratorService {
   private isListenerRegistered = false;
 
-  constructor(private readonly store: ClarificationStore, private readonly zone: NgZone) {
+  constructor(
+    private readonly store: ClarificationStore,
+    private readonly zone: NgZone,
+  ) {
     this.registerPromptListener();
   }
 
@@ -29,6 +32,9 @@ export class ClarificationOrchestratorService {
       return throwError(() => new Error(message));
     }
 
+    this.store.setSessionId(sessionId);
+    this.store.setLoading();
+
     return from(bridge.invoke(IPC_CHANNELS.CLARIFICATION_PROMPT, parsed.data)).pipe(
       map((response) => clarificationPromptResponseSchema.safeParse(response)),
       tap((result) => {
@@ -40,9 +46,9 @@ export class ClarificationOrchestratorService {
       map(() => void 0),
       catchError((error) => {
         const message = error instanceof Error ? error.message : String(error);
-        this.store.setValidationError(message);
+        this.store.setError({ message, recoverable: true });
         return throwError(() => (error instanceof Error ? error : new Error(message)));
-      })
+      }),
     );
   }
 
@@ -80,7 +86,7 @@ export class ClarificationOrchestratorService {
         const parsed = clarificationPromptResponseSchema.safeParse(payload);
         if (!parsed.success) {
           const message = parsed.error.message;
-          this.store.setValidationError(message);
+          this.store.setError({ message, recoverable: true });
           return;
         }
         this.store.setPrompt(parsed.data.prompt);

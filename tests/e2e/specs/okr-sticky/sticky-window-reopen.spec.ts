@@ -20,13 +20,19 @@ interface StickyWindowSnapshot {
 async function completeClarification(mainWindow: ElectronPage) {
   await mainWindow.waitForSelector('[data-testid="intent-input"]');
   await mainWindow.fill('[data-testid="intent-input"]', '提高效率');
-  await expect(mainWindow.locator('[data-testid="start-clarification"]')).toBeEnabled({ timeout: 15_000 });
+  await expect(mainWindow.locator('[data-testid="start-clarification"]')).toBeEnabled({
+    timeout: 15_000,
+  });
   await mainWindow.click('[data-testid="start-clarification"]');
 
   await mainWindow.waitForSelector('[data-testid="clarification-option"]');
   const optionLocator = mainWindow.locator('[data-testid="clarification-option"]');
   await optionLocator.first().click();
-  await mainWindow.waitForTimeout(500);
+
+  const loadingLocator = mainWindow.locator('[data-testid="clarification-loading"]');
+  await expect(loadingLocator).toBeVisible({ timeout: 10_000 });
+  await expect(loadingLocator).toBeHidden({ timeout: 15_000 });
+
   await expect(optionLocator.last()).toBeVisible({ timeout: 15_000 });
   await optionLocator.last().click();
 
@@ -47,9 +53,9 @@ function startMockLlmServer(port = 7777) {
             text: '请选择下一步',
             options: [
               { id: 'a', label: 'A', value: 'a' },
-              { id: 'b', label: 'B', value: 'b' }
-            ]
-          }
+              { id: 'b', label: 'B', value: 'b' },
+            ],
+          },
         });
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(body);
@@ -65,11 +71,11 @@ function startMockLlmServer(port = 7777) {
               keyResults: [
                 { id: 'kr1', statement: 'KR1', target: '10%', measurement: 'rate' },
                 { id: 'kr2', statement: 'KR2', target: 5, measurement: 'count' },
-                { id: 'kr3', statement: 'KR3', target: '2s', measurement: 'latency' }
-              ]
-            }
-          ]
-        }
+                { id: 'kr3', statement: 'KR3', target: '2s', measurement: 'latency' },
+              ],
+            },
+          ],
+        },
       });
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(draft);
@@ -86,7 +92,7 @@ function startMockLlmServer(port = 7777) {
 async function waitForStickyWindowSnapshotOld(
   electronApp: import('@playwright/test').ElectronApplication,
   mainWindowId: number,
-  excludeWindowIds: number[] = []
+  excludeWindowIds: number[] = [],
 ): Promise<StickyWindowSnapshot> {
   const deadline = Date.now() + 30_000;
   while (Date.now() < deadline) {
@@ -108,16 +114,16 @@ async function waitForStickyWindowSnapshotOld(
             const objective = document.querySelector('[data-testid="sticky-objective"]')?.textContent ?? '';
             const keyResults = Array.from(document.querySelectorAll('[data-testid="sticky-key-result"]')).map((el) => el.textContent ?? '');
             return { objective, keyResults };
-          })();`
+          })();`,
         );
         return {
           windowId: sticky.id,
           isTop: sticky.isAlwaysOnTop(),
           objective: payload.objective,
-          keyResults: payload.keyResults
+          keyResults: payload.keyResults,
         };
       },
-      { mainId: mainWindowId, excluded: excludeWindowIds }
+      { mainId: mainWindowId, excluded: excludeWindowIds },
     );
     if (snapshot) {
       return snapshot;
@@ -136,7 +142,7 @@ async function waitForStickyWindowSnapshotOld(
 
 async function waitForStickyWindow(
   electronApp: import('@playwright/test').ElectronApplication,
-  mainWindow: ElectronPage
+  mainWindow: ElectronPage,
 ): Promise<ElectronPage> {
   const ctx = electronApp.context();
   const deadline = Date.now() + 30_000;
@@ -158,7 +164,11 @@ async function waitForStickyWindow(
 
 async function debugWindows(electronApp: import('@playwright/test').ElectronApplication) {
   const urls = await electronApp.evaluate(({ BrowserWindow }) =>
-    BrowserWindow.getAllWindows().map((w) => ({ id: w.id, url: w.webContents.getURL(), isTop: w.isAlwaysOnTop() }))
+    BrowserWindow.getAllWindows().map((w) => ({
+      id: w.id,
+      url: w.webContents.getURL(),
+      isTop: w.isAlwaysOnTop(),
+    })),
   );
   // eslint-disable-next-line no-console
   console.info('[e2e] windows:', JSON.stringify(urls));
@@ -171,13 +181,22 @@ test.beforeEach(async () => {
       if (existsSync(target)) {
         await fs.unlink(target);
       }
-    })
+    }),
   );
 });
 
 test('user can reopen sticky window after closing it', async () => {
   const server = await startMockLlmServer();
-  const electronApp = await electron.launch({ args: ['.', ...extraElectronArgs()], cwd: ROOT, env: { ...process.env, LLM_API_KEY: 'test', LLM_BASE_URL: 'http://127.0.0.1:7777', LLM_MODEL: 'test' } });
+  const electronApp = await electron.launch({
+    args: ['.', ...extraElectronArgs()],
+    cwd: ROOT,
+    env: {
+      ...process.env,
+      LLM_API_KEY: 'test',
+      LLM_BASE_URL: 'http://127.0.0.1:7777',
+      LLM_MODEL: 'test',
+    },
+  });
   const childProcess = electronApp.process();
   childProcess.stderr?.on('data', (data) => process.stderr.write(data));
   childProcess.stdout?.on('data', (data) => process.stdout.write(data));
@@ -185,7 +204,9 @@ test('user can reopen sticky window after closing it', async () => {
 
   await completeClarification(mainWindow);
   await debugWindows(electronApp);
-  await expect(mainWindow.locator('[data-testid="sticky-reopen"]')).toBeVisible({ timeout: 15_000 });
+  await expect(mainWindow.locator('[data-testid="sticky-reopen"]')).toBeVisible({
+    timeout: 15_000,
+  });
   await mainWindow.click('[data-testid="sticky-reopen"]');
 
   let initialStickyWindow: ElectronPage;
@@ -208,8 +229,12 @@ test('user can reopen sticky window after closing it', async () => {
     await debugWindows(electronApp);
     throw err;
   }
-  await expect(reopenedStickyWindow.locator('[data-testid="sticky-objective"]')).toContainText('提高效率');
-  const kr = await reopenedStickyWindow.locator('[data-testid="sticky-key-result"]').allInnerTexts();
+  await expect(reopenedStickyWindow.locator('[data-testid="sticky-objective"]')).toContainText(
+    '提高效率',
+  );
+  const kr = await reopenedStickyWindow
+    .locator('[data-testid="sticky-key-result"]')
+    .allInnerTexts();
   expect(kr.length).toBeGreaterThan(0);
 
   await electronApp.close();

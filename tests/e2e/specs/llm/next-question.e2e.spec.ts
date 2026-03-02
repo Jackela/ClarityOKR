@@ -16,9 +16,9 @@ function startMockLlmServer(port = 7777) {
           text: '请选择下一步',
           options: [
             { id: 'a', label: 'A', value: 'a' },
-            { id: 'b', label: 'B', value: 'b' }
-          ]
-        }
+            { id: 'b', label: 'B', value: 'b' },
+          ],
+        },
       });
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(body);
@@ -37,7 +37,16 @@ test('LLM next-question updates prompt after selection', async () => {
   const { execSync } = await import('node:child_process');
   execSync('pnpm run build', { cwd: ROOT, stdio: 'inherit' });
   const server = await startMockLlmServer();
-  const electronApp = await electron.launch({ args: ['.', ...extraElectronArgs()], cwd: ROOT, env: { ...process.env, LLM_API_KEY: 'test', LLM_BASE_URL: 'http://127.0.0.1:7777', LLM_MODEL: 'test' } });
+  const electronApp = await electron.launch({
+    args: ['.', ...extraElectronArgs()],
+    cwd: ROOT,
+    env: {
+      ...process.env,
+      LLM_API_KEY: 'test',
+      LLM_BASE_URL: 'http://127.0.0.1:7777',
+      LLM_MODEL: 'test',
+    },
+  });
   const window = await electronApp.firstWindow();
 
   await window.waitForLoadState('domcontentloaded');
@@ -46,8 +55,14 @@ test('LLM next-question updates prompt after selection', async () => {
   await window.waitForSelector('[data-testid="clarification-option"]');
   // Select an option to trigger LLM next-question
   await window.locator('[data-testid="clarification-option"]').first().click();
-  // Loading indicator should appear briefly (non-deterministic visibility, so just wait for prompt change)
-  await window.waitForSelector('[data-testid="clarification-loading"]', { state: 'detached' }).catch(() => void 0);
+  // Wait for loading to start then finish
+  await window.waitForSelector('[data-testid="clarification-loading"]', { timeout: 5000 });
+  await window.waitForSelector('[data-testid="clarification-loading"]', {
+    state: 'hidden',
+    timeout: 15_000,
+  });
+  // Wait for the next prompt to render
+  await window.waitForSelector('[data-testid="clarification-option"]', { timeout: 5000 });
   // Verify a follow-up prompt rendered (accept either static or mock LLM text)
   const text = await window.locator('[data-testid="prompt-question"]').first().innerText();
   expect(text.includes('请选择下一步') || text.includes('再补充')).toBeTruthy();
