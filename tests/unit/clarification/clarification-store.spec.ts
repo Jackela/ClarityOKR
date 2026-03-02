@@ -44,43 +44,56 @@ describe('ClarificationStore', () => {
     );
   });
 
-  it('records selections and marks readiness', async () => {
+  it('records selection for current prompt and marks readiness', async () => {
     const prompt = buildPrompt(2);
     store.setPrompt(prompt);
 
+    // Each call replaces the selection for the current prompt
     store.recordSelection('opt-0');
+    let selectedIds = await firstValueFrom(store.selectedOptionIds$);
+    expect(selectedIds).toEqual(['opt-0']);
+
     store.recordSelection('opt-1');
+    selectedIds = await firstValueFrom(store.selectedOptionIds$);
+    expect(selectedIds).toEqual(['opt-1']);
+
+    // markReady forces the ready state
     store.markReady(true);
-
-    const selectedIds = await firstValueFrom(store.selectedOptionIds$);
-    expect(selectedIds).toEqual(['opt-0', 'opt-1']);
-
     const isReady = await firstValueFrom(store.isReadyToGenerate$);
     expect(isReady).toBe(true);
   });
 
-  it('transition to ready state after 2 selections', async () => {
-    const prompt = buildPrompt(2);
+  it('transition to ready state after selections on 2 different prompts', async () => {
+    const prompt1 = buildPrompt(2);
+    prompt1.id = 'prompt-1';
 
     // Initial state is 'idle'
-    expect(store.workflowState).toBe('idle');
+    let state = await firstValueFrom(store.workflowState$);
+    expect(state).toBe('idle');
 
-    // First call setPrompt doesn't change state if starting from idle
-    store.setPrompt(prompt);
-    // State should be 'idle' because we haven't started loading yet
-    // The setPrompt only transitions to 'prompting' if coming from 'loading'
-    expect(store.workflowState).toBe('idle');
+    // setPrompt from idle transitions to 'prompting'
+    store.setPrompt(prompt1);
+    state = await firstValueFrom(store.workflowState$);
+    expect(state).toBe('prompting');
 
-    // First selection changes state to 'prompting'
+    // First selection keeps state as 'prompting' (only 1 prompt has selection)
     store.recordSelection('opt-0');
-    expect(store.workflowState).toBe('prompting');
+    state = await firstValueFrom(store.workflowState$);
+    expect(state).toBe('prompting');
 
-    // Second selection changes state to 'ready'
+    // Now set a second prompt
+    const prompt2 = buildPrompt(2);
+    prompt2.id = 'prompt-2';
+    store.setPrompt(prompt2);
+
+    // Make selection on second prompt - now 2 prompts have selections
     store.recordSelection('opt-1');
-    expect(store.workflowState).toBe('ready');
+    state = await firstValueFrom(store.workflowState$);
+    expect(state).toBe('ready');
 
     // markReady should keep it in 'ready' state
     store.markReady(true);
-    expect(store.workflowState).toBe('ready');
+    state = await firstValueFrom(store.workflowState$);
+    expect(state).toBe('ready');
   });
 });
