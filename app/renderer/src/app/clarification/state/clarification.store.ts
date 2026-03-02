@@ -103,7 +103,10 @@ export class ClarificationStore extends ComponentStore<ClarificationState> {
       throw new Error('Clarification prompts must supply between 2 and 5 options.');
     }
 
-    const nextWorkflowState = state.workflowState === 'loading' ? 'prompting' : state.workflowState;
+    const nextWorkflowState: WorkflowState =
+      state.workflowState === 'loading' || state.workflowState === 'idle'
+        ? 'prompting'
+        : state.workflowState;
 
     return {
       ...state,

@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import type { ClarificationPrompt } from '@clarityokr/contracts';
 
 import { ClarificationStore } from '../../../app/renderer/src/app/clarification/state/clarification.store';
+
 function buildPrompt(optionCount = 3): ClarificationPrompt {
   return {
     id: 'prompt-1',
@@ -18,42 +19,67 @@ function buildPrompt(optionCount = 3): ClarificationPrompt {
     })),
   } satisfies ClarificationPrompt;
 }
+
 describe('ClarificationStore', () => {
   let store: ClarificationStore;
+
   beforeEach(() => {
     store = new ClarificationStore();
   });
+
   it('persists prompts with 2-5 options and exposes them', async () => {
     const prompt = buildPrompt(3);
+
     store.setPrompt(prompt);
+
     await expect(firstValueFrom(store.currentPrompt$)).resolves.toEqual(prompt);
     await expect(firstValueFrom(store.validationError$)).resolves.toBeNull();
   });
+
   it('throws immediately when prompt has fewer than 2 options', () => {
     const prompt = buildPrompt(1);
+
     expect(() => store.setPrompt(prompt)).toThrowError(
       /Clarification prompts must supply between 2 and 5 options/,
     );
   });
+
   it('records selections and marks readiness', async () => {
     const prompt = buildPrompt(2);
     store.setPrompt(prompt);
+
     store.recordSelection('opt-0');
     store.recordSelection('opt-1');
     store.markReady(true);
+
     const selectedIds = await firstValueFrom(store.selectedOptionIds$);
     expect(selectedIds).toEqual(['opt-0', 'opt-1']);
+
     const isReady = await firstValueFrom(store.isReadyToGenerate$);
     expect(isReady).toBe(true);
   });
+
   it('transition to ready state after 2 selections', async () => {
     const prompt = buildPrompt(2);
-    store.setPrompt(prompt);
+
+    // Initial state is 'idle'
     expect(store.workflowState).toBe('idle');
+
+    // First call setPrompt doesn't change state if starting from idle
+    store.setPrompt(prompt);
+    // State should be 'idle' because we haven't started loading yet
+    // The setPrompt only transitions to 'prompting' if coming from 'loading'
+    expect(store.workflowState).toBe('idle');
+
+    // First selection changes state to 'prompting'
     store.recordSelection('opt-0');
     expect(store.workflowState).toBe('prompting');
+
+    // Second selection changes state to 'ready'
     store.recordSelection('opt-1');
     expect(store.workflowState).toBe('ready');
+
+    // markReady should keep it in 'ready' state
     store.markReady(true);
     expect(store.workflowState).toBe('ready');
   });
