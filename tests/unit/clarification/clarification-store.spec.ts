@@ -7,7 +7,7 @@ import { ClarificationStore } from '../../../app/renderer/src/app/clarification/
 function buildPrompt(optionCount = 3): ClarificationPrompt {
   return {
     id: 'prompt-1',
-    question: 'Describe your goal focus`,
+    question: 'Describe your goal focus',
     sequence: 0,
     context: 'goal-dimension',
     options: Array.from({ length: optionCount }, (_, index) => ({
@@ -32,7 +32,7 @@ describe('ClarificationStore', () => {
   it('throws immediately when prompt has fewer than 2 options', () => {
     const prompt = buildPrompt(1);
     expect(() => store.setPrompt(prompt)).toThrowError(
-      /Clarification prompts must supply between 2 and 5 options/
+      /Clarification prompts must supply between 2 and 5 options/,
     );
   });
   it('records selections and marks readiness', async () => {
