@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, inject, Output } from '@angular/core';
-import { map } from 'rxjs';
+import { Component, EventEmitter, OnInit, Output } from '@angular/core';
+import type { OnDestroy } from '@angular/core';
+import type { Observable, Subscription } from 'rxjs';
 
 import { ErrorService } from '../services/error.service';
 
@@ -9,7 +10,7 @@ import { ErrorService } from '../services/error.service';
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div *ngIf="errorMessage$ | async as errorMessage" class="error-banner">
+    <div *ngIf="errorMessage" class="error-banner">
       <span data-testid="error-message">{{ errorMessage }}</span>
       <button data-testid="retry-button" (click)="onRetry()">Retry</button>
     </div>
@@ -39,15 +40,28 @@ import { ErrorService } from '../services/error.service';
     `,
   ],
 })
-export class AppErrorBannerComponent {
-  private readonly errorService = inject(ErrorService);
+export class AppErrorBannerComponent implements OnInit, OnDestroy {
+  private readonly subscription: Subscription = new Subscription();
+  errorMessage: string | null = null;
+
+  constructor(private readonly errorService: ErrorService) {}
+
+  ngOnInit(): void {
+    this.subscription.add(
+      this.errorService.error$.subscribe((state): void => {
+        this.errorMessage = state?.message ?? null;
+      }),
+    );
+  }
 
   @Output() readonly retry = new EventEmitter<void>();
-
-  readonly errorMessage$ = this.errorService.error$.pipe(map((state) => state?.message ?? null));
 
   onRetry(): void {
     this.retry.emit();
     this.errorService.clear();
+  }
+
+  ngOnDestroy(): void {
+    this.subscription.unsubscribe();
   }
 }
