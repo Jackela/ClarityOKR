@@ -89,11 +89,10 @@ act -j e2e -W .github/workflows/ci.yml --input run_e2e=true
 
 ## Workflow Mapping
 
-| Workflow | Local Support | Command | Limitations |
-|----------|--------------|---------|-------------|
-| `ci.yml` | ✅ Full | `act -j build-and-test -W .github/workflows/ci.yml` | Lint skipped by default (slow in containers) |
-| `ci.yml` (E2E) | ✅ Full | `act -j e2e -W .github/workflows/ci.yml --input run_e2e=true` | Requires Xvfb, system deps |
-| `clarify-okr.yml` | ✅ Full | `pwsh scripts/act-run-clarify-okr-e2e.ps1` | Component tests may be slower |
+| Workflow                  | Local Support | Command                                             | Limitations                                  |
+| ------------------------- | ------------- | --------------------------------------------------- | -------------------------------------------- |
+| `ci.yml` (build-and-test) | ✅ Full       | `act -j build-and-test -W .github/workflows/ci.yml` | Lint skipped by default (slow in containers) |
+| `ci.yml` (E2E)            | ✅ Full       | `act -j e2e -W .github/workflows/ci.yml`            | Requires Xvfb, system deps                   |
 
 **GitHub-Only Features (Not Available Locally):**
 
@@ -124,7 +123,7 @@ The `.actrc` file configures default settings for all `act` commands:
 
 Workflows set additional env vars for local execution:
 
-**`ci.yml` and `clarify-okr.yml`:**
+**`ci.yml`:**
 
 - `CI=true` - Signals CI environment (affects test reporters, logging)
 - `NODE_VERSION=20.x` - Node.js version for consistency
@@ -284,14 +283,14 @@ The Ubuntu image runs as `root` by default. If you encounter permission issues:
 
 ### Known Divergence Between Local and Remote
 
-| Aspect | Local (act) | Remote (GitHub Actions) | Impact |
-|--------|-------------|-------------------------|---------|
-| **Environment** | Docker container | GitHub-hosted VM | Different kernel, system libs |
-| **Timing** | Single-threaded by default | Parallel runners | Race conditions may only appear remotely |
-| **Caching** | No persistent cache | Workflow-level cache | Dependency resolution may differ |
-| **Secrets** | Local dummy values | Real GitHub secrets | Auth-dependent code untested locally |
-| **Artifacts** | Lost after run | Uploaded to GitHub | Can't validate artifact generation |
-| **GitHub API** | Unavailable | Available | PR comments, checks won't work |
+| Aspect          | Local (act)                | Remote (GitHub Actions) | Impact                                   |
+| --------------- | -------------------------- | ----------------------- | ---------------------------------------- |
+| **Environment** | Docker container           | GitHub-hosted VM        | Different kernel, system libs            |
+| **Timing**      | Single-threaded by default | Parallel runners        | Race conditions may only appear remotely |
+| **Caching**     | No persistent cache        | Workflow-level cache    | Dependency resolution may differ         |
+| **Secrets**     | Local dummy values         | Real GitHub secrets     | Auth-dependent code untested locally     |
+| **Artifacts**   | Lost after run             | Uploaded to GitHub      | Can't validate artifact generation       |
+| **GitHub API**  | Unavailable                | Available               | PR comments, checks won't work           |
 
 **Best Practice**: Treat `act` as a **fast feedback tool to catch obvious failures**, not a replacement for actual CI validation.
 
@@ -308,7 +307,6 @@ The Ubuntu image runs as `root` by default. If you encounter permission issues:
    Push to branch or use `workflow_dispatch`
 
 3. **Compare key sections:**
-
    - Dependency installation (pnpm install)
    - Build outputs (tsc compilation, bundle sizes)
    - Test results (pass/fail counts, coverage)
@@ -325,6 +323,7 @@ The Ubuntu image runs as `root` by default. If you encounter permission issues:
 **Before relying on these scripts for critical validation:**
 
 1. **Test in dry-run mode first:**
+
    ```bash
    pwsh scripts/act-run-ci.ps1 -DryRun -Verbose
    ```
@@ -336,6 +335,7 @@ The Ubuntu image runs as `root` by default. If you encounter permission issues:
    - Compare outputs line-by-line
 
 3. **Verify exit codes:**
+
    ```bash
    pwsh scripts/act-run-ci.ps1
    echo $LASTEXITCODE  # Should be 0 for success
@@ -368,8 +368,7 @@ Trigger `workflow_dispatch` events with custom inputs:
 
 ```bash
 act workflow_dispatch \
-  -W .github/workflows/clarify-okr.yml \
-  --input skip_sys_deps=false \
+  -W .github/workflows/ci.yml \
   --input skip_e2e=false
 ```
 
@@ -385,7 +384,7 @@ act push -W .github/workflows/ci.yml
 act pull_request -W .github/workflows/ci.yml
 
 # Workflow dispatch (manual trigger)
-act workflow_dispatch -W .github/workflows/clarify-okr.yml
+act workflow_dispatch -W .github/workflows/ci.yml
 ```
 
 ### Secrets Handling

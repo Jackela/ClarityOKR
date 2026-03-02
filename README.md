@@ -1,4 +1,5 @@
-# ClarityOKR  
+# ClarityOKR
+
 [![CI](https://github.com/Jackela/ClarityOKR/actions/workflows/ci.yml/badge.svg)](https://github.com/Jackela/ClarityOKR/actions/workflows/ci.yml)
 [![Clarify OKR CI](https://github.com/Jackela/ClarityOKR/actions/workflows/clarify-okr.yml/badge.svg)](https://github.com/Jackela/ClarityOKR/actions/workflows/clarify-okr.yml)
 
@@ -58,14 +59,14 @@ The workspace uses strict TypeScript (`strict: true`) and ESM imports everywhere
 
 ## Quality Gates & Scripts
 
-| Command | Purpose |
-| --- | --- |
-| `pnpm run lint` | ESLint across all packages (imports resolved via TS paths) |
-| `pnpm run typecheck` | `tsc --noEmit` validate for all composites |
-| `pnpm run build` | Build contracts, renderer, and main process in sequence |
-| `pnpm run test:unit` | Unit tests (`tests-unit` workspace) |
+| Command                   | Purpose                                                         |
+| ------------------------- | --------------------------------------------------------------- |
+| `pnpm run lint`           | ESLint across all packages (imports resolved via TS paths)      |
+| `pnpm run typecheck`      | `tsc --noEmit` validate for all composites                      |
+| `pnpm run build`          | Build contracts, renderer, and main process in sequence         |
+| `pnpm run test:unit`      | Unit tests (`tests-unit` workspace)                             |
 | `pnpm run test:component` | Angular component specs (headless Chrome via Playwright binary) |
-| `pnpm run test:e2e` | Playwright Electron E2E suite (runs serially in CI) |
+| `pnpm run test:e2e`       | Playwright Electron E2E suite (runs serially in CI)             |
 
 ### CI and local runners (act)
 
@@ -74,11 +75,11 @@ GitHub Actions workflows run on Node 20 + pnpm with Lint → Typecheck → Build
 **Run CI locally using `act`:**
 
 ```bash
-# Quick validation (lint + typecheck + build + unit tests)
+# Quick validation (lint + typecheck + build + unit/component/integration tests)
 pwsh scripts/act-run-ci.ps1
 
 # Full validation including E2E
-pwsh scripts/act-run-clarify-okr-e2e.ps1
+pwsh scripts/act-run-ci.ps1 -Job all
 ```
 
 For complete setup instructions, troubleshooting, and advanced usage, see **[docs/ci-simulation.md](docs/ci-simulation.md)**.

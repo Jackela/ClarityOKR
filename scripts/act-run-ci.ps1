@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Runs the main CI workflow using act (local GitHub Actions simulation).
+    Runs the CI workflow using act (local GitHub Actions simulation).
 
 .DESCRIPTION
     This script executes the CI workflow locally using nektos/act with flexible job selection,
@@ -8,12 +8,12 @@
 
 .PARAMETER Job
     Specifies which job(s) to run:
-    - build-and-test: Lint, typecheck, build, unit, and integration tests (default)
+    - build-and-test: Lint, typecheck, build, unit, component, and integration tests (default)
     - e2e: E2E tests (requires build-and-test to pass first)
     - all: Run all jobs sequentially
 
-.PARAMETER RunE2E
-    Enables the E2E job via workflow_dispatch input (run_e2e=true).
+.PARAMETER SkipE2E
+    Skips E2E tests when running workflow_dispatch (faster iteration).
 
 .PARAMETER SkipLint
     Sets ALLOW_LINT=false to skip linting (faster iteration, not recommended for final validation).
@@ -35,8 +35,16 @@
     Runs the build-and-test job with default settings.
 
 .EXAMPLE
-    pwsh scripts/act-run-ci.ps1 -Job e2e -RunE2E
-    Runs the E2E job with workflow_dispatch event.
+    pwsh scripts/act-run-ci.ps1 -Job e2e
+    Runs the E2E job.
+
+.EXAMPLE
+    pwsh scripts/act-run-ci.ps1 -Job all
+    Runs all jobs (build-and-test + e2e).
+
+.EXAMPLE
+    pwsh scripts/act-run-ci.ps1 -SkipE2E
+    Runs build-and-test only, skipping E2E (via workflow_dispatch).
 
 .EXAMPLE
     pwsh scripts/act-run-ci.ps1 -SkipLint
@@ -55,7 +63,7 @@ Param(
   [ValidateSet("build-and-test", "e2e", "all")]
   [string]$Job = "build-and-test",
 
-  [switch]$RunE2E,
+  [switch]$SkipE2E,
   [switch]$SkipLint,
   [switch]$Pull,
   [switch]$Verbose,
@@ -132,32 +140,42 @@ if (-not $SkipValidation) {
 $actCommand = @("act")
 
 # Determine event type and job selection based on parameters
-if ($Job -eq "e2e" -or $RunE2E) {
-  # E2E requires workflow_dispatch event with run_e2e input
+if ($SkipE2E) {
+  # Use workflow_dispatch with skip_e2e=true to skip E2E
   $actCommand += @(
     "workflow_dispatch"
     "-W"
     $WorkflowFile
     "--input"
-    "run_e2e=true"
+    "skip_e2e=true"
+    "-j"
+    "build-and-test"
   )
-
-  # Add specific job if not "all"
-  if ($Job -eq "e2e") {
-    $actCommand += @("-j", "e2e")
-  }
-} else {
-  # Standard push event for build-and-test
+} elseif ($Job -eq "e2e") {
+  # Run E2E job specifically (will run build-and-test first due to needs)
+  $actCommand += @(
+    "push"
+    "-W"
+    $WorkflowFile
+    "-j"
+    "e2e"
+  )
+} elseif ($Job -eq "all") {
+  # Run all jobs with push event
   $actCommand += @(
     "push"
     "-W"
     $WorkflowFile
   )
-
-  # Add specific job if not "all"
-  if ($Job -ne "all") {
-    $actCommand += @("-j", $Job)
-  }
+} else {
+  # Standard push event for build-and-test only
+  $actCommand += @(
+    "push"
+    "-W"
+    $WorkflowFile
+    "-j"
+    "build-and-test"
+  )
 }
 
 # Add platform flag
@@ -179,8 +197,8 @@ if ($Verbose) {
   Write-Host "[VERBOSE] Workflow File: $WorkflowFile" -ForegroundColor Cyan
   Write-Host "[VERBOSE] Platform: $Platform" -ForegroundColor Cyan
 
-  if ($RunE2E -or $Job -eq "e2e") {
-    Write-Host "[VERBOSE] Event: workflow_dispatch (run_e2e=true)" -ForegroundColor Cyan
+  if ($SkipE2E) {
+    Write-Host "[VERBOSE] Event: workflow_dispatch (skip_e2e=true)" -ForegroundColor Cyan
   } else {
     Write-Host "[VERBOSE] Event: push" -ForegroundColor Cyan
   }
