@@ -327,13 +327,12 @@ export class AppComponent implements OnDestroy {
     // Also request next question via LLM gateway; non-blocking
     const historyTurns: Array<{ questionId: string; optionId: string; timestamp: string }> = [];
     this.llmBusy = true;
-    this.store.setLoading(true);
+    this.store.setLoading();
     this.llmGateway
       .getNextQuestion({ turns: historyTurns }, { questionId: this.latestPrompt.id, optionId })
       .subscribe({
         next: () => {
           this.llmBusy = false;
-          this.store.setLoading(false);
         },
         error: (err) => {
           // eslint-disable-next-line no-console
@@ -341,7 +340,6 @@ export class AppComponent implements OnDestroy {
           this.statusMessage = '请求超时或失败，请重试。';
           this.store.setError('网络错误或服务不可用，请重试。');
           this.llmBusy = false;
-          this.store.setLoading(false);
         },
       });
   }
