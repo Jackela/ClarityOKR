@@ -1,142 +1,99 @@
-import { _electron as electron, expect, test } from '@playwright/test';
-import http from 'node:http';
-import { fileURLToPath } from 'node:url';
-import path from 'node:path';
+import { test as base, expect } from '@playwright/test';
+import { createMockServer, MockResponseConfig } from '../../fixtures/mock-server';
+import { launchElectronApp, cleanupPersistenceFiles, ROOT } from '../../fixtures';
 
-const currentDir = path.dirname(fileURLToPath(import.meta.url));
-const ROOT = path.resolve(currentDir, '../../../../');
-
-function startMockLlmServer(port: number, responseMode: 'malformed' | 'missing-fields' | 'empty') {
-  const server = http.createServer(async (req, res) => {
-    if (req.method === 'POST' && req.url && req.url.includes('/v1/responses')) {
-      if (responseMode === 'malformed') {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end('{ invalid json }');
-        return;
-      }
-
-      if (responseMode === 'missing-fields') {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ question: { id: 'q1' } }));
-        return;
-      }
-
-      if (responseMode === 'empty') {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end('');
-        return;
-      }
-    }
-    res.statusCode = 404;
-    res.end();
-  });
-  return new Promise<http.Server>((resolve) => {
-    server.listen(port, () => resolve(server));
-  });
+interface InvalidResponseFixture {
+  mockServerCustom: {
+    url: string;
+    port: number;
+    setResponses: (config: MockResponseConfig) => void;
+  };
 }
 
-test.describe('Invalid LLM Response Handling', () => {
-  test('handles malformed JSON response gracefully', async () => {
-    const { execSync } = await import('node:child_process');
-    execSync('pnpm run build', { cwd: ROOT, stdio: 'inherit' });
+const test = base.extend<InvalidResponseFixture>({
+  mockServerCustom: [
+    async ({}, use, testInfo) => {
+      const port = 7778 + testInfo.parallelIndex;
+      const mockServer = createMockServer({ port });
+      await mockServer.start();
 
-    const server = await startMockLlmServer(7778, 'malformed');
-    const electronApp = await electron.launch({
-      args: ['.', ...extraElectronArgs()],
-      cwd: ROOT,
-      env: {
-        ...process.env,
-        LLM_API_KEY: 'test',
-        LLM_BASE_URL: 'http://127.0.0.1:7778',
-        LLM_MODEL: 'test',
-      },
+      await use({
+        url: mockServer.getUrl(),
+        port: mockServer.getPort(),
+        setResponses: mockServer.setResponses,
+      });
+
+      await mockServer.stop();
+    },
+    { scope: 'test' },
+  ],
+});
+
+test.describe('Invalid LLM Response Handling', () => {
+  test.beforeEach(async () => {
+    await cleanupPersistenceFiles();
+  });
+
+  test('handles malformed JSON response gracefully', async ({ mockServerCustom }) => {
+    mockServerCustom.setResponses({
+      rawResponse: '{ invalid json }',
     });
 
-    const window = await electronApp.firstWindow();
-    await window.waitForLoadState('domcontentloaded');
+    const { electronApp, mainWindow } = await launchElectronApp(mockServerCustom.url);
 
-    await window.fill('[data-testid="intent-input"]', '提高效率');
-    await window.click('[data-testid="start-clarification"]');
+    await mainWindow.waitForLoadState('domcontentloaded');
+    await mainWindow.fill('[data-testid="intent-input"]', '提高效率');
+    await mainWindow.click('[data-testid="start-clarification"]');
 
-    await window.waitForSelector('[data-testid="error-message"]', { timeout: 10000 });
-    const errorElement = window.locator('[data-testid="error-message"]');
+    await mainWindow.waitForSelector('[data-testid="error-message"]', { timeout: 10000 });
+    const errorElement = mainWindow.locator('[data-testid="error-message"]');
     await expect(errorElement).toBeVisible();
 
     const errorText = await errorElement.innerText();
     expect(errorText.toLowerCase()).toMatch(/(error|failed|invalid|malformed)/);
 
     await electronApp.close();
-    await new Promise<void>((resolve) => server.close(() => resolve()));
   });
 
-  test('handles missing required fields gracefully', async () => {
-    const { execSync } = await import('node:child_process');
-    execSync('pnpm run build', { cwd: ROOT, stdio: 'inherit' });
-
-    const server = await startMockLlmServer(7779, 'missing-fields');
-    const electronApp = await electron.launch({
-      args: ['.', ...extraElectronArgs()],
-      cwd: ROOT,
-      env: {
-        ...process.env,
-        LLM_API_KEY: 'test',
-        LLM_BASE_URL: 'http://127.0.0.1:7779',
-        LLM_MODEL: 'test',
-      },
+  test('handles missing required fields gracefully', async ({ mockServerCustom }) => {
+    mockServerCustom.setResponses({
+      rawResponse: JSON.stringify({ question: { id: 'q1' } }),
     });
 
-    const window = await electronApp.firstWindow();
-    await window.waitForLoadState('domcontentloaded');
+    const { electronApp, mainWindow } = await launchElectronApp(mockServerCustom.url);
 
-    await window.fill('[data-testid="intent-input"]', '提高效率');
-    await window.click('[data-testid="start-clarification"]');
+    await mainWindow.waitForLoadState('domcontentloaded');
+    await mainWindow.fill('[data-testid="intent-input"]', '提高效率');
+    await mainWindow.click('[data-testid="start-clarification"]');
 
-    await window.waitForSelector('[data-testid="error-message"]', { timeout: 10000 });
-    const errorElement = window.locator('[data-testid="error-message"]');
+    await mainWindow.waitForSelector('[data-testid="error-message"]', { timeout: 10000 });
+    const errorElement = mainWindow.locator('[data-testid="error-message"]');
     await expect(errorElement).toBeVisible();
 
     const errorText = await errorElement.innerText();
     expect(errorText.toLowerCase()).toMatch(/(error|failed|missing|invalid)/);
 
     await electronApp.close();
-    await new Promise<void>((resolve) => server.close(() => resolve()));
   });
 
-  test('handles empty response gracefully', async () => {
-    const { execSync } = await import('node:child_process');
-    execSync('pnpm run build', { cwd: ROOT, stdio: 'inherit' });
-
-    const server = await startMockLlmServer(7780, 'empty');
-    const electronApp = await electron.launch({
-      args: ['.', ...extraElectronArgs()],
-      cwd: ROOT,
-      env: {
-        ...process.env,
-        LLM_API_KEY: 'test',
-        LLM_BASE_URL: 'http://127.0.0.1:7780',
-        LLM_MODEL: 'test',
-      },
+  test('handles empty response gracefully', async ({ mockServerCustom }) => {
+    mockServerCustom.setResponses({
+      rawResponse: '',
     });
 
-    const window = await electronApp.firstWindow();
-    await window.waitForLoadState('domcontentloaded');
+    const { electronApp, mainWindow } = await launchElectronApp(mockServerCustom.url);
 
-    await window.fill('[data-testid="intent-input"]', '提高效率');
-    await window.click('[data-testid="start-clarification"]');
+    await mainWindow.waitForLoadState('domcontentloaded');
+    await mainWindow.fill('[data-testid="intent-input"]', '提高效率');
+    await mainWindow.click('[data-testid="start-clarification"]');
 
-    await window.waitForSelector('[data-testid="error-message"]', { timeout: 10000 });
-    const errorElement = window.locator('[data-testid="error-message"]');
+    await mainWindow.waitForSelector('[data-testid="error-message"]', { timeout: 10000 });
+    const errorElement = mainWindow.locator('[data-testid="error-message"]');
     await expect(errorElement).toBeVisible();
 
     const errorText = await errorElement.innerText();
     expect(errorText.toLowerCase()).toMatch(/(error|failed|empty|no.*response)/);
 
     await electronApp.close();
-    await new Promise<void>((resolve) => server.close(() => resolve()));
   });
 });
-
-function extraElectronArgs(): string[] {
-  const raw = process.env.ELECTRON_EXTRA_LAUNCH_ARGS || '';
-  return raw.trim() ? raw.trim().split(/\s+/) : [];
-}

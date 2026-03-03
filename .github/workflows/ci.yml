@@ -73,11 +73,20 @@ jobs:
       - name: Integration tests
         run: pnpm run test:integration
 
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: |
+            app/main/dist
+            app/renderer/dist
+            packages/contracts/dist
+          retention-days: 1
+
   e2e:
     name: E2E (Playwright + Electron)
     needs: build-and-test
     runs-on: ubuntu-latest
-    # Always run on PR/push; allow manual skip via workflow_dispatch
     if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.skip_e2e != 'true' }}
     env:
       LLM_API_KEY: test
@@ -109,6 +118,12 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts
+          path: .
 
       - name: Cache Playwright browsers
         uses: actions/cache@v4

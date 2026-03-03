@@ -1,14 +1,5 @@
-import { _electron as electron, errors, expect, test } from '@playwright/test';
-import { existsSync, promises as fs } from 'node:fs';
-import http from 'node:http';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const currentDir = path.dirname(fileURLToPath(import.meta.url));
-const ROOT = path.resolve(currentDir, '../../../..');
-const SESSION_PERSIST_PATH = path.join(ROOT, 'data', 'clarification-session.json');
-const OKR_PERSIST_PATH = path.join(ROOT, 'data', 'okr-document.json');
-type ElectronPage = import('@playwright/test').Page;
+import { test, expect, cleanupPersistenceFiles, ElectronApplication, Page } from '../../fixtures';
+import { errors } from '@playwright/test';
 
 interface StickyWindowSnapshot {
   windowId: number;
@@ -17,7 +8,7 @@ interface StickyWindowSnapshot {
   keyResults: string[];
 }
 
-async function completeClarification(mainWindow: ElectronPage) {
+async function completeClarification(mainWindow: Page) {
   await mainWindow.waitForSelector('[data-testid="intent-input"]');
   await mainWindow.fill('[data-testid="intent-input"]', '提高效率');
   await expect(mainWindow.locator('[data-testid="start-clarification"]')).toBeEnabled({
@@ -41,56 +32,8 @@ async function completeClarification(mainWindow: ElectronPage) {
   await generateButton.click();
 }
 
-function startMockLlmServer(port = 7777) {
-  let counter = 0;
-  const server = http.createServer(async (req, res) => {
-    if (req.method === 'POST' && req.url && req.url.includes('/v1/responses')) {
-      counter += 1;
-      if (counter <= 2) {
-        const body = JSON.stringify({
-          question: {
-            id: `q${counter + 1}`,
-            text: '请选择下一步',
-            options: [
-              { id: 'a', label: 'A', value: 'a' },
-              { id: 'b', label: 'B', value: 'b' },
-            ],
-          },
-        });
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(body);
-        return;
-      }
-      const draft = JSON.stringify({
-        draft: {
-          objectives: [
-            {
-              id: 'o1',
-              title: '提高效率',
-              description: '自动生成',
-              keyResults: [
-                { id: 'kr1', statement: 'KR1', target: '10%', measurement: 'rate' },
-                { id: 'kr2', statement: 'KR2', target: 5, measurement: 'count' },
-                { id: 'kr3', statement: 'KR3', target: '2s', measurement: 'latency' },
-              ],
-            },
-          ],
-        },
-      });
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(draft);
-      return;
-    }
-    res.statusCode = 404;
-    res.end();
-  });
-  return new Promise<http.Server>((resolve) => {
-    server.listen(port, () => resolve(server));
-  });
-}
-
 async function waitForStickyWindowSnapshotOld(
-  electronApp: import('@playwright/test').ElectronApplication,
+  electronApp: ElectronApplication,
   mainWindowId: number,
   excludeWindowIds: number[] = [],
 ): Promise<StickyWindowSnapshot> {
@@ -141,9 +84,9 @@ async function waitForStickyWindowSnapshotOld(
 }
 
 async function waitForStickyWindow(
-  electronApp: import('@playwright/test').ElectronApplication,
-  mainWindow: ElectronPage,
-): Promise<ElectronPage> {
+  electronApp: ElectronApplication,
+  mainWindow: Page,
+): Promise<Page> {
   const ctx = electronApp.context();
   const deadline = Date.now() + 30_000;
   while (Date.now() < deadline) {
@@ -162,7 +105,7 @@ async function waitForStickyWindow(
   throw new Error('Timed out waiting for sticky window');
 }
 
-async function debugWindows(electronApp: import('@playwright/test').ElectronApplication) {
+async function debugWindows(electronApp: ElectronApplication) {
   const urls = await electronApp.evaluate(({ BrowserWindow }) =>
     BrowserWindow.getAllWindows().map((w) => ({
       id: w.id,
@@ -175,32 +118,45 @@ async function debugWindows(electronApp: import('@playwright/test').ElectronAppl
 }
 
 test.beforeEach(async () => {
-  const cleanupTargets = [SESSION_PERSIST_PATH, OKR_PERSIST_PATH];
-  await Promise.all(
-    cleanupTargets.map(async (target) => {
-      if (existsSync(target)) {
-        await fs.unlink(target);
-      }
-    }),
-  );
+  await cleanupPersistenceFiles();
 });
 
-test('user can reopen sticky window after closing it', async () => {
-  const server = await startMockLlmServer();
-  const electronApp = await electron.launch({
-    args: ['.', ...extraElectronArgs()],
-    cwd: ROOT,
-    env: {
-      ...process.env,
-      LLM_API_KEY: 'test',
-      LLM_BASE_URL: 'http://127.0.0.1:7777',
-      LLM_MODEL: 'test',
+test('user can reopen sticky window after closing it', async ({
+  electronApp,
+  mainWindow,
+  mockServer,
+}) => {
+  mockServer.setResponses({
+    nextQuestion: (callNumber) => {
+      if (callNumber <= 2) {
+        return {
+          question: {
+            id: `q${callNumber + 1}`,
+            text: '请选择下一步',
+            options: [
+              { id: 'a', label: 'A', value: 'a' },
+              { id: 'b', label: 'B', value: 'b' },
+            ],
+          },
+        };
+      }
+      return null;
+    },
+    draft: {
+      objectives: [
+        {
+          id: 'o1',
+          title: '提高效率',
+          description: '自动生成',
+          keyResults: [
+            { id: 'kr1', statement: 'KR1', target: '10%', measurement: 'rate' },
+            { id: 'kr2', statement: 'KR2', target: 5, measurement: 'count' },
+            { id: 'kr3', statement: 'KR3', target: '2s', measurement: 'latency' },
+          ],
+        },
+      ],
     },
   });
-  const childProcess = electronApp.process();
-  childProcess.stderr?.on('data', (data) => process.stderr.write(data));
-  childProcess.stdout?.on('data', (data) => process.stdout.write(data));
-  const mainWindow = await electronApp.waitForEvent('window', { timeout: 60_000 });
 
   await completeClarification(mainWindow);
   await debugWindows(electronApp);
@@ -209,11 +165,14 @@ test('user can reopen sticky window after closing it', async () => {
   });
   await mainWindow.click('[data-testid="sticky-reopen"]');
 
-  let initialStickyWindow: ElectronPage;
+  let initialStickyWindow: Page;
   try {
     initialStickyWindow = await waitForStickyWindow(electronApp, mainWindow);
   } catch (err) {
     await debugWindows(electronApp);
+    const requestLog = mockServer.getRequestLog();
+    // eslint-disable-next-line no-console
+    console.error('[e2e] mock server request log:', JSON.stringify(requestLog, null, 2));
     throw err;
   }
 
@@ -222,7 +181,7 @@ test('user can reopen sticky window after closing it', async () => {
   await expect(mainWindow.locator('[data-testid="sticky-reopen"]')).toBeVisible();
   await mainWindow.click('[data-testid="sticky-reopen"]');
 
-  let reopenedStickyWindow: ElectronPage;
+  let reopenedStickyWindow: Page;
   try {
     reopenedStickyWindow = await waitForStickyWindow(electronApp, mainWindow);
   } catch (err) {
@@ -236,11 +195,4 @@ test('user can reopen sticky window after closing it', async () => {
     .locator('[data-testid="sticky-key-result"]')
     .allInnerTexts();
   expect(kr.length).toBeGreaterThan(0);
-
-  await electronApp.close();
-  await new Promise<void>((resolve) => server.close(() => resolve()));
 });
-function extraElectronArgs(): string[] {
-  const raw = process.env.ELECTRON_EXTRA_LAUNCH_ARGS || '';
-  return raw.trim() ? raw.trim().split(/\s+/) : [];
-}
