@@ -8,6 +8,9 @@ import type { ClarificationPrompt } from '@clarityokr/contracts';
   imports: [CommonModule],
   template: `
     <section>
+      <p class="loading" *ngIf="loading && !prompt" data-testid="clarification-loading">
+        正在加载下一步…
+      </p>
       <ng-container *ngIf="prompt">
         <h2 data-testid="prompt-question">{{ prompt.question }}</h2>
         <p class="context">{{ prompt.context }}</p>
