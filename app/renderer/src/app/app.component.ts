@@ -303,7 +303,7 @@ export class AppComponent implements OnDestroy {
     this.orchestrator.requestPrompt(this.sessionId, this.intentControl.value).subscribe({
       error: (error: unknown) => {
         this.statusMessage = error instanceof Error ? error.message : String(error);
-        this.store.setError('网络错误或服务不可用，请重试。');
+        this.store.setError('Error: 网络错误或服务不可用，请重试。');
         this.isClarifying = false;
       },
     });
@@ -341,7 +341,7 @@ export class AppComponent implements OnDestroy {
           // eslint-disable-next-line no-console
           console.warn('[renderer] LLM next-question failed', err);
           this.statusMessage = '请求超时或失败，请重试。';
-          this.store.setError('网络错误或服务不可用，请重试。');
+          this.store.setError('Error: 网络错误或服务不可用，请重试。');
           this.llmBusy = false;
         },
       });
@@ -393,7 +393,7 @@ export class AppComponent implements OnDestroy {
       this.orchestrator.requestPrompt(this.sessionId, this.intentControl.value).subscribe({
         error: (error: unknown) => {
           this.statusMessage = error instanceof Error ? error.message : String(error);
-          this.store.setError('网络错误或服务不可用，请重试。');
+          this.store.setError('Error: 网络错误或服务不可用，请重试。');
         },
       });
     }
