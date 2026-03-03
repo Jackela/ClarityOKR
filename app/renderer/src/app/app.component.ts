@@ -253,7 +253,7 @@ export class AppComponent implements OnDestroy {
     this.validationError$ = this.store.validationError$ as Observable<string | null>;
     this.isReady$ = this.store.isReadyToGenerate$ as Observable<boolean>;
     this.isLoading$ = this.store.isLoading$ as Observable<boolean>;
-    this.error$ = this.store.error$ as Observable<string | null>;
+    this.error$ = this.store.errorMessage$ as Observable<string | null>;
     this.stickyNote$ = this.stickyGateway.viewModel$ as Observable<OkrStickyViewModel | null>;
     this.hasStickyNote$ = this.stickyGateway.hasStickyNote$ as Observable<boolean>;
     this.store.currentPrompt$
