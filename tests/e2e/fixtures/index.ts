@@ -66,8 +66,8 @@ function waitForPortReady(port: number, timeout = 5000): Promise<void> {
 
 export const test = base.extend<E2EFixtures>({
   mockServer: [
-    async ({}, use) => {
-      const port = 7777;
+    async ({}, use, testInfo) => {
+      const port = 7777 + testInfo.workerIndex;
       let callCounter = 0;
       let responseConfig: MockResponseConfig = {};
       const requestLog: Array<{ method: string; url: string; body: unknown }> = [];
