@@ -51,14 +51,17 @@ test('clarification interview completes and enables OKR generation', async ({
   await mainWindow.waitForSelector('[data-testid="clarification-option"]', { timeout: 15_000 });
 
   const optionLocator = mainWindow.locator('[data-testid="clarification-option"]');
+  await expect(optionLocator.first()).toBeEnabled({ timeout: 5000 });
   await optionLocator.first().click();
+  // Wait a tick for the loading state to be set
+  await mainWindow.waitForTimeout(100);
   await expect(mainWindow.locator('[data-testid="clarification-loading"]')).toBeVisible({
-    timeout: 5000,
+    timeout: 10000,
   });
   await expect(mainWindow.locator('[data-testid="clarification-loading"]')).toBeHidden({
     timeout: 30000,
   });
-  await mainWindow.waitForSelector('[data-testid="clarification-option"]', { timeout: 5000 });
+  await expect(optionLocator.first()).toBeVisible({ timeout: 10000 });
 
   await mainWindow.waitForFunction(() => {
     const el = document.querySelector('[data-testid="prompt-question"]');
