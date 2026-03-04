@@ -65,12 +65,35 @@ function waitForPortReady(port: number, timeout = 5000): Promise<void> {
 }
 
 export const test = base.extend<E2EFixtures>({
+  mockServer: [
+    async ({}, use) => {
+      const port = 7777;
+      let callCounter = 0;
+      let responseConfig: MockResponseConfig = {};
+      const requestLog: Array<{ method: string; url: string; body: unknown }> = [];
+
+      const server = http.createServer(async (req, res) => {
+        let body = '';
+        req.on('data', (chunk) => {
+          body += chunk.toString();
+        });
+        req.on('end', async () => {
+          let parsedBody: unknown;
+          try {
+            parsedBody = body ? JSON.parse(body) : null;
+          } catch {
+            parsedBody = body;
+          }
 
           requestLog.push({
             method: req.method ?? 'UNKNOWN',
             url: req.url ?? '/',
             body: parsedBody,
           });
+
+          if (process.env.E2E_DEBUG === 'true') {
+            console.log('[mock-server] Request:', req.method, req.url, parsedBody);
+          }
 
           if (req.method === 'POST' && req.url?.includes('/v1/responses')) {
             callCounter += 1;
@@ -132,7 +155,6 @@ export const test = base.extend<E2EFixtures>({
         server.listen(port, '127.0.0.1', async () => {
           try {
             await waitForPortReady(port);
-            // eslint-disable-next-line no-console
             console.log(`[mock-server] Listening on http://127.0.0.1:${port}`);
             resolve();
           } catch (err) {
@@ -158,7 +180,6 @@ export const test = base.extend<E2EFixtures>({
 
       await new Promise<void>((resolve) => {
         server.close(() => {
-          // eslint-disable-next-line no-console
           console.log(`[mock-server] Stopped on port ${port}`);
           resolve();
         });
@@ -190,12 +211,10 @@ export const test = base.extend<E2EFixtures>({
       const window = await electronApp.waitForEvent('window', { timeout: 60_000 });
 
       window.on('console', (message) => {
-        // eslint-disable-next-line no-console
         console.info('[renderer]', message.type(), message.text());
       });
 
       await window.evaluate(() => {
-        // eslint-disable-next-line no-console
         console.info('[renderer] console hook confirmation');
       });
       await window.waitForLoadState('domcontentloaded');
