@@ -14,10 +14,11 @@ test('shows error message when LLM API is unreachable', async ({ mainWindow, moc
   await expect(mainWindow.locator('[data-testid="start-clarification"]')).toBeEnabled();
   await mainWindow.click('[data-testid="start-clarification"]');
 
-  await mainWindow.waitForSelector('[data-testid="clarification-loading"]', { timeout: 10_000 });
-  await mainWindow.waitForSelector('[data-testid="error-message"]', { timeout: 15_000 });
+  await expect(mainWindow.locator('[data-testid="clarification-loading"]')).toBeVisible({
+    timeout: 10000,
+  });
   const errorElement = mainWindow.locator('[data-testid="error-message"]');
-  await expect(errorElement).toBeVisible();
+  await expect(errorElement).toBeVisible({ timeout: 15000 });
   await expect(errorElement).toContainText(/unavailable|error|failed/i);
 });
 
@@ -31,10 +32,11 @@ test('shows retry button when network error occurs', async ({ mainWindow, mockSe
   await expect(mainWindow.locator('[data-testid="start-clarification"]')).toBeEnabled();
   await mainWindow.click('[data-testid="start-clarification"]');
 
-  await mainWindow.waitForSelector('[data-testid="clarification-loading"]', { timeout: 10_000 });
-  await mainWindow.waitForSelector('[data-testid="error-message"]', { timeout: 15_000 });
+  await expect(mainWindow.locator('[data-testid="clarification-loading"]')).toBeVisible({
+    timeout: 10000,
+  });
   const retryButton = mainWindow.locator('[data-testid="retry-button"]');
-  await expect(retryButton).toBeVisible();
+  await expect(retryButton).toBeVisible({ timeout: 15000 });
   await expect(retryButton).toBeEnabled();
 });
 
@@ -67,9 +69,11 @@ test('recovers when retry succeeds after initial network failure', async ({
   await expect(mainWindow.locator('[data-testid="start-clarification"]')).toBeEnabled();
   await mainWindow.click('[data-testid="start-clarification"]');
 
-  await mainWindow.waitForSelector('[data-testid="clarification-loading"]', { timeout: 10_000 });
-  await mainWindow.waitForSelector('[data-testid="error-message"]', { timeout: 15_000 });
+  await expect(mainWindow.locator('[data-testid="clarification-loading"]')).toBeVisible({
+    timeout: 10000,
+  });
   const retryButton = mainWindow.locator('[data-testid="retry-button"]');
+  await expect(retryButton).toBeVisible({ timeout: 15000 });
   await expect(retryButton).toBeEnabled();
 
   // Reset responses to succeed on retry
@@ -88,8 +92,9 @@ test('recovers when retry succeeds after initial network failure', async ({
 
   await retryButton.click();
 
-  await mainWindow.waitForSelector('[data-testid="clarification-loading"]', { timeout: 10_000 });
-  await mainWindow.waitForSelector('[data-testid="clarification-option"]', { timeout: 15_000 });
+  await expect(mainWindow.locator('[data-testid="clarification-loading"]')).toBeVisible({
+    timeout: 10000,
+  });
   const optionLocator = mainWindow.locator('[data-testid="clarification-option"]');
-  await expect(optionLocator.first()).toBeVisible();
+  await expect(optionLocator.first()).toBeVisible({ timeout: 15000 });
 });
