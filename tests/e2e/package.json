@@ -7,6 +7,9 @@
     "test": "playwright test"
   },
   "devDependencies": {
-    "@playwright/test": "^1.44.0"
+    "@playwright/test": "^1.44.0",
+    "@types/get-port": "^4.0.1",
+    "get-port": "^7.1.0",
+    "nock": "^14.0.11"
   }
 }
