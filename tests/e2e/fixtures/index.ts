@@ -226,5 +226,5 @@ export const test = base.extend<E2EFixtures>({
 });
 
 export { expect } from '@playwright/test';
-export { ROOT };
+export { ROOT, launchElectronApp } from '../helpers/build-check';
 export type { ElectronApplication, Page };

@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { _electron, ElectronApplication, Page } from '@playwright/test';
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT = path.resolve(currentDir, '../../');
@@ -41,4 +42,33 @@ export function getElectronEnv(mockServerUrl: string): NodeJS.ProcessEnv {
     LLM_BASE_URL: mockServerUrl,
     LLM_MODEL: 'test',
   };
+}
+
+export async function launchElectronApp(
+  mockServerUrl: string,
+): Promise<{ electronApp: ElectronApplication; mainWindow: Page }> {
+  ensureBuildArtifacts();
+
+  const electronApp = await _electron.launch({
+    args: ['.', ...extraElectronArgs()],
+    cwd: ROOT,
+    env: getElectronEnv(mockServerUrl),
+  });
+
+  const childProcess = electronApp.process();
+  childProcess.stderr?.on('data', (data) => process.stderr.write(data));
+  childProcess.stdout?.on('data', (data) => process.stdout.write(data));
+
+  const mainWindow = await electronApp.waitForEvent('window', { timeout: 60_000 });
+
+  mainWindow.on('console', (message) => {
+    console.info('[renderer]', message.type(), message.text());
+  });
+
+  await mainWindow.evaluate(() => {
+    console.info('[renderer] console hook confirmation');
+  });
+  await mainWindow.waitForLoadState('domcontentloaded');
+
+  return { electronApp, mainWindow };
 }
