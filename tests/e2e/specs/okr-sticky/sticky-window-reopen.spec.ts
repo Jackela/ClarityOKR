@@ -1,12 +1,11 @@
-import { test, expect, cleanupPersistenceFiles, ElectronApplication, Page } from '../../fixtures';
-import { errors } from '@playwright/test';
-
-interface StickyWindowSnapshot {
-  windowId: number;
-  isTop: boolean;
-  objective: string;
-  keyResults: string[];
-}
+import {
+  test,
+  expect,
+  cleanupPersistenceFiles,
+  findStickyWindow,
+  ElectronApplication,
+  Page,
+} from '../../fixtures';
 
 async function completeClarification(mainWindow: Page) {
   await mainWindow.waitForSelector('[data-testid="intent-input"]');
@@ -32,75 +31,15 @@ async function completeClarification(mainWindow: Page) {
   await generateButton.click();
 }
 
-async function waitForStickyWindowSnapshotOld(
-  electronApp: ElectronApplication,
-  mainWindowId: number,
-  excludeWindowIds: number[] = [],
-): Promise<StickyWindowSnapshot> {
-  const deadline = Date.now() + 30_000;
-  while (Date.now() < deadline) {
-    const snapshot = await electronApp.evaluate(
-      async ({ BrowserWindow }, params) => {
-        const { mainId, excluded } = params;
-        const sticky = BrowserWindow.getAllWindows().find((candidate) => {
-          if (candidate.id === mainId || excluded.includes(candidate.id)) {
-            return false;
-          }
-          const url = candidate.webContents.getURL();
-          return url.includes('index.html');
-        });
-        if (!sticky) {
-          return null;
-        }
-        const payload = await sticky.webContents.executeJavaScript(
-          `(() => {
-            const objective = document.querySelector('[data-testid="sticky-objective"]')?.textContent ?? '';
-            const keyResults = Array.from(document.querySelectorAll('[data-testid="sticky-key-result"]')).map((el) => el.textContent ?? '');
-            return { objective, keyResults };
-          })();`,
-        );
-        return {
-          windowId: sticky.id,
-          isTop: sticky.isAlwaysOnTop(),
-          objective: payload.objective,
-          keyResults: payload.keyResults,
-        };
-      },
-      { mainId: mainWindowId, excluded: excludeWindowIds },
-    );
-    if (snapshot) {
-      return snapshot;
-    }
-    const remaining = Math.max(0, deadline - Date.now());
-    try {
-      await electronApp.context().waitForEvent('page', { timeout: remaining });
-    } catch (error) {
-      if (!(error instanceof errors.TimeoutError)) {
-        throw error;
-      }
-    }
-  }
-  throw new Error('Timed out waiting for sticky window');
-}
-
 async function waitForStickyWindow(
   electronApp: ElectronApplication,
   mainWindow: Page,
 ): Promise<Page> {
-  const ctx = electronApp.context();
   const deadline = Date.now() + 30_000;
   while (Date.now() < deadline) {
-    const pages = ctx.pages();
-    const sticky = pages.find((p) => p !== mainWindow);
-    if (sticky) return sticky;
-    const remaining = Math.max(0, deadline - Date.now());
-    try {
-      await ctx.waitForEvent('page', { timeout: remaining });
-    } catch (error) {
-      if (!(error instanceof errors.TimeoutError)) {
-        throw error;
-      }
-    }
+    const sticky = await findStickyWindow(electronApp);
+    if (sticky && sticky !== mainWindow) return sticky;
+    await new Promise((resolve) => setTimeout(resolve, 500));
   }
   throw new Error('Timed out waiting for sticky window');
 }
