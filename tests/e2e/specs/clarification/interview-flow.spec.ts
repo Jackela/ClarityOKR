@@ -52,10 +52,11 @@ test('clarification interview completes and enables OKR generation', async ({
 
   const optionLocator = mainWindow.locator('[data-testid="clarification-option"]');
   await optionLocator.first().click();
-  await mainWindow.waitForSelector('[data-testid="clarification-loading"]', { timeout: 5000 });
-  await mainWindow.waitForSelector('[data-testid="clarification-loading"]', {
-    state: 'hidden',
-    timeout: 30_000,
+  await expect(mainWindow.locator('[data-testid="clarification-loading"]')).toBeVisible({
+    timeout: 5000,
+  });
+  await expect(mainWindow.locator('[data-testid="clarification-loading"]')).toBeHidden({
+    timeout: 30000,
   });
   await mainWindow.waitForSelector('[data-testid="clarification-option"]', { timeout: 5000 });
 
