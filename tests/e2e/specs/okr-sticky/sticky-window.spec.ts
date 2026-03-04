@@ -1,4 +1,11 @@
-import { test, expect, cleanupPersistenceFiles, ElectronApplication, Page } from '../../fixtures';
+import {
+  test,
+  expect,
+  cleanupPersistenceFiles,
+  findStickyWindow,
+  ElectronApplication,
+  Page,
+} from '../../fixtures';
 import { errors } from '@playwright/test';
 
 interface StickyWindowSnapshot {
@@ -19,16 +26,18 @@ async function completeClarification(mainWindow: Page) {
   await mainWindow.waitForSelector('[data-testid="clarification-option"]');
   const optionLocator = mainWindow.locator('[data-testid="clarification-option"]');
   await optionLocator.first().click();
-  await mainWindow.waitForSelector('[data-testid="clarification-loading"]', { timeout: 5000 });
-  await mainWindow.waitForSelector('[data-testid="clarification-loading"]', {
-    state: 'hidden',
-    timeout: 30_000,
+  await expect(mainWindow.locator('[data-testid="clarification-loading"]')).toBeVisible({
+    timeout: 5000,
+  });
+  await expect(mainWindow.locator('[data-testid="clarification-loading"]')).toBeHidden({
+    timeout: 30000,
   });
   await optionLocator.last().click();
-  await mainWindow.waitForSelector('[data-testid="clarification-loading"]', { timeout: 5000 });
-  await mainWindow.waitForSelector('[data-testid="clarification-loading"]', {
-    state: 'hidden',
-    timeout: 30_000,
+  await expect(mainWindow.locator('[data-testid="clarification-loading"]')).toBeVisible({
+    timeout: 5000,
+  });
+  await expect(mainWindow.locator('[data-testid="clarification-loading"]')).toBeHidden({
+    timeout: 30000,
   });
 
   const generateButton = mainWindow.locator('[data-testid="clarification-generate"]');
@@ -40,12 +49,10 @@ async function waitForStickyWindowSnapshot(
   electronApp: ElectronApplication,
   mainWindow: Page,
 ): Promise<StickyWindowSnapshot> {
-  const ctx = electronApp.context();
   const deadline = Date.now() + 30_000;
   while (Date.now() < deadline) {
-    const pages = ctx.pages();
-    const sticky = pages.find((p) => p !== mainWindow);
-    if (sticky) {
+    const sticky = await findStickyWindow(electronApp);
+    if (sticky && sticky !== mainWindow) {
       const objective = await sticky.locator('[data-testid="sticky-objective"]').innerText();
       const keyResults = await sticky.locator('[data-testid="sticky-key-result"]').allInnerTexts();
       const isTop = await electronApp.evaluate(({ BrowserWindow }) => {
@@ -61,14 +68,7 @@ async function waitForStickyWindowSnapshot(
         keyResults,
       };
     }
-    const remaining = Math.max(0, deadline - Date.now());
-    try {
-      await ctx.waitForEvent('page', { timeout: remaining });
-    } catch (error) {
-      if (!(error instanceof errors.TimeoutError)) {
-        throw error;
-      }
-    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
   }
   throw new Error('Timed out waiting for sticky window');
 }
