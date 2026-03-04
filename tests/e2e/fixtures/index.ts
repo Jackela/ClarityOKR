@@ -8,9 +8,15 @@ import {
   getElectronEnv,
   ensureBuildArtifacts,
 } from '../helpers/build-check';
-import { ReliableMockServer, MockResponseConfig } from '../helpers/reliable-mock-server';
+import { ReliableMockServer } from '../helpers/reliable-mock-server';
 
-export { MockResponseConfig };
+// Re-export type from reliable-mock-server
+export type MockResponseConfig = {
+  nextQuestion?: (callNumber: number) => object | null | undefined;
+  draft?: object;
+  error?: { status: number; message: string } | null;
+  rawResponse?: string | (() => string);
+};
 
 type E2EFixtures = {
   mockServer: {
