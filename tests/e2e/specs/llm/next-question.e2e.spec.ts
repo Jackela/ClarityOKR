@@ -19,10 +19,11 @@ test('LLM next-question updates prompt after selection', async ({ mainWindow, mo
   await mainWindow.click('[data-testid="start-clarification"]');
   await mainWindow.waitForSelector('[data-testid="clarification-option"]');
   await mainWindow.locator('[data-testid="clarification-option"]').first().click();
-  await mainWindow.waitForSelector('[data-testid="clarification-loading"]', { timeout: 5000 });
-  await mainWindow.waitForSelector('[data-testid="clarification-loading"]', {
-    state: 'hidden',
-    timeout: 15_000,
+  await expect(mainWindow.locator('[data-testid="clarification-loading"]')).toBeVisible({
+    timeout: 5000,
+  });
+  await expect(mainWindow.locator('[data-testid="clarification-loading"]')).toBeHidden({
+    timeout: 15000,
   });
   await mainWindow.waitForSelector('[data-testid="clarification-option"]', { timeout: 5000 });
 
