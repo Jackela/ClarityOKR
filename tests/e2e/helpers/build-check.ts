@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { _electron, ElectronApplication, Page } from '@playwright/test';
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
-export const ROOT = path.resolve(currentDir, '../../');
+export const ROOT = path.resolve(currentDir, '../../../');
 export const MAIN_DIST = path.join(ROOT, 'app/main/dist/main.js');
 export const RENDERER_DIST = path.join(ROOT, 'app/renderer/dist/index.html');
 export const SESSION_PERSIST_PATH = path.join(ROOT, 'data', 'clarification-session.json');
