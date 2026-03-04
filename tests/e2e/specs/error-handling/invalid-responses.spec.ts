@@ -1,6 +1,7 @@
 import { test as base, expect } from '@playwright/test';
-import { createMockServer, MockResponseConfig } from '../../fixtures/mock-server';
-import { launchElectronApp, cleanupPersistenceFiles, ROOT } from '../../fixtures';
+import { ReliableMockServer } from '../../helpers/reliable-mock-server';
+import type { MockResponseConfig } from '../../fixtures';
+import { launchElectronApp, cleanupPersistenceFiles } from '../../fixtures';
 
 interface InvalidResponseFixture {
   mockServerCustom: {
@@ -12,15 +13,14 @@ interface InvalidResponseFixture {
 
 const test = base.extend<InvalidResponseFixture>({
   mockServerCustom: [
-    async ({}, use, testInfo) => {
-      const port = 7778 + testInfo.parallelIndex;
-      const mockServer = createMockServer({ port });
+    async ({}, use) => {
+      const mockServer = new ReliableMockServer();
       await mockServer.start();
 
       await use({
         url: mockServer.getUrl(),
-        port: mockServer.getPort(),
-        setResponses: mockServer.setResponses,
+        port: 0, // Not needed with ReliableMockServer
+        setResponses: (config: MockResponseConfig) => mockServer.setResponses(config),
       });
 
       await mockServer.stop();
