@@ -251,5 +251,5 @@ export const test = base.extend<E2EFixtures>({
 });
 
 export { expect } from '@playwright/test';
-export { ROOT, launchElectronApp } from '../helpers/build-check';
+export { ROOT, launchElectronApp, findStickyWindow } from '../helpers/build-check';
 export type { ElectronApplication, Page };

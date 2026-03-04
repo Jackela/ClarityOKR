@@ -72,3 +72,44 @@ export async function launchElectronApp(
 
   return { electronApp, mainWindow };
 }
+
+export async function findStickyWindow(electronApp: ElectronApplication): Promise<Page | null> {
+  // Use Electron API to find always-on-top windows
+  const stickyWindowId = await electronApp.evaluate(({ BrowserWindow }) => {
+    const windows = BrowserWindow.getAllWindows();
+    const sticky = windows.find((w) => w.isAlwaysOnTop() && w.isVisible());
+    return sticky ? sticky.id : null;
+  });
+
+  if (!stickyWindowId) return null;
+
+  // Find corresponding Playwright page by checking all pages
+  const pages = electronApp.context().pages();
+  for (const page of pages) {
+    // Try to identify the sticky window by checking if it's not the main window
+    // and by looking at window properties
+    const isSticky = await page
+      .evaluate(() => {
+        // Check if this is a sticky window by looking for sticky-specific attributes
+        const body = document.body;
+        return (
+          body.hasAttribute('data-sticky-window') ||
+          document.title.includes('Sticky') ||
+          window.location.href.includes('sticky')
+        );
+      })
+      .catch(() => false);
+
+    if (isSticky) {
+      return page;
+    }
+  }
+
+  // If we can't identify by attributes, return the last page (usually the newest window)
+  // This is a fallback approach
+  if (pages.length > 1) {
+    return pages[pages.length - 1];
+  }
+
+  return null;
+}
