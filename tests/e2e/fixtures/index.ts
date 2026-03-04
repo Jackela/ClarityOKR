@@ -12,7 +12,12 @@ import {
 } from '../helpers/build-check';
 
 export interface MockResponseConfig {
-  nextQuestion?: (callNumber: number) => object | null;
+  /**
+   * Function to generate next question response.
+   * Return null to signal an error (503 response).
+   * Return undefined to fall through to default response.
+   */
+  nextQuestion?: (callNumber: number) => object | null | undefined;
   draft?: object;
   error?: { status: number; message: string } | null;
   rawResponse?: string | (() => string);
@@ -98,6 +103,23 @@ export const test = base.extend<E2EFixtures>({
           if (req.method === 'POST' && req.url?.includes('/v1/responses')) {
             callCounter += 1;
 
+            // Determine request type from body
+            const body = parsedBody as Record<string, unknown> | null;
+            const isDraftRequest =
+              body?.intent === 'draft' || (body?.tool as string)?.includes?.('draft');
+
+            if (process.env.E2E_DEBUG === 'true') {
+              console.log(`[mock-server] Request #${callCounter}:`, { isDraftRequest, body });
+            }
+
+            // Handle draft requests first (highest priority when draft config is set)
+            if (isDraftRequest && responseConfig.draft) {
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ draft: responseConfig.draft }));
+              return;
+            }
+
+            // Handle raw response (for invalid response tests)
             if (responseConfig.rawResponse !== undefined) {
               const raw =
                 typeof responseConfig.rawResponse === 'function'
@@ -108,6 +130,24 @@ export const test = base.extend<E2EFixtures>({
               return;
             }
 
+            // Handle nextQuestion with error signaling
+            const nextQuestionFn = responseConfig.nextQuestion;
+            if (nextQuestionFn) {
+              const questionResponse = nextQuestionFn(callCounter);
+              if (questionResponse === null) {
+                // null signals error - return 503
+                res.writeHead(503, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Service Unavailable' }));
+                return;
+              }
+              if (questionResponse !== undefined) {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify(questionResponse));
+                return;
+              }
+            }
+
+            // Handle global error config (for network error tests)
             if (responseConfig.error) {
               const errorResponse = JSON.stringify({ error: responseConfig.error.message });
               res.writeHead(responseConfig.error.status, { 'Content-Type': 'application/json' });
@@ -115,22 +155,7 @@ export const test = base.extend<E2EFixtures>({
               return;
             }
 
-            const nextQuestionFn = responseConfig.nextQuestion;
-            if (nextQuestionFn) {
-              const questionResponse = nextQuestionFn(callCounter);
-              if (questionResponse) {
-                res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify(questionResponse));
-                return;
-              }
-            }
-
-            if (responseConfig.draft) {
-              res.writeHead(200, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ draft: responseConfig.draft }));
-              return;
-            }
-
+            // Default question response
             const defaultQuestion = {
               question: {
                 id: `q${callCounter + 1}`,

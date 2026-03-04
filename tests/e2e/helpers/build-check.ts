@@ -35,13 +35,13 @@ export function extraElectronArgs(): string[] {
   return raw.trim() ? raw.trim().split(/\s+/) : [];
 }
 
-export function getElectronEnv(mockServerUrl: string): NodeJS.ProcessEnv {
+export function getElectronEnv(mockServerUrl: string): { [key: string]: string } {
   return {
     ...process.env,
     LLM_API_KEY: 'test',
     LLM_BASE_URL: mockServerUrl,
     LLM_MODEL: 'test',
-  };
+  } as { [key: string]: string };
 }
 
 export async function launchElectronApp(
