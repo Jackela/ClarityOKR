@@ -133,6 +133,9 @@ export class ReliableMockServer {
 
       // Handle global error config (check first to ensure error responses take precedence)
       if (this.responseConfig.error) {
+        console.log(
+          `[mock-server] Returning error: ${this.responseConfig.error.status} - ${this.responseConfig.error.message}`,
+        );
         this.sendResponse(res, this.responseConfig.error.status, {
           error: this.responseConfig.error.message,
         });
@@ -143,18 +146,25 @@ export class ReliableMockServer {
       const nextQuestionFn = this.responseConfig.nextQuestion;
       if (nextQuestionFn) {
         const questionResponse = nextQuestionFn(this.callCounter);
+        console.log(
+          `[mock-server] nextQuestion called (call #${this.callCounter}), response:`,
+          questionResponse,
+        );
         if (questionResponse === null) {
+          console.log('[mock-server] Returning 503 error for null response');
           this.sendResponse(res, 503, { error: 'Service Unavailable' });
           return;
         }
         if (questionResponse !== undefined) {
           // Return the response directly - it should match nextQuestionResponseSchema
+          console.log('[mock-server] Returning 200 with question response');
           this.sendResponse(res, 200, questionResponse);
           return;
         }
       }
 
       // Default response - must match nextQuestionResponseSchema
+      console.log(`[mock-server] Returning default response (call #${this.callCounter})`);
       const defaultResponse = {
         question: {
           id: `q${this.callCounter + 1}`,
