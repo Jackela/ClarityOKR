@@ -76,7 +76,7 @@ export class ClarificationOrchestratorService {
    * This method encapsulates the loading state management and error handling
    * to prevent direct store manipulation from components
    */
-  requestNextQuestion(questionId: string, optionId: string): Observable<unknown> {
+  requestNextQuestion(_questionId: string, _optionId: string): Observable<unknown> {
     this.store.setLoading('llm-question');
 
     // Note: This is a temporary implementation that uses the old llmGateway

@@ -9,13 +9,14 @@
  * - Observable-based API (compatible with Angular)
  */
 
-import { Observable, of, throwError } from 'rxjs';
 import type {
   ClarificationContext,
   DraftResponse,
   LastChoice,
   NextQuestionResponse,
 } from '@clarityokr/contracts';
+import type { Observable } from 'rxjs';
+import { of, throwError } from 'rxjs';
 
 export interface MockLlmGateway {
   getNextQuestion(

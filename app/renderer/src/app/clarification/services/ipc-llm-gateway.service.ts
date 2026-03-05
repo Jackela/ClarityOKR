@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 /**
  * IpcLlmGateway - Production implementation of LlmGateway using Electron IPC
  *
@@ -6,21 +7,19 @@
  */
 
 import { Injectable } from '@angular/core';
-import { defer, Observable } from 'rxjs';
-import { finalize, tap } from 'rxjs/operators';
-
 import type {
   ClarificationContext,
   DraftResponse,
   LastChoice,
-  LlmGateway,
+  LlmGatewayObservable,
   NextQuestionResponse,
 } from '@clarityokr/contracts';
-
-import { IPC_CHANNELS } from '../../shared/ipc-channel.tokens';
-import type { ClarifyOkrApi } from '../../shared/window';
+import { defer, Observable } from 'rxjs';
+import { finalize, tap } from 'rxjs/operators';
 
 import { TelemetryService } from '../../services/telemetry.service';
+import { IPC_CHANNELS } from '../../shared/ipc-channel.tokens';
+import type { ClarifyOkrApi } from '../../shared/window';
 
 function bridgeOrThrow(): ClarifyOkrApi {
   const candidate = (window as Window & { clarifyOkr?: ClarifyOkrApi }).clarifyOkr;
@@ -39,7 +38,7 @@ function bridgeOrThrow(): ClarifyOkrApi {
  * ```
  */
 @Injectable({ providedIn: 'root' })
-export class IpcLlmGateway implements LlmGateway {
+export class IpcLlmGateway implements LlmGatewayObservable<Observable<unknown>> {
   constructor(private readonly telemetry: TelemetryService) {}
 
   /**
@@ -53,10 +52,16 @@ export class IpcLlmGateway implements LlmGateway {
     const bridge = bridgeOrThrow();
     const started = performance.now();
 
-    return defer(() => bridge.invoke(IPC_CHANNELS.LLM_NEXT_QUESTION, { context, lastChoice })).pipe(
+    return defer(
+      () =>
+        bridge.invoke(IPC_CHANNELS.LLM_NEXT_QUESTION, {
+          context,
+          lastChoice,
+        }) as Promise<NextQuestionResponse>,
+    ).pipe(
       tap(() => this.telemetry.recordCall('next-question', 'success', performance.now() - started)),
       finalize(() => void 0),
-    ) as Observable<NextQuestionResponse>;
+    );
   }
 
   /**
@@ -67,7 +72,9 @@ export class IpcLlmGateway implements LlmGateway {
     const bridge = bridgeOrThrow();
     const started = performance.now();
 
-    return defer(() => bridge.invoke(IPC_CHANNELS.LLM_GENERATE_DRAFT, { context })).pipe(
+    return defer(
+      () => bridge.invoke(IPC_CHANNELS.LLM_GENERATE_DRAFT, { context }) as Promise<DraftResponse>,
+    ).pipe(
       tap({
         next: () => this.telemetry.recordCall('draft', 'success', performance.now() - started),
         error: (e) =>
@@ -78,7 +85,7 @@ export class IpcLlmGateway implements LlmGateway {
           ),
       }),
       finalize(() => void 0),
-    ) as Observable<DraftResponse>;
+    );
   }
 }
 

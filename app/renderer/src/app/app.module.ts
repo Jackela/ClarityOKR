@@ -4,9 +4,8 @@ import { BrowserModule } from '@angular/platform-browser';
 
 import { AppComponent } from './app.component';
 import { ClarificationWizardComponent } from './clarification/components/clarification-wizard.component';
-import { OkrStickyNoteComponent } from './okr-sticky/components/okr-sticky-note.component';
-
 import { IpcLlmGateway } from './clarification/services/ipc-llm-gateway.service';
+import { OkrStickyNoteComponent } from './okr-sticky/components/okr-sticky-note.component';
 
 @NgModule({
   declarations: [AppComponent],
@@ -16,6 +15,7 @@ import { IpcLlmGateway } from './clarification/services/ipc-llm-gateway.service'
     ClarificationWizardComponent,
     OkrStickyNoteComponent,
   ],
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   providers: [{ provide: 'LlmGateway', useClass: IpcLlmGateway }],
   bootstrap: [AppComponent],
 })

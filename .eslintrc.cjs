@@ -3,21 +3,21 @@ module.exports = {
   env: {
     es2022: true,
     node: true,
-    browser: true
+    browser: true,
   },
   parser: '@typescript-eslint/parser',
   parserOptions: {
     project: ['./tsconfig.eslint.json'],
     tsconfigRootDir: __dirname,
-    sourceType: 'module'
+    sourceType: 'module',
   },
   plugins: ['@typescript-eslint', 'import'],
   settings: {
     'import/resolver': {
       typescript: {
-        project: ['./tsconfig.eslint.json']
-      }
-    }
+        project: ['./tsconfig.eslint.json'],
+      },
+    },
   },
   extends: [
     'eslint:recommended',
@@ -25,7 +25,7 @@ module.exports = {
     'plugin:@typescript-eslint/recommended-requiring-type-checking',
     'plugin:import/recommended',
     'plugin:import/typescript',
-    'prettier'
+    'prettier',
   ],
   ignorePatterns: [
     'dist/',
@@ -36,7 +36,7 @@ module.exports = {
     'specs/**',
     'tests/integration/**',
     'tests/e2e/**',
-    'tmp-dist/**'
+    'tmp-dist/**',
   ],
   rules: {
     'import/order': [
@@ -44,16 +44,16 @@ module.exports = {
       {
         'newlines-between': 'always',
         groups: ['builtin', 'external', 'internal', 'parent', 'sibling', 'index'],
-        alphabetize: { order: 'asc', caseInsensitive: true }
-      }
+        alphabetize: { order: 'asc', caseInsensitive: true },
+      },
     ],
     '@typescript-eslint/no-floating-promises': 'error',
     '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
-    '@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports' }]
+    '@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports' }],
   },
   overrides: [
     {
-      files: ['tests/**/*.ts', 'app/**/*.spec.ts'],
+      files: ['tests/**/*.ts', 'app/**/*.spec.ts', 'app/**/*.state-machine.spec.ts'],
       rules: {
         '@typescript-eslint/no-unsafe-assignment': 'off',
         '@typescript-eslint/no-unsafe-member-access': 'off',
@@ -61,21 +61,23 @@ module.exports = {
         '@typescript-eslint/no-unsafe-argument': 'off',
         '@typescript-eslint/no-redundant-type-constituents': 'off',
         '@typescript-eslint/require-await': 'off',
-        '@typescript-eslint/no-misused-promises': 'off'
-      }
+        '@typescript-eslint/no-misused-promises': 'off',
+        '@typescript-eslint/no-var-requires': 'off',
+        '@typescript-eslint/no-unsafe-return': 'off',
+      },
     },
     {
       files: ['tests/e2e/**/*.ts'],
       rules: {
         'import/order': 'off',
-        '@typescript-eslint/consistent-type-imports': 'off'
-      }
+        '@typescript-eslint/consistent-type-imports': 'off',
+      },
     },
     {
       files: ['app/renderer/src/main.ts'],
       rules: {
-        '@typescript-eslint/no-unsafe-argument': 'off'
-      }
-    }
-  ]
+        '@typescript-eslint/no-unsafe-argument': 'off',
+      },
+    },
+  ],
 };
