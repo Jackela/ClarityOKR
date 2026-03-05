@@ -52,7 +52,7 @@ export class ReliableMockServer {
       body += chunk.toString();
     });
 
-    req.on('end', () => {
+    req.on('end', async () => {
       let parsedBody: unknown;
       try {
         parsedBody = body ? JSON.parse(body) : null;
@@ -77,7 +77,7 @@ export class ReliableMockServer {
       }
 
       // Handle request
-      this.processRequest(req, res, parsedBody, requestId);
+      await this.processRequest(req, res, parsedBody, requestId);
     });
 
     req.on('error', (err) => {
@@ -87,12 +87,17 @@ export class ReliableMockServer {
     });
   }
 
-  private processRequest(
+  private async processRequest(
     req: http.IncomingMessage,
     res: http.ServerResponse,
     parsedBody: unknown,
     requestId: string,
-  ): void {
+  ): Promise<void> {
+    // Add artificial delay in test mode to ensure loading indicator is visible
+    // This gives tests enough time to detect the loading state
+    if (process.env.CI || process.env.E2E_DELAY) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
