@@ -1,4 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
+import { TIMEOUTS } from '../../playwright.config';
 
 /**
  * Component for handling loading indicators.
@@ -21,26 +22,29 @@ export class LoadingComponent {
 
   /**
    * Wait for the loading indicator to appear.
-   * @param timeout - Optional timeout in milliseconds
+   * @param timeout - Optional timeout in milliseconds (defaults to TIMEOUTS.fast)
    */
-  async waitForVisible(timeout = 5000): Promise<void> {
+  async waitForVisible(timeout = TIMEOUTS.fast): Promise<void> {
     await this.locator.waitFor({ state: 'visible', timeout });
   }
 
   /**
    * Wait for the loading indicator to disappear.
-   * @param timeout - Optional timeout in milliseconds
+   * @param timeout - Optional timeout in milliseconds (defaults to TIMEOUTS.slow)
    */
-  async waitForHidden(timeout = 30000): Promise<void> {
+  async waitForHidden(timeout = TIMEOUTS.slow): Promise<void> {
     await this.locator.waitFor({ state: 'hidden', timeout });
   }
 
   /**
    * Wait for loading to appear and then disappear.
-   * @param appearTimeout - Timeout for loading to appear (ms)
-   * @param disappearTimeout - Timeout for loading to disappear (ms)
+   * @param appearTimeout - Timeout for loading to appear (ms, defaults to TIMEOUTS.fast)
+   * @param disappearTimeout - Timeout for loading to disappear (ms, defaults to TIMEOUTS.slow)
    */
-  async waitForComplete(appearTimeout = 5000, disappearTimeout = 30000): Promise<void> {
+  async waitForComplete(
+    appearTimeout = TIMEOUTS.fast,
+    disappearTimeout = TIMEOUTS.slow,
+  ): Promise<void> {
     await this.waitForVisible(appearTimeout);
     await this.waitForHidden(disappearTimeout);
   }
