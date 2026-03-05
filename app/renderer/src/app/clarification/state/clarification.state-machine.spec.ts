@@ -289,7 +289,7 @@ describe('ClarificationStateMachine', () => {
       const event = { type: 'GENERATE' } as ClarificationEvent;
 
       expect(() => clarificationReducer(initial, event)).toThrow(
-        /Invalid transition.*GENERATE.*idle/,
+        /Invalid transition.*cannot process event 'GENERATE'.*in state 'idle'/,
       );
     });
 
@@ -298,7 +298,7 @@ describe('ClarificationStateMachine', () => {
       const event = { type: 'OKR_GENERATED', okr: { objectives: [] } } as ClarificationEvent;
 
       expect(() => clarificationReducer(initial, event)).toThrow(
-        /Invalid transition.*OKR_GENERATED.*idle/,
+        /Invalid transition.*cannot process event 'OKR_GENERATED'.*in state 'idle'/,
       );
     });
 
