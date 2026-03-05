@@ -115,7 +115,7 @@ export class ReliableMockServer {
       const isDraftRequest =
         body?.intent === 'draft' || (body?.tool as string)?.includes?.('draft');
 
-      // Handle draft requests
+      // Handle draft requests - responseConfig.draft should already be { objectives: [...] }
       if (isDraftRequest && this.responseConfig.draft) {
         this.sendResponse(res, 200, { draft: this.responseConfig.draft });
         return;
@@ -140,23 +140,8 @@ export class ReliableMockServer {
           return;
         }
         if (questionResponse !== undefined) {
-          // Wrap response in ClarificationPromptResponse format if needed
-          const response = questionResponse as Record<string, unknown>;
-          if (response.question && !response.prompt) {
-            // Old format - wrap it
-            const wrappedResponse = {
-              prompt: {
-                id: (response.question as Record<string, unknown>).id ?? `q${this.callCounter}`,
-                question: (response.question as Record<string, unknown>).text ?? 'Question',
-                sequence: this.callCounter - 1,
-                context: 'LLM generated',
-                options: (response.question as Record<string, unknown>).options ?? [],
-              },
-            };
-            this.sendResponse(res, 200, wrappedResponse);
-          } else {
-            this.sendResponse(res, 200, questionResponse);
-          }
+          // Return the response directly - it should match nextQuestionResponseSchema
+          this.sendResponse(res, 200, questionResponse);
           return;
         }
       }
@@ -169,13 +154,11 @@ export class ReliableMockServer {
         return;
       }
 
-      // Default response - must match ClarificationPromptResponse schema
+      // Default response - must match nextQuestionResponseSchema
       const defaultResponse = {
-        prompt: {
+        question: {
           id: `q${this.callCounter + 1}`,
-          question: '再补充一个细节',
-          sequence: this.callCounter - 1,
-          context: 'LLM generated',
+          text: '再补充一个细节',
           options: [
             { id: 'a', label: 'A', value: 'a' },
             { id: 'b', label: 'B', value: 'b' },
