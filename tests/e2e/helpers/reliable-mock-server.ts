@@ -23,9 +23,9 @@ export class ReliableMockServer {
   private requestLog: RequestLogEntry[] = [];
   private pendingRequests = new Map<string, Promise<void>>();
 
-  async start(): Promise<number> {
-    // Get a random available port
-    this.port = await getPort();
+  async start(port?: number): Promise<number> {
+    // Use provided port or get a random available port
+    this.port = port ?? (await getPort());
 
     this.server = http.createServer((req, res) => {
       this.handleRequest(req, res);

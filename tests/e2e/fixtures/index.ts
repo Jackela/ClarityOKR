@@ -1,5 +1,6 @@
 import { test as base, _electron as electron, ElectronApplication, Page } from '@playwright/test';
 import { existsSync, promises as fs } from 'node:fs';
+import getPort from 'get-port';
 import {
   ROOT,
   SESSION_PERSIST_PATH,
@@ -93,7 +94,9 @@ export const test = base.extend<E2EFixtures>({
   mockServer: [
     async ({}, use) => {
       const server = new ReliableMockServer();
-      const port = await server.start();
+      // Use fixed port 7777 in CI to match LLM_BASE_URL env var, dynamic port locally
+      const port = process.env.CI ? 7777 : await getPort();
+      await server.start(port);
 
       await use({
         url: server.getUrl(),
