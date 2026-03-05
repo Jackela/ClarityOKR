@@ -10,11 +10,9 @@ test('LLM next-question updates prompt after selection', async ({ mainWindow, mo
 
   mockServer.setResponses({
     nextQuestion: () => ({
-      prompt: {
+      question: {
         id: 'q2',
-        question: '请选择下一步',
-        sequence: 1,
-        context: 'LLM generated',
+        text: '请选择下一步',
         options: [
           { id: 'a', label: 'A', value: 'a' },
           { id: 'b', label: 'B', value: 'b' },

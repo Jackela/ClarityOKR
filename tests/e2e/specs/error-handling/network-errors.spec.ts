@@ -47,11 +47,9 @@ test('recovers when retry succeeds after initial network failure', async ({
         return null; // Signal error for first call
       }
       return {
-        prompt: {
+        question: {
           id: 'q1',
-          question: 'Test question',
-          sequence: 0,
-          context: 'LLM generated',
+          text: 'Test question',
           options: [
             { id: 'a', label: 'Option A', value: 'a' },
             { id: 'b', label: 'Option B', value: 'b' },
@@ -69,11 +67,9 @@ test('recovers when retry succeeds after initial network failure', async ({
   // Reset responses to succeed on retry
   mockServer.setResponses({
     nextQuestion: () => ({
-      prompt: {
+      question: {
         id: 'q1',
-        question: 'Test question',
-        sequence: 0,
-        context: 'LLM generated',
+        text: 'Test question',
         options: [
           { id: 'a', label: 'Option A', value: 'a' },
           { id: 'b', label: 'Option B', value: 'b' },

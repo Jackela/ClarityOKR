@@ -12,11 +12,9 @@ test('LLM draft generation persists and displays OKR', async ({ mainWindow, mock
     nextQuestion: (callNumber) => {
       if (callNumber <= 2) {
         return {
-          prompt: {
+          question: {
             id: `q${callNumber + 1}`,
-            question: '请选择下一步',
-            sequence: callNumber - 1,
-            context: 'LLM generated',
+            text: '请选择下一步',
             options: [
               { id: 'a', label: 'A', value: 'a' },
               { id: 'b', label: 'B', value: 'b' },

@@ -12,11 +12,9 @@ test('completes interview and enables OKR generation', async ({ mainWindow, mock
     nextQuestion: (callNumber) => {
       if (callNumber <= 2) {
         return {
-          prompt: {
+          question: {
             id: `q${callNumber + 1}`,
-            question: '再补充一个细节',
-            sequence: callNumber - 1,
-            context: 'LLM generated',
+            text: '再补充一个细节',
             options: [
               { id: 'a', label: 'A', value: 'a' },
               { id: 'b', label: 'B', value: 'b' },
