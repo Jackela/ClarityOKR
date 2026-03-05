@@ -93,12 +93,6 @@ export class ReliableMockServer {
     parsedBody: unknown,
     requestId: string,
   ): Promise<void> {
-    // Add artificial delay in test mode to ensure loading indicator is visible
-    // This gives tests enough time to detect the loading state
-    // Use 300ms - enough for tests to see loading, but not too long to timeout
-    if (process.env.CI || process.env.E2E_DELAY) {
-      await new Promise((resolve) => setTimeout(resolve, 300));
-    }
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -143,7 +137,23 @@ export class ReliableMockServer {
           return;
         }
         if (questionResponse !== undefined) {
-          this.sendResponse(res, 200, questionResponse);
+          // Wrap response in ClarificationPromptResponse format if needed
+          const response = questionResponse as Record<string, unknown>;
+          if (response.question && !response.prompt) {
+            // Old format - wrap it
+            const wrappedResponse = {
+              prompt: {
+                id: (response.question as Record<string, unknown>).id ?? `q${this.callCounter}`,
+                question: (response.question as Record<string, unknown>).text ?? 'Question',
+                sequence: this.callCounter - 1,
+                context: 'LLM generated',
+                options: (response.question as Record<string, unknown>).options ?? [],
+              },
+            };
+            this.sendResponse(res, 200, wrappedResponse);
+          } else {
+            this.sendResponse(res, 200, questionResponse);
+          }
           return;
         }
       }
@@ -156,18 +166,20 @@ export class ReliableMockServer {
         return;
       }
 
-      // Default response
-      const defaultQuestion = {
-        question: {
+      // Default response - must match ClarificationPromptResponse schema
+      const defaultResponse = {
+        prompt: {
           id: `q${this.callCounter + 1}`,
-          text: '再补充一个细节',
+          question: '再补充一个细节',
+          sequence: this.callCounter - 1,
+          context: 'LLM generated',
           options: [
             { id: 'a', label: 'A', value: 'a' },
             { id: 'b', label: 'B', value: 'b' },
           ],
         },
       };
-      this.sendResponse(res, 200, defaultQuestion);
+      this.sendResponse(res, 200, defaultResponse);
       return;
     }
 
