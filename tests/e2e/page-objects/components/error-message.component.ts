@@ -1,0 +1,77 @@
+import type { Locator, Page } from '@playwright/test';
+
+/**
+ * Component for handling error messages and retry functionality.
+ */
+export class ErrorMessageComponent {
+  readonly messageLocator: Locator;
+  readonly retryButtonLocator: Locator;
+
+  /**
+   * Creates a new ErrorMessageComponent.
+   * @param page - The Playwright page instance
+   */
+  constructor(private readonly page: Page) {
+    this.messageLocator = page.locator('[data-testid="error-message"]');
+    this.retryButtonLocator = page.locator('[data-testid="retry-button"]');
+  }
+
+  /**
+   * Wait for the error message to be visible.
+   * @param timeout - Optional timeout in milliseconds
+   */
+  async waitForVisible(timeout = 15000): Promise<void> {
+    await this.messageLocator.waitFor({ state: 'visible', timeout });
+  }
+
+  /**
+   * Get the error message text.
+   * @returns The error message text
+   */
+  async getText(): Promise<string> {
+    await this.waitForVisible();
+    return this.messageLocator.innerText();
+  }
+
+  /**
+   * Check if an error message is currently visible.
+   * @returns True if error is visible
+   */
+  async isVisible(): Promise<boolean> {
+    try {
+      await this.messageLocator.waitFor({ state: 'visible', timeout: 1000 });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Wait for the retry button to be visible.
+   * @param timeout - Optional timeout in milliseconds
+   */
+  async waitForRetryButton(timeout = 15000): Promise<void> {
+    await this.retryButtonLocator.waitFor({ state: 'visible', timeout });
+  }
+
+  /**
+   * Click the retry button.
+   */
+  async clickRetry(): Promise<void> {
+    await this.waitForRetryButton();
+    await this.retryButtonLocator.click();
+  }
+
+  /**
+   * Check if the retry button is visible.
+   * @returns True if retry button is visible
+   */
+  async hasRetryButton(): Promise<boolean> {
+    try {
+      await this.retryButtonLocator.waitFor({ state: 'visible', timeout: 1000 });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
