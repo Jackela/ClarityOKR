@@ -44,8 +44,9 @@ export class IpcLlmGateway implements LlmGateway {
 
   /**
    * Get the next question via IPC (returns Observable for Angular compatibility)
+   * This is the primary method used by components.
    */
-  getNextQuestionObservable(
+  getNextQuestion(
     context: ClarificationContext,
     lastChoice: LastChoice,
   ): Observable<NextQuestionResponse> {
@@ -60,8 +61,9 @@ export class IpcLlmGateway implements LlmGateway {
 
   /**
    * Generate draft via IPC (returns Observable for Angular compatibility)
+   * This is the primary method used by components.
    */
-  generateDraftObservable(context: ClarificationContext): Observable<DraftResponse> {
+  generateDraft(context: ClarificationContext): Observable<DraftResponse> {
     const bridge = bridgeOrThrow();
     const started = performance.now();
 
@@ -77,47 +79,6 @@ export class IpcLlmGateway implements LlmGateway {
       }),
       finalize(() => void 0),
     ) as Observable<DraftResponse>;
-  }
-
-  /**
-   * Promise-based implementation of LlmGateway interface
-   */
-  async getNextQuestion(
-    context: ClarificationContext,
-    lastChoice: LastChoice,
-  ): Promise<NextQuestionResponse> {
-    const bridge = bridgeOrThrow();
-    const started = performance.now();
-
-    try {
-      const result = await bridge.invoke(IPC_CHANNELS.LLM_NEXT_QUESTION, {
-        context,
-        lastChoice,
-      });
-      this.telemetry.recordCall('next-question', 'success', performance.now() - started);
-      return result as NextQuestionResponse;
-    } catch (error) {
-      this.telemetry.recordCall('next-question', 'error', performance.now() - started);
-      throw error;
-    }
-  }
-
-  /**
-   * Promise-based implementation of LlmGateway interface
-   */
-  async generateDraft(context: ClarificationContext): Promise<DraftResponse> {
-    const bridge = bridgeOrThrow();
-    const started = performance.now();
-
-    try {
-      const result = await bridge.invoke(IPC_CHANNELS.LLM_GENERATE_DRAFT, { context });
-      this.telemetry.recordCall('draft', 'success', performance.now() - started);
-      return result as DraftResponse;
-    } catch (error) {
-      const errorType = /timeout/i.test(String(error)) ? 'timeout' : 'error';
-      this.telemetry.recordCall('draft', errorType, performance.now() - started);
-      throw error;
-    }
   }
 }
 

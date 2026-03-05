@@ -6,7 +6,7 @@ import { combineLatest, Observable, Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 
 import { ClarificationOrchestratorService } from './clarification/services/clarification-orchestrator.service';
-import { LlmGatewayService } from './clarification/services/llm-gateway.service';
+import { IpcLlmGateway } from './clarification/services/ipc-llm-gateway.service';
 import { ClarificationStore } from './clarification/state/clarification.store';
 import type { OkrStickyViewModel } from './okr-sticky/services/okr-projection.service';
 import { OkrStickyGatewayService } from './okr-sticky/services/okr-sticky-gateway.service';
@@ -247,7 +247,7 @@ export class AppComponent implements OnDestroy {
     private readonly orchestrator: ClarificationOrchestratorService,
     private readonly store: ClarificationStore,
     private readonly stickyGateway: OkrStickyGatewayService,
-    private readonly llmGateway: LlmGatewayService,
+    private readonly llmGateway: IpcLlmGateway,
   ) {
     this.currentPrompt$ = this.store.currentPrompt$ as Observable<ClarificationPrompt | null>;
     this.validationError$ = this.store.validationError$ as Observable<string | null>;
@@ -342,12 +342,12 @@ export class AppComponent implements OnDestroy {
     this.llmGateway
       .getNextQuestion({ turns: historyTurns }, { questionId: this.latestPrompt.id, optionId })
       .subscribe({
-        next: (result) => {
+        next: (result: unknown) => {
           console.log('[DEBUG] llmGateway.getNextQuestion next() - result:', result);
           console.log('[DEBUG] Setting llmBusy=false');
           this.llmBusy = false;
         },
-        error: (err) => {
+        error: (err: unknown) => {
           console.error('[DEBUG] llmGateway.getNextQuestion error:', err);
           this.statusMessage = '请求超时或失败，请重试。';
           // Error state is managed through orchestrator to maintain architecture layers
