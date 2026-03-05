@@ -33,7 +33,10 @@ test('shows retry button when network error occurs', async ({ mainWindow, mockSe
   await expect(await clarification.error.hasRetryButton()).toBe(true);
 });
 
-test('recovers when retry succeeds after initial network failure', async ({ mainWindow, mockServer }) => {
+test('recovers when retry succeeds after initial network failure', async ({
+  mainWindow,
+  mockServer,
+}) => {
   const clarification = new ClarificationPage(mainWindow);
 
   let failCount = 0;
@@ -44,9 +47,11 @@ test('recovers when retry succeeds after initial network failure', async ({ main
         return null; // Signal error for first call
       }
       return {
-        question: {
+        prompt: {
           id: 'q1',
-          text: 'Test question',
+          question: 'Test question',
+          sequence: 0,
+          context: 'LLM generated',
           options: [
             { id: 'a', label: 'Option A', value: 'a' },
             { id: 'b', label: 'Option B', value: 'b' },
@@ -64,9 +69,11 @@ test('recovers when retry succeeds after initial network failure', async ({ main
   // Reset responses to succeed on retry
   mockServer.setResponses({
     nextQuestion: () => ({
-      question: {
+      prompt: {
         id: 'q1',
-        text: 'Test question',
+        question: 'Test question',
+        sequence: 0,
+        context: 'LLM generated',
         options: [
           { id: 'a', label: 'Option A', value: 'a' },
           { id: 'b', label: 'Option B', value: 'b' },

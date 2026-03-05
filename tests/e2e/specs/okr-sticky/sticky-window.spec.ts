@@ -1,5 +1,10 @@
 import { test, expect, cleanupPersistenceFiles } from '../../fixtures';
-import { ClarificationPage, OkrStickyPage, waitForStickyWindow, debugWindows } from '../../page-objects';
+import {
+  ClarificationPage,
+  OkrStickyPage,
+  waitForStickyWindow,
+  debugWindows,
+} from '../../page-objects';
 
 test.beforeEach(async () => {
   await cleanupPersistenceFiles();
@@ -16,9 +21,11 @@ test('sticky window stays always-on-top with OKR contents rendered', async ({
     nextQuestion: (callNumber) => {
       if (callNumber <= 2) {
         return {
-          question: {
+          prompt: {
             id: `q${callNumber + 1}`,
-            text: '请选择下一步',
+            question: '请选择下一步',
+            sequence: callNumber - 1,
+            context: 'LLM generated',
             options: [
               { id: 'a', label: 'A', value: 'a' },
               { id: 'b', label: 'B', value: 'b' },
