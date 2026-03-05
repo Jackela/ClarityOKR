@@ -30,10 +30,10 @@ export default defineConfig({
   timeout: TIMEOUTS.maximum,
   // Retry configuration: CI=1 retry, local=0 retries
   retries: process.env.CI || process.env.ACT ? 1 : 0,
-  // Workers configuration: CI=4 workers, local=auto
-  workers: process.env.CI ? 4 : undefined,
-  // Enable parallel execution within each file
-  fullyParallel: true,
+  // Workers configuration: CI=1 worker (sequential to avoid port conflicts), local=auto
+  workers: process.env.CI ? 1 : undefined,
+  // Disable parallel execution to ensure port 7777 is not shared
+  fullyParallel: false,
   expect: {
     // Default assertion timeout
     timeout: TIMEOUTS.standard,
@@ -47,8 +47,5 @@ export default defineConfig({
     navigationTimeout: TIMEOUTS.slow,
   },
   globalSetup: globalSetupPath,
-  reporter: [
-    ['list'],
-    ...(process.env.CI ? ([['github']] as const) : []),
-  ],
+  reporter: [['list'], ...(process.env.CI ? ([['github']] as const) : [])],
 });
