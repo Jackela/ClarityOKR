@@ -47,8 +47,8 @@ describe('ClarificationStateMachine', () => {
       const next = clarificationReducer(initial, event);
 
       expect(next.type).toBe('prompting');
-      expect(next).toHaveProperty('prompt');
-      expect(next).toHaveProperty('history');
+      expect('prompt' in next).toBe(true);
+      expect('history' in next).toBe(true);
       if (next.type === 'prompting') {
         expect(next.prompt).toEqual(prompt);
         expect(next.history).toEqual([prompt]);
@@ -70,7 +70,7 @@ describe('ClarificationStateMachine', () => {
       expect(next.type).toBe('prompting');
       if (next.type === 'prompting') {
         expect(next.prompt).toEqual(prompt2);
-        expect(next.history).toHaveLength(2);
+        expect(next.history.length).toBe(2);
         expect(next.history[0]).toEqual(prompt1);
         expect(next.history[1]).toEqual(prompt2);
       }
