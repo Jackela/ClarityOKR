@@ -131,6 +131,14 @@ export class ReliableMockServer {
         return;
       }
 
+      // Handle global error config (check first to ensure error responses take precedence)
+      if (this.responseConfig.error) {
+        this.sendResponse(res, this.responseConfig.error.status, {
+          error: this.responseConfig.error.message,
+        });
+        return;
+      }
+
       // Handle nextQuestion with error signaling
       const nextQuestionFn = this.responseConfig.nextQuestion;
       if (nextQuestionFn) {
@@ -144,14 +152,6 @@ export class ReliableMockServer {
           this.sendResponse(res, 200, questionResponse);
           return;
         }
-      }
-
-      // Handle global error config
-      if (this.responseConfig.error) {
-        this.sendResponse(res, this.responseConfig.error.status, {
-          error: this.responseConfig.error.message,
-        });
-        return;
       }
 
       // Default response - must match nextQuestionResponseSchema
