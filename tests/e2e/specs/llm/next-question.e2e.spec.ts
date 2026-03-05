@@ -1,6 +1,13 @@
-import { test, expect } from '../../fixtures';
+import { test, expect, cleanupPersistenceFiles } from '../../fixtures';
+import { ClarificationPage } from '../../page-objects';
+
+test.beforeEach(async () => {
+  await cleanupPersistenceFiles();
+});
 
 test('LLM next-question updates prompt after selection', async ({ mainWindow, mockServer }) => {
+  const clarification = new ClarificationPage(mainWindow);
+
   mockServer.setResponses({
     nextQuestion: () => ({
       question: {
@@ -14,19 +21,10 @@ test('LLM next-question updates prompt after selection', async ({ mainWindow, mo
     }),
   });
 
-  await mainWindow.waitForSelector('[data-testid="intent-input"]');
-  await mainWindow.fill('[data-testid="intent-input"]', '提高效率');
-  await mainWindow.click('[data-testid="start-clarification"]');
-  await mainWindow.waitForSelector('[data-testid="clarification-option"]');
-  await mainWindow.locator('[data-testid="clarification-option"]').first().click();
-  await expect(mainWindow.locator('[data-testid="clarification-loading"]')).toBeVisible({
-    timeout: 5000,
-  });
-  await expect(mainWindow.locator('[data-testid="clarification-loading"]')).toBeHidden({
-    timeout: 20000,
-  });
-  await mainWindow.waitForSelector('[data-testid="clarification-option"]', { timeout: 5000 });
+  await clarification.waitForReady();
+  await clarification.startClarification('提高效率');
+  await clarification.answerQuestion(0);
 
-  const text = await mainWindow.locator('[data-testid="prompt-question"]').first().innerText();
-  expect(text.includes('请选择下一步') || text.includes('再补充')).toBeTruthy();
+  const questionText = await clarification.getCurrentQuestion();
+  expect(questionText.includes('请选择下一步') || questionText.includes('再补充')).toBeTruthy();
 });

@@ -1,60 +1,5 @@
-import {
-  test,
-  expect,
-  cleanupPersistenceFiles,
-  findStickyWindow,
-  ElectronApplication,
-  Page,
-} from '../../fixtures';
-
-async function completeClarification(mainWindow: Page) {
-  await mainWindow.waitForSelector('[data-testid="intent-input"]');
-  await mainWindow.fill('[data-testid="intent-input"]', '提高效率');
-  await expect(mainWindow.locator('[data-testid="start-clarification"]')).toBeEnabled({
-    timeout: 15_000,
-  });
-  await mainWindow.click('[data-testid="start-clarification"]');
-
-  await mainWindow.waitForSelector('[data-testid="clarification-option"]');
-  const optionLocator = mainWindow.locator('[data-testid="clarification-option"]');
-  await optionLocator.first().click();
-
-  const loadingLocator = mainWindow.locator('[data-testid="clarification-loading"]');
-  await expect(loadingLocator).toBeVisible({ timeout: 10_000 });
-  await expect(loadingLocator).toBeHidden({ timeout: 15_000 });
-
-  await expect(optionLocator.last()).toBeVisible({ timeout: 15_000 });
-  await optionLocator.last().click();
-
-  const generateButton = mainWindow.locator('[data-testid="clarification-generate"]');
-  await expect(generateButton).toBeEnabled({ timeout: 15_000 });
-  await generateButton.click();
-}
-
-async function waitForStickyWindow(
-  electronApp: ElectronApplication,
-  mainWindow: Page,
-): Promise<Page> {
-  const deadline = Date.now() + 30_000;
-  while (Date.now() < deadline) {
-    const sticky = await findStickyWindow(electronApp);
-    if (sticky && sticky !== mainWindow) return sticky;
-    await new Promise((resolve) => setTimeout(resolve, 500));
-  }
-  throw new Error('Timed out waiting for sticky window');
-}
-
-async function debugWindows(electronApp: ElectronApplication) {
-  const urls = await electronApp.evaluate(({ BrowserWindow }) =>
-    BrowserWindow.getAllWindows().map((w) => ({
-      id: w.id,
-      url: w.webContents.getURL(),
-      isTop: w.isAlwaysOnTop(),
-    })),
-  );
-  // eslint-disable-next-line no-console
-  console.info('[e2e] windows:', JSON.stringify(urls));
-}
+import { test, expect, cleanupPersistenceFiles } from '../../fixtures';
+import { ClarificationPage, OkrStickyPage, waitForStickyWindow, debugWindows } from '../../page-objects';
 
 test.beforeEach(async () => {
   await cleanupPersistenceFiles();
@@ -65,6 +10,8 @@ test('user can reopen sticky window after closing it', async ({
   mainWindow,
   mockServer,
 }) => {
+  const clarification = new ClarificationPage(mainWindow);
+
   mockServer.setResponses({
     nextQuestion: (callNumber) => {
       if (callNumber <= 2) {
@@ -97,16 +44,25 @@ test('user can reopen sticky window after closing it', async ({
     },
   });
 
-  await completeClarification(mainWindow);
-  await debugWindows(electronApp);
-  await expect(mainWindow.locator('[data-testid="sticky-reopen"]')).toBeVisible({
-    timeout: 15_000,
+  await clarification.waitForReady();
+  await clarification.completeClarificationFlow('提高效率', {
+    questionCount: 2,
+    selectOptionIndex: 0,
+    finalOptionIndex: 1,
   });
-  await mainWindow.click('[data-testid="sticky-reopen"]');
 
-  let initialStickyWindow: Page;
+  await debugWindows(electronApp);
+
+  // Reopen sticky window
+  await clarification.okrSummary.waitFor();
+  const reopenBtn = mainWindow.locator('[data-testid="sticky-reopen"]');
+  await expect(reopenBtn).toBeVisible();
+  await reopenBtn.click();
+
+  // Get initial sticky window
+  let initialStickyPage;
   try {
-    initialStickyWindow = await waitForStickyWindow(electronApp, mainWindow);
+    initialStickyPage = await waitForStickyWindow(electronApp);
   } catch (err) {
     await debugWindows(electronApp);
     const requestLog = mockServer.getRequestLog();
@@ -115,23 +71,32 @@ test('user can reopen sticky window after closing it', async ({
     throw err;
   }
 
-  await initialStickyWindow.close();
+  const initialSticky = new OkrStickyPage(initialStickyPage);
+  await initialSticky.waitForReady();
 
-  await expect(mainWindow.locator('[data-testid="sticky-reopen"]')).toBeVisible();
-  await mainWindow.click('[data-testid="sticky-reopen"]');
+  // Close sticky window
+  await initialSticky.close();
 
-  let reopenedStickyWindow: Page;
+  // Reopen sticky window again
+  await expect(reopenBtn).toBeVisible();
+  await reopenBtn.click();
+
+  // Get reopened sticky window
+  let reopenedStickyPage;
   try {
-    reopenedStickyWindow = await waitForStickyWindow(electronApp, mainWindow);
+    reopenedStickyPage = await waitForStickyWindow(electronApp);
   } catch (err) {
     await debugWindows(electronApp);
     throw err;
   }
-  await expect(reopenedStickyWindow.locator('[data-testid="sticky-objective"]')).toContainText(
-    '提高效率',
-  );
-  const kr = await reopenedStickyWindow
-    .locator('[data-testid="sticky-key-result"]')
-    .allInnerTexts();
-  expect(kr.length).toBeGreaterThan(0);
+
+  const reopenedSticky = new OkrStickyPage(reopenedStickyPage);
+  await reopenedSticky.waitForReady();
+
+  // Verify content is preserved
+  const objective = await reopenedSticky.getObjective();
+  expect(objective).toContain('提高效率');
+
+  const keyResults = await reopenedSticky.getKeyResults();
+  expect(keyResults.length).toBeGreaterThan(0);
 });

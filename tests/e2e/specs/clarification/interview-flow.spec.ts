@@ -1,13 +1,13 @@
 import { test, expect, cleanupPersistenceFiles } from '../../fixtures';
+import { ClarificationPage } from '../../page-objects';
 
 test.beforeEach(async () => {
   await cleanupPersistenceFiles();
 });
 
-test('clarification interview completes and enables OKR generation', async ({
-  mainWindow,
-  mockServer,
-}) => {
+test('completes interview and enables OKR generation', async ({ mainWindow, mockServer }) => {
+  const clarification = new ClarificationPage(mainWindow);
+
   mockServer.setResponses({
     nextQuestion: (callNumber) => {
       if (callNumber <= 2) {
@@ -40,40 +40,12 @@ test('clarification interview completes and enables OKR generation', async ({
     },
   });
 
-  await mainWindow.waitForSelector('[data-testid="intent-input"]');
-  await mainWindow.fill('[data-testid="intent-input"]', '提高效率');
-  const intentValue = await mainWindow.inputValue('[data-testid="intent-input"]');
-  // eslint-disable-next-line no-console
-  console.info('[e2e] intent input captured value:', intentValue);
-  await expect(mainWindow.locator('[data-testid="start-clarification"]')).toBeEnabled();
-  await mainWindow.click('[data-testid="start-clarification"]');
-
-  await mainWindow.waitForSelector('[data-testid="clarification-option"]', { timeout: 15_000 });
-
-  const optionLocator = mainWindow.locator('[data-testid="clarification-option"]');
-  await expect(optionLocator.first()).toBeEnabled({ timeout: 5000 });
-  await optionLocator.first().click();
-  // Wait a tick for the loading state to be set
-  await mainWindow.waitForTimeout(100);
-  await expect(mainWindow.locator('[data-testid="clarification-loading"]')).toBeVisible({
-    timeout: 10000,
+  await clarification.waitForReady();
+  await clarification.completeClarificationFlow('提高效率', {
+    questionCount: 2,
+    selectOptionIndex: 0,
+    finalOptionIndex: 1,
   });
-  await expect(mainWindow.locator('[data-testid="clarification-loading"]')).toBeHidden({
-    timeout: 30000,
-  });
-  await expect(optionLocator.first()).toBeVisible({ timeout: 10000 });
 
-  await mainWindow.waitForFunction(() => {
-    const el = document.querySelector('[data-testid="prompt-question"]');
-    return !!el && el.textContent?.includes('再补充');
-  });
-  await optionLocator.last().click();
-
-  const generateButton = mainWindow.locator('[data-testid="clarification-generate"]');
-  await expect(generateButton).toBeEnabled();
-  await generateButton.click();
-
-  const okrSummary = mainWindow.locator('[data-testid="okr-summary"]');
-  await expect(okrSummary).toBeVisible();
-  await expect(okrSummary).toContainText('提高效率');
+  await expect(mainWindow.locator('[data-testid="okr-summary"]')).toContainText('提高效率');
 });
