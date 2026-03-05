@@ -307,7 +307,7 @@ describe('ClarificationStateMachine', () => {
       const event = { type: 'GENERATE' } as ClarificationEvent;
 
       expect(() => clarificationReducer(initial, event)).toThrow(
-        /Invalid transition.*GENERATE.*loading/,
+        /Invalid transition.*cannot process event 'GENERATE'.*in state 'loading'/,
       );
     });
 
@@ -321,7 +321,7 @@ describe('ClarificationStateMachine', () => {
       const event = { type: 'GENERATE' } as ClarificationEvent;
 
       expect(() => clarificationReducer(initial, event)).toThrow(
-        /Invalid transition.*GENERATE.*prompting/,
+        /Invalid transition.*cannot process event 'GENERATE'.*in state 'prompting'/,
       );
     });
 
@@ -330,7 +330,7 @@ describe('ClarificationStateMachine', () => {
       const event: ClarificationEvent = { type: 'PROMPT_RECEIVED', prompt: buildPrompt(3) };
 
       expect(() => clarificationReducer(initial, event)).toThrow(
-        /Invalid transition.*PROMPT_RECEIVED.*completed/,
+        /Invalid transition.*cannot process event 'PROMPT_RECEIVED'.*in state 'completed'/,
       );
     });
 
@@ -343,7 +343,7 @@ describe('ClarificationStateMachine', () => {
       const event: ClarificationEvent = { type: 'GENERATE' };
 
       expect(() => clarificationReducer(initial, event)).toThrow(
-        /Invalid transition.*GENERATE.*error/,
+        /Invalid transition.*cannot process event 'GENERATE'.*in state 'error'/,
       );
     });
 
@@ -356,7 +356,7 @@ describe('ClarificationStateMachine', () => {
       const event: ClarificationEvent = { type: 'PROMPT_RECEIVED', prompt: buildPrompt(3) };
 
       expect(() => clarificationReducer(initial, event)).toThrow(
-        /Invalid transition.*PROMPT_RECEIVED.*generating/,
+        /Invalid transition.*cannot process event 'PROMPT_RECEIVED'.*in state 'generating'/,
       );
     });
   });
