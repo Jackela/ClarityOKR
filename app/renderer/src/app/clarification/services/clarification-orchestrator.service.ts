@@ -33,7 +33,7 @@ export class ClarificationOrchestratorService {
     }
 
     this.store.setSessionId(sessionId);
-    this.store.setLoading();
+    this.store.setLoading(intent);
 
     return from(bridge.invoke(IPC_CHANNELS.CLARIFICATION_PROMPT, parsed.data)).pipe(
       map((response) => clarificationPromptResponseSchema.safeParse(response)),

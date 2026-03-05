@@ -337,7 +337,7 @@ export class AppComponent implements OnDestroy {
     console.log('[DEBUG] Setting llmBusy=true and calling setLoading()');
     const historyTurns: Array<{ questionId: string; optionId: string; timestamp: string }> = [];
     this.llmBusy = true;
-    this.store.setLoading();
+    this.store.setLoading('llm-question');
     console.log('[DEBUG] setLoading() called, current workflowState should be loading');
     console.log('[DEBUG] Calling llmGateway.getNextQuestion...');
     this.llmGateway

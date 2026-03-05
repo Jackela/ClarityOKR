@@ -3,15 +3,32 @@ import type { ClarificationPrompt } from '@clarityokr/contracts';
 import { ComponentStore } from '@ngrx/component-store';
 import { map } from 'rxjs';
 
-export type WorkflowState =
-  | 'idle'
-  | 'loading'
-  | 'prompting'
-  | 'ready'
-  | 'generating'
-  | 'completed'
-  | 'error';
+import {
+  clarificationReducer,
+  type ClarificationState as StateMachineState,
+  type ClarificationEvent,
+  type ErrorInfo,
+  type OKRDocument,
+} from './clarification.state-machine';
 
+/**
+ * Workflow state type (backward compatibility alias)
+ */
+export type WorkflowState = StateMachineState['type'];
+
+/**
+ * Internal store state using state machine
+ */
+interface StoreState {
+  machineState: StateMachineState;
+  sessionId: string | null;
+  selectionsByPromptId: Record<string, string>;
+  validationError: string | null;
+}
+
+/**
+ * Legacy ClarificationState interface (for backward compatibility)
+ */
 export interface ClarificationState {
   workflowState: WorkflowState;
   sessionId: string | null;
@@ -22,47 +39,92 @@ export interface ClarificationState {
   error: { message: string; recoverable: boolean } | null;
 }
 
-const initialState: ClarificationState = {
-  workflowState: 'idle',
+const initialState: StoreState = {
+  machineState: { type: 'idle' },
   sessionId: null,
-  currentPrompt: null,
   selectionsByPromptId: {},
-  history: [],
   validationError: null,
-  error: null,
 };
 
-const VALID_TRANSITIONS: Record<WorkflowState, WorkflowState[]> = {
-  idle: ['loading'],
-  loading: ['prompting', 'error'],
-  prompting: ['loading', 'ready', 'error'],
-  ready: ['generating', 'prompting'],
-  generating: ['completed', 'error'],
-  completed: ['loading'],
-  error: ['loading', 'idle'],
-};
+/**
+ * Helper to get current prompt from machine state
+ */
+function getCurrentPrompt(machineState: StateMachineState): ClarificationPrompt | null {
+  if (machineState.type === 'prompting') {
+    return machineState.prompt;
+  }
+  return null;
+}
+
+/**
+ * Helper to get history from machine state
+ */
+function getHistory(machineState: StateMachineState): ClarificationPrompt[] {
+  if (machineState.type === 'prompting') {
+    return machineState.history;
+  }
+  if (machineState.type === 'ready' || machineState.type === 'generating') {
+    return machineState.context.history;
+  }
+  return [];
+}
+
+/**
+ * Helper to get error from machine state
+ */
+function getError(machineState: StateMachineState): ErrorInfo | null {
+  if (machineState.type === 'error') {
+    return machineState.error;
+  }
+  return null;
+}
+
+/**
+ * Helper to convert StoreState to legacy ClarificationState
+ */
+function toLegacyState(state: StoreState): ClarificationState {
+  return {
+    workflowState: state.machineState.type,
+    sessionId: state.sessionId,
+    currentPrompt: getCurrentPrompt(state.machineState),
+    selectionsByPromptId: state.selectionsByPromptId,
+    history: getHistory(state.machineState),
+    validationError: state.validationError,
+    error: getError(state.machineState),
+  };
+}
 
 @Injectable({ providedIn: 'root' })
-export class ClarificationStore extends ComponentStore<ClarificationState> {
-  readonly workflowState$ = this.select((state) => state.workflowState);
-  readonly currentPrompt$ = this.select((state) => state.currentPrompt);
-  readonly history$ = this.select((state) => state.history);
+export class ClarificationStore extends ComponentStore<StoreState> {
+  readonly workflowState$ = this.select((state) => state.machineState.type);
+
+  readonly currentPrompt$ = this.select((state) => getCurrentPrompt(state.machineState));
+
+  readonly history$ = this.select((state) => getHistory(state.machineState));
+
   readonly validationError$ = this.select((state) => state.validationError);
-  readonly error$ = this.select((state) => state.error);
-  readonly errorMessage$ = this.select((state) => state.error?.message ?? null);
+
+  readonly error$ = this.select((state) => getError(state.machineState));
+
+  readonly errorMessage$ = this.select((state) => {
+    const error = getError(state.machineState);
+    return error?.message ?? null;
+  });
+
   readonly sessionId$ = this.select((state) => state.sessionId);
 
   readonly isLoading$ = this.select(
-    (state) => state.workflowState === 'loading' || state.workflowState === 'generating',
+    (state) => state.machineState.type === 'loading' || state.machineState.type === 'generating',
   );
 
-  readonly isReadyToGenerate$ = this.select((state) => state.workflowState === 'ready');
+  readonly isReadyToGenerate$ = this.select((state) => state.machineState.type === 'ready');
 
   readonly hasPrompt$ = this.currentPrompt$.pipe(map((prompt) => prompt !== null));
 
   readonly currentSelection$ = this.select((state) => {
-    if (!state.currentPrompt) return null;
-    return state.selectionsByPromptId[state.currentPrompt.id] ?? null;
+    const prompt = getCurrentPrompt(state.machineState);
+    if (!prompt) return null;
+    return state.selectionsByPromptId[prompt.id] ?? null;
   });
 
   readonly selectionCount$ = this.select((state) => Object.keys(state.selectionsByPromptId).length);
@@ -73,8 +135,22 @@ export class ClarificationStore extends ComponentStore<ClarificationState> {
     super(initialState);
   }
 
-  private isValidTransition(from: WorkflowState, to: WorkflowState): boolean {
-    return VALID_TRANSITIONS[from]?.includes(to) ?? false;
+  /**
+   * Core dispatch method for state machine events
+   */
+  private dispatch(event: ClarificationEvent): void {
+    this.setState((state) => {
+      try {
+        const nextMachineState = clarificationReducer(state.machineState, event);
+        return {
+          ...state,
+          machineState: nextMachineState,
+        };
+      } catch (error) {
+        console.warn(`[store] State transition failed: ${(error as Error).message}`);
+        return state;
+      }
+    });
   }
 
   readonly reset = this.updater(() => initialState);
@@ -84,18 +160,23 @@ export class ClarificationStore extends ComponentStore<ClarificationState> {
     sessionId,
   }));
 
+  /**
+   * @deprecated Use setLoading with intent parameter instead
+   */
   readonly transitionTo = this.updater((state, nextState: WorkflowState) => {
-    if (!this.isValidTransition(state.workflowState, nextState)) {
-      console.warn(`[store] Invalid transition: ${state.workflowState} → ${nextState}`);
-      return state;
-    }
-    return { ...state, workflowState: nextState };
+    console.warn(
+      `[store] transitionTo is deprecated. State ${state.machineState.type} -> ${nextState}`,
+    );
+    return state;
   });
 
-  readonly forceTransition = this.updater((state, nextState: WorkflowState) => ({
-    ...state,
-    workflowState: nextState,
-  }));
+  /**
+   * @deprecated Use reset() instead
+   */
+  readonly forceTransition = this.updater((state, _nextState: WorkflowState) => {
+    console.warn('[store] forceTransition is deprecated. Use reset() instead.');
+    return state;
+  });
 
   readonly setPrompt = this.updater((state, prompt: ClarificationPrompt) => {
     const optionCount = prompt.options.length;
@@ -103,28 +184,25 @@ export class ClarificationStore extends ComponentStore<ClarificationState> {
       throw new Error('Clarification prompts must supply between 2 and 5 options.');
     }
 
-    const nextWorkflowState: WorkflowState =
-      state.workflowState === 'loading' || state.workflowState === 'idle'
-        ? 'prompting'
-        : state.workflowState;
+    this.dispatch({ type: 'PROMPT_RECEIVED', prompt });
 
     return {
       ...state,
-      currentPrompt: prompt,
-      history: [...state.history, prompt],
       validationError: null,
-      workflowState: nextWorkflowState,
     };
   });
 
   readonly recordSelection = this.updater((state, optionId: string) => {
-    const prompt = state.currentPrompt;
+    const machineState = state.machineState;
+    const prompt = getCurrentPrompt(machineState);
+
     if (!prompt) {
+      console.warn('[store] recordSelection called with no current prompt');
       return state;
     }
 
-    if (state.workflowState !== 'prompting' && state.workflowState !== 'ready') {
-      console.warn(`[store] recordSelection called in invalid state: ${state.workflowState}`);
+    if (machineState.type !== 'prompting' && machineState.type !== 'ready') {
+      console.warn(`[store] recordSelection called in invalid state: ${machineState.type}`);
       return state;
     }
 
@@ -137,64 +215,68 @@ export class ClarificationStore extends ComponentStore<ClarificationState> {
     }
 
     const newSelections = { ...state.selectionsByPromptId, [prompt.id]: optionId };
-    const selectionCount = Object.keys(newSelections).length;
-    const nextWorkflowState = selectionCount >= 2 ? 'ready' : 'prompting';
+    this.dispatch({ type: 'OPTION_SELECTED', optionId });
 
     return {
       ...state,
       selectionsByPromptId: newSelections,
       validationError: null,
-      workflowState: nextWorkflowState,
     };
   });
 
-  readonly setLoading = this.updater((state) => {
-    console.log('[DEBUG-STORE] setLoading called, current state:', state.workflowState);
-    if (!this.isValidTransition(state.workflowState, 'loading')) {
-      console.warn('[DEBUG-STORE] setLoading - invalid transition from:', state.workflowState);
-      return state;
-    }
-    console.log('[DEBUG-STORE] setLoading - transitioning to loading state');
-    return { ...state, workflowState: 'loading', error: null };
+  readonly setLoading = this.updater((state, intent?: string) => {
+    this.dispatch({ type: 'START', intent: intent ?? 'default' });
+    return state;
   });
 
   readonly setGenerating = this.updater((state) => {
-    if (!this.isValidTransition(state.workflowState, 'generating')) {
-      return state;
-    }
-    return { ...state, workflowState: 'generating', error: null };
+    this.dispatch({ type: 'GENERATE' });
+    return state;
   });
 
-  readonly setCompleted = this.updater((state) => {
-    if (!this.isValidTransition(state.workflowState, 'completed')) {
-      return state;
-    }
-    return { ...state, workflowState: 'completed' };
+  readonly setCompleted = this.updater((state, okr?: OKRDocument) => {
+    this.dispatch({ type: 'OKR_GENERATED', okr: okr ?? { objectives: [] } });
+    return state;
   });
 
   readonly setError = this.updater(
     (state, error: string | { message: string; recoverable: boolean } | null) => {
       const errorObj = typeof error === 'string' ? { message: error, recoverable: true } : error;
-      return {
-        ...state,
-        error: errorObj,
-        workflowState: errorObj ? 'error' : state.workflowState,
-      };
+
+      if (errorObj) {
+        this.dispatch({ type: 'ERROR', error: errorObj });
+      }
+
+      return state;
     },
   );
 
-  readonly clearError = this.updater((state) => ({
-    ...state,
-    error: null,
-  }));
+  readonly clearError = this.updater((state) => {
+    if (state.machineState.type === 'error') {
+      // From error state, we can go to idle or loading via START
+      // For clearError, let's go to idle
+      this.dispatch({ type: 'RESET' });
+    }
+    return state;
+  });
 
   readonly setValidationError = this.updater((state, message: string | null) => ({
     ...state,
     validationError: message,
   }));
 
-  readonly markReady = this.updater((state, ready: boolean) => ({
-    ...state,
-    workflowState: ready ? 'ready' : state.workflowState,
-  }));
+  /**
+   * @deprecated Readiness is now determined automatically by the state machine
+   */
+  readonly markReady = this.updater((state, _ready: boolean) => {
+    console.warn('[store] markReady is deprecated, readiness is determined automatically');
+    return state;
+  });
+
+  /**
+   * Get current state as legacy format (for debugging/testing)
+   */
+  getStateLegacy(): ClarificationState {
+    return toLegacyState(this.get());
+  }
 }
