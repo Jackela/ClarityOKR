@@ -94,7 +94,7 @@ export class ReliableMockServer {
     requestId: string,
   ): Promise<void> {
     // Add small delay to ensure loading indicator is visible for tests
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    await new Promise((resolve) => setTimeout(resolve, 500));
 
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
