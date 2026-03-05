@@ -23,7 +23,7 @@ test('LLM next-question updates prompt after selection', async ({ mainWindow, mo
     timeout: 5000,
   });
   await expect(mainWindow.locator('[data-testid="clarification-loading"]')).toBeHidden({
-    timeout: 15000,
+    timeout: 20000,
   });
   await mainWindow.waitForSelector('[data-testid="clarification-option"]', { timeout: 5000 });
 

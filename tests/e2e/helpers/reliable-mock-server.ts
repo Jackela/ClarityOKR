@@ -95,8 +95,9 @@ export class ReliableMockServer {
   ): Promise<void> {
     // Add artificial delay in test mode to ensure loading indicator is visible
     // This gives tests enough time to detect the loading state
+    // Use 300ms - enough for tests to see loading, but not too long to timeout
     if (process.env.CI || process.env.E2E_DELAY) {
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 300));
     }
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
