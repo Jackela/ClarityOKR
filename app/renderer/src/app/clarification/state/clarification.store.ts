@@ -260,6 +260,66 @@ export class ClarificationStore extends ComponentStore<StoreState> {
     return state;
   });
 
+  /**
+   * Alias for setLoading - starts a new clarification flow
+   * Provides consistent API naming with the action/event system
+   */
+  readonly start = this.updater((state, intent?: string) => {
+    this.dispatch({ type: 'START', intent: intent ?? 'default' });
+    return state;
+  });
+
+  /**
+   * Alias for recordSelection - records an option selection
+   * Provides consistent API naming with the action/event system
+   */
+  readonly selectOption = this.updater((state, optionId: string) => {
+    const machineState = state.machineState;
+    const prompt = getCurrentPrompt(machineState);
+
+    if (!prompt) {
+      console.warn('[store] selectOption called with no current prompt');
+      return state;
+    }
+
+    if (machineState.type !== 'prompting' && machineState.type !== 'ready') {
+      console.warn(`[store] selectOption called in invalid state: ${machineState.type}`);
+      return state;
+    }
+
+    const optionExists = prompt.options.some((option) => option.id === optionId);
+    if (!optionExists) {
+      return {
+        ...state,
+        validationError: `Option ${optionId} was not provided for prompt ${prompt.id}.`,
+      };
+    }
+
+    this.dispatch({ type: 'OPTION_SELECTED', optionId });
+
+    return {
+      ...state,
+      selectionsByPromptId: { ...state.selectionsByPromptId, [prompt.id]: optionId },
+      validationError: null,
+    };
+  });
+
+  /**
+   * Alias for setError - reports an error with optional recoverability
+   * Provides consistent API naming with the action/event system
+   */
+  readonly reportError = this.updater(
+    (state, error: string | { message: string; recoverable: boolean } | null) => {
+      const errorObj = typeof error === 'string' ? { message: error, recoverable: true } : error;
+
+      if (errorObj) {
+        this.dispatch({ type: 'ERROR', error: errorObj });
+      }
+
+      return state;
+    },
+  );
+
   readonly setValidationError = this.updater((state, message: string | null) => ({
     ...state,
     validationError: message,

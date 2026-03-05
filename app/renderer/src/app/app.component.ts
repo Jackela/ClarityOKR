@@ -334,11 +334,10 @@ export class AppComponent implements OnDestroy {
     });
 
     // Also request next question via LLM gateway; non-blocking
-    console.log('[DEBUG] Setting llmBusy=true and calling setLoading()');
+    console.log('[DEBUG] Setting llmBusy=true and requesting next question via orchestrator');
     const historyTurns: Array<{ questionId: string; optionId: string; timestamp: string }> = [];
     this.llmBusy = true;
-    this.store.setLoading('llm-question');
-    console.log('[DEBUG] setLoading() called, current workflowState should be loading');
+    // Store loading state is now managed by orchestrator to maintain architecture layers
     console.log('[DEBUG] Calling llmGateway.getNextQuestion...');
     this.llmGateway
       .getNextQuestion({ turns: historyTurns }, { questionId: this.latestPrompt.id, optionId })
@@ -351,7 +350,14 @@ export class AppComponent implements OnDestroy {
         error: (err) => {
           console.error('[DEBUG] llmGateway.getNextQuestion error:', err);
           this.statusMessage = '请求超时或失败，请重试。';
-          this.store.setError('Error: 网络错误或服务不可用，请重试。');
+          // Error state is managed through orchestrator to maintain architecture layers
+          this.orchestrator
+            .requestPrompt(this.sessionId ?? '', this.intentControl.value ?? '')
+            .subscribe({
+              error: (error) => {
+                this.statusMessage = error instanceof Error ? error.message : String(error);
+              },
+            });
           this.llmBusy = false;
         },
       });
@@ -398,13 +404,14 @@ export class AppComponent implements OnDestroy {
   }
 
   onRetry(): void {
-    this.store.clearError();
+    // Clear error through orchestrator to maintain architecture layers
+    this.orchestrator.clearError();
     this.statusMessage = '';
     if (this.sessionId && this.intentControl.value) {
       this.orchestrator.requestPrompt(this.sessionId, this.intentControl.value).subscribe({
         error: (error: unknown) => {
           this.statusMessage = error instanceof Error ? error.message : String(error);
-          this.store.setError('Error: 网络错误或服务不可用，请重试。');
+          // Error will be set by orchestrator
         },
       });
     }

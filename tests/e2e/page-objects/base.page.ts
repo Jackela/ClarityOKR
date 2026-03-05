@@ -1,7 +1,9 @@
 import type { Locator, Page } from '@playwright/test';
+import { TIMEOUTS } from '../playwright.config';
 
 /**
  * Timeout configuration for POM operations
+ * Unified with playwright.config.ts TIMEOUTS
  */
 export interface TimeoutConfig {
   /** Default timeout for element visibility (ms) */
@@ -15,13 +17,14 @@ export interface TimeoutConfig {
 }
 
 /**
- * Default timeout values
+ * Default timeout values - unified with playwright.config.ts
+ * Maps TIMEOUTS to POM-specific timeout categories
  */
 export const DEFAULT_TIMEOUTS: TimeoutConfig = {
-  default: 15000,
-  short: 5000,
-  medium: 10000,
-  long: 30000,
+  default: TIMEOUTS.standard,
+  short: TIMEOUTS.fast,
+  medium: TIMEOUTS.standard,
+  long: TIMEOUTS.slow,
 };
 
 /**

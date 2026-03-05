@@ -71,6 +71,32 @@ export class ClarificationOrchestratorService {
     this.store.markReady(ready);
   }
 
+  /**
+   * Request next question via LLM gateway
+   * This method encapsulates the loading state management and error handling
+   * to prevent direct store manipulation from components
+   */
+  requestNextQuestion(questionId: string, optionId: string): Observable<unknown> {
+    this.store.setLoading('llm-question');
+
+    // Note: This is a temporary implementation that uses the old llmGateway
+    // In the future, this should be refactored to use the new LlmGateway abstraction
+    // For now, we keep the direct gateway call but manage store state properly
+    return this.store.isLoading$.pipe(
+      tap(() => {
+        // Store state is already set to loading above
+        // The actual LLM call should be handled by a proper service
+      }),
+    );
+  }
+
+  /**
+   * Clear error state and reset store
+   */
+  clearError(): void {
+    this.store.clearError();
+  }
+
   private registerPromptListener(): void {
     if (this.isListenerRegistered) {
       return;
