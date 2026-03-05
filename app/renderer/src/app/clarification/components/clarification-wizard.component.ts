@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output, OnChanges } from '@angular/core';
 import type { ClarificationPrompt } from '@clarityokr/contracts';
 
 @Component({
@@ -139,7 +139,7 @@ import type { ClarificationPrompt } from '@clarityokr/contracts';
     `,
   ],
 })
-export class ClarificationWizardComponent {
+export class ClarificationWizardComponent implements OnChanges {
   @Input() prompt: ClarificationPrompt | null = null;
   @Input() isReadyToGenerate = false;
   @Input() validationError: string | null = null;
@@ -149,4 +149,21 @@ export class ClarificationWizardComponent {
   @Output() readonly optionSelected = new EventEmitter<string>();
   @Output() readonly generate = new EventEmitter<void>();
   @Output() readonly retry = new EventEmitter<void>();
+
+  ngOnChanges(changes: {
+    loading?: { previousValue: boolean; currentValue: boolean };
+    prompt?: { currentValue: ClarificationPrompt | null };
+  }): void {
+    if (changes.loading) {
+      console.log(
+        '[DEBUG-WIZARD] loading changed from',
+        changes.loading.previousValue,
+        'to',
+        changes.loading.currentValue,
+      );
+    }
+    if (changes.prompt) {
+      console.log('[DEBUG-WIZARD] prompt changed:', changes.prompt.currentValue?.id);
+    }
+  }
 }

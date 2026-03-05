@@ -149,9 +149,12 @@ export class ClarificationStore extends ComponentStore<ClarificationState> {
   });
 
   readonly setLoading = this.updater((state) => {
+    console.log('[DEBUG-STORE] setLoading called, current state:', state.workflowState);
     if (!this.isValidTransition(state.workflowState, 'loading')) {
+      console.warn('[DEBUG-STORE] setLoading - invalid transition from:', state.workflowState);
       return state;
     }
+    console.log('[DEBUG-STORE] setLoading - transitioning to loading state');
     return { ...state, workflowState: 'loading', error: null };
   });
 

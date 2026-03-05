@@ -310,41 +310,52 @@ export class AppComponent implements OnDestroy {
   }
 
   onOptionSelected(optionId: string): void {
+    console.log('[DEBUG] onOptionSelected called with optionId:', optionId);
+    console.log('[DEBUG] sessionId:', this.sessionId, 'latestPrompt:', this.latestPrompt);
+
     if (!this.sessionId || !this.latestPrompt) {
+      console.warn('[DEBUG] onOptionSelected early return: missing sessionId or latestPrompt');
       return;
     }
 
     // Debounce duplicate requests while an LLM call is in-flight
     if (this.llmBusy) {
-      // eslint-disable-next-line no-console
-      console.info('[renderer] ignoring selection while LLM request is in-flight');
+      console.warn('[DEBUG] onOptionSelected early return: llmBusy is true');
       return;
     }
 
+    console.log('[DEBUG] Calling recordSelection...');
     this.orchestrator.recordSelection(this.sessionId, this.latestPrompt.id, optionId).subscribe({
+      next: () => console.log('[DEBUG] recordSelection completed successfully'),
       error: (error: unknown) => {
+        console.error('[DEBUG] recordSelection error:', error);
         this.statusMessage = error instanceof Error ? error.message : String(error);
       },
     });
 
     // Also request next question via LLM gateway; non-blocking
+    console.log('[DEBUG] Setting llmBusy=true and calling setLoading()');
     const historyTurns: Array<{ questionId: string; optionId: string; timestamp: string }> = [];
     this.llmBusy = true;
     this.store.setLoading();
+    console.log('[DEBUG] setLoading() called, current workflowState should be loading');
+    console.log('[DEBUG] Calling llmGateway.getNextQuestion...');
     this.llmGateway
       .getNextQuestion({ turns: historyTurns }, { questionId: this.latestPrompt.id, optionId })
       .subscribe({
-        next: () => {
+        next: (result) => {
+          console.log('[DEBUG] llmGateway.getNextQuestion next() - result:', result);
+          console.log('[DEBUG] Setting llmBusy=false');
           this.llmBusy = false;
         },
         error: (err) => {
-          // eslint-disable-next-line no-console
-          console.warn('[renderer] LLM next-question failed', err);
+          console.error('[DEBUG] llmGateway.getNextQuestion error:', err);
           this.statusMessage = '请求超时或失败，请重试。';
           this.store.setError('Error: 网络错误或服务不可用，请重试。');
           this.llmBusy = false;
         },
       });
+    console.log('[DEBUG] onOptionSelected completed - async operations started');
   }
 
   async onGenerate(): Promise<void> {
