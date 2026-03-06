@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/unbound-method, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-redundant-type-constituents */
-import { Component, OnDestroy } from '@angular/core';
+import { ChangeDetectorRef, Component, NgZone, OnDestroy } from '@angular/core';
 import { FormControl, Validators } from '@angular/forms';
 import type { ClarificationPrompt } from '@clarityokr/contracts';
 import { combineLatest, Observable, Subject } from 'rxjs';
@@ -248,6 +248,8 @@ export class AppComponent implements OnDestroy {
     private readonly store: ClarificationStore,
     private readonly stickyGateway: OkrStickyGatewayService,
     private readonly llmGateway: IpcLlmGateway,
+    private readonly zone: NgZone,
+    private readonly cdr: ChangeDetectorRef,
   ) {
     this.currentPrompt$ = this.store.currentPrompt$ as Observable<ClarificationPrompt | null>;
     this.validationError$ = this.store.validationError$ as Observable<string | null>;
@@ -301,10 +303,17 @@ export class AppComponent implements OnDestroy {
     });
 
     this.orchestrator.requestPrompt(this.sessionId, this.intentControl.value).subscribe({
-      error: (error: unknown) => {
-        this.statusMessage = error instanceof Error ? error.message : String(error);
-        this.store.setError('Error: 网络错误或服务不可用，请重试。');
+      next: () => {
+        // Success - prompt will be received via currentPrompt$ subscription
         this.isClarifying = false;
+      },
+      error: (error: unknown) => {
+        this.zone.run(() => {
+          // Error state already set by orchestrator, just update UI state
+          this.statusMessage = error instanceof Error ? error.message : String(error);
+          this.isClarifying = false;
+          this.cdr.detectChanges();
+        });
       },
     });
   }
@@ -328,8 +337,11 @@ export class AppComponent implements OnDestroy {
     this.orchestrator.recordSelection(this.sessionId, this.latestPrompt.id, optionId).subscribe({
       next: () => console.log('[DEBUG] recordSelection completed successfully'),
       error: (error: unknown) => {
-        console.error('[DEBUG] recordSelection error:', error);
-        this.statusMessage = error instanceof Error ? error.message : String(error);
+        this.zone.run(() => {
+          console.error('[DEBUG] recordSelection error:', error);
+          this.statusMessage = error instanceof Error ? error.message : String(error);
+          this.cdr.detectChanges();
+        });
       },
     });
 
@@ -337,7 +349,8 @@ export class AppComponent implements OnDestroy {
     console.log('[DEBUG] Setting llmBusy=true and requesting next question via orchestrator');
     const historyTurns: Array<{ questionId: string; optionId: string; timestamp: string }> = [];
     this.llmBusy = true;
-    // Store loading state is now managed by orchestrator to maintain architecture layers
+    // Set loading state before making the request so the UI shows loading indicator
+    this.store.setLoading('next-question');
     console.log('[DEBUG] Calling llmGateway.getNextQuestion...');
     this.llmGateway
       .getNextQuestion({ turns: historyTurns }, { questionId: this.latestPrompt.id, optionId })
@@ -382,16 +395,22 @@ export class AppComponent implements OnDestroy {
       const turns: Array<{ questionId: string; optionId: string; timestamp: string }> = [];
       this.llmGateway.generateDraft({ turns }).subscribe(
         (payload: unknown) => {
-          const first = (payload as { draft?: { objectives?: Array<{ title?: string }> } })?.draft
-            ?.objectives?.[0];
-          if (first && typeof first.title === 'string' && first.title) {
-            this.generatedSummary = first.title;
-          }
+          this.zone.run(() => {
+            const first = (payload as { draft?: { objectives?: Array<{ title?: string }> } })?.draft
+              ?.objectives?.[0];
+            if (first && typeof first.title === 'string' && first.title) {
+              this.generatedSummary = first.title;
+            }
+            this.cdr.detectChanges();
+          });
         },
         (err: unknown) => {
-          // eslint-disable-next-line no-console
-          console.warn('[renderer] LLM draft generation failed', err);
-          this.statusMessage = '生成失败或超时，请稍后重试。';
+          this.zone.run(() => {
+            // eslint-disable-next-line no-console
+            console.warn('[renderer] LLM draft generation failed', err);
+            this.statusMessage = '生成失败或超时，请稍后重试。';
+            this.cdr.detectChanges();
+          });
         },
       );
     } catch (error) {
@@ -410,8 +429,10 @@ export class AppComponent implements OnDestroy {
     if (this.sessionId && this.intentControl.value) {
       this.orchestrator.requestPrompt(this.sessionId, this.intentControl.value).subscribe({
         error: (error: unknown) => {
-          this.statusMessage = error instanceof Error ? error.message : String(error);
-          // Error will be set by orchestrator
+          this.zone.run(() => {
+            this.statusMessage = error instanceof Error ? error.message : String(error);
+            this.cdr.detectChanges();
+          });
         },
       });
     }

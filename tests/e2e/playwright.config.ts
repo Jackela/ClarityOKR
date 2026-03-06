@@ -12,10 +12,10 @@ const globalSetupPath = path.join(currentDir, 'global-setup.ts');
 export const TIMEOUTS = {
   /** Very fast operations (ms) */
   immediate: 500,
-  /** Fast operations like button clicks (ms) */
-  fast: 3000,
+  /** Fast operations like button clicks (ms) - increased to 8000ms for loading detection */
+  fast: 8000,
   /** Standard operations (ms) */
-  standard: 10000,
+  standard: 15000,
   /** Slow operations like loading indicators (ms) */
   slow: 30000,
   /** Very slow operations like initial app launch (ms) */

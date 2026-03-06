@@ -54,7 +54,8 @@ export class SimpleMockServer {
       });
 
       // Extended delay: ensures loading indicator visibility and UI update time
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      // Increased to 2000ms to provide sufficient time for loading state detection
+      await new Promise((resolve) => setTimeout(resolve, 2000));
 
       // Set CORS headers
       res.setHeader('Access-Control-Allow-Origin', '*');
