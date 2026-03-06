@@ -105,11 +105,18 @@ export class ClarificationStore extends ComponentStore<StoreState> {
 
   readonly validationError$ = this.select((state) => state.validationError);
 
-  readonly error$ = this.select((state) => getError(state.machineState));
+  readonly error$ = this.select((state) => {
+    console.log('[STORE-SELECT] error$ selector called, machineState:', state.machineState.type);
+    const error = getError(state.machineState);
+    console.log('[STORE-SELECT] error$ selector result:', error);
+    return error;
+  });
 
   readonly errorMessage$ = this.select((state) => {
     const error = getError(state.machineState);
-    return error?.message ?? null;
+    const message = error?.message ?? null;
+    console.log('[STORE-SELECT] errorMessage$ selector result:', message);
+    return message;
   });
 
   readonly sessionId$ = this.select((state) => state.sessionId);
@@ -140,15 +147,22 @@ export class ClarificationStore extends ComponentStore<StoreState> {
    * Core dispatch method for state machine events
    */
   private dispatch(event: ClarificationEvent): void {
+    console.log(`[STORE-DISPATCH] Dispatching event: ${event.type}`, event);
     this.setState((state) => {
+      console.log(
+        `[STORE-DISPATCH] Current state: ${state.machineState.type}, Event: ${event.type}`,
+      );
       try {
         const nextMachineState = clarificationReducer(state.machineState, event);
+        console.log(
+          `[STORE-DISPATCH] State transitioned: ${state.machineState.type} -> ${nextMachineState.type}`,
+        );
         return {
           ...state,
           machineState: nextMachineState,
         };
       } catch (error) {
-        console.warn(`[store] State transition failed: ${(error as Error).message}`);
+        console.warn(`[STORE-DISPATCH] State transition failed: ${(error as Error).message}`);
         return state;
       }
     });
@@ -180,13 +194,18 @@ export class ClarificationStore extends ComponentStore<StoreState> {
   });
 
   readonly setPrompt = this.updater((state, prompt: ClarificationPrompt) => {
+    console.log(
+      `[STORE] setPrompt called with prompt: ${prompt.id}, options: ${prompt.options.length}`,
+    );
     const optionCount = prompt.options.length;
     if (optionCount < 2 || optionCount > 5) {
+      console.error(`[STORE] Invalid option count: ${optionCount}`);
       throw new Error('Clarification prompts must supply between 2 and 5 options.');
     }
 
     this.dispatch({ type: 'PROMPT_RECEIVED', prompt });
 
+    console.log(`[STORE] setPrompt completed, state updated`);
     return {
       ...state,
       validationError: null,
@@ -226,7 +245,10 @@ export class ClarificationStore extends ComponentStore<StoreState> {
   });
 
   readonly setLoading = this.updater((state, intent?: string) => {
+    console.log(`[STORE] setLoading called with intent: ${intent ?? 'default'}`);
+    console.log(`[STORE] Current state before loading: ${state.machineState.type}`);
     this.dispatch({ type: 'START', intent: intent ?? 'default' });
+    console.log(`[STORE] setLoading completed`);
     return state;
   });
 
@@ -242,12 +264,21 @@ export class ClarificationStore extends ComponentStore<StoreState> {
 
   readonly setError = this.updater(
     (state, error: string | { message: string; recoverable: boolean } | null) => {
+      console.log(`[STORE-SETERROR] setError called`, {
+        error,
+        currentState: state.machineState.type,
+      });
       const errorObj = typeof error === 'string' ? { message: error, recoverable: true } : error;
 
       if (errorObj) {
+        console.log(`[STORE-SETERROR] Dispatching ERROR event with:`, errorObj);
         this.dispatch({ type: 'ERROR', error: errorObj });
+        console.log(`[STORE-SETERROR] ERROR event dispatched`);
+      } else {
+        console.log(`[STORE-SETERROR] Error is null, skipping dispatch`);
       }
 
+      console.log(`[STORE-SETERROR] setError completed`);
       return state;
     },
   );

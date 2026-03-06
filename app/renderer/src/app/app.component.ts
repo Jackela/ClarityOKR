@@ -256,6 +256,10 @@ export class AppComponent implements OnDestroy {
     this.isReady$ = this.store.isReadyToGenerate$ as Observable<boolean>;
     this.isLoading$ = this.store.isLoading$ as Observable<boolean>;
     this.error$ = this.store.errorMessage$ as Observable<string | null>;
+    // Log error$ emissions
+    this.error$.pipe(takeUntil(this.destroy$)).subscribe((error) => {
+      console.log('[APP-COMPONENT] error$ emitted:', error);
+    });
     this.stickyNote$ = this.stickyGateway.viewModel$ as Observable<OkrStickyViewModel | null>;
     this.hasStickyNote$ = this.stickyGateway.hasStickyNote$ as Observable<boolean>;
     this.store.currentPrompt$
@@ -308,12 +312,21 @@ export class AppComponent implements OnDestroy {
         this.isClarifying = false;
       },
       error: (error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+
+        // Directly set error state
+        this.store.setError({ message: '网络错误，请重试', recoverable: true });
+
+        // Force immediate UI state update
         this.zone.run(() => {
-          // Error state already set by orchestrator, just update UI state
-          this.statusMessage = error instanceof Error ? error.message : String(error);
+          this.statusMessage = message;
           this.isClarifying = false;
-          this.cdr.detectChanges();
+          this.cdr.markForCheck();
         });
+
+        // Add log to confirm error has been set
+        // eslint-disable-next-line no-console
+        console.log('[DEBUG] Error set:', message);
       },
     });
   }

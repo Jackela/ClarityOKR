@@ -89,12 +89,29 @@ export class ClarificationPage extends BasePage {
   }
 
   /**
-   * Answer a question by selecting an option and waiting for loading to complete.
+   * Answer a question by selecting an option and waiting for question change.
    * @param index - The index of the option to select (defaults to 0)
    */
   async answerQuestion(index = 0): Promise<void> {
+    const currentQuestion = await this.getCurrentQuestion();
     await this.selectOption(index);
-    await this.loading.waitForComplete();
+    await this.waitForQuestionChange(currentQuestion);
+  }
+
+  /**
+   * Wait for the question to change from the current question.
+   * @param previousQuestion - The previous question text to compare against
+   * @param timeout - Optional timeout in milliseconds
+   */
+  async waitForQuestionChange(previousQuestion: string, timeout?: number): Promise<void> {
+    await this.page.waitForFunction(
+      (prevQuestion: string) => {
+        const questionEl = document.querySelector('[data-testid="prompt-question"]');
+        return questionEl && questionEl.textContent !== prevQuestion;
+      },
+      previousQuestion,
+      { timeout: timeout ?? this.timeouts.long },
+    );
   }
 
   /**
@@ -228,9 +245,11 @@ export class ClarificationPage extends BasePage {
     const selectIndex = options?.selectOptionIndex ?? 0;
 
     await this.startClarification(intent);
+    await this.waitForQuestion();
 
     for (let i = 0; i < questionCount; i++) {
       await this.waitForOptions();
+      const currentQuestion = await this.getCurrentQuestion();
 
       // For the last question, use finalOptionIndex if specified, otherwise use last option
       if (i === questionCount - 1 && options?.finalOptionIndex !== undefined) {
@@ -241,7 +260,10 @@ export class ClarificationPage extends BasePage {
         await this.selectOption(selectIndex);
       }
 
-      await this.loading.waitForComplete();
+      // Wait for question change or options to reappear (indicates state transition)
+      if (i < questionCount - 1) {
+        await this.waitForQuestionChange(currentQuestion);
+      }
     }
 
     await this.generateOKR();

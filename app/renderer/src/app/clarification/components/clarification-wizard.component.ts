@@ -150,20 +150,34 @@ export class ClarificationWizardComponent implements OnChanges {
   @Output() readonly generate = new EventEmitter<void>();
   @Output() readonly retry = new EventEmitter<void>();
 
-  ngOnChanges(changes: {
-    loading?: { previousValue: boolean; currentValue: boolean };
-    prompt?: { currentValue: ClarificationPrompt | null };
-  }): void {
-    if (changes.loading) {
+  ngOnChanges(changes: Parameters<OnChanges['ngOnChanges']>[0]): void {
+    console.log('[WIZARD-ONCHANGES] ngOnChanges triggered', Object.keys(changes));
+
+    if (changes['loading']) {
       console.log(
-        '[DEBUG-WIZARD] loading changed from',
-        changes.loading.previousValue,
+        '[WIZARD-ONCHANGES] loading changed from',
+        changes['loading'].previousValue,
         'to',
-        changes.loading.currentValue,
+        changes['loading'].currentValue,
       );
     }
-    if (changes.prompt) {
-      console.log('[DEBUG-WIZARD] prompt changed:', changes.prompt.currentValue?.id);
+
+    if (changes['prompt']) {
+      const prev = changes['prompt'].previousValue as ClarificationPrompt | null;
+      const curr = changes['prompt'].currentValue as ClarificationPrompt | null;
+      console.log(
+        '[WIZARD-ONCHANGES] prompt changed from',
+        prev?.id ?? 'null',
+        'to',
+        curr?.id ?? 'null',
+      );
+    }
+
+    if (changes['error']) {
+      const prev = changes['error'].previousValue as string | null;
+      const curr = changes['error'].currentValue as string | null;
+      console.log('[WIZARD-ONCHANGES] ERROR CHANGED! from', prev ?? 'null', 'to', curr ?? 'null');
+      console.log('[WIZARD-ONCHANGES] error visible:', this.error !== null);
     }
   }
 }
