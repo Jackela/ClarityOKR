@@ -1,6 +1,5 @@
 import { test as base, _electron as electron, ElectronApplication, Page } from '@playwright/test';
 import { existsSync, promises as fs } from 'node:fs';
-import getPort from 'get-port';
 import {
   ROOT,
   SESSION_PERSIST_PATH,
@@ -9,15 +8,14 @@ import {
   getElectronEnv,
   ensureBuildArtifacts,
 } from '../helpers/build-check';
-import { ReliableMockServer } from '../helpers/reliable-mock-server';
-
-// Re-export type from reliable-mock-server
-export type MockResponseConfig = {
-  nextQuestion?: (callNumber: number) => object | null | undefined;
-  draft?: object;
-  error?: { status: number; message: string } | null;
-  rawResponse?: string | (() => string);
-};
+import {
+  startMSWServer,
+  stopMSWServer,
+  resetMSWServer,
+  setMockResponses,
+  getRequestLog,
+} from '../mocks/server';
+import type { MockResponseConfig } from '@clarityokr/contracts';
 
 /**
  * E2E test fixtures interface.
@@ -26,10 +24,11 @@ export type MockResponseConfig = {
 type E2EFixtures = {
   /**
    * Mock server for controlling LLM API responses.
-   * Each test gets a fresh mock server instance.
+   * Uses MSW (Mock Service Worker) to intercept HTTP requests.
+   * Each test gets a fresh mock configuration.
    */
   mockServer: {
-    /** The URL of the mock server */
+    /** The URL of the mock server (kept for backward compatibility) */
     url: string;
     /** Configure response behavior */
     setResponses: (config: MockResponseConfig) => void;
@@ -80,32 +79,33 @@ export async function cleanupPersistenceFiles(): Promise<void> {
 }
 
 /**
- * Enhanced test fixture with improved lifecycle management.
+ * Enhanced test fixture with MSW-based mocking.
  *
  * Key improvements:
- * - Worker-scope mock server for better performance (TODO: migrate to worker scope)
+ * - MSW (Mock Service Worker) for type-safe HTTP mocking
+ * - No HTTP server needed - intercepts at network level
  * - Automatic cleanup on test failure
  * - Better error handling and logging
- * - testBridge fixture for future extensibility
  */
 export const test = base.extend<E2EFixtures>({
-  // Mock server fixture - runs per test for isolation
-  // TODO: Consider migrating to worker scope for performance if test count grows
+  // Mock server fixture - uses MSW for HTTP interception
   mockServer: [
     async ({}, use) => {
-      const server = new ReliableMockServer();
-      // Use fixed port 7777 in CI to match LLM_BASE_URL env var, dynamic port locally
-      const port = process.env.CI ? 7777 : await getPort();
-      await server.start(port);
+      // Start MSW server if not already running
+      startMSWServer();
+
+      // Reset handlers for fresh state
+      resetMSWServer();
 
       await use({
-        url: server.getUrl(),
-        setResponses: (config: MockResponseConfig) => server.setResponses(config),
-        getRequestLog: () => server.getRequestLog(),
+        // URL kept for backward compatibility with existing tests
+        url: process.env.LLM_BASE_URL || 'http://127.0.0.1:7777',
+        setResponses: (config: MockResponseConfig) => setMockResponses(config),
+        getRequestLog: () => getRequestLog(),
       });
 
-      // Cleanup: stop server after test
-      await server.stop();
+      // Reset handlers after test for isolation
+      resetMSWServer();
     },
     { scope: 'test' },
   ],
