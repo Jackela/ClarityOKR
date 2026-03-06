@@ -121,15 +121,14 @@ test('debug: verify error to success flow', async ({ mainWindow, mockServer }) =
       }
       console.log('[DEBUG-TEST] Returning success (retry)');
       return {
-        prompt: {
-          id: 'q1',
-          question: 'What is your primary goal?',
-          context: 'Please select an option',
-          options: [
-            { id: 'opt1', label: 'Option A', description: 'First option' },
-            { id: 'opt2', label: 'Option B', description: 'Second option' },
-          ],
-        },
+        id: 'q1',
+        question: 'What is your primary goal?',
+        sequence: 0,
+        context: 'Please select an option',
+        options: [
+          { id: 'opt1', label: 'Option A', description: 'First option', scopeTag: 'scope1' },
+          { id: 'opt2', label: 'Option B', description: 'Second option', scopeTag: 'scope2' },
+        ],
       };
     },
   });

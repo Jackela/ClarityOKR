@@ -22,14 +22,14 @@ test('user can reopen sticky window after closing it', async ({
     nextQuestion: (callNumber) => {
       if (callNumber <= 2) {
         return {
-          question: {
-            id: `q${callNumber + 1}`,
-            text: '请选择下一步',
-            options: [
-              { id: 'a', label: 'A', value: 'a' },
-              { id: 'b', label: 'B', value: 'b' },
-            ],
-          },
+          id: `q${callNumber + 1}`,
+          question: '请选择下一步',
+          sequence: callNumber - 1,
+          context: '请选择一个选项',
+          options: [
+            { id: 'a', label: 'A', description: '选项A', scopeTag: 'optionA' },
+            { id: 'b', label: 'B', description: '选项B', scopeTag: 'optionB' },
+          ],
         };
       }
       return null;

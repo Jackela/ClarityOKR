@@ -287,6 +287,9 @@ export class ClarificationPage extends BasePage {
       // Wait for question change or options to reappear (indicates state transition)
       if (i < questionCount - 1) {
         await this.waitForQuestionChange(currentQuestion);
+      } else {
+        // After the last question, wait for generate button to be enabled
+        await this.generateButton.waitFor({ state: 'visible', timeout: this.timeouts.long });
       }
     }
 
