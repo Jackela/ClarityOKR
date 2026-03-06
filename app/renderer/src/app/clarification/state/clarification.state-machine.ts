@@ -131,6 +131,9 @@ function handleIdleState(
       return { type: 'loading', intent: event.intent };
     case 'RESET':
       return { type: 'idle' };
+    case 'ERROR':
+      // Allow error in idle state (e.g., validation errors during START)
+      return { type: 'error', error: event.error, previousState: state };
     default:
       throwInvalidTransition(state, event);
   }
