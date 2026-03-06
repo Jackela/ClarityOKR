@@ -33,7 +33,9 @@ test.describe('E2E-04: boundary cases', () => {
     await clarification.waitForReady();
     await clarification.startClarification('简单目标');
 
-    // 等待OKR生成完成（当nextQuestion立即返回null时，应该直接生成OKR）
+    // 等待生成按钮可见并启用
+    await clarification.generateButton.waitFor({ state: 'visible', timeout: 10000 });
+    await clarification.generateOKR();
     await clarification.waitForOkrSummary();
     await expect(mainWindow.locator('[data-testid="okr-summary"]')).toContainText('直接生成的OKR');
   });
@@ -51,14 +53,14 @@ test.describe('E2E-04: boundary cases', () => {
         questionCount++;
         if (questionCount <= maxQuestions) {
           return {
-            id: `q${questionCount}`,
-            question: `问题 ${questionCount}/${maxQuestions}`,
-            sequence: questionCount - 1,
-            context: '请选择一个选项',
-            options: [
-              { id: 'a', label: '继续', description: '继续回答', scopeTag: 'continue' },
-              { id: 'b', label: '结束', description: '结束澄清', scopeTag: 'finish' },
-            ],
+            question: {
+              id: `q${questionCount}`,
+              text: `问题 ${questionCount}/${maxQuestions}`,
+              options: [
+                { id: 'a', label: '继续', value: 'a' },
+                { id: 'b', label: '结束', value: 'b' },
+              ],
+            },
           };
         }
         return null;
@@ -103,14 +105,14 @@ test.describe('E2E-04: boundary cases', () => {
       nextQuestion: (callNumber) => {
         if (callNumber === 1) {
           return {
-            id: 'q1',
-            question: '只有一个问题',
-            sequence: 0,
-            context: '请回答是或否',
-            options: [
-              { id: 'yes', label: '是', description: '是的', scopeTag: 'yes' },
-              { id: 'no', label: '否', description: '不是', scopeTag: 'no' },
-            ],
+            question: {
+              id: 'q1',
+              text: '只有一个问题',
+              options: [
+                { id: 'yes', label: '是', value: 'yes' },
+                { id: 'no', label: '否', value: 'no' },
+              ],
+            },
           };
         }
         return null;

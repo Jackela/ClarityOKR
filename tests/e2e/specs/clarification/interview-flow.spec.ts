@@ -13,14 +13,14 @@ test('completes interview and enables OKR generation', async ({ mainWindow, mock
     nextQuestion: (callNumber) => {
       if (callNumber <= 2) {
         return {
-          id: `q${callNumber + 1}`,
-          question: '再补充一个细节',
-          sequence: callNumber - 1,
-          context: '请选择一个选项',
-          options: [
-            { id: 'a', label: 'A', description: '选项A', scopeTag: 'a' },
-            { id: 'b', label: 'B', description: '选项B', scopeTag: 'b' },
-          ],
+          question: {
+            id: `q${callNumber + 1}`,
+            text: '再补充一个细节',
+            options: [
+              { id: 'a', label: 'A', value: 'a' },
+              { id: 'b', label: 'B', value: 'b' },
+            ],
+          },
         };
       }
       return null;

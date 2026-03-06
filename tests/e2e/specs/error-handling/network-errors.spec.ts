@@ -22,14 +22,14 @@ test('E2E-02: error recovery - network error → retry → success', async ({
         return null;
       }
       return {
-        id: 'q1',
-        question: '恢复后的问题',
-        sequence: 0,
-        context: '请选择一个选项',
-        options: [
-          { id: 'a', label: '选项A', description: '第一个选项', scopeTag: 'optionA' },
-          { id: 'b', label: '选项B', description: '第二个选项', scopeTag: 'optionB' },
-        ],
+        question: {
+          id: 'q1',
+          text: '恢复后的问题',
+          options: [
+            { id: 'a', label: '选项A', value: 'a' },
+            { id: 'b', label: '选项B', value: 'b' },
+          ],
+        },
       };
     },
   };
