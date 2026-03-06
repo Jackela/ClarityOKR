@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-redundant-type-constituents */
-import { Injectable, NgZone, ChangeDetectorRef } from '@angular/core';
+import { Injectable, NgZone } from '@angular/core';
 import {
   clarificationOptionSelectionSchema,
   clarificationPromptRequestSchema,
@@ -19,7 +19,6 @@ export class ClarificationOrchestratorService {
   constructor(
     private readonly store: ClarificationStore,
     private readonly zone: NgZone,
-    private readonly cdr: ChangeDetectorRef,
   ) {
     this.registerPromptListener();
   }
@@ -49,7 +48,7 @@ export class ClarificationOrchestratorService {
         const message = error instanceof Error ? error.message : String(error);
         this.zone.run(() => {
           this.store.setError({ message, recoverable: true });
-          this.cdr.detectChanges();
+          
         });
         return throwError(() => (error instanceof Error ? error : new Error(message)));
       }),
@@ -117,11 +116,11 @@ export class ClarificationOrchestratorService {
         if (!parsed.success) {
           const message = parsed.error.message;
           this.store.setError({ message, recoverable: true });
-          this.cdr.detectChanges();
+          
           return;
         }
         this.store.setPrompt(parsed.data.prompt);
-        this.cdr.detectChanges();
+        
       });
     });
 
