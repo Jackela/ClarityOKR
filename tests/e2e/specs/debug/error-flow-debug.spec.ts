@@ -18,17 +18,31 @@ test('debug: verify error flow end-to-end', async ({ mainWindow, mockServer }) =
   await clarification.waitForReady();
   console.log('[DEBUG-TEST] Clarification page is ready');
 
+  // Screenshot before starting
+  await mainWindow.screenshot({ path: 'test-results/01-before-start.png', fullPage: true });
+  console.log('[DEBUG-TEST] Screenshot saved: test-results/01-before-start.png');
+
   await clarification.startClarification('测试');
   console.log('[DEBUG-TEST] Started clarification with intent "测试"');
 
-  // Step 3: Wait for error state
-  console.log('[DEBUG-TEST] Step 3: Waiting for error state (max 10s)...');
-  await new Promise((resolve) => setTimeout(resolve, 3000));
+  // Screenshot after starting
+  await mainWindow.screenshot({ path: 'test-results/02-after-start.png', fullPage: true });
+  console.log('[DEBUG-TEST] Screenshot saved: test-results/02-after-start.png');
 
-  // Step 4: Take screenshot
-  console.log('[DEBUG-TEST] Step 4: Taking screenshot');
-  await mainWindow.screenshot({ path: 'error-state-debug.png' });
-  console.log('[DEBUG-TEST] Screenshot saved to error-state-debug.png');
+  // Step 3: Wait for error state with incremental screenshots
+  console.log('[DEBUG-TEST] Step 3: Waiting for error state (max 10s)...');
+  await new Promise((resolve) => setTimeout(resolve, 2000));
+  await mainWindow.screenshot({ path: 'test-results/03-after-wait-2s.png', fullPage: true });
+  console.log('[DEBUG-TEST] Screenshot saved: test-results/03-after-wait-2s.png');
+
+  await new Promise((resolve) => setTimeout(resolve, 3000));
+  await mainWindow.screenshot({ path: 'test-results/04-after-wait-5s.png', fullPage: true });
+  console.log('[DEBUG-TEST] Screenshot saved: test-results/04-after-wait-5s.png');
+
+  // Step 4: Take screenshot before checks
+  console.log('[DEBUG-TEST] Step 4: Taking screenshot before DOM checks');
+  await mainWindow.screenshot({ path: 'test-results/05-before-dom-check.png', fullPage: true });
+  console.log('[DEBUG-TEST] Screenshot saved: test-results/05-before-dom-check.png');
 
   // Step 5: Check DOM for error elements
   console.log('[DEBUG-TEST] Step 5: Checking DOM for error elements');
@@ -44,10 +58,20 @@ test('debug: verify error flow end-to-end', async ({ mainWindow, mockServer }) =
     console.log('[DEBUG-TEST] Error text:', errorText);
   }
 
-  // Step 6: Check retry button
+  // Step 6: Check retry button with screenshots
   console.log('[DEBUG-TEST] Step 6: Checking retry button');
+  await mainWindow.screenshot({ path: 'test-results/06-before-retry-check.png', fullPage: true });
+  console.log('[DEBUG-TEST] Screenshot saved: test-results/06-before-retry-check.png');
+
   const hasRetry = await clarification.error.hasRetryButton();
   console.log('[DEBUG-TEST] Has retry button:', hasRetry);
+
+  // Final screenshot after check
+  await mainWindow.screenshot({
+    path: `test-results/07-check-retry-${hasRetry}.png`,
+    fullPage: true,
+  });
+  console.log(`[DEBUG-TEST] Screenshot saved: test-results/07-check-retry-${hasRetry}.png`);
 
   if (hasRetry) {
     console.log('[DEBUG-TEST] Retry button is visible!');
@@ -56,6 +80,9 @@ test('debug: verify error flow end-to-end', async ({ mainWindow, mockServer }) =
     const retryButton = mainWindow.locator('[data-testid="retry-button"]');
     const retryCount = await retryButton.count();
     console.log(`[DEBUG-TEST] Retry button count in DOM: ${retryCount}`);
+    // Take final DOM check screenshot
+    await mainWindow.screenshot({ path: 'test-results/08-dom-check-failed.png', fullPage: true });
+    console.log('[DEBUG-TEST] Screenshot saved: test-results/08-dom-check-failed.png');
   }
 
   // Step 7: Get console logs from renderer
