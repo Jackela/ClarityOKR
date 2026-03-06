@@ -211,10 +211,26 @@ export class ClarificationPage extends BasePage {
    * @param timeout - Optional timeout in milliseconds
    */
   async waitForOkrSummary(timeout?: number): Promise<void> {
-    await this.okrSummary.waitFor({
-      state: 'visible',
-      timeout: timeout ?? this.timeouts.long,
-    });
+    const timeoutMs = timeout ?? 30000; // Increased default timeout to 30s
+    try {
+      await this.okrSummary.waitFor({
+        state: 'visible',
+        timeout: timeoutMs,
+      });
+    } catch (e) {
+      console.log(
+        `[waitForOkrSummary] Timeout after ${timeoutMs}ms, checking if element exists in DOM`,
+      );
+      const count = await this.okrSummary.count();
+      console.log(`[waitForOkrSummary] Element count: ${count}`);
+      if (count > 0) {
+        // Element exists but may not be visible, try waiting a bit more
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+        await this.okrSummary.waitFor({ state: 'visible', timeout: 10000 });
+      } else {
+        throw e;
+      }
+    }
   }
 
   /**

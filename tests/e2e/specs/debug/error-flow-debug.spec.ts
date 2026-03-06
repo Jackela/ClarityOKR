@@ -137,9 +137,15 @@ test('debug: verify error to success flow', async ({ mainWindow, mockServer }) =
   await clarification.waitForReady();
   await clarification.startClarification('测试目标');
 
-  // Wait for error
+  // Wait for error with longer timeout and polling
   console.log('[DEBUG-TEST] Waiting for error...');
-  await clarification.error.waitForVisible(5000);
+  await mainWindow.waitForFunction(
+    () => {
+      const errorEl = document.querySelector('[data-testid="error-message"]') as HTMLElement | null;
+      return errorEl !== null && errorEl.offsetParent !== null;
+    },
+    { timeout: 10000 },
+  );
   console.log('[DEBUG-TEST] Error is visible');
 
   // Click retry

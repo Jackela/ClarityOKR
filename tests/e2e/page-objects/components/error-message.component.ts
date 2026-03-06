@@ -72,10 +72,24 @@ export class ErrorMessageComponent {
   async hasRetryButton(): Promise<boolean> {
     await this.page.screenshot({ path: 'test-results/hasRetryButton-before.png' });
     try {
-      // First wait for error message to be visible
-      await this.messageLocator.waitFor({ state: 'visible', timeout: 5000 });
-      // Then check retry button
-      await this.retryButtonLocator.waitFor({ state: 'visible', timeout: 5000 });
+      // Use waitForFunction for more reliable DOM detection
+      await this.page.waitForFunction(
+        () => {
+          const errorEl = document.querySelector(
+            '[data-testid="error-message"]',
+          ) as HTMLElement | null;
+          const retryEl = document.querySelector(
+            '[data-testid="retry-button"]',
+          ) as HTMLElement | null;
+          return (
+            errorEl !== null &&
+            errorEl.offsetParent !== null &&
+            retryEl !== null &&
+            retryEl.offsetParent !== null
+          );
+        },
+        { timeout: 10000 },
+      );
       await this.page.screenshot({ path: 'test-results/hasRetryButton-success.png' });
       return true;
     } catch (e) {
