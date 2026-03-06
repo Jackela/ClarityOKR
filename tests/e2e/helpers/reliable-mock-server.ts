@@ -115,9 +115,9 @@ export class ReliableMockServer {
       const isDraftRequest =
         body?.intent === 'draft' || (body?.tool as string)?.includes?.('draft');
 
-      // Handle draft requests - responseConfig.draft should already be { objectives: [...] }
+      // Handle draft requests - server does NOT wrap responses, returns exactly what was configured
       if (isDraftRequest && this.responseConfig.draft) {
-        this.sendResponse(res, 200, { draft: this.responseConfig.draft });
+        this.sendResponse(res, 200, this.responseConfig.draft);
         return;
       }
 
@@ -156,7 +156,7 @@ export class ReliableMockServer {
           return;
         }
         if (questionResponse !== undefined) {
-          // Return the response directly - it should match nextQuestionResponseSchema
+          // Server does NOT wrap responses, returns exactly what was configured
           console.log('[mock-server] Returning 200 with question response');
           this.sendResponse(res, 200, questionResponse);
           return;

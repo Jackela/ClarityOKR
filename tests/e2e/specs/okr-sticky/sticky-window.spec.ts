@@ -34,18 +34,20 @@ test('sticky window stays always-on-top with OKR contents rendered', async ({
       return null;
     },
     draft: {
-      objectives: [
-        {
-          id: 'o1',
-          title: '提高效率',
-          description: '自动生成',
-          keyResults: [
-            { id: 'kr1', statement: 'KR1', target: '10%', measurement: 'rate' },
-            { id: 'kr2', statement: 'KR2', target: 5, measurement: 'count' },
-            { id: 'kr3', statement: 'KR3', target: '2s', measurement: 'latency' },
-          ],
-        },
-      ],
+      draft: {
+        objectives: [
+          {
+            id: 'o1',
+            title: '提高效率',
+            description: '自动生成',
+            keyResults: [
+              { id: 'kr1', statement: 'KR1', target: '10%', measurement: 'rate' },
+              { id: 'kr2', statement: 'KR2', target: 5, measurement: 'count' },
+              { id: 'kr3', statement: 'KR3', target: '2s', measurement: 'latency' },
+            ],
+          },
+        ],
+      },
     },
   });
 
