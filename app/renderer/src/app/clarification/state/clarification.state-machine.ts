@@ -329,11 +329,6 @@ function handleErrorState(
       return { type: 'loading', intent: event.intent };
     case 'RESET':
       return { type: 'idle' };
-    case 'ERROR':
-      // Stay in error state but update error message if provided
-      return event.error
-        ? { type: 'error', error: event.error, previousState: state.previousState }
-        : state;
     default:
       throwInvalidTransition(state, event);
   }
