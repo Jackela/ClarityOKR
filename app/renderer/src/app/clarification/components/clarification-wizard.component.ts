@@ -150,6 +150,8 @@ export class ClarificationWizardComponent implements OnChanges {
   @Output() readonly generate = new EventEmitter<void>();
   @Output() readonly retry = new EventEmitter<void>();
 
+  private errorSetTime: number | null = null;
+
   ngOnChanges(changes: Parameters<OnChanges['ngOnChanges']>[0]): void {
     console.log('[WIZARD-ONCHANGES] ngOnChanges triggered', Object.keys(changes));
 
@@ -176,8 +178,43 @@ export class ClarificationWizardComponent implements OnChanges {
     if (changes['error']) {
       const prev = changes['error'].previousValue as string | null;
       const curr = changes['error'].currentValue as string | null;
+      const now = performance.now();
+      console.log('[WIZARD-TIMING] Error changed at:', now);
+      console.log('[WIZARD-TIMING] Error value:', curr);
       console.log('[WIZARD-ONCHANGES] ERROR CHANGED! from', prev ?? 'null', 'to', curr ?? 'null');
       console.log('[WIZARD-ONCHANGES] error visible:', this.error !== null);
+
+      if (curr) {
+        this.errorSetTime = now;
+
+        requestAnimationFrame(() => {
+          console.log('[WIZARD-TIMING] First render frame after error set');
+        });
+
+        setTimeout(() => {
+          const btn = document.querySelector('[data-testid="retry-button"]');
+          console.log('[WIZARD-TIMING] Retry button in DOM after 0ms:', !!btn);
+        }, 0);
+
+        setTimeout(() => {
+          const btn = document.querySelector('[data-testid="retry-button"]');
+          console.log('[WIZARD-TIMING] Retry button in DOM after 16ms:', !!btn);
+        }, 16);
+
+        setTimeout(() => {
+          const btn = document.querySelector('[data-testid="retry-button"]');
+          console.log('[WIZARD-TIMING] Retry button in DOM after 50ms:', !!btn);
+          if (btn) {
+            const rect = (btn as HTMLElement).getBoundingClientRect();
+            console.log('[WIZARD-TIMING] Button dimensions:', rect.width, 'x', rect.height);
+          }
+        }, 50);
+
+        setTimeout(() => {
+          const btn = document.querySelector('[data-testid="retry-button"]');
+          console.log('[WIZARD-TIMING] Retry button in DOM after 100ms:', !!btn);
+        }, 100);
+      }
     }
   }
 }
