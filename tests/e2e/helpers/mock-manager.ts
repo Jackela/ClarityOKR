@@ -1,12 +1,7 @@
 import type { ElectronApplication, Page, Route, Request } from '@playwright/test';
+import type { MockResponseConfig } from '@clarityokr/contracts';
 
-export interface MockLLMConfig {
-  nextQuestion?: (callNumber: number) => object | null | undefined;
-  draft?: object;
-  error?: { status: number; message: string } | null;
-  rawResponse?: string | (() => string);
-  delay?: number;
-}
+export type MockLLMConfig = MockResponseConfig;
 
 export interface MockLLMFixture {
   setResponses: (config: MockLLMConfig) => void;

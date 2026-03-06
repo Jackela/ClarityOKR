@@ -1,6 +1,7 @@
 import nock from 'nock';
-// @ts-ignore - TDD import; file to be implemented
-import { OkrAgentService } from '../../../app/renderer/src/app/clarification/services/okr-agent.service';
+
+// Import the main process service for integration testing
+import { OkrAgentService } from '../../../app/main/src/services/okr-agent.service';
 
 describe('US1 - Clarification next-question (provider errors)', () => {
   const baseURL = process.env.LLM_BASE_URL || 'https://llm.example.test';
@@ -10,7 +11,10 @@ describe('US1 - Clarification next-question (provider errors)', () => {
     const service = new OkrAgentService();
     const context = { turns: [] };
     await expect(
-      service.getNextQuestion(context as any, { questionId: 'q1', optionId: 'o1' } as any)
+      service.getNextQuestion(
+        context as any,
+        { questionId: 'q1', optionId: 'o1' } as any,
+      ) as Promise<unknown>,
     ).rejects.toThrow();
     expect(scope.isDone()).toBe(true);
   });
@@ -20,9 +24,11 @@ describe('US1 - Clarification next-question (provider errors)', () => {
     const service = new OkrAgentService();
     const context = { turns: [] };
     await expect(
-      service.getNextQuestion(context as any, { questionId: 'q1', optionId: 'o1' } as any)
+      service.getNextQuestion(
+        context as any,
+        { questionId: 'q1', optionId: 'o1' } as any,
+      ) as Promise<unknown>,
     ).rejects.toThrow();
     expect(scope.isDone()).toBe(true);
   });
 });
-

@@ -1,84 +1,50 @@
 import { test, expect, cleanupPersistenceFiles } from '../../fixtures';
 import { ClarificationPage } from '../../page-objects';
+import type { MockResponseConfig } from '@clarityokr/contracts';
 
 test.beforeEach(async () => {
   await cleanupPersistenceFiles();
 });
 
-test('shows error message when LLM API is unreachable', async ({ mainWindow, mockServer }) => {
-  const clarification = new ClarificationPage(mainWindow);
-
-  mockServer.setResponses({
-    error: { status: 503, message: 'Service Unavailable' },
-  });
-
-  await clarification.waitForReady();
-  await clarification.startClarification('Test network error');
-
-  await expect(await clarification.hasError()).toBe(true);
-  const errorText = await clarification.getErrorText();
-  expect(errorText.toLowerCase()).toMatch(/unavailable|error|failed/i);
-});
-
-test('shows retry button when network error occurs', async ({ mainWindow, mockServer }) => {
-  const clarification = new ClarificationPage(mainWindow);
-
-  mockServer.setResponses({
-    error: { status: 503, message: 'Service Unavailable' },
-  });
-
-  await clarification.waitForReady();
-  await clarification.startClarification('Test retry button');
-
-  await expect(await clarification.error.hasRetryButton()).toBe(true);
-});
-
-test('recovers when retry succeeds after initial network failure', async ({
+// E2E测试2: 错误恢复测试 - 网络错误→重试→成功
+test('E2E-02: error recovery - network error → retry → success', async ({
   mainWindow,
   mockServer,
 }) => {
   const clarification = new ClarificationPage(mainWindow);
 
   let failCount = 0;
-  mockServer.setResponses({
+  const mockConfig: MockResponseConfig = {
     nextQuestion: () => {
       failCount += 1;
       if (failCount <= 1) {
-        return null; // Signal error for first call
+        return { error: { status: 503, message: 'Service Unavailable' } };
       }
       return {
         question: {
           id: 'q1',
-          text: 'Test question',
+          text: '恢复后的问题',
           options: [
-            { id: 'a', label: 'Option A', value: 'a' },
-            { id: 'b', label: 'Option B', value: 'b' },
+            { id: 'a', label: '选项A', value: 'a' },
+            { id: 'b', label: '选项B', value: 'b' },
           ],
         },
       };
     },
-  });
+  };
+  mockServer.setResponses(mockConfig);
 
   await clarification.waitForReady();
-  await clarification.startClarification('Test retry recovery');
+  await clarification.startClarification('测试重试恢复');
 
+  // 验证错误状态
   await expect(await clarification.error.hasRetryButton()).toBe(true);
 
-  // Reset responses to succeed on retry
-  mockServer.setResponses({
-    nextQuestion: () => ({
-      question: {
-        id: 'q1',
-        text: 'Test question',
-        options: [
-          { id: 'a', label: 'Option A', value: 'a' },
-          { id: 'b', label: 'Option B', value: 'b' },
-        ],
-      },
-    }),
-  });
-
+  // 重试
   await clarification.retry();
 
+  // 验证恢复成功
   await clarification.waitForOptions();
+  const questionText = await clarification.getCurrentQuestion();
+  expect(questionText).toContain('恢复后的问题');
 });

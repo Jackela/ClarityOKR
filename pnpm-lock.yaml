@@ -172,6 +172,10 @@ importers:
         version: 5.4.5
 
   tests/e2e:
+    dependencies:
+      '@clarityokr/contracts':
+        specifier: workspace:^
+        version: link:../../packages/contracts
     devDependencies:
       '@playwright/test':
         specifier: ^1.44.0

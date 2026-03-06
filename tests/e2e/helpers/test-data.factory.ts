@@ -1,53 +1,20 @@
+import type {
+  MockResponseConfig,
+  MockNextQuestionResponse,
+  MockOkrDraftResponse,
+} from '@clarityokr/contracts';
+
 /**
  * Test data factory for creating consistent test data.
  * Centralizes test data creation to ensure consistency across tests.
  */
 
-/**
- * Configuration for LLM mock responses
- */
-export interface MockResponseConfig {
-  /** Next question response function or static response */
-  nextQuestion?: (callNumber: number) => QuestionResponse | null | undefined;
-  /** Draft generation response */
-  draft?: DraftResponse;
-  /** Error response */
-  error?: { status: number; message: string } | null;
-  /** Raw response string for testing malformed responses */
-  rawResponse?: string | (() => string);
-}
-
-/**
- * Question response structure
- */
-export interface QuestionResponse {
-  question: {
-    id: string;
-    text: string;
-    options: Array<{
-      id: string;
-      label: string;
-      value: string;
-    }>;
-  };
-}
-
-/**
- * Draft response structure
- */
-export interface DraftResponse {
-  objectives: Array<{
-    id: string;
-    title: string;
-    description: string;
-    keyResults: Array<{
-      id: string;
-      statement: string;
-      target: string | number;
-      measurement: string;
-    }>;
-  }>;
-}
+// Re-export types from contracts for backward compatibility
+export type {
+  MockResponseConfig,
+  MockNextQuestionResponse as QuestionResponse,
+  MockOkrDraftResponse as DraftResponse,
+};
 
 /**
  * Default test intents for clarification flow
@@ -72,7 +39,7 @@ export const DefaultMockResponses = {
   /**
    * Standard question sequence (2 questions then null)
    */
-  standardQuestionSequence: (callNumber: number): QuestionResponse | null => {
+  standardQuestionSequence: (callNumber: number): MockNextQuestionResponse | null => {
     if (callNumber <= 2) {
       return {
         question: {
@@ -91,7 +58,7 @@ export const DefaultMockResponses = {
   /**
    * Alternative question with different text
    */
-  alternativeQuestion: (): QuestionResponse => ({
+  alternativeQuestion: (): MockNextQuestionResponse => ({
     question: {
       id: 'q2',
       text: '再补充一个细节',
@@ -105,7 +72,7 @@ export const DefaultMockResponses = {
   /**
    * Standard draft response
    */
-  standardDraft: (): DraftResponse => ({
+  standardDraft: (): MockOkrDraftResponse => ({
     objectives: [
       {
         id: 'o1',
@@ -123,7 +90,7 @@ export const DefaultMockResponses = {
   /**
    * Alternative draft response with different objective
    */
-  alternativeDraft: (): DraftResponse => ({
+  alternativeDraft: (): MockOkrDraftResponse => ({
     objectives: [
       {
         id: 'o1',
@@ -154,7 +121,7 @@ export function createCompleteFlowConfig(options?: {
   const keyResultCount = options?.keyResultCount ?? 3;
 
   return {
-    nextQuestion: (callNumber: number): QuestionResponse | null => {
+    nextQuestion: (callNumber: number): MockNextQuestionResponse | null => {
       if (callNumber < questionCount) {
         return {
           question: {
@@ -205,7 +172,7 @@ export function createRetrySuccessConfig(): MockResponseConfig {
   let failCount = 0;
 
   return {
-    nextQuestion: (): QuestionResponse | null => {
+    nextQuestion: (): MockNextQuestionResponse | null => {
       failCount += 1;
       if (failCount <= 1) {
         return null; // Signal error for first call

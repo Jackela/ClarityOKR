@@ -6,6 +6,9 @@
   "scripts": {
     "test": "playwright test"
   },
+  "dependencies": {
+    "@clarityokr/contracts": "workspace:^"
+  },
   "devDependencies": {
     "@playwright/test": "^1.44.0",
     "@types/get-port": "^4.0.1",

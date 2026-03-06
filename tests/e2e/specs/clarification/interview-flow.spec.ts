@@ -1,5 +1,6 @@
 import { test, expect, cleanupPersistenceFiles } from '../../fixtures';
 import { ClarificationPage } from '../../page-objects';
+import type { MockResponseConfig } from '@clarityokr/contracts';
 
 test.beforeEach(async () => {
   await cleanupPersistenceFiles();
@@ -8,7 +9,7 @@ test.beforeEach(async () => {
 test('completes interview and enables OKR generation', async ({ mainWindow, mockServer }) => {
   const clarification = new ClarificationPage(mainWindow);
 
-  mockServer.setResponses({
+  const mockConfig: MockResponseConfig = {
     nextQuestion: (callNumber) => {
       if (callNumber <= 2) {
         return {
@@ -40,7 +41,8 @@ test('completes interview and enables OKR generation', async ({ mainWindow, mock
         ],
       },
     },
-  });
+  };
+  mockServer.setResponses(mockConfig);
 
   await clarification.waitForReady();
   await clarification.completeClarificationFlow('提高效率', {

@@ -5,6 +5,7 @@ import {
   waitForStickyWindow,
   debugWindows,
 } from '../../page-objects';
+import type { MockResponseConfig } from '@clarityokr/contracts';
 
 test.beforeEach(async () => {
   await cleanupPersistenceFiles();
@@ -17,7 +18,7 @@ test('user can reopen sticky window after closing it', async ({
 }) => {
   const clarification = new ClarificationPage(mainWindow);
 
-  mockServer.setResponses({
+  const mockConfig: MockResponseConfig = {
     nextQuestion: (callNumber) => {
       if (callNumber <= 2) {
         return {
@@ -49,7 +50,8 @@ test('user can reopen sticky window after closing it', async ({
         ],
       },
     },
-  });
+  };
+  mockServer.setResponses(mockConfig);
 
   await clarification.waitForReady();
   await clarification.completeClarificationFlow('提高效率', {

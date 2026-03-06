@@ -53,8 +53,8 @@ export class SimpleMockServer {
         timestamp: Date.now(),
       });
 
-      // Small delay to ensure loading indicator is visible
-      await new Promise((resolve) => setTimeout(resolve, 300));
+      // Increased delay to ensure loading indicator is visible in E2E tests
+      await new Promise((resolve) => setTimeout(resolve, 800));
 
       // Set CORS headers
       res.setHeader('Access-Control-Allow-Origin', '*');

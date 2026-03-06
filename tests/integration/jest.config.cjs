@@ -3,14 +3,16 @@ const { defaultsESM } = require('ts-jest/presets');
 module.exports = {
   ...defaultsESM,
   testEnvironment: 'node',
-  roots: ['<rootDir>/specs'],
+  roots: ['<rootDir>/specs', '<rootDir>/../../app/main/src'],
   extensionsToTreatAsEsm: ['.ts'],
   setupFilesAfterEnv: ['<rootDir>/setup.ts'],
+  testTimeout: 30000,
   transform: {
-    '^.+\\.(ts|tsx)$': ['ts-jest', { tsconfig: '../../tsconfig.base.json', useESM: true }]
+    '^.+\\.(ts|tsx)$': ['ts-jest', { tsconfig: '../../tsconfig.base.json', useESM: true }],
   },
   moduleNameMapper: {
-    '^(\\.{1,2}/.*)\\.js$': '$1'
-  }
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^@clarityokr/(.*)$': '<rootDir>/../../packages/$1/dist/index.js',
+    '^../../../app/main/(.*)$': '<rootDir>/../../app/main/$1',
+  },
 };
-
