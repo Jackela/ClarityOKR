@@ -18,7 +18,8 @@ test('E2E-02: error recovery - network error → retry → success', async ({
     nextQuestion: () => {
       failCount += 1;
       if (failCount <= 1) {
-        return { error: { status: 503, message: 'Service Unavailable' } };
+        // Return null to trigger 503 error from mock server
+        return null;
       }
       return {
         question: {
