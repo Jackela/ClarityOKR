@@ -50,14 +50,8 @@ export class ClarificationOrchestratorService {
       catchError((error) => {
         const message = error instanceof Error ? error.message : String(error);
         console.log('[ORCHESTRATOR] Caught error in requestPrompt:', message, { error });
-        this.zone.run(() => {
-          console.log('[ORCHESTRATOR] Calling store.setError with:', {
-            message,
-            recoverable: true,
-          });
-          this.store.setError({ message, recoverable: true });
-          console.log('[ORCHESTRATOR] store.setError completed');
-        });
+        // Error handling is done by the component subscriber
+        // Just re-throw the error to propagate it
         return throwError(() => (error instanceof Error ? error : new Error(message)));
       }),
     );

@@ -314,19 +314,15 @@ export class AppComponent implements OnDestroy {
       error: (error: unknown) => {
         const message = error instanceof Error ? error.message : String(error);
 
-        // Directly set error state
-        this.store.setError({ message: '网络错误，请重试', recoverable: true });
-
-        // Force immediate UI state update
+        // Set error state - this is the single source of truth for error handling
         this.zone.run(() => {
+          this.store.setError({ message: '网络错误，请重试', recoverable: true });
           this.statusMessage = message;
           this.isClarifying = false;
           this.cdr.markForCheck();
+          // eslint-disable-next-line no-console
+          console.log('[APP-COMPONENT] Error state set:', message);
         });
-
-        // Add log to confirm error has been set
-        // eslint-disable-next-line no-console
-        console.log('[DEBUG] Error set:', message);
       },
     });
   }
