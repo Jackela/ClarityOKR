@@ -55,7 +55,7 @@ import { OkrStickyGatewayService } from './okr-sticky/services/okr-sticky-gatewa
 
         <section
           class="wizard-panel"
-          *ngIf="(currentPrompt$ | async) || (error$ | async) || (isLoading$ | async)"
+          *ngIf="(currentPrompt$ | async) || (hasError$ | async) || (isLoading$ | async)"
         >
           <clarityokr-clarification-wizard
             [prompt]="currentPrompt$ | async"
@@ -228,6 +228,7 @@ export class AppComponent implements OnDestroy {
   readonly isReady$: Observable<boolean>;
   readonly isLoading$: Observable<boolean>;
   readonly error$: Observable<string | null>;
+  readonly hasError$: Observable<boolean>;
   readonly stickyNote$: Observable<OkrStickyViewModel | null>;
   readonly hasStickyNote$: Observable<boolean>;
   readonly isStickyShell =
@@ -256,6 +257,7 @@ export class AppComponent implements OnDestroy {
     this.isReady$ = this.store.isReadyToGenerate$ as Observable<boolean>;
     this.isLoading$ = this.store.isLoading$ as Observable<boolean>;
     this.error$ = this.store.errorMessage$ as Observable<string | null>;
+    this.hasError$ = this.store.select((state) => state.machineState.type === 'error');
     // Log error$ emissions
     this.error$.pipe(takeUntil(this.destroy$)).subscribe((error) => {
       console.log('[APP-COMPONENT] error$ emitted:', error);
