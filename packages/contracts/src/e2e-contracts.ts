@@ -1,6 +1,9 @@
 import type { z } from 'zod';
 
-import { nextQuestionResponseSchema, okrDraftResponseSchema } from './validators/llm.schemas.js';
+import type {
+  nextQuestionResponseSchema,
+  okrDraftResponseSchema,
+} from './validators/llm.schemas.js';
 
 /**
  * E2E Testing Contracts
