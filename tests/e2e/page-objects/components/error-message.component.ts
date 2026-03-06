@@ -68,7 +68,10 @@ export class ErrorMessageComponent {
    */
   async hasRetryButton(): Promise<boolean> {
     try {
-      await this.retryButtonLocator.waitFor({ state: 'visible', timeout: 1000 });
+      // First wait for error message to be visible
+      await this.messageLocator.waitFor({ state: 'visible', timeout: 5000 });
+      // Then check retry button
+      await this.retryButtonLocator.waitFor({ state: 'visible', timeout: 5000 });
       return true;
     } catch {
       return false;

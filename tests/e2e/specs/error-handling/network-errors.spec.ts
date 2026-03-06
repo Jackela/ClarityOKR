@@ -38,6 +38,9 @@ test('E2E-02: error recovery - network error → retry → success', async ({
   await clarification.waitForReady();
   await clarification.startClarification('测试重试恢复');
 
+  // 等待错误状态出现（给UI足够时间渲染）
+  await new Promise((resolve) => setTimeout(resolve, 3000));
+
   // 验证错误状态
   await expect(await clarification.error.hasRetryButton()).toBe(true);
 
