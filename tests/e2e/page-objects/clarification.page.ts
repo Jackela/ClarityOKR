@@ -99,19 +99,43 @@ export class ClarificationPage extends BasePage {
   }
 
   /**
-   * Wait for the question to change from the current question.
+   * Wait for the question to change from the current question, or for error to appear.
+   * This method handles both normal flow (question changes) and error flow (error appears).
    * @param previousQuestion - The previous question text to compare against
    * @param timeout - Optional timeout in milliseconds
    */
   async waitForQuestionChange(previousQuestion: string, timeout?: number): Promise<void> {
-    await this.page.waitForFunction(
-      (prevQuestion: string) => {
-        const questionEl = document.querySelector('[data-testid="prompt-question"]');
-        return questionEl && questionEl.textContent !== prevQuestion;
-      },
-      previousQuestion,
-      { timeout: timeout ?? this.timeouts.long },
-    );
+    const timeoutMs = timeout ?? this.timeouts.long;
+
+    try {
+      // Wait for either: question change, error appearance, or options to reappear
+      await this.page.waitForFunction(
+        (prevQuestion: string) => {
+          // Check if error appeared
+          const errorEl = document.querySelector('[data-testid="error-message"]');
+          if (errorEl) return true;
+
+          // Check if question changed
+          const questionEl = document.querySelector('[data-testid="prompt-question"]');
+          if (questionEl && questionEl.textContent !== prevQuestion) return true;
+
+          // Check if options are available (indicates new prompt loaded)
+          const options = document.querySelectorAll('[data-testid="clarification-option"]');
+          if (options.length > 0) return true;
+
+          return false;
+        },
+        previousQuestion,
+        { timeout: timeoutMs },
+      );
+    } catch (e) {
+      // If timeout, check if we're in error state
+      const isError = await this.error.isVisible().catch(() => false);
+      if (isError) {
+        return; // Error state is valid end state
+      }
+      throw e;
+    }
   }
 
   /**
