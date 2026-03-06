@@ -1,5 +1,6 @@
 import { test as base, _electron as electron, ElectronApplication, Page } from '@playwright/test';
 import { existsSync, promises as fs } from 'node:fs';
+import getPort from 'get-port';
 import {
   ROOT,
   SESSION_PERSIST_PATH,
@@ -8,13 +9,7 @@ import {
   getElectronEnv,
   ensureBuildArtifacts,
 } from '../helpers/build-check';
-import {
-  startMSWServer,
-  stopMSWServer,
-  resetMSWServer,
-  setMockResponses,
-  getRequestLog,
-} from '../mocks/server';
+import { SimpleMockServer } from '../helpers/simple-mock-server';
 import type { MockResponseConfig } from '@clarityokr/contracts';
 
 /**
@@ -24,11 +19,11 @@ import type { MockResponseConfig } from '@clarityokr/contracts';
 type E2EFixtures = {
   /**
    * Mock server for controlling LLM API responses.
-   * Uses MSW (Mock Service Worker) to intercept HTTP requests.
-   * Each test gets a fresh mock configuration.
+   * Uses a simple HTTP server to respond to requests from Electron main process.
+   * Each test gets a fresh mock server instance.
    */
   mockServer: {
-    /** The URL of the mock server (kept for backward compatibility) */
+    /** The URL of the mock server */
     url: string;
     /** Configure response behavior */
     setResponses: (config: MockResponseConfig) => void;
@@ -79,33 +74,31 @@ export async function cleanupPersistenceFiles(): Promise<void> {
 }
 
 /**
- * Enhanced test fixture with MSW-based mocking.
+ * Enhanced test fixture with HTTP-based mocking.
  *
  * Key improvements:
- * - MSW (Mock Service Worker) for type-safe HTTP mocking
- * - No HTTP server needed - intercepts at network level
+ * - Simple HTTP server for reliable request interception
+ * - Works across process boundaries (test runner &lt;-\u003e Electron)
  * - Automatic cleanup on test failure
  * - Better error handling and logging
  */
 export const test = base.extend<E2EFixtures>({
-  // Mock server fixture - uses MSW for HTTP interception
+  // Mock server fixture - uses HTTP server for Electron compatibility
   mockServer: [
     async ({}, use) => {
-      // Start MSW server if not already running
-      startMSWServer();
-
-      // Reset handlers for fresh state
-      resetMSWServer();
+      const server = new SimpleMockServer();
+      // Use fixed port 7777 in CI to match LLM_BASE_URL env var, dynamic port locally
+      const port = process.env.CI ? 7777 : await getPort();
+      await server.start(port);
 
       await use({
-        // URL kept for backward compatibility with existing tests
-        url: process.env.LLM_BASE_URL || 'http://127.0.0.1:7777',
-        setResponses: (config: MockResponseConfig) => setMockResponses(config),
-        getRequestLog: () => getRequestLog(),
+        url: server.getUrl(),
+        setResponses: (config: MockResponseConfig) => server.setResponses(config),
+        getRequestLog: () => server.getRequestLog(),
       });
 
-      // Reset handlers after test for isolation
-      resetMSWServer();
+      // Cleanup: stop server after test
+      await server.stop();
     },
     { scope: 'test' },
   ],
