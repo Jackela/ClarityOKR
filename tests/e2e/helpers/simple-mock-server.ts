@@ -53,8 +53,8 @@ export class SimpleMockServer {
         timestamp: Date.now(),
       });
 
-      // Balanced delay: enough for loading indicator visibility, not too long for tests
-      await new Promise((resolve) => setTimeout(resolve, 1200));
+      // Extended delay: ensures loading indicator visibility and UI update time
+      await new Promise((resolve) => setTimeout(resolve, 1500));
 
       // Set CORS headers
       res.setHeader('Access-Control-Allow-Origin', '*');
