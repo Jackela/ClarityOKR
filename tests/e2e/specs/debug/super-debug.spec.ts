@@ -1,5 +1,5 @@
-import { test, expect } from '../fixtures';
-import { ClarificationPage } from '../page-objects';
+import { test, expect } from '../../fixtures';
+import { ClarificationPage } from '../../page-objects';
 
 test('SUPER DEBUG: All methods to detect error element', async ({ mainWindow, mockServer }) => {
   const clarification = new ClarificationPage(mainWindow);
@@ -41,7 +41,7 @@ test('SUPER DEBUG: All methods to detect error element', async ({ mainWindow, mo
   // Method 4: page.evaluate with getElementsByTagName
   const method4 = await mainWindow.evaluate(() => {
     const sections = document.getElementsByTagName('section');
-    const results = [];
+    const results: Array<{ sectionIndex: number; sectionHTML: string }> = [];
     for (let i = 0; i < sections.length; i++) {
       const section = sections[i];
       const errorDiv = section.querySelector('[data-testid="error-message"]');
@@ -104,7 +104,14 @@ test('SUPER DEBUG: All methods to detect error element', async ({ mainWindow, mo
   // Method 8: Check if error-container class exists
   const method8 = await mainWindow.evaluate(() => {
     const elements = document.getElementsByClassName('error-container');
-    const results = [];
+    const results: Array<{
+      index: number;
+      tagName: string;
+      textContent: string | undefined;
+      hasRetryButton: boolean;
+      style: { display: string; visibility: string };
+      computedStyle: { display: string; visibility: string; opacity: string };
+    }> = [];
     for (let i = 0; i < elements.length; i++) {
       const el = elements[i];
       results.push({
@@ -130,13 +137,18 @@ test('SUPER DEBUG: All methods to detect error element', async ({ mainWindow, mo
   // Method 9: Check Angular specific attributes
   const method9 = await mainWindow.evaluate(() => {
     const allElements = document.querySelectorAll('*');
-    const results = [];
+    const results: Array<{
+      tagName: string;
+      textContent: string;
+      dataTestid: string | null;
+      className: string;
+    }> = [];
     for (let i = 0; i < allElements.length; i++) {
       const el = allElements[i];
       if (el.textContent?.includes('重试') || el.textContent?.includes('网络错误')) {
         results.push({
           tagName: el.tagName,
-          textContent: el.textContent?.substring(0, 100),
+          textContent: el.textContent?.substring(0, 100) || '',
           dataTestid: el.getAttribute('data-testid'),
           className: el.className,
         });
