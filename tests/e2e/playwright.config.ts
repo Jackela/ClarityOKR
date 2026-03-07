@@ -26,6 +26,7 @@ export const TIMEOUTS = {
 
 export default defineConfig({
   testDir: './specs',
+  testMatch: '**/super-debug.spec.ts',
   // Global timeout for each test
   timeout: TIMEOUTS.maximum,
   // Retry configuration: CI=1 retry, local=0 retries
