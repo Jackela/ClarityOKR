@@ -34,7 +34,16 @@ test.describe('E2E-04: boundary cases', () => {
     await clarification.startClarification('简单目标');
 
     // 等待生成按钮可见并启用
-    await clarification.generateButton.waitFor({ state: 'visible', timeout: 10000 });
+    await clarification.generateButton.waitFor({ state: 'visible', timeout: 15000 });
+    await mainWindow.waitForFunction(
+      () => {
+        const btn = document.querySelector(
+          '[data-testid="clarification-generate"]',
+        ) as HTMLButtonElement | null;
+        return btn !== null && !btn.disabled;
+      },
+      { timeout: 15000 },
+    );
     await clarification.generateOKR();
     await clarification.waitForOkrSummary();
     await expect(mainWindow.locator('[data-testid="okr-summary"]')).toContainText('直接生成的OKR');

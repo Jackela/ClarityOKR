@@ -52,7 +52,15 @@ test('E2E-02: error recovery - network error → retry → success', async ({
   });
 
   // 等待错误状态出现（给UI足够时间渲染）
-  await new Promise((resolve) => setTimeout(resolve, 3000));
+  await mainWindow.waitForFunction(
+    () => {
+      const errorEl = document.querySelector('[data-testid="error-message"]');
+      return errorEl !== null;
+    },
+    { timeout: 15000 },
+  );
+  // 额外等待button渲染
+  await new Promise((resolve) => setTimeout(resolve, 2000));
 
   // 截图：等待后
   await mainWindow.screenshot({

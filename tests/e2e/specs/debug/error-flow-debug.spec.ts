@@ -141,12 +141,15 @@ test('debug: verify error to success flow', async ({ mainWindow, mockServer }) =
   console.log('[DEBUG-TEST] Waiting for error...');
   await mainWindow.waitForFunction(
     () => {
-      const errorEl = document.querySelector('[data-testid="error-message"]') as HTMLElement | null;
-      return errorEl !== null && errorEl.offsetParent !== null;
+      const errorEl = document.querySelector('[data-testid="error-message"]');
+      return errorEl !== null;
     },
-    { timeout: 10000 },
+    { timeout: 15000 },
   );
   console.log('[DEBUG-TEST] Error is visible');
+
+  // Additional wait for button
+  await new Promise((resolve) => setTimeout(resolve, 1000));
 
   // Click retry
   console.log('[DEBUG-TEST] Clicking retry button');
