@@ -34,19 +34,33 @@ export class ErrorMessageComponent {
   }
 
   /**
-   * Check if an error message is currently visible.
+   * Check if an error message is currently visible using super-debug pattern.
+   * Uses count() + evaluate() for reliable DOM detection.
    * @returns True if error is visible
    */
-  async isVisible(): Promise<boolean> {
+  async isVisible(timeout: number = 15000): Promise<boolean> {
     await this.page.screenshot({ path: 'test-results/isVisible-before.png' });
-    try {
-      await this.messageLocator.waitFor({ state: 'visible', timeout: 1000 });
-      await this.page.screenshot({ path: 'test-results/isVisible-success.png' });
-      return true;
-    } catch {
-      await this.page.screenshot({ path: 'test-results/isVisible-failed.png' });
-      return false;
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < timeout) {
+      // Method 1: Check count (DOM existence)
+      const count = await this.messageLocator.count();
+      if (count > 0) {
+        // Method 2: Check actual visibility via evaluate
+        const isVisible = await this.page.evaluate(() => {
+          const el = document.querySelector('[data-testid="error-message"]') as HTMLElement | null;
+          return el !== null && el.offsetParent !== null;
+        });
+        if (isVisible) {
+          await this.page.screenshot({ path: 'test-results/isVisible-success.png' });
+          return true;
+        }
+      }
+      await new Promise((r) => setTimeout(r, 100));
     }
+
+    await this.page.screenshot({ path: 'test-results/isVisible-failed.png' });
+    return false;
   }
 
   /**
@@ -66,15 +80,22 @@ export class ErrorMessageComponent {
   }
 
   /**
-   * Check if the retry button is visible.
+   * Check if the retry button is visible using super-debug pattern.
+   * Uses count() + evaluate() for reliable DOM detection.
    * @returns True if retry button is visible
    */
-  async hasRetryButton(): Promise<boolean> {
+  async hasRetryButton(timeout: number = 15000): Promise<boolean> {
     await this.page.screenshot({ path: 'test-results/hasRetryButton-before.png' });
-    try {
-      // Use waitForFunction for more reliable DOM detection
-      await this.page.waitForFunction(
-        () => {
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < timeout) {
+      // Method 1: Check count (DOM existence)
+      const messageCount = await this.messageLocator.count();
+      const retryCount = await this.retryButtonLocator.count();
+
+      if (messageCount > 0 && retryCount > 0) {
+        // Method 2: Check actual visibility via evaluate
+        const isVisible = await this.page.evaluate(() => {
           const errorEl = document.querySelector(
             '[data-testid="error-message"]',
           ) as HTMLElement | null;
@@ -87,22 +108,22 @@ export class ErrorMessageComponent {
             retryEl !== null &&
             retryEl.offsetParent !== null
           );
-        },
-        { timeout: 10000 },
-      );
-      await this.page.screenshot({ path: 'test-results/hasRetryButton-success.png' });
-      return true;
-    } catch (e) {
-      await this.page.screenshot({ path: 'test-results/hasRetryButton-failed.png' });
-      // Failure diagnostics: capture DOM and locators state
-      const html = await this.page.content();
-      console.log('[hasRetryButton] Failed - HTML snippet:', html.substring(0, 2000));
-      const messageCount = await this.messageLocator.count();
-      const retryCount = await this.retryButtonLocator.count();
-      console.log(
-        `[hasRetryButton] Locator counts - message: ${messageCount}, retry: ${retryCount}`,
-      );
-      return false;
+        });
+        if (isVisible) {
+          await this.page.screenshot({ path: 'test-results/hasRetryButton-success.png' });
+          return true;
+        }
+      }
+      await new Promise((r) => setTimeout(r, 100));
     }
+
+    // Timeout reached - capture diagnostics
+    await this.page.screenshot({ path: 'test-results/hasRetryButton-failed.png' });
+    const html = await this.page.content();
+    console.log('[hasRetryButton] Failed - HTML snippet:', html.substring(0, 2000));
+    const messageCount = await this.messageLocator.count();
+    const retryCount = await this.retryButtonLocator.count();
+    console.log(`[hasRetryButton] Locator counts - message: ${messageCount}, retry: ${retryCount}`);
+    return false;
   }
 }

@@ -202,7 +202,20 @@ export class ClarificationPage extends BasePage {
    * Click the generate OKR button.
    */
   async generateOKR(): Promise<void> {
+    // Wait for visible first
     await this.generateButton.waitFor({ state: 'visible', timeout: this.timeouts.default });
+
+    // NEW: Poll for button to become enabled
+    await this.page.waitForFunction(
+      () => {
+        const btn = document.querySelector(
+          '[data-testid="clarification-generate"]',
+        ) as HTMLButtonElement | null;
+        return btn !== null && !btn.disabled;
+      },
+      { timeout: this.timeouts.long },
+    );
+
     await this.safeClick(this.generateButton);
   }
 
@@ -303,13 +316,8 @@ export class ClarificationPage extends BasePage {
       // Wait for question change or options to reappear (indicates state transition)
       if (i < questionCount - 1) {
         await this.waitForQuestionChange(currentQuestion);
-      } else {
-        // After the last question, just wait for generate button to be visible
-        // and then wait a bit for Angular to update the disabled state
-        await this.generateButton.waitFor({ state: 'visible', timeout: this.timeouts.long });
-        // Wait for Angular change detection to update the button state
-        await new Promise((resolve) => setTimeout(resolve, 3000));
       }
+      // For the last question, let generateOKR() handle the button state waiting
     }
 
     await this.generateOKR();

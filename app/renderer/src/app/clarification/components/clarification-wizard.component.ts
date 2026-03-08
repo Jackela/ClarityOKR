@@ -40,6 +40,19 @@ import type { ClarificationPrompt } from '@clarityokr/contracts';
           生成 OKR
         </button>
       </ng-container>
+
+      <!-- Generate button: show in ready state or error state with selections -->
+      <button
+        *ngIf="isReadyToGenerate && !prompt"
+        type="button"
+        class="generate"
+        data-testid="clarification-generate"
+        [disabled]="false"
+        (click)="generate.emit()"
+      >
+        生成 OKR
+      </button>
+
       <div class="error-container" *ngIf="error" data-testid="error-message">
         <p class="error-text">{{ error }}</p>
         <button type="button" class="retry" data-testid="retry-button" (click)="retry.emit()">

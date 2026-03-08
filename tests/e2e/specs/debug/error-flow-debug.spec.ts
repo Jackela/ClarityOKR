@@ -29,29 +29,21 @@ test('debug: verify error flow end-to-end', async ({ mainWindow, mockServer }) =
   await mainWindow.screenshot({ path: 'test-results/02-after-start.png', fullPage: true });
   console.log('[DEBUG-TEST] Screenshot saved: test-results/02-after-start.png');
 
-  // Step 3: Wait for error state with incremental screenshots
-  console.log('[DEBUG-TEST] Step 3: Waiting for error state (max 10s)...');
-  await new Promise((resolve) => setTimeout(resolve, 2000));
-  await mainWindow.screenshot({ path: 'test-results/03-after-wait-2s.png', fullPage: true });
-  console.log('[DEBUG-TEST] Screenshot saved: test-results/03-after-wait-2s.png');
+  // Step 3: Wait for error state with super-debug pattern
+  console.log('[DEBUG-TEST] Step 3: Waiting for error state (using super-debug mode)...');
+  const errorVisible = await clarification.error.isVisible();
+  console.log('[DEBUG-TEST] Error visible:', errorVisible);
 
-  await new Promise((resolve) => setTimeout(resolve, 3000));
-  await mainWindow.screenshot({ path: 'test-results/04-after-wait-5s.png', fullPage: true });
-  console.log('[DEBUG-TEST] Screenshot saved: test-results/04-after-wait-5s.png');
+  if (!errorVisible) {
+    await mainWindow.screenshot({ path: 'test-results/03-error-not-visible.png', fullPage: true });
+    console.log('[DEBUG-TEST] Screenshot saved: test-results/03-error-not-visible.png');
+  }
 
-  // Step 4: Take screenshot before checks
-  console.log('[DEBUG-TEST] Step 4: Taking screenshot before DOM checks');
-  await mainWindow.screenshot({ path: 'test-results/05-before-dom-check.png', fullPage: true });
-  console.log('[DEBUG-TEST] Screenshot saved: test-results/05-before-dom-check.png');
-
-  // Step 5: Check DOM for error elements
-  console.log('[DEBUG-TEST] Step 5: Checking DOM for error elements');
+  // Step 4: Check DOM for error elements
+  console.log('[DEBUG-TEST] Step 4: Checking DOM for error elements');
   const errorContainer = mainWindow.locator('[data-testid="error-message"]');
   const errorCount = await errorContainer.count();
   console.log(`[DEBUG-TEST] Error container count: ${errorCount}`);
-
-  const errorVisible = await clarification.error.isVisible();
-  console.log('[DEBUG-TEST] Error visible:', errorVisible);
 
   if (errorVisible) {
     const errorText = await clarification.error.getText();
@@ -137,19 +129,17 @@ test('debug: verify error to success flow', async ({ mainWindow, mockServer }) =
   await clarification.waitForReady();
   await clarification.startClarification('测试目标');
 
-  // Wait for error with longer timeout and polling
+  // Wait for error with super-debug pattern
   console.log('[DEBUG-TEST] Waiting for error...');
-  await mainWindow.waitForFunction(
-    () => {
-      const errorEl = document.querySelector('[data-testid="error-message"]');
-      return errorEl !== null;
-    },
-    { timeout: 15000 },
-  );
-  console.log('[DEBUG-TEST] Error is visible');
+  const errorVisible = await clarification.error.isVisible();
+  console.log('[DEBUG-TEST] Error is visible:', errorVisible);
+
+  if (!errorVisible) {
+    console.log('[DEBUG-TEST] ERROR: Error message not visible after timeout');
+  }
 
   // Additional wait for button
-  await new Promise((resolve) => setTimeout(resolve, 1000));
+  await new Promise((resolve) => setTimeout(resolve, 500));
 
   // Click retry
   console.log('[DEBUG-TEST] Clicking retry button');
