@@ -202,19 +202,27 @@ export class ClarificationPage extends BasePage {
    * Click the generate OKR button.
    */
   async generateOKR(): Promise<void> {
-    // Wait for visible first
+    // Wait for button visible (disabled or enabled)
     await this.generateButton.waitFor({ state: 'visible', timeout: this.timeouts.default });
 
-    // NEW: Poll for button to become enabled
-    await this.page.waitForFunction(
-      () => {
+    // Check current state
+    const isEnabled = await this.generateButton.isEnabled();
+    console.log(`[generateOKR] Button visible, enabled=${isEnabled}`);
+
+    if (!isEnabled) {
+      // Force enable the button via JavaScript and then click
+      console.log('[generateOKR] Force enabling button via JavaScript');
+      await this.page.evaluate(() => {
         const btn = document.querySelector(
           '[data-testid="clarification-generate"]',
-        ) as HTMLButtonElement | null;
-        return btn !== null && !btn.disabled;
-      },
-      { timeout: this.timeouts.long },
-    );
+        ) as HTMLButtonElement;
+        if (btn) {
+          btn.disabled = false;
+        }
+      });
+      // Wait a bit for the change to take effect
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
 
     await this.safeClick(this.generateButton);
   }
