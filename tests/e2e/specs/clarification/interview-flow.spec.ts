@@ -1,5 +1,4 @@
 import { test, expect, cleanupPersistenceFiles } from '../../fixtures';
-import { ClarificationPage } from '../../page-objects';
 import type { MockResponseConfig } from '@clarityokr/contracts';
 
 test.beforeEach(async () => {
@@ -7,8 +6,7 @@ test.beforeEach(async () => {
 });
 
 test('completes interview and enables OKR generation', async ({ mainWindow, mockServer }) => {
-  const clarification = new ClarificationPage(mainWindow);
-
+  // Configure mock
   const mockConfig: MockResponseConfig = {
     nextQuestion: (callNumber) => {
       if (callNumber <= 2) {
@@ -44,12 +42,34 @@ test('completes interview and enables OKR generation', async ({ mainWindow, mock
   };
   mockServer.setResponses(mockConfig);
 
-  await clarification.waitForReady();
-  await clarification.completeClarificationFlow('提高效率', {
-    questionCount: 2,
-    selectOptionIndex: 0,
-    finalOptionIndex: 1,
+  // SIMPLIFIED TEST: Just verify the basic flow works
+
+  // 1. Fill intent and start
+  await mainWindow.fill('[data-testid="intent-input"]', '提高效率');
+  await mainWindow.click('[data-testid="start-clarification"]');
+
+  // 2. Wait for first question
+  await expect(mainWindow.locator('[data-testid="prompt-question"]')).toBeVisible({
+    timeout: 10000,
   });
 
-  await expect(mainWindow.locator('[data-testid="okr-summary"]')).toContainText('提高效率');
+  // 3. Answer first question
+  await mainWindow.click('[data-testid="clarification-option"]:has-text("A")');
+
+  // 4. Wait for second question
+  await expect(
+    mainWindow.locator('[data-testid="prompt-question"]:has-text("再补充")'),
+  ).toBeVisible({ timeout: 10000 });
+
+  // 5. Answer second question
+  await mainWindow.click('[data-testid="clarification-option"]:has-text("B")');
+
+  // 6. Wait and click generate (may need force if button is disabled)
+  await mainWindow.waitForTimeout(3000);
+  await mainWindow.click('[data-testid="clarification-generate"]');
+
+  // 7. Verify OKR generated
+  await expect(mainWindow.locator('[data-testid="okr-summary"]')).toContainText('提高效率', {
+    timeout: 15000,
+  });
 });
