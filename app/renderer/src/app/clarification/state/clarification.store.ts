@@ -227,7 +227,11 @@ export class ClarificationStore extends ComponentStore<StoreState> {
       return state;
     }
 
-    if (machineState.type !== 'prompting' && machineState.type !== 'ready') {
+    if (
+      machineState.type !== 'prompting' &&
+      machineState.type !== 'ready' &&
+      machineState.type !== 'error'
+    ) {
       console.warn(`[store] recordSelection called in invalid state: ${machineState.type}`);
       return state;
     }
