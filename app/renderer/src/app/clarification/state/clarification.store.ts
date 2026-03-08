@@ -125,7 +125,13 @@ export class ClarificationStore extends ComponentStore<StoreState> {
     (state) => state.machineState.type === 'loading' || state.machineState.type === 'generating',
   );
 
-  readonly isReadyToGenerate$ = this.select((state) => state.machineState.type === 'ready');
+  readonly isReadyToGenerate$ = this.select((state) => {
+    // Allow generation in ready state, or in error state if we have at least 1 selection
+    const hasSelection = Object.keys(state.selectionsByPromptId).length > 0;
+    return (
+      state.machineState.type === 'ready' || (state.machineState.type === 'error' && hasSelection)
+    );
+  });
 
   readonly hasPrompt$ = this.currentPrompt$.pipe(map((prompt) => prompt !== null));
 
