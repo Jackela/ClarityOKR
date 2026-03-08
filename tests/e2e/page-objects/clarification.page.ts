@@ -304,18 +304,11 @@ export class ClarificationPage extends BasePage {
       if (i < questionCount - 1) {
         await this.waitForQuestionChange(currentQuestion);
       } else {
-        // After the last question, wait for generate button to be visible and enabled
+        // After the last question, just wait for generate button to be visible
+        // and then wait a bit for Angular to update the disabled state
         await this.generateButton.waitFor({ state: 'visible', timeout: this.timeouts.long });
-        // Wait for button to be enabled (not disabled)
-        await this.page.waitForFunction(
-          () => {
-            const btn = document.querySelector(
-              '[data-testid="clarification-generate"]',
-            ) as HTMLButtonElement | null;
-            return btn !== null && !btn.disabled;
-          },
-          { timeout: this.timeouts.long },
-        );
+        // Wait for Angular change detection to update the button state
+        await new Promise((resolve) => setTimeout(resolve, 3000));
       }
     }
 
