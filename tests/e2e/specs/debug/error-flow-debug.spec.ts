@@ -1,5 +1,6 @@
 import { test, expect } from '../../fixtures';
 import { ClarificationPage } from '../../page-objects';
+import { waitForElement, waitForErrorMessage, forceClick } from '../../helpers/native-dom';
 
 test('debug: verify error flow end-to-end', async ({ mainWindow, mockServer }) => {
   const clarification = new ClarificationPage(mainWindow);
@@ -29,33 +30,26 @@ test('debug: verify error flow end-to-end', async ({ mainWindow, mockServer }) =
   await mainWindow.screenshot({ path: 'test-results/02-after-start.png', fullPage: true });
   console.log('[DEBUG-TEST] Screenshot saved: test-results/02-after-start.png');
 
-  // Step 3: Wait for error state with super-debug pattern
-  console.log('[DEBUG-TEST] Step 3: Waiting for error state (using super-debug mode)...');
-  const errorVisible = await clarification.error.isVisible();
-  console.log('[DEBUG-TEST] Error visible:', errorVisible);
+  // Step 3: Wait for error state using native DOM
+  console.log('[DEBUG-TEST] Step 3: Waiting for error state (using native DOM)...');
+  await waitForErrorMessage(mainWindow, 15000);
+  console.log('[DEBUG-TEST] Error message is now visible');
 
-  if (!errorVisible) {
-    await mainWindow.screenshot({ path: 'test-results/03-error-not-visible.png', fullPage: true });
-    console.log('[DEBUG-TEST] Screenshot saved: test-results/03-error-not-visible.png');
-  }
-
-  // Step 4: Check DOM for error elements
+  // Step 4: Check DOM for error elements using native DOM
   console.log('[DEBUG-TEST] Step 4: Checking DOM for error elements');
-  const errorContainer = mainWindow.locator('[data-testid="error-message"]');
-  const errorCount = await errorContainer.count();
+  const errorCount = await mainWindow.evaluate(() => {
+    return document.querySelectorAll('[data-testid="error-message"]').length;
+  });
   console.log(`[DEBUG-TEST] Error container count: ${errorCount}`);
-
-  if (errorVisible) {
-    const errorText = await clarification.error.getText();
-    console.log('[DEBUG-TEST] Error text:', errorText);
-  }
 
   // Step 6: Check retry button with screenshots
   console.log('[DEBUG-TEST] Step 6: Checking retry button');
   await mainWindow.screenshot({ path: 'test-results/06-before-retry-check.png', fullPage: true });
   console.log('[DEBUG-TEST] Screenshot saved: test-results/06-before-retry-check.png');
 
-  const hasRetry = await clarification.error.hasRetryButton();
+  const hasRetry = await waitForElement(mainWindow, '[data-testid="retry-button"]', {
+    timeout: 5000,
+  });
   console.log('[DEBUG-TEST] Has retry button:', hasRetry);
 
   // Final screenshot after check
@@ -69,8 +63,9 @@ test('debug: verify error flow end-to-end', async ({ mainWindow, mockServer }) =
     console.log('[DEBUG-TEST] Retry button is visible!');
   } else {
     console.log('[DEBUG-TEST] Retry button NOT found - checking DOM directly');
-    const retryButton = mainWindow.locator('[data-testid="retry-button"]');
-    const retryCount = await retryButton.count();
+    const retryCount = await mainWindow.evaluate(() => {
+      return document.querySelectorAll('[data-testid="retry-button"]').length;
+    });
     console.log(`[DEBUG-TEST] Retry button count in DOM: ${retryCount}`);
     // Take final DOM check screenshot
     await mainWindow.screenshot({ path: 'test-results/08-dom-check-failed.png', fullPage: true });
@@ -80,7 +75,6 @@ test('debug: verify error flow end-to-end', async ({ mainWindow, mockServer }) =
   // Step 7: Get console logs from renderer
   console.log('[DEBUG-TEST] Step 7: Collecting console logs');
   const logs = await mainWindow.evaluate(() => {
-    // This won't capture past logs, but we can check current state
     return {
       location: window.location.href,
       timestamp: Date.now(),
@@ -90,7 +84,7 @@ test('debug: verify error flow end-to-end', async ({ mainWindow, mockServer }) =
 
   // Verification
   console.log('[DEBUG-TEST] Final verification:');
-  console.log('  - Error visible:', errorVisible);
+  console.log('  - Error visible: true');
   console.log('  - Has retry button:', hasRetry);
 
   expect(hasRetry).toBe(true);
@@ -129,26 +123,25 @@ test('debug: verify error to success flow', async ({ mainWindow, mockServer }) =
   await clarification.waitForReady();
   await clarification.startClarification('测试目标');
 
-  // Wait for error with super-debug pattern
+  // Wait for error using native DOM
   console.log('[DEBUG-TEST] Waiting for error...');
-  const errorVisible = await clarification.error.isVisible();
-  console.log('[DEBUG-TEST] Error is visible:', errorVisible);
-
-  if (!errorVisible) {
-    console.log('[DEBUG-TEST] ERROR: Error message not visible after timeout');
-  }
+  await waitForErrorMessage(mainWindow, 15000);
+  console.log('[DEBUG-TEST] Error is visible');
 
   // Additional wait for button
-  await new Promise((resolve) => setTimeout(resolve, 500));
+  await mainWindow.waitForTimeout(500);
 
-  // Click retry
+  // Click retry using forceClick
   console.log('[DEBUG-TEST] Clicking retry button');
-  await clarification.retry();
+  await forceClick(mainWindow, '[data-testid="retry-button"]');
 
-  // Wait for success
+  // Wait for success using native DOM
   console.log('[DEBUG-TEST] Waiting for success (question to appear)...');
-  await clarification.waitForQuestion(5000);
+  const questionVisible = await waitForElement(mainWindow, '[data-testid="prompt-question"]', {
+    timeout: 5000,
+  });
   console.log('[DEBUG-TEST] Success! Question is now visible');
+  expect(questionVisible).toBe(true);
 
   const question = await clarification.getCurrentQuestion();
   console.log('[DEBUG-TEST] Question:', question);
@@ -194,7 +187,10 @@ test('debug: log all state changes', async ({ mainWindow, mockServer }) => {
   logs.forEach((log) => console.log(log));
   console.log('[DEBUG-TEST] === End Logs ===');
 
-  // Check state
-  const errorVisible = await clarification.error.isVisible();
-  console.log('[DEBUG-TEST] Final error state:', errorVisible);
+  // Check state using native DOM
+  const errorCount = await mainWindow.evaluate(() => {
+    return document.querySelectorAll('[data-testid="error-message"]').length;
+  });
+  console.log('[DEBUG-TEST] Final error element count:', errorCount);
+  expect(errorCount).toBeGreaterThan(0);
 });

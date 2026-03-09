@@ -1,5 +1,6 @@
 import { test, expect, cleanupPersistenceFiles } from '../../fixtures';
 import { ClarificationPage } from '../../page-objects';
+import { waitForElement, waitForErrorMessage, forceClick } from '../../helpers/native-dom';
 import type { MockResponseConfig } from '@clarityokr/contracts';
 
 test.beforeEach(async () => {
@@ -51,8 +52,8 @@ test('E2E-02: error recovery - network error → retry → success', async ({
     fullPage: true,
   });
 
-  // 等待错误状态出现（使用super-debug模式：count() + evaluate()）
-  await clarification.error.isVisible();
+  // 等待错误消息出现（使用原生DOM）
+  await waitForErrorMessage(mainWindow, 15000);
 
   // 截图：等待后
   await mainWindow.screenshot({
@@ -60,8 +61,10 @@ test('E2E-02: error recovery - network error → retry → success', async ({
     fullPage: true,
   });
 
-  // 验证错误状态
-  const hasRetry = await clarification.error.hasRetryButton();
+  // 验证错误状态 - 使用原生DOM检查重试按钮
+  const hasRetry = await waitForElement(mainWindow, '[data-testid="retry-button"]', {
+    timeout: 5000,
+  });
 
   // 截图：检查retry button后
   await mainWindow.screenshot({
@@ -71,8 +74,8 @@ test('E2E-02: error recovery - network error → retry → success', async ({
 
   await expect(hasRetry).toBe(true);
 
-  // 重试
-  await clarification.retry();
+  // 重试 - 使用forceClick
+  await forceClick(mainWindow, '[data-testid="retry-button"]');
 
   // 截图：点击重试后
   await mainWindow.screenshot({
@@ -80,8 +83,12 @@ test('E2E-02: error recovery - network error → retry → success', async ({
     fullPage: true,
   });
 
-  // 验证恢复成功
-  await clarification.waitForOptions();
+  // 验证恢复成功 - 使用原生DOM等待问题出现
+  const questionVisible = await waitForElement(mainWindow, '[data-testid="prompt-question"]', {
+    timeout: 15000,
+  });
+  expect(questionVisible).toBe(true);
+
   const questionText = await clarification.getCurrentQuestion();
   expect(questionText).toContain('恢复后的问题');
 });

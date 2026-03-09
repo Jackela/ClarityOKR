@@ -1,13 +1,13 @@
 /* eslint-disable @typescript-eslint/unbound-method, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-redundant-type-constituents */
-import { ChangeDetectorRef, Component, NgZone, OnDestroy } from '@angular/core';
+import { Component, NgZone, OnDestroy, computed } from '@angular/core';
 import { FormControl, Validators } from '@angular/forms';
 import type { ClarificationPrompt } from '@clarityokr/contracts';
-import { combineLatest, Observable, Subject } from 'rxjs';
+import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 
 import { ClarificationOrchestratorService } from './clarification/services/clarification-orchestrator.service';
 import { IpcLlmGateway } from './clarification/services/ipc-llm-gateway.service';
-import { ClarificationStore } from './clarification/state/clarification.store';
+import { SyncClarificationState } from './clarification/services/sync-clarification-state.service';
 import type { OkrStickyViewModel } from './okr-sticky/services/okr-projection.service';
 import { OkrStickyGatewayService } from './okr-sticky/services/okr-sticky-gateway.service';
 
@@ -15,20 +15,21 @@ import { OkrStickyGatewayService } from './okr-sticky/services/okr-sticky-gatewa
   selector: 'clarityokr-root',
   standalone: false,
   template: `
-    <ng-container *ngIf="!isStickyShell; else stickyShell">
+    @if (!isStickyShell) {
       <main class="app-shell">
         <section class="intent-panel">
           <div class="intent-header">
             <h1 class="headline">ClarityOKR</h1>
-            <button
-              *ngIf="(hasStickyNote$ | async) === true"
-              type="button"
-              class="sticky-reopen"
-              data-testid="sticky-reopen"
-              (click)="reopenSticky()"
-            >
-              重新打开便签
-            </button>
+            @if (hasStickyNote()) {
+              <button
+                type="button"
+                class="sticky-reopen"
+                data-testid="sticky-reopen"
+                (click)="reopenSticky()"
+              >
+                重新打开便签
+              </button>
+            }
           </div>
           <form class="intent-form" (submit)="beginClarification($event)">
             <label class="intent-label" for="intent-input">初始目标意图</label>
@@ -50,37 +51,33 @@ import { OkrStickyGatewayService } from './okr-sticky/services/okr-sticky-gatewa
               开始澄清
             </button>
           </form>
-          <p class="status-message" *ngIf="statusMessage">{{ statusMessage }}</p>
+          @if (statusMessage) {
+            <p class="status-message">{{ statusMessage }}</p>
+          }
         </section>
 
-        <section
-          class="wizard-panel"
-          *ngIf="(currentPrompt$ | async) || (error$ | async) || (isLoading$ | async)"
-        >
-          <clarityokr-clarification-wizard
-            [prompt]="currentPrompt$ | async"
-            [isReadyToGenerate]="(isReady$ | async) ?? false"
-            [validationError]="(validationError$ | async) ?? null"
-            [loading]="(isLoading$ | async) ?? false"
-            [error]="(error$ | async) ?? null"
-            (optionSelected)="onOptionSelected($event)"
-            (generate)="onGenerate()"
-            (retry)="onRetry()"
-          ></clarityokr-clarification-wizard>
-        </section>
+        @if (showWizard()) {
+          <section class="wizard-panel">
+            <clarityokr-clarification-wizard
+              (optionSelected)="onOptionSelected($event)"
+              (generate)="onGenerate()"
+              (retry)="onRetry()"
+            ></clarityokr-clarification-wizard>
+          </section>
+        }
 
-        <section class="result-panel" *ngIf="generatedSummary">
-          <h2 data-testid="okr-summary">{{ generatedSummary }}</h2>
-        </section>
+        @if (generatedSummary) {
+          <section class="result-panel">
+            <h2 data-testid="okr-summary">{{ generatedSummary }}</h2>
+          </section>
+        }
       </main>
-    </ng-container>
-
-    <ng-template #stickyShell>
+    } @else {
       <clarityokr-sticky-note
         [okr]="stickyNote$ | async"
         (addKr)="onAddKeyResult()"
       ></clarityokr-sticky-note>
-    </ng-template>
+    }
   `,
   styles: [
     `
@@ -223,14 +220,16 @@ export class AppComponent implements OnDestroy {
     validators: [Validators.required, Validators.minLength(2)],
   });
 
-  readonly currentPrompt$: Observable<ClarificationPrompt | null>;
-  readonly validationError$: Observable<string | null>;
-  readonly isReady$: Observable<boolean>;
-  readonly isLoading$: Observable<boolean>;
-  readonly error$: Observable<string | null>;
-  readonly hasError$: Observable<boolean>;
-  readonly stickyNote$: Observable<OkrStickyViewModel | null>;
-  readonly hasStickyNote$: Observable<boolean>;
+  // Computed signals for template conditions
+  readonly showWizard = computed(() => {
+    return this.state.hasPrompt() || this.state.hasError() || this.state.isLoading();
+  });
+
+  readonly hasStickyNote = computed(() => {
+    // TODO: Update when sticky note service migrates to signals
+    return false;
+  });
+
   readonly isStickyShell =
     typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).get('view') === 'sticky';
@@ -246,46 +245,15 @@ export class AppComponent implements OnDestroy {
 
   constructor(
     private readonly orchestrator: ClarificationOrchestratorService,
-    private readonly store: ClarificationStore,
+    public readonly state: SyncClarificationState,
     private readonly stickyGateway: OkrStickyGatewayService,
     private readonly llmGateway: IpcLlmGateway,
     private readonly zone: NgZone,
-    private readonly cdr: ChangeDetectorRef,
   ) {
-    this.currentPrompt$ = this.store.currentPrompt$ as Observable<ClarificationPrompt | null>;
-    this.validationError$ = this.store.validationError$ as Observable<string | null>;
-    this.isReady$ = this.store.isReadyToGenerate$ as Observable<boolean>;
-    this.isLoading$ = this.store.isLoading$ as Observable<boolean>;
-    this.error$ = this.store.errorMessage$ as Observable<string | null>;
-    this.hasError$ = this.store.select((state) => state.machineState.type === 'error');
-    // Log error$ emissions
-    this.error$.pipe(takeUntil(this.destroy$)).subscribe((error) => {
-      console.log('[APP-COMPONENT] error$ emitted:', error);
-    });
-    this.stickyNote$ = this.stickyGateway.viewModel$ as Observable<OkrStickyViewModel | null>;
-    this.hasStickyNote$ = this.stickyGateway.hasStickyNote$ as Observable<boolean>;
-    this.store.currentPrompt$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe((prompt: ClarificationPrompt | null) => {
-        this.latestPrompt = prompt;
-        if (prompt) {
-          // eslint-disable-next-line no-console
-          console.info('[renderer] prompt received', {
-            promptId: prompt.id,
-            sequence: prompt.sequence,
-            question: prompt.question,
-          });
-          this.isClarifying = false;
-        }
-      });
-
-    combineLatest([this.store.history$, this.store.selectedOptionIds$])
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(([history, selected]: [ClarificationPrompt[], string[]]) => {
-        if (history.length >= 2 && selected.length > 0) {
-          this.orchestrator.markReady(true);
-        }
-      });
+    // Subscribe to prompt changes for logging
+    // Note: In a full Signal-based architecture, this would be a computed or effect
+    // For now, we keep minimal subscription for side effects
+    console.log('[APP-COMPONENT] Initialized with Signal-based state');
   }
 
   beginClarification(event?: Event): void {
@@ -295,34 +263,29 @@ export class AppComponent implements OnDestroy {
       return;
     }
 
-    this.store.reset();
-    this.orchestrator.markReady(false);
+    this.state.reset();
     this.statusMessage = '';
     this.generatedSummary = '';
     this.isClarifying = true;
     this.sessionId = crypto.randomUUID();
-    // eslint-disable-next-line no-console
+
     console.info('[renderer] beginClarification invoked', {
       intent: this.intentControl.value,
       valid: this.intentControl.valid,
       sessionId: this.sessionId,
     });
 
+    this.state.setIntent(this.intentControl.value);
     this.orchestrator.requestPrompt(this.sessionId, this.intentControl.value).subscribe({
       next: () => {
-        // Success - prompt will be received via currentPrompt$ subscription
         this.isClarifying = false;
       },
       error: (error: unknown) => {
         const message = error instanceof Error ? error.message : String(error);
-
-        // Set error state - this is the single source of truth for error handling
         this.zone.run(() => {
-          this.store.setError({ message: '网络错误，请重试', recoverable: true });
+          this.state.setError({ message: '网络错误，请重试', recoverable: true });
           this.statusMessage = message;
           this.isClarifying = false;
-          this.cdr.markForCheck();
-          // eslint-disable-next-line no-console
           console.log('[APP-COMPONENT] Error state set:', message);
         });
       },
@@ -331,40 +294,45 @@ export class AppComponent implements OnDestroy {
 
   onOptionSelected(optionId: string): void {
     console.log('[DEBUG] onOptionSelected called with optionId:', optionId);
-    console.log('[DEBUG] sessionId:', this.sessionId, 'latestPrompt:', this.latestPrompt);
 
-    if (!this.sessionId || !this.latestPrompt) {
-      console.warn('[DEBUG] onOptionSelected early return: missing sessionId or latestPrompt');
+    if (!this.sessionId) {
+      console.warn('[DEBUG] onOptionSelected early return: missing sessionId');
       return;
     }
 
-    // Debounce duplicate requests while an LLM call is in-flight
+    const prompt = this.state.currentPrompt();
+    if (!prompt) {
+      console.warn('[DEBUG] onOptionSelected early return: no current prompt');
+      return;
+    }
+
     if (this.llmBusy) {
       console.warn('[DEBUG] onOptionSelected early return: llmBusy is true');
       return;
     }
 
+    this.latestPrompt = prompt;
+
     console.log('[DEBUG] Calling recordSelection...');
-    this.orchestrator.recordSelection(this.sessionId, this.latestPrompt.id, optionId).subscribe({
+    this.orchestrator.recordSelection(this.sessionId, prompt.id, optionId).subscribe({
       next: () => console.log('[DEBUG] recordSelection completed successfully'),
       error: (error: unknown) => {
         this.zone.run(() => {
           console.error('[DEBUG] recordSelection error:', error);
           this.statusMessage = error instanceof Error ? error.message : String(error);
-          this.cdr.detectChanges();
         });
       },
     });
 
     // Also request next question via LLM gateway; non-blocking
-    console.log('[DEBUG] Setting llmBusy=true and requesting next question via orchestrator');
+    console.log('[DEBUG] Setting llmBusy=true and requesting next question');
     const historyTurns: Array<{ questionId: string; optionId: string; timestamp: string }> = [];
     this.llmBusy = true;
-    // Set loading state before making the request so the UI shows loading indicator
-    this.store.setLoading('next-question');
+    this.state.setLoading(true);
+
     console.log('[DEBUG] Calling llmGateway.getNextQuestion...');
     this.llmGateway
-      .getNextQuestion({ turns: historyTurns }, { questionId: this.latestPrompt.id, optionId })
+      .getNextQuestion({ turns: historyTurns }, { questionId: prompt.id, optionId })
       .subscribe({
         next: (result: unknown) => {
           console.log('[DEBUG] llmGateway.getNextQuestion next() - result:', result);
@@ -374,7 +342,6 @@ export class AppComponent implements OnDestroy {
         error: (err: unknown) => {
           console.error('[DEBUG] llmGateway.getNextQuestion error:', err);
           this.statusMessage = '请求超时或失败，请重试。';
-          // Error state is managed through orchestrator to maintain architecture layers
           this.orchestrator
             .requestPrompt(this.sessionId ?? '', this.intentControl.value ?? '')
             .subscribe({
@@ -397,7 +364,6 @@ export class AppComponent implements OnDestroy {
     this.isClarifying = true;
 
     try {
-      // eslint-disable-next-line no-console
       console.info('[renderer] onGenerate invoked with session', this.sessionId);
       const viewModel = await this.stickyGateway.generate(this.sessionId, this.intentControl.value);
       this.generatedSummary = viewModel.objective;
@@ -412,20 +378,16 @@ export class AppComponent implements OnDestroy {
             if (first && typeof first.title === 'string' && first.title) {
               this.generatedSummary = first.title;
             }
-            this.cdr.detectChanges();
           });
         },
         (err: unknown) => {
           this.zone.run(() => {
-            // eslint-disable-next-line no-console
             console.warn('[renderer] LLM draft generation failed', err);
             this.statusMessage = '生成失败或超时，请稍后重试。';
-            this.cdr.detectChanges();
           });
         },
       );
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.error('[renderer] generate failed', error);
       this.statusMessage = error instanceof Error ? error.message : String(error);
     } finally {
@@ -434,7 +396,6 @@ export class AppComponent implements OnDestroy {
   }
 
   onRetry(): void {
-    // Clear error through orchestrator to maintain architecture layers
     this.orchestrator.clearError();
     this.statusMessage = '';
     if (this.sessionId && this.intentControl.value) {
@@ -442,7 +403,6 @@ export class AppComponent implements OnDestroy {
         error: (error: unknown) => {
           this.zone.run(() => {
             this.statusMessage = error instanceof Error ? error.message : String(error);
-            this.cdr.detectChanges();
           });
         },
       });

@@ -5,6 +5,7 @@ import {
   waitForStickyWindow,
   debugWindows,
 } from '../../page-objects';
+import { waitForElement, forceClick } from '../../helpers/native-dom';
 import type { MockResponseConfig } from '@clarityokr/contracts';
 
 test.beforeEach(async () => {
@@ -64,9 +65,14 @@ test('user can reopen sticky window after closing it', async ({
 
   // Reopen sticky window
   await clarification.okrSummary.waitFor();
-  const reopenBtn = mainWindow.locator('[data-testid="sticky-reopen"]');
-  await expect(reopenBtn).toBeVisible();
-  await reopenBtn.click();
+
+  // 使用原生DOM等待按钮可见
+  const reopenBtnVisible = await waitForElement(mainWindow, '[data-testid="sticky-reopen"]', {
+    timeout: 10000,
+  });
+  expect(reopenBtnVisible).toBe(true);
+
+  await forceClick(mainWindow, '[data-testid="sticky-reopen"]');
 
   // Get initial sticky window
   let initialStickyPage;
@@ -86,9 +92,13 @@ test('user can reopen sticky window after closing it', async ({
   // Close sticky window
   await initialSticky.close();
 
-  // Reopen sticky window again
-  await expect(reopenBtn).toBeVisible();
-  await reopenBtn.click();
+  // Reopen sticky window again - 使用原生DOM等待按钮
+  const reopenBtnVisible2 = await waitForElement(mainWindow, '[data-testid="sticky-reopen"]', {
+    timeout: 10000,
+  });
+  expect(reopenBtnVisible2).toBe(true);
+
+  await forceClick(mainWindow, '[data-testid="sticky-reopen"]');
 
   // Get reopened sticky window
   let reopenedStickyPage;

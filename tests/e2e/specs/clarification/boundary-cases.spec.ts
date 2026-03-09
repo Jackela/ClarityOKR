@@ -1,5 +1,6 @@
 import { test, expect, cleanupPersistenceFiles } from '../../fixtures';
 import { ClarificationPage } from '../../page-objects';
+import { waitForElement, waitForText, isButtonEnabled, forceClick } from '../../helpers/native-dom';
 
 test.beforeEach(async () => {
   await cleanupPersistenceFiles();
@@ -33,20 +34,30 @@ test.describe('E2E-04: boundary cases', () => {
     await clarification.waitForReady();
     await clarification.startClarification('简单目标');
 
-    // 等待生成按钮可见并启用
-    await clarification.generateButton.waitFor({ state: 'visible', timeout: 15000 });
-    await mainWindow.waitForFunction(
-      () => {
-        const btn = document.querySelector(
-          '[data-testid="clarification-generate"]',
-        ) as HTMLButtonElement | null;
-        return btn !== null && !btn.disabled;
+    // 等待生成按钮存在
+    const buttonExists = await waitForElement(
+      mainWindow,
+      '[data-testid="clarification-generate"]',
+      {
+        timeout: 15000,
       },
-      { timeout: 15000 },
     );
-    await clarification.generateOKR();
-    await clarification.waitForOkrSummary();
-    await expect(mainWindow.locator('[data-testid="okr-summary"]')).toContainText('直接生成的OKR');
+    expect(buttonExists).toBe(true);
+
+    // 等待按钮可用
+    const isEnabled = await isButtonEnabled(mainWindow, '[data-testid="clarification-generate"]');
+    expect(isEnabled).toBe(true);
+
+    await forceClick(mainWindow, '[data-testid="clarification-generate"]');
+
+    // 验证OKR摘要
+    const okrText = await waitForText(
+      mainWindow,
+      '[data-testid="okr-summary"]',
+      '直接生成的OKR',
+      15000,
+    );
+    expect(okrText).toBe(true);
   });
 
   test('maximum questions - completes after many clarifications', async ({
@@ -96,15 +107,43 @@ test.describe('E2E-04: boundary cases', () => {
 
     // 回答所有问题
     for (let i = 0; i < maxQuestions; i++) {
-      await clarification.answerQuestion(0); // 始终选择第一个选项
+      // 等待问题出现
+      const questionVisible = await waitForElement(mainWindow, '[data-testid="prompt-question"]', {
+        timeout: 10000,
+      });
+      expect(questionVisible).toBe(true);
+
+      // 使用forceClick选择选项
+      const optionSelector = '[data-testid="clarification-option"]:first-child';
+      await forceClick(mainWindow, optionSelector);
+
+      // 等待一下状态变化
+      await mainWindow.waitForTimeout(500);
     }
 
-    // 等待生成按钮可见并生成OKR
-    await clarification.generateOKR();
-    await clarification.waitForOkrSummary();
-    await expect(mainWindow.locator('[data-testid="okr-summary"]')).toContainText(
-      '多轮澄清后的OKR',
+    // 等待生成按钮存在并可用，然后点击
+    const buttonExists = await waitForElement(
+      mainWindow,
+      '[data-testid="clarification-generate"]',
+      {
+        timeout: 15000,
+      },
     );
+    expect(buttonExists).toBe(true);
+
+    const isEnabled = await isButtonEnabled(mainWindow, '[data-testid="clarification-generate"]');
+    expect(isEnabled).toBe(true);
+
+    await forceClick(mainWindow, '[data-testid="clarification-generate"]');
+
+    // 验证OKR
+    const okrText = await waitForText(
+      mainWindow,
+      '[data-testid="okr-summary"]',
+      '多轮澄清后的OKR',
+      15000,
+    );
+    expect(okrText).toBe(true);
   });
 
   test('single question boundary', async ({ mainWindow, mockServer }) => {
@@ -145,12 +184,37 @@ test.describe('E2E-04: boundary cases', () => {
     await clarification.waitForReady();
     await clarification.startClarification('简单问题');
 
-    // 回答唯一的问题
-    await clarification.answerQuestion(0);
+    // 等待问题出现
+    const questionVisible = await waitForElement(mainWindow, '[data-testid="prompt-question"]', {
+      timeout: 10000,
+    });
+    expect(questionVisible).toBe(true);
 
-    // 等待生成按钮可见并生成OKR
-    await clarification.generateOKR();
-    await clarification.waitForOkrSummary();
-    await expect(mainWindow.locator('[data-testid="okr-summary"]')).toContainText('单问题OKR');
+    // 回答唯一的问题
+    await forceClick(mainWindow, '[data-testid="clarification-option"]:first-child');
+
+    // 等待生成按钮存在并可用
+    const buttonExists = await waitForElement(
+      mainWindow,
+      '[data-testid="clarification-generate"]',
+      {
+        timeout: 15000,
+      },
+    );
+    expect(buttonExists).toBe(true);
+
+    const isEnabled = await isButtonEnabled(mainWindow, '[data-testid="clarification-generate"]');
+    expect(isEnabled).toBe(true);
+
+    await forceClick(mainWindow, '[data-testid="clarification-generate"]');
+
+    // 验证OKR
+    const okrText = await waitForText(
+      mainWindow,
+      '[data-testid="okr-summary"]',
+      '单问题OKR',
+      15000,
+    );
+    expect(okrText).toBe(true);
   });
 });

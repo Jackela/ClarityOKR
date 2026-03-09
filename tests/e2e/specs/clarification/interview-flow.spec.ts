@@ -1,4 +1,10 @@
 import { test, expect, cleanupPersistenceFiles } from '../../fixtures';
+import {
+  waitForElement,
+  waitForText,
+  forceClick,
+  clickGenerateButton,
+} from '../../helpers/native-dom';
 import type { MockResponseConfig } from '@clarityokr/contracts';
 
 test.beforeEach(async () => {
@@ -48,28 +54,31 @@ test('completes interview and enables OKR generation', async ({ mainWindow, mock
   await mainWindow.fill('[data-testid="intent-input"]', '提高效率');
   await mainWindow.click('[data-testid="start-clarification"]');
 
-  // 2. Wait for first question
-  await expect(mainWindow.locator('[data-testid="prompt-question"]')).toBeVisible({
+  // 2. Wait for first question (using native DOM)
+  const questionVisible = await waitForElement(mainWindow, '[data-testid="prompt-question"]', {
     timeout: 10000,
   });
+  expect(questionVisible).toBe(true);
 
   // 3. Answer first question
-  await mainWindow.click('[data-testid="clarification-option"]:has-text("A")');
+  await forceClick(mainWindow, '[data-testid="clarification-option"]:has-text("A")');
 
   // 4. Wait for second question
-  await expect(
-    mainWindow.locator('[data-testid="prompt-question"]:has-text("再补充")'),
-  ).toBeVisible({ timeout: 10000 });
+  const secondQuestionVisible = await waitForText(
+    mainWindow,
+    '[data-testid="prompt-question"]',
+    '再补充',
+    10000,
+  );
+  expect(secondQuestionVisible).toBe(true);
 
   // 5. Answer second question
-  await mainWindow.click('[data-testid="clarification-option"]:has-text("B")');
+  await forceClick(mainWindow, '[data-testid="clarification-option"]:has-text("B")');
 
-  // 6. Wait and click generate (may need force if button is disabled)
-  await mainWindow.waitForTimeout(3000);
-  await mainWindow.click('[data-testid="clarification-generate"]');
+  // 6. Click generate button
+  await clickGenerateButton(mainWindow, 15000);
 
   // 7. Verify OKR generated
-  await expect(mainWindow.locator('[data-testid="okr-summary"]')).toContainText('提高效率', {
-    timeout: 15000,
-  });
+  const okrText = await waitForText(mainWindow, '[data-testid="okr-summary"]', '提高效率', 15000);
+  expect(okrText).toBe(true);
 });

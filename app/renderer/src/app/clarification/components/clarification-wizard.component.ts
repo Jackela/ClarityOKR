@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output, OnChanges } from '@angular/core';
-import type { ClarificationPrompt } from '@clarityokr/contracts';
+import { Component, EventEmitter, Output } from '@angular/core';
+import { SyncClarificationState } from '../services/sync-clarification-state.service';
 
 @Component({
   selector: 'clarityokr-clarification-wizard',
@@ -8,57 +8,74 @@ import type { ClarificationPrompt } from '@clarityokr/contracts';
   imports: [CommonModule],
   template: `
     <section>
-      <p class="loading" *ngIf="loading && !prompt" data-testid="clarification-loading">
-        正在加载下一步…
-      </p>
-      <ng-container *ngIf="prompt">
+      <!-- Loading indicator -->
+      @if (state.isLoading()) {
+        <p class="loading" data-testid="clarification-loading">正在加载下一步…</p>
+      }
+
+      <!-- Current prompt display -->
+      @if (state.currentPrompt(); as prompt) {
         <h2 data-testid="prompt-question">{{ prompt.question }}</h2>
-        <p class="context">{{ prompt.context }}</p>
-        <p class="loading" *ngIf="loading" data-testid="clarification-loading">正在加载下一步…</p>
+
+        @if (prompt.context) {
+          <p class="context">{{ prompt.context }}</p>
+        }
+
         <div class="option-grid" role="group" aria-label="Clarification options">
-          <button
-            type="button"
-            class="option"
-            data-testid="clarification-option"
-            *ngFor="let option of prompt.options"
-            (click)="optionSelected.emit(option.id)"
-          >
-            <span class="option-label">{{ option.label }}</span>
-            <small *ngIf="option.description" class="option-description">{{
-              option.description
-            }}</small>
-          </button>
+          @for (option of prompt.options; track option.id) {
+            <button
+              type="button"
+              class="option"
+              data-testid="clarification-option"
+              (click)="onOptionSelect(option.id)"
+            >
+              <span class="option-label">{{ option.label }}</span>
+              @if (option.description) {
+                <small class="option-description">{{ option.description }}</small>
+              }
+            </button>
+          }
         </div>
-        <p class="validation" *ngIf="validationError">{{ validationError }}</p>
+
+        @if (state.validationError()) {
+          <p class="validation">{{ state.validationError() }}</p>
+        }
+
         <button
           type="button"
           class="generate"
           data-testid="clarification-generate"
-          [disabled]="!isReadyToGenerate"
-          (click)="generate.emit()"
+          [disabled]="!state.isReadyToGenerate()"
+          [attr.data-ready]="state.isReadyToGenerate()"
+          (click)="onGenerate()"
         >
           生成 OKR
         </button>
-      </ng-container>
+      }
 
-      <!-- Generate button: show in ready state or error state with selections -->
-      <button
-        *ngIf="isReadyToGenerate && !prompt"
-        type="button"
-        class="generate"
-        data-testid="clarification-generate"
-        [disabled]="false"
-        (click)="generate.emit()"
-      >
-        生成 OKR
-      </button>
-
-      <div class="error-container" *ngIf="error" data-testid="error-message">
-        <p class="error-text">{{ error }}</p>
-        <button type="button" class="retry" data-testid="retry-button" (click)="retry.emit()">
-          重试
+      <!-- Generate button when ready but no prompt (error state with selections) -->
+      @if (state.isReadyToGenerate() && !state.currentPrompt()) {
+        <button
+          type="button"
+          class="generate"
+          data-testid="clarification-generate"
+          [disabled]="false"
+          [attr.data-ready]="true"
+          (click)="onGenerate()"
+        >
+          生成 OKR
         </button>
-      </div>
+      }
+
+      <!-- Error display -->
+      @if (state.hasError()) {
+        <div class="error-container" data-testid="error-message">
+          <p class="error-text">{{ state.error()?.message }}</p>
+          <button type="button" class="retry" data-testid="retry-button" (click)="onRetry()">
+            重试
+          </button>
+        </div>
+      }
     </section>
   `,
   styles: [
@@ -152,82 +169,26 @@ import type { ClarificationPrompt } from '@clarityokr/contracts';
     `,
   ],
 })
-export class ClarificationWizardComponent implements OnChanges {
-  @Input() prompt: ClarificationPrompt | null = null;
-  @Input() isReadyToGenerate = false;
-  @Input() validationError: string | null = null;
-  @Input() loading = false;
-  @Input() error: string | null = null;
-
+export class ClarificationWizardComponent {
   @Output() readonly optionSelected = new EventEmitter<string>();
   @Output() readonly generate = new EventEmitter<void>();
   @Output() readonly retry = new EventEmitter<void>();
 
-  private errorSetTime: number | null = null;
+  constructor(public readonly state: SyncClarificationState) {}
 
-  ngOnChanges(changes: Parameters<OnChanges['ngOnChanges']>[0]): void {
-    console.log('[WIZARD-ONCHANGES] ngOnChanges triggered', Object.keys(changes));
-
-    if (changes['loading']) {
-      console.log(
-        '[WIZARD-ONCHANGES] loading changed from',
-        changes['loading'].previousValue,
-        'to',
-        changes['loading'].currentValue,
-      );
+  onOptionSelect(optionId: string): void {
+    const prompt = this.state.currentPrompt();
+    if (prompt) {
+      this.state.recordSelection(prompt.id, optionId);
     }
+    this.optionSelected.emit(optionId);
+  }
 
-    if (changes['prompt']) {
-      const prev = changes['prompt'].previousValue as ClarificationPrompt | null;
-      const curr = changes['prompt'].currentValue as ClarificationPrompt | null;
-      console.log(
-        '[WIZARD-ONCHANGES] prompt changed from',
-        prev?.id ?? 'null',
-        'to',
-        curr?.id ?? 'null',
-      );
-    }
+  onGenerate(): void {
+    this.generate.emit();
+  }
 
-    if (changes['error']) {
-      const prev = changes['error'].previousValue as string | null;
-      const curr = changes['error'].currentValue as string | null;
-      const now = performance.now();
-      console.log('[WIZARD-TIMING] Error changed at:', now);
-      console.log('[WIZARD-TIMING] Error value:', curr);
-      console.log('[WIZARD-ONCHANGES] ERROR CHANGED! from', prev ?? 'null', 'to', curr ?? 'null');
-      console.log('[WIZARD-ONCHANGES] error visible:', this.error !== null);
-
-      if (curr) {
-        this.errorSetTime = now;
-
-        requestAnimationFrame(() => {
-          console.log('[WIZARD-TIMING] First render frame after error set');
-        });
-
-        setTimeout(() => {
-          const btn = document.querySelector('[data-testid="retry-button"]');
-          console.log('[WIZARD-TIMING] Retry button in DOM after 0ms:', !!btn);
-        }, 0);
-
-        setTimeout(() => {
-          const btn = document.querySelector('[data-testid="retry-button"]');
-          console.log('[WIZARD-TIMING] Retry button in DOM after 16ms:', !!btn);
-        }, 16);
-
-        setTimeout(() => {
-          const btn = document.querySelector('[data-testid="retry-button"]');
-          console.log('[WIZARD-TIMING] Retry button in DOM after 50ms:', !!btn);
-          if (btn) {
-            const rect = (btn as HTMLElement).getBoundingClientRect();
-            console.log('[WIZARD-TIMING] Button dimensions:', rect.width, 'x', rect.height);
-          }
-        }, 50);
-
-        setTimeout(() => {
-          const btn = document.querySelector('[data-testid="retry-button"]');
-          console.log('[WIZARD-TIMING] Retry button in DOM after 100ms:', !!btn);
-        }, 100);
-      }
-    }
+  onRetry(): void {
+    this.retry.emit();
   }
 }
