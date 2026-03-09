@@ -7,23 +7,53 @@ test.beforeEach(async () => {
 });
 
 // E2E测试4: 边界情况测试
+// Note: App requires at least 2 selections to enable generate button
 test.describe('E2E-04: boundary cases', () => {
-  test('minimum questions - generates OKR with 0 clarifications', async ({
+  test('minimum questions - generates OKR with minimum clarifications', async ({
     mainWindow,
     mockServer,
   }) => {
     const clarification = new ClarificationPage(mainWindow);
+    let callCount = 0;
 
-    // 立即返回null（0个问题）
+    // App requires at least 2 selections to enable generate button
+    // So we need at least 2 questions before returning null
     mockServer.setResponses({
-      nextQuestion: () => null,
+      nextQuestion: () => {
+        callCount++;
+        if (callCount === 1) {
+          return {
+            question: {
+              id: 'q1',
+              text: '第一个问题',
+              options: [
+                { id: 'a', label: 'A', value: 'a' },
+                { id: 'b', label: 'B', value: 'b' },
+              ],
+            },
+          };
+        }
+        if (callCount === 2) {
+          return {
+            question: {
+              id: 'q2',
+              text: '第二个问题',
+              options: [
+                { id: 'c', label: 'C', value: 'c' },
+                { id: 'd', label: 'D', value: 'd' },
+              ],
+            },
+          };
+        }
+        return null; // No more questions after 2
+      },
       draft: {
         draft: {
           objectives: [
             {
               id: 'o1',
-              title: '直接生成的OKR',
-              description: '无需澄清',
+              title: '最小澄清OKR',
+              description: '最少澄清问题',
               keyResults: [{ id: 'kr1', statement: 'KR1', target: '100%', measurement: 'rate' }],
             },
           ],
@@ -33,6 +63,22 @@ test.describe('E2E-04: boundary cases', () => {
 
     await clarification.waitForReady();
     await clarification.startClarification('简单目标');
+
+    // Answer first question
+    const question1Visible = await waitForElement(mainWindow, '[data-testid="prompt-question"]', {
+      timeout: 10000,
+    });
+    expect(question1Visible).toBe(true);
+    await forceClick(mainWindow, '[data-testid="clarification-option"]:first-child');
+    await mainWindow.waitForTimeout(500);
+
+    // Answer second question
+    const question2Visible = await waitForElement(mainWindow, '[data-testid="prompt-question"]', {
+      timeout: 10000,
+    });
+    expect(question2Visible).toBe(true);
+    await forceClick(mainWindow, '[data-testid="clarification-option"]:first-child');
+    await mainWindow.waitForTimeout(500);
 
     // 等待生成按钮存在
     const buttonExists = await waitForElement(
@@ -54,7 +100,7 @@ test.describe('E2E-04: boundary cases', () => {
     const okrText = await waitForText(
       mainWindow,
       '[data-testid="okr-summary"]',
-      '直接生成的OKR',
+      '最小澄清OKR',
       15000,
     );
     expect(okrText).toBe(true);
@@ -146,19 +192,32 @@ test.describe('E2E-04: boundary cases', () => {
     expect(okrText).toBe(true);
   });
 
-  test('single question boundary', async ({ mainWindow, mockServer }) => {
+  test('few questions boundary - completes with just enough selections', async ({ mainWindow, mockServer }) => {
     const clarification = new ClarificationPage(mainWindow);
 
+    // App requires at least 2 selections to enable generate button
     mockServer.setResponses({
       nextQuestion: (callNumber) => {
         if (callNumber === 1) {
           return {
             question: {
               id: 'q1',
-              text: '只有一个问题',
+              text: '第一个问题',
               options: [
                 { id: 'yes', label: '是', value: 'yes' },
                 { id: 'no', label: '否', value: 'no' },
+              ],
+            },
+          };
+        }
+        if (callNumber === 2) {
+          return {
+            question: {
+              id: 'q2',
+              text: '第二个问题',
+              options: [
+                { id: 'opt1', label: '选项1', value: 'opt1' },
+                { id: 'opt2', label: '选项2', value: 'opt2' },
               ],
             },
           };
@@ -170,10 +229,10 @@ test.describe('E2E-04: boundary cases', () => {
           objectives: [
             {
               id: 'o1',
-              title: '单问题OKR',
-              description: '只有一个澄清问题',
+              title: '少问题OKR',
+              description: '只需要最少澄清',
               keyResults: [
-                { id: 'kr1', statement: '快速完成', target: '1轮', measurement: 'count' },
+                { id: 'kr1', statement: '快速完成', target: '2轮', measurement: 'count' },
               ],
             },
           ],
@@ -184,14 +243,21 @@ test.describe('E2E-04: boundary cases', () => {
     await clarification.waitForReady();
     await clarification.startClarification('简单问题');
 
-    // 等待问题出现
-    const questionVisible = await waitForElement(mainWindow, '[data-testid="prompt-question"]', {
+    // 回答第一个问题
+    const question1Visible = await waitForElement(mainWindow, '[data-testid="prompt-question"]', {
       timeout: 10000,
     });
-    expect(questionVisible).toBe(true);
-
-    // 回答唯一的问题
+    expect(question1Visible).toBe(true);
     await forceClick(mainWindow, '[data-testid="clarification-option"]:first-child');
+    await mainWindow.waitForTimeout(500);
+
+    // 回答第二个问题
+    const question2Visible = await waitForElement(mainWindow, '[data-testid="prompt-question"]', {
+      timeout: 10000,
+    });
+    expect(question2Visible).toBe(true);
+    await forceClick(mainWindow, '[data-testid="clarification-option"]:first-child');
+    await mainWindow.waitForTimeout(500);
 
     // 等待生成按钮存在并可用
     const buttonExists = await waitForElement(
@@ -212,7 +278,7 @@ test.describe('E2E-04: boundary cases', () => {
     const okrText = await waitForText(
       mainWindow,
       '[data-testid="okr-summary"]',
-      '单问题OKR',
+      '少问题OKR',
       15000,
     );
     expect(okrText).toBe(true);
