@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/unbound-method, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-redundant-type-constituents */
+/* eslint-disable @typescript-eslint/unbound-method, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-redundant-type-constituents, @typescript-eslint/no-unsafe-return */
 import { Component, NgZone, OnDestroy, computed } from '@angular/core';
 import { FormControl, Validators } from '@angular/forms';
 import type { ClarificationPrompt } from '@clarityokr/contracts';
@@ -223,7 +223,7 @@ export class AppComponent implements OnDestroy {
     return this.state.hasPrompt() || this.state.hasError() || this.state.isLoading();
   });
 
-  readonly hasStickyNote = computed(() => {
+  readonly hasStickyNote = computed((): boolean => {
     // TODO: Update when sticky note service migrates to signals
     return false;
   });
