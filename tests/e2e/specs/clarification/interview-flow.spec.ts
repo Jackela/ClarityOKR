@@ -38,8 +38,8 @@ test('completes interview and enables OKR generation', async ({ mainWindow, mock
             description: '自动生成',
             keyResults: [
               { id: 'kr1', statement: 'KR1', target: '10%', measurement: 'rate' },
-              { id: 'kr2', statement: 'KR2', target: 5, measurement: 'count' },
-              { id: 'kr3', statement: 'KR3', target: '2s', measurement: 'latency' },
+              { id: 'kr2', statement: 'KR2', target: '20%', measurement: 'rate' },
+              { id: 'kr3', statement: 'KR3', target: '30%', measurement: 'rate' },
             ],
           },
         ],

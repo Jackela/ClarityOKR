@@ -212,8 +212,14 @@ export class ClarificationController {
           throw new Error(`Failed to get next question: ${errorMsg}`);
         }
 
-        if (!data || typeof data !== 'object' || !data.question) {
+        if (!data || typeof data !== 'object') {
           throw new Error('Empty or invalid response from LLM next question service');
+        }
+
+        // If no question, it means clarification is complete (no more questions)
+        if (!data.question) {
+          console.info('[main] No more questions, clarification complete');
+          return data;
         }
 
         // Map LLM question into ClarificationPrompt and broadcast

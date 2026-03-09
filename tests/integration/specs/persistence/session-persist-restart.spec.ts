@@ -116,7 +116,7 @@ describe('Integration: Session persistence across restart', () => {
     // 先保存有效数据
     const session = {
       id: 'test-session',
-      initialIntent: '测试',
+      initialIntent: '测试目标',
       status: 'collecting' as const,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),

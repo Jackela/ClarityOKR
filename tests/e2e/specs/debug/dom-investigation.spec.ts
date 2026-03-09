@@ -6,7 +6,7 @@ test('investigate: DOM structure when error occurs', async ({ mainWindow, mockSe
 
   const clarification = new ClarificationPage(mainWindow);
   await clarification.waitForReady();
-  await clarification.startClarification('测试');
+  await clarification.startClarification('测试目标');
 
   // 等待错误状态
   await new Promise((resolve) => setTimeout(resolve, 3000));
@@ -128,7 +128,7 @@ test('investigate: retry button visibility in depth', async ({ mainWindow, mockS
 
   const clarification = new ClarificationPage(mainWindow);
   await clarification.waitForReady();
-  await clarification.startClarification('测试');
+  await clarification.startClarification('测试目标');
 
   // 等待错误状态
   await new Promise((resolve) => setTimeout(resolve, 3000));

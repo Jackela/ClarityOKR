@@ -8,7 +8,7 @@ test('timing: when is button really available', async ({ mainWindow, mockServer 
   await clarification.waitForReady();
 
   const startTime = Date.now();
-  await clarification.startClarification('测试');
+  await clarification.startClarification('测试目标');
 
   // 每100ms检查一次
   for (let i = 0; i < 50; i++) {

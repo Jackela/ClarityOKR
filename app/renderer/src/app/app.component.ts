@@ -222,8 +222,8 @@ export class AppComponent implements OnDestroy {
   });
 
   readonly hasStickyNote = computed((): boolean => {
-    // TODO: Update when sticky note service migrates to signals
-    return false;
+    // Show sticky note reopen button when OKR has been generated
+    return !!this.generatedSummary;
   });
 
   readonly isStickyShell =
@@ -302,11 +302,7 @@ export class AppComponent implements OnDestroy {
       return;
     }
 
-    if (this.llmBusy) {
-      console.warn('[DEBUG] onOptionSelected early return: llmBusy is true');
-      return;
-    }
-
+    // Always record selection first, regardless of llmBusy state
     this.latestPrompt = prompt;
 
     console.log('[DEBUG] Calling recordSelection...');
@@ -320,6 +316,12 @@ export class AppComponent implements OnDestroy {
       },
     });
 
+    // If already processing a request, skip requesting next question
+    if (this.llmBusy) {
+      console.warn('[DEBUG] Skipping next question request: llmBusy is true');
+      return;
+    }
+
     // Also request next question via LLM gateway; non-blocking
     console.log('[DEBUG] Setting llmBusy=true and requesting next question');
     const historyTurns: Array<{ questionId: string; optionId: string; timestamp: string }> = [];
@@ -332,20 +334,27 @@ export class AppComponent implements OnDestroy {
       .subscribe({
         next: (result: unknown) => {
           console.log('[DEBUG] llmGateway.getNextQuestion next() - result:', result);
+          // Check if no more questions (clarification complete)
+          const hasQuestion = result && typeof result === 'object' && 'question' in result && result.question;
+          if (!hasQuestion) {
+            console.log('[DEBUG] No more questions, clearing prompt and setting ready to generate');
+            this.state.setPrompt(null);
+            this.state.setReady(true);
+          }
           console.log('[DEBUG] Setting llmBusy=false');
           this.llmBusy = false;
+          this.state.setLoading(false);
         },
         error: (err: unknown) => {
-          console.error('[DEBUG] llmGateway.getNextQuestion error:', err);
-          this.statusMessage = '请求超时或失败，请重试。';
-          this.orchestrator
-            .requestPrompt(this.sessionId ?? '', this.intentControl.value ?? '')
-            .subscribe({
-              error: (error) => {
-                this.statusMessage = error instanceof Error ? error.message : String(error);
-              },
-            });
-          this.llmBusy = false;
+          this.zone.run(() => {
+            console.error('[DEBUG] llmGateway.getNextQuestion error:', err);
+            const errorMessage = err instanceof Error ? err.message : String(err);
+            this.statusMessage = '请求超时或失败，请重试。';
+            // Set error state to show error UI
+            this.state.setError({ message: errorMessage, recoverable: true });
+            this.llmBusy = false;
+            this.state.setLoading(false);
+          });
         },
       });
     console.log('[DEBUG] onOptionSelected completed - async operations started');

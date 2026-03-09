@@ -71,6 +71,31 @@ export async function isButtonEnabled(page: Page, selector: string): Promise<boo
 }
 
 /**
+ * 等待按钮变为可用状态
+ */
+export async function waitForButtonEnabled(
+  page: Page,
+  selector: string,
+  timeout = 10000,
+): Promise<boolean> {
+  const startTime = Date.now();
+
+  while (Date.now() - startTime < timeout) {
+    const enabled = await page.evaluate(
+      ({ sel }: { sel: string }) => {
+        const btn = document.querySelector(sel) as HTMLButtonElement | null;
+        return btn !== null && !btn.disabled;
+      },
+      { sel: selector },
+    );
+
+    if (enabled) return true;
+    await page.waitForTimeout(100);
+  }
+  return false;
+}
+
+/**
  * 强制点击按钮（即使disabled）
  */
 export async function forceClick(page: Page, selector: string): Promise<void> {

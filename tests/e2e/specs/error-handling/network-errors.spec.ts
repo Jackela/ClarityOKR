@@ -15,41 +15,19 @@ test('E2E-02: error recovery - network error → retry → success', async ({
 }) => {
   const clarification = new ClarificationPage(mainWindow);
 
-  let callCount = 0;
-  const mockConfig: MockResponseConfig = {
-    nextQuestion: () => {
-      callCount++;
-      // First call: return a question, second call: return error (null), third call: success
-      if (callCount === 1) {
-        return {
-          question: {
-            id: 'q1',
-            text: '第一个问题',
-            options: [
-              { id: 'a', label: '选项A', value: 'a' },
-              { id: 'b', label: '选项B', value: 'b' },
-            ],
-          },
-        };
-      }
-      if (callCount === 2) {
-        // Return null to trigger 503 error from mock server
-        return null;
-      }
-      // Third call (after retry): return success
-      return {
-        question: {
-          id: 'q2',
-          text: '恢复后的问题',
-          options: [
-            { id: 'c', label: '选项C', value: 'c' },
-            { id: 'd', label: '选项D', value: 'd' },
-          ],
-        },
-      };
-    },
-  };
-  mockServer.setResponses(mockConfig);
+  // Step 1: Normal response for initial load
+  mockServer.setResponses({
+    nextQuestion: () => ({
+      question: {
+        id: 'q1',
+        text: '第一个问题',
+        options: [
+          { id: 'a', label: '选项A', value: 'a' },
+          { id: 'b', label: '选项B', value: 'b' },
+        ],
+      },
+    }),
+  });
 
   await clarification.waitForReady();
 
@@ -72,6 +50,11 @@ test('E2E-02: error recovery - network error → retry → success', async ({
   await mainWindow.screenshot({
     path: 'test-results/network-error-02-after-start.png',
     fullPage: true,
+  });
+
+  // Step 2: Switch to error mode before answering
+  mockServer.setResponses({
+    nextQuestion: () => null, // Return null to trigger 503 error
   });
 
   // Answer first question - this will trigger the error
@@ -98,6 +81,20 @@ test('E2E-02: error recovery - network error → retry → success', async ({
   });
 
   await expect(hasRetry).toBe(true);
+
+  // Step 3: Switch back to success mode before retry
+  mockServer.setResponses({
+    nextQuestion: () => ({
+      question: {
+        id: 'q2',
+        text: '恢复后的问题',
+        options: [
+          { id: 'c', label: '选项C', value: 'c' },
+          { id: 'd', label: '选项D', value: 'd' },
+        ],
+      },
+    }),
+  });
 
   // 重试 - 使用forceClick
   await forceClick(mainWindow, '[data-testid="retry-button"]');

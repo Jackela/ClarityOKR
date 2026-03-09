@@ -16,7 +16,7 @@ async function startAndWaitForError(mainWindow: any, mockServer: any): Promise<v
   });
 
   await clarification.waitForReady();
-  await clarification.startClarification('测试');
+  await clarification.startClarification('测试目标');
 
   // Wait for error state with retry
   await clarification.error.waitForVisible(10000);
@@ -67,7 +67,7 @@ test.describe('Selector Strategy Tests', () => {
     });
 
     await clarification.waitForReady();
-    await clarification.startClarification('测试');
+    await clarification.startClarification('测试目标');
 
     await mainWindow.waitForFunction(
       () => {
