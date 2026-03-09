@@ -150,7 +150,12 @@ export class ReliableMockServer {
                 question: (response.question as Record<string, unknown>).text ?? 'Question',
                 sequence: this.callCounter - 1,
                 context: 'LLM generated',
-                options: (response.question as Record<string, unknown>).options ?? [],
+                options: ((response.question as Record<string, unknown>).options as Array<Record<string, unknown>>)?.map((opt: Record<string, unknown>) => ({
+                  id: opt.id,
+                  label: opt.label,
+                  scopeTag: opt.scopeTag ?? 'llm',
+                  description: opt.description,
+                })) ?? [],
               },
             };
             this.sendResponse(res, 200, wrappedResponse);
@@ -177,8 +182,8 @@ export class ReliableMockServer {
           sequence: this.callCounter - 1,
           context: 'LLM generated',
           options: [
-            { id: 'a', label: 'A', value: 'a' },
-            { id: 'b', label: 'B', value: 'b' },
+            { id: 'a', label: 'A', scopeTag: 'llm' },
+            { id: 'b', label: 'B', scopeTag: 'llm' },
           ],
         },
       };
