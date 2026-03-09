@@ -71,10 +71,8 @@ import { OkrStickyGatewayService } from './okr-sticky/services/okr-sticky-gatewa
         }
       </main>
     } @else {
-      <clarityokr-sticky-note
-        [okr]="stickyNote$ | async"
-        (addKr)="onAddKeyResult()"
-      ></clarityokr-sticky-note>
+      <!-- Sticky note temporarily disabled during refactoring -->
+      <div>Sticky Note View (Temporarily Disabled)</div>
     }
   `,
   styles: [
