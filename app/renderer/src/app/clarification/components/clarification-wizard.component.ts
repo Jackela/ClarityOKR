@@ -70,7 +70,7 @@ import { SyncClarificationState } from '../services/sync-clarification-state.ser
       <!-- Error display -->
       @if (state.hasError()) {
         <div class="error-container" data-testid="error-message">
-          <p class="error-text">{{ state.error()?.message }}</p>
+          <p class="error-text">{{ state.errorMessage() }}</p>
           <button type="button" class="retry" data-testid="retry-button" (click)="onRetry()">
             重试
           </button>
@@ -178,7 +178,7 @@ export class ClarificationWizardComponent {
 
   onOptionSelect(optionId: string): void {
     const prompt = this.state.currentPrompt();
-    if (prompt) {
+    if (prompt && prompt.id) {
       this.state.recordSelection(prompt.id, optionId);
     }
     this.optionSelected.emit(optionId);

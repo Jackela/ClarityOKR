@@ -3,12 +3,10 @@ import { Component, NgZone, OnDestroy, computed } from '@angular/core';
 import { FormControl, Validators } from '@angular/forms';
 import type { ClarificationPrompt } from '@clarityokr/contracts';
 import { Subject } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
 
 import { ClarificationOrchestratorService } from './clarification/services/clarification-orchestrator.service';
 import { IpcLlmGateway } from './clarification/services/ipc-llm-gateway.service';
 import { SyncClarificationState } from './clarification/services/sync-clarification-state.service';
-import type { OkrStickyViewModel } from './okr-sticky/services/okr-projection.service';
 import { OkrStickyGatewayService } from './okr-sticky/services/okr-sticky-gateway.service';
 
 @Component({

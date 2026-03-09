@@ -3,8 +3,8 @@ import { TestBed } from '@angular/core/testing';
 import type { ComponentFixture } from '@angular/core/testing';
 import type { ClarificationPrompt } from '@clarityokr/contracts';
 
-import { ClarificationWizardComponent } from './clarification-wizard.component';
 import { SyncClarificationState } from '../services/sync-clarification-state.service';
+import { ClarificationWizardComponent } from './clarification-wizard.component';
 
 function buildPrompt(): ClarificationPrompt {
   return {
