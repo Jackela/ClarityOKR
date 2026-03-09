@@ -219,7 +219,7 @@ export class AppComponent implements OnDestroy {
   });
 
   // Computed signals for template conditions
-  readonly showWizard = computed(() => {
+  readonly showWizard = computed((): boolean => {
     return this.state.hasPrompt() || this.state.hasError() || this.state.isLoading();
   });
 

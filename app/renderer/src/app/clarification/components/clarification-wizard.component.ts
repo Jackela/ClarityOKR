@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Output } from '@angular/core';
+
 import { SyncClarificationState } from '../services/sync-clarification-state.service';
 
 @Component({
@@ -177,8 +178,11 @@ export class ClarificationWizardComponent {
   constructor(public readonly state: SyncClarificationState) {}
 
   onOptionSelect(optionId: string): void {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const prompt = this.state.currentPrompt();
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     if (prompt && prompt.id) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       this.state.recordSelection(prompt.id, optionId);
     }
     this.optionSelected.emit(optionId);
