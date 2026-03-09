@@ -1,5 +1,4 @@
 import { test, expect, cleanupPersistenceFiles } from '../../fixtures';
-import { ClarificationPage } from '../../page-objects';
 import { waitForElement, waitForText, forceClick } from '../../helpers/native-dom';
 
 test.beforeEach(async () => {
@@ -12,37 +11,17 @@ test.describe('E2E-04: boundary cases', () => {
     mainWindow,
     mockServer,
   }) => {
-    const clarification = new ClarificationPage(mainWindow);
-
     mockServer.setResponses({
-      nextQuestion: (callNumber) => {
-        if (callNumber === 1) {
-          return {
-            question: {
-              id: 'q1',
-              text: '第一个问题',
-              options: [
-                { id: 'a', label: 'A', value: 'a' },
-                { id: 'b', label: 'B', value: 'b' },
-              ],
-            },
-          };
-        }
-        if (callNumber === 2) {
-          return {
-            question: {
-              id: 'q2',
-              text: '第二个问题',
-              options: [
-                { id: 'c', label: 'C', value: 'c' },
-                { id: 'd', label: 'D', value: 'd' },
-              ],
-            },
-          };
-        }
-        // Return null after 2 questions to signal completion
-        return null;
-      },
+      nextQuestion: () => ({
+        question: {
+          id: 'q1',
+          text: '第一个问题',
+          options: [
+            { id: 'a', label: 'A', value: 'a' },
+            { id: 'b', label: 'B', value: 'b' },
+          ],
+        },
+      }),
       draft: {
         draft: {
           objectives: [
@@ -61,12 +40,22 @@ test.describe('E2E-04: boundary cases', () => {
       },
     });
 
-    // Use completeClarificationFlow for reliability
-    await clarification.completeClarificationFlow('简单目标', {
-      questionCount: 2,
-      selectOptionIndex: 0,
-      finalOptionIndex: 1,
-    });
+    // Start clarification
+    await waitForElement(mainWindow, '[data-testid="intent-input"]', { timeout: 10000 });
+    await mainWindow.fill('[data-testid="intent-input"]', '简单目标');
+    await mainWindow.click('[data-testid="start-clarification"]');
+
+    // Answer first question
+    await waitForElement(mainWindow, '[data-testid="prompt-question"]', { timeout: 10000 });
+    await forceClick(mainWindow, '[data-testid="clarification-option"]:first-child');
+
+    // Answer second question
+    await waitForElement(mainWindow, '[data-testid="prompt-question"]', { timeout: 10000 });
+    await forceClick(mainWindow, '[data-testid="clarification-option"]:first-child');
+
+    // Wait for generate button and click
+    await waitForElement(mainWindow, '[data-testid="clarification-generate"]', { timeout: 15000 });
+    await forceClick(mainWindow, '[data-testid="clarification-generate"]');
 
     // Verify OKR generated
     const okrText = await waitForText(
@@ -82,31 +71,19 @@ test.describe('E2E-04: boundary cases', () => {
     mainWindow,
     mockServer,
   }) => {
-    const clarification = new ClarificationPage(mainWindow);
-    const maxQuestions = 5; // Reduced from 10 for faster test
+    let questionCount = 0;
+    const maxQuestions = 5;
 
     mockServer.setResponses({
-      nextQuestion: (callNumber) => {
-        if (callNumber <= maxQuestions) {
-          return {
-            question: {
-              id: `q${callNumber}`,
-              text: `问题 ${callNumber}/${maxQuestions}`,
-              options: [
-                { id: 'a', label: '继续', value: 'a' },
-                { id: 'b', label: '结束', value: 'b' },
-              ],
-            },
-          };
-        }
-        // Continue returning questions to avoid errors
+      nextQuestion: () => {
+        questionCount++;
         return {
           question: {
-            id: `q${callNumber}`,
-            text: `问题 ${callNumber}`,
+            id: `q${questionCount}`,
+            text: `问题 ${questionCount}/${maxQuestions}`,
             options: [
-              { id: 'a', label: 'A', value: 'a' },
-              { id: 'b', label: 'B', value: 'b' },
+              { id: 'a', label: '继续', value: 'a' },
+              { id: 'b', label: '结束', value: 'b' },
             ],
           },
         };
@@ -129,12 +106,21 @@ test.describe('E2E-04: boundary cases', () => {
       },
     });
 
-    // Use completeClarificationFlow for reliability
-    await clarification.completeClarificationFlow('复杂目标需要多轮澄清', {
-      questionCount: maxQuestions,
-      selectOptionIndex: 0,
-      finalOptionIndex: 1,
-    });
+    // Start clarification
+    await waitForElement(mainWindow, '[data-testid="intent-input"]', { timeout: 10000 });
+    await mainWindow.fill('[data-testid="intent-input"]', '复杂目标需要多轮澄清');
+    await mainWindow.click('[data-testid="start-clarification"]');
+
+    // Answer all questions
+    for (let i = 0; i < maxQuestions; i++) {
+      await waitForElement(mainWindow, '[data-testid="prompt-question"]', { timeout: 10000 });
+      await forceClick(mainWindow, '[data-testid="clarification-option"]:first-child');
+      await mainWindow.waitForTimeout(300);
+    }
+
+    // Wait for generate button and click
+    await waitForElement(mainWindow, '[data-testid="clarification-generate"]', { timeout: 15000 });
+    await forceClick(mainWindow, '[data-testid="clarification-generate"]');
 
     // Verify OKR generated
     const okrText = await waitForText(
@@ -150,37 +136,17 @@ test.describe('E2E-04: boundary cases', () => {
     mainWindow,
     mockServer,
   }) => {
-    const clarification = new ClarificationPage(mainWindow);
-
     mockServer.setResponses({
-      nextQuestion: (callNumber) => {
-        if (callNumber === 1) {
-          return {
-            question: {
-              id: 'q1',
-              text: '第一个问题',
-              options: [
-                { id: 'yes', label: '是', value: 'yes' },
-                { id: 'no', label: '否', value: 'no' },
-              ],
-            },
-          };
-        }
-        if (callNumber === 2) {
-          return {
-            question: {
-              id: 'q2',
-              text: '第二个问题',
-              options: [
-                { id: 'opt1', label: '选项1', value: 'opt1' },
-                { id: 'opt2', label: '选项2', value: 'opt2' },
-              ],
-            },
-          };
-        }
-        // Return null after 2 questions to signal completion
-        return null;
-      },
+      nextQuestion: () => ({
+        question: {
+          id: 'q1',
+          text: '第一个问题',
+          options: [
+            { id: 'yes', label: '是', value: 'yes' },
+            { id: 'no', label: '否', value: 'no' },
+          ],
+        },
+      }),
       draft: {
         draft: {
           objectives: [
@@ -199,12 +165,22 @@ test.describe('E2E-04: boundary cases', () => {
       },
     });
 
-    // Use completeClarificationFlow for reliability
-    await clarification.completeClarificationFlow('简单问题', {
-      questionCount: 2,
-      selectOptionIndex: 0,
-      finalOptionIndex: 1,
-    });
+    // Start clarification
+    await waitForElement(mainWindow, '[data-testid="intent-input"]', { timeout: 10000 });
+    await mainWindow.fill('[data-testid="intent-input"]', '简单问题');
+    await mainWindow.click('[data-testid="start-clarification"]');
+
+    // Answer first question
+    await waitForElement(mainWindow, '[data-testid="prompt-question"]', { timeout: 10000 });
+    await forceClick(mainWindow, '[data-testid="clarification-option"]:first-child');
+
+    // Answer second question
+    await waitForElement(mainWindow, '[data-testid="prompt-question"]', { timeout: 10000 });
+    await forceClick(mainWindow, '[data-testid="clarification-option"]:first-child');
+
+    // Wait for generate button and click
+    await waitForElement(mainWindow, '[data-testid="clarification-generate"]', { timeout: 15000 });
+    await forceClick(mainWindow, '[data-testid="clarification-generate"]');
 
     // Verify OKR
     const okrText = await waitForText(

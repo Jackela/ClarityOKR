@@ -72,8 +72,10 @@ export class SimpleMockServer {
         this.callCounter++;
 
         const requestBody = parsedBody as Record<string, unknown> | null;
+        // Detect draft request by checking for type field or context without lastChoice
         const isDraftRequest =
-          requestBody?.intent === 'draft' || (requestBody?.type as string) === 'okr-draft';
+          (requestBody?.type as string) === 'okr-draft' ||
+          (requestBody?.context && !requestBody?.lastChoice);
 
         // Handle global error
         if (this.responseConfig.error) {
