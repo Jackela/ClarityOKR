@@ -34,7 +34,7 @@ export class OkrStickyGatewayService {
     } satisfies GenerateOKRRequest);
     // eslint-disable-next-line no-console
     console.info('[renderer] requesting OKR generation (LLM)', payload);
-    const response = await bridge.invoke(IPC_CHANNELS.LLM_GENERATE_DRAFT, { context: undefined });
+    const response = await bridge.invoke(IPC_CHANNELS.LLM_GENERATE_DRAFT, { context: undefined, sessionId });
     const parsed = generateOKRResponseSchema.parse(response);
 
     return this.storeDocument(parsed.okr);

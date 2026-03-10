@@ -286,20 +286,33 @@ export class ClarificationController {
       IPCChannels.LLM_GENERATE_DRAFT,
       async (_event, payload): Promise<OkrDraftResponse> => {
         const body = payload as OkrDraftRequest;
+        const requestSessionId = body.sessionId;
         
         // Try to get session from memory cache or persistent storage
         let session: ClarificationSession | null = null;
-        const persisted = await this.sessionRepository.load();
         
-        if (persisted.session) {
-          session = clarificationSessionSchema.parse(persisted.session);
-          // Restore to memory cache
-          this.sessions.set(session.id, session);
+        // First try memory cache with the specific sessionId
+        if (requestSessionId) {
+          session = this.sessions.get(requestSessionId) ?? null;
+        }
+        
+        // If not in memory, try persistent storage
+        if (!session) {
+          const persisted = await this.sessionRepository.load();
+          if (persisted.session) {
+            // Verify session ID matches if provided
+            if (!requestSessionId || persisted.session.id === requestSessionId) {
+              session = clarificationSessionSchema.parse(persisted.session);
+              // Restore to memory cache
+              this.sessions.set(session.id, session);
+            }
+          }
         }
         
         console.info('[main] LLM_GENERATE_DRAFT: loading session', {
           hasSession: Boolean(session),
           sessionId: session?.id,
+          requestSessionId,
         });
 
         if (!session) {
