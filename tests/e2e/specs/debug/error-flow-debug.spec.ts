@@ -132,19 +132,21 @@ test('debug: verify error flow end-to-end', async ({ mainWindow, mockServer }) =
 
 test('debug: verify error to success flow', async ({ mainWindow, mockServer }) => {
   const clarification = new ClarificationPage(mainWindow);
-  let callCount = 0;
   let hasReturnedError = false;
   let allowSuccess = false;
 
   console.log('[DEBUG-TEST] Testing error -> retry -> success flow');
 
-  // Use global error config to control flow more precisely
+  // Configure mock server with a function that tracks state properly
+  // Note: The mock server may receive requests before test starts, so we need
+  // to handle the first few calls gracefully
   mockServer.setResponses({
-    nextQuestion: () => {
-      callCount++;
-      console.log(`[DEBUG-TEST] Mock call #${callCount}, hasReturnedError=${hasReturnedError}, allowSuccess=${allowSuccess}`);
+    nextQuestion: (callNumber) => {
+      console.log(`[DEBUG-TEST] Mock call #${callNumber}, hasReturnedError=${hasReturnedError}, allowSuccess=${allowSuccess}`);
       
-      if (callCount === 1) {
+      // First call from test: return first question
+      // Note: callNumber may be > 1 if app sent requests during initialization
+      if (callNumber <= 1 || (!hasReturnedError && !allowSuccess)) {
         console.log('[DEBUG-TEST] Returning first question');
         return {
           question: {
@@ -158,7 +160,7 @@ test('debug: verify error to success flow', async ({ mainWindow, mockServer }) =
         };
       }
       
-      // After first selection, always return error until retry is clicked
+      // After first question, return error once
       if (!hasReturnedError) {
         hasReturnedError = true;
         console.log('[DEBUG-TEST] Returning 503 (error) - first error');
@@ -185,8 +187,9 @@ test('debug: verify error to success flow', async ({ mainWindow, mockServer }) =
     },
   });
 
-  // Start clarification
+  // Start clarification - wait for app to be fully initialized
   await clarification.waitForReady();
+  await mainWindow.waitForTimeout(500); // Extra wait for mock server to be ready
   await clarification.startClarification('测试目标');
 
   // Wait for first question
