@@ -1,4 +1,4 @@
-import { test as base } from '@playwright/test';
+import { test as base, TestInfo } from '@playwright/test';
 import { _electron as electron, ElectronApplication, Page } from '@playwright/test';
 import { extraElectronArgs, getElectronEnv, ROOT } from '../helpers/build-check';
 import { cleanupPersistenceFiles } from './index';
@@ -21,21 +21,122 @@ interface MockServerFixture {
 }
 
 /**
+ * 使用 testMode API 清理应用状态
+ * 比文件清理更可靠，直接在主进程中重置内存状态
+ */
+async function cleanupViaTestMode(electronApp: ElectronApplication): Promise<void> {
+  try {
+    await electronApp.evaluate(async () => {
+      const testMode = (global as any).testMode;
+      if (!testMode) {
+        console.warn('[E2E] testMode not available');
+        return null;
+      }
+
+      // 1. 重置状态
+      console.log('[E2E] Using testMode.resetState()');
+      await testMode.resetState();
+
+      // 2. 等待异步操作完成
+      if (testMode.waitForAsyncOperations) {
+        await testMode.waitForAsyncOperations(5000);
+      }
+
+      // 3. 验证重置成功
+      const state = testMode.getCurrentState();
+      console.log('[E2E] State after reset:', {
+        sessionCount: state.sessions?.size || 0,
+        currentSessionId: state.currentSessionId,
+      });
+
+      return state;
+    });
+    console.log('[E2E] TestMode cleanup successful');
+  } catch (e) {
+    console.warn('[E2E] TestMode cleanup failed:', e);
+  }
+}
+
+/**
+ * 降级清理：当 testMode 不可用时使用文件清理
+ */
+async function fallbackCleanup(): Promise<void> {
+  console.log('[E2E] Falling back to file cleanup');
+  try {
+    await cleanupPersistenceFiles();
+    console.log('[E2E] File cleanup successful');
+  } catch (e) {
+    console.warn('[E2E] File cleanup failed:', e);
+  }
+}
+
+/**
+ * 收集诊断信息，帮助调试 CI 失败
+ */
+async function logDiagnostics(
+  electronApp: ElectronApplication,
+  testInfo: TestInfo,
+  testId?: string
+): Promise<void> {
+  try {
+    const diagnostics = await electronApp.evaluate(() => {
+      const testMode = (global as any).testMode;
+      if (!testMode) return { error: 'testMode not available' };
+
+      const state = testMode.getCurrentState();
+      const sessions = Array.from(state.sessions?.entries?.() || []);
+
+      return {
+        testModeAvailable: true,
+        sessionCount: sessions.length,
+        currentSessionId: state.currentSessionId,
+        sessions: sessions.map(([id, session]: [string, any]) => ({
+          id,
+          intent: session.initialIntent,
+          status: session.status,
+          confidence: session.confidence,
+          selectionCount: session.selections?.length || 0,
+        })),
+        mockConfig: state.mockResponses,
+      };
+    });
+
+    console.error(
+      `[E2E] Diagnostics for ${testInfo.title} (testId: ${testId}):`,
+      JSON.stringify(diagnostics, null, 2)
+    );
+  } catch (e) {
+    console.error(`[E2E] Failed to collect diagnostics:`, e);
+  }
+}
+
+/**
  * Enhanced test fixture with worker-level Electron and Mock Server isolation.
  *
  * Key improvements:
  * - Each worker has its own Mock Server on a dynamic port
  * - Each worker shares one Electron instance across all tests
  * - No port conflicts between parallel workers
- * - State is reset between tests instead of restarting the app
+ * - State is reset between tests using testMode API (more reliable than file cleanup)
  * - Significantly reduces test execution time (~50% faster)
  * - Supports parallel workers in CI with dynamic port allocation
+ * - Comprehensive diagnostics for failed tests
  */
 export const workerTest = base.extend<{
   mockServer: MockServerFixture;
   electronApp: ElectronApplication;
   mainWindow: Page;
+  testId: string;
 }>({
+  // Test ID fixture for tracing
+  testId: [
+    async ({}, use, testInfo) => {
+      const id = `${testInfo.workerIndex}-${testInfo.retry}-${Date.now()}`;
+      await use(id);
+    },
+    { scope: 'test' },
+  ],
+
   // Worker 级别：每个 worker 启动自己的 Mock Server
   mockServer: [
     async ({}, use, testInfo) => {
@@ -55,7 +156,6 @@ export const workerTest = base.extend<{
           workerMockServer!.setResponses(config);
         },
         getRequestLog: () => workerMockServer!.getRequestLog(),
-        reset: () => workerMockServer!.reset(),
       });
     },
     { scope: 'worker' },
@@ -77,9 +177,6 @@ export const workerTest = base.extend<{
 
         workerId = testInfo.workerIndex.toString();
 
-        // 清理持久化文件
-        await cleanupPersistenceFiles();
-
         // 启动 Electron，使用当前 worker 的 Mock Server URL
         workerElectronApp = await electron.launch({
           args: ['.', ...extraElectronArgs()],
@@ -88,6 +185,12 @@ export const workerTest = base.extend<{
         });
 
         console.log(`[worker ${workerId}] Electron started with mock server at ${mockServer.url}`);
+
+        // 验证 testMode API 可用
+        const testModeAvailable = await workerElectronApp.evaluate(() => {
+          return !!(global as any).testMode;
+        }).catch(() => false);
+        console.log(`[worker ${workerId}] TestMode API available: ${testModeAvailable}`);
       }
 
       await use(workerElectronApp!);
@@ -97,31 +200,45 @@ export const workerTest = base.extend<{
 
   // Test 级别：每个测试使用相同的 Electron 但清理状态
   mainWindow: [
-    async ({ electronApp }, use) => {
-      // 清理应用状态
-      await electronApp
-        .evaluate(() => {
-          // 如果有 testMode API，调用它
-          if ((global as any).testMode?.resetState) {
-            (global as any).testMode.resetState();
-          }
-        })
-        .catch(() => {});
+    async ({ electronApp, testId }, use, testInfo) => {
+      const diagnosticInfo = {
+        testId,
+        testName: testInfo.title,
+        startTime: new Date().toISOString(),
+      };
 
-      // 清理持久化文件
-      await cleanupPersistenceFiles();
+      console.log(`[E2E] Test ${testId} started:`, testInfo.title);
 
-      // 获取第一个窗口
+      // 获取窗口
       const window = await electronApp.firstWindow();
 
-      // 导航到首页
+      // 使用 testMode API 清理状态（更可靠）
+      const testModeAvailable = await electronApp.evaluate(() => {
+        return !!(global as any).testMode?.resetState;
+      }).catch(() => false);
+
+      if (testModeAvailable) {
+        await cleanupViaTestMode(electronApp);
+      } else {
+        console.warn('[E2E] testMode.resetState not available, falling back to file cleanup');
+        await fallbackCleanup();
+      }
+
+      // 等待重置完成
+      await new Promise(r => setTimeout(r, process.env.CI ? 200 : 100));
+
+      // 导航到首页（确保干净状态）
       await window.goto('about:blank');
       await window.goto(`file://${ROOT}/app/renderer/dist/index.html`);
 
-      await use(window);
-
-      // 测试后清理
-      await cleanupPersistenceFiles();
+      try {
+        await use(window);
+      } finally {
+        // 测试结束后：如果测试失败，记录诊断信息
+        if (testInfo.status !== 'passed') {
+          await logDiagnostics(electronApp, testInfo, testId);
+        }
+      }
     },
     { scope: 'test' },
   ],
