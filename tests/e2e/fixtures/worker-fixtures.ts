@@ -1,4 +1,7 @@
-import { test as base, TestInfo } from '@playwright/test';
+import { test as base, expect, TestInfo } from '@playwright/test';
+
+// Re-export expect for convenience
+export { expect };
 import { _electron as electron, ElectronApplication, Page } from '@playwright/test';
 import { extraElectronArgs, getElectronEnv, ROOT } from '../helpers/build-check';
 import { cleanupPersistenceFiles } from './index';
