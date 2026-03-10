@@ -30,10 +30,10 @@ export default defineConfig({
   timeout: TIMEOUTS.maximum,
   // Retry configuration: CI=1 retry, local=0 retries
   retries: process.env.CI || process.env.ACT ? 1 : 0,
-  // Workers configuration: CI=1 worker (sequential to avoid port conflicts), local=auto
-  workers: process.env.CI ? 1 : undefined,
-  // Disable parallel execution to ensure port 7777 is not shared
-  fullyParallel: false,
+  // Workers configuration: CI=2 workers (parallel with worker-level isolation), local=auto
+  workers: process.env.CI ? 2 : undefined,
+  // Enable parallel execution with worker-level isolation
+  fullyParallel: true,
   expect: {
     // Default assertion timeout
     timeout: TIMEOUTS.standard,
@@ -46,6 +46,22 @@ export default defineConfig({
     actionTimeout: TIMEOUTS.standard,
     navigationTimeout: TIMEOUTS.slow,
   },
+  // 全局设置 - 启动全局 mock server
   globalSetup: globalSetupPath,
   reporter: [['list'], ...(process.env.CI ? ([['github']] as const) : [])],
+  // Worker-level projects for parallel execution
+  projects: [
+    {
+      name: 'e2e-worker1',
+      use: {
+        workerId: 'worker1',
+      },
+    },
+    {
+      name: 'e2e-worker2',
+      use: {
+        workerId: 'worker2',
+      },
+    },
+  ],
 });

@@ -41,6 +41,9 @@ importers:
       eslint-plugin-import:
         specifier: ^2.29.1
         version: 2.32.0(@typescript-eslint/parser@7.18.0(eslint@8.57.1)(typescript@5.4.5))(eslint-import-resolver-typescript@4.4.4)(eslint@8.57.1)
+      get-port:
+        specifier: ^7.0.0
+        version: 7.1.0
       jasmine-core:
         specifier: 5.1.1
         version: 5.1.1

@@ -19,6 +19,12 @@ export class SimpleMockServer {
 
   async start(port?: number): Promise<number> {
     this.port = port || 7777;
+    // Reset state on start to ensure clean state
+    this.callCounter = 0;
+    this.responseConfig = {};
+    this.requestLog = [];
+    this.pendingRequests = 0;
+    this.pendingRequestsPromise = Promise.resolve();
 
     this.server = http.createServer((req, res) => {
       this.handleRequest(req, res);

@@ -1,7 +1,6 @@
 import { test as base, _electron as electron, ElectronApplication, Page } from '@playwright/test';
 import type { BrowserWindow } from 'electron';
 import { existsSync, promises as fs } from 'node:fs';
-import getPort from 'get-port';
 import {
   ROOT,
   SESSION_PERSIST_PATH,
@@ -10,7 +9,6 @@ import {
   getElectronEnv,
   ensureBuildArtifacts,
 } from '../helpers/build-check';
-import { SimpleMockServer } from '../helpers/simple-mock-server';
 import type { MockResponseConfig } from '@clarityokr/contracts';
 
 /**
@@ -21,7 +19,7 @@ type E2EFixtures = {
   /**
    * Mock server for controlling LLM API responses.
    * Uses a simple HTTP server to respond to requests from Electron main process.
-   * Each test gets a fresh mock server instance.
+   * Now uses a global mock server instance shared across all tests.
    */
   mockServer: {
     /** The URL of the mock server */
@@ -30,6 +28,8 @@ type E2EFixtures = {
     setResponses: (config: MockResponseConfig) => Promise<void>;
     /** Get the log of all requests made to the server */
     getRequestLog: () => Array<{ method: string; url: string; body: unknown; timestamp: number }>;
+    /** Reset the mock server state */
+    reset: () => Promise<void>;
   };
 
   /**
@@ -78,32 +78,40 @@ export async function cleanupPersistenceFiles(): Promise<void> {
  * Enhanced test fixture with HTTP-based mocking.
  *
  * Key improvements:
- * - Simple HTTP server for reliable request interception
- * - Works across process boundaries (test runner &lt;-\u003e Electron)
+ * - Global mock server shared across all tests (started in global-setup.ts)
+ * - Works across process boundaries (test runner <-> Electron)
  * - Automatic cleanup on test failure
  * - Better error handling and logging
  */
 export const test = base.extend<E2EFixtures>({
-  // Mock server fixture - uses HTTP server for Electron compatibility
+  // Mock server fixture - uses global HTTP server for Electron compatibility
   mockServer: [
     async ({}, use) => {
-      const server = new SimpleMockServer();
-      // Use fixed port 7777 in CI to match LLM_BASE_URL env var, dynamic port locally
-      const port = process.env.CI ? 7777 : await getPort();
-      await server.start(port);
+      const port = process.env.MOCK_SERVER_PORT || '7777';
+      const url = `http://127.0.0.1:${port}`;
+
+      // 导入全局 server 实例
+      const { globalMockServer } = await import('../global-setup');
 
       await use({
-        url: server.getUrl(),
-        // 🔴 FIX: Wait for pending requests before setting responses
+        url,
+        // Wait for pending requests before setting responses
         setResponses: async (config: MockResponseConfig) => {
-          await server.waitForPendingRequests();
-          server.setResponses(config);
+          await globalMockServer.waitForPendingRequests();
+          globalMockServer.setResponses(config);
         },
-        getRequestLog: () => server.getRequestLog(),
+        getRequestLog: () => globalMockServer.getRequestLog(),
+        // Reset the mock server state for test isolation
+        reset: async () => {
+          await globalMockServer.waitForPendingRequests();
+          globalMockServer.setResponses({});
+        },
       });
 
-      // Cleanup: stop server after test
-      await server.stop();
+      // Note: We don't stop the server here - it's managed by globalSetup teardown
+      // But we do reset the state for the next test
+      await globalMockServer.waitForPendingRequests();
+      globalMockServer.setResponses({});
     },
     { scope: 'test' },
   ],
@@ -113,15 +121,15 @@ export const test = base.extend<E2EFixtures>({
     async ({ mockServer }, use, testInfo) => {
       ensureBuildArtifacts();
 
-      // 🔴 FIX 1: 在启动 Electron 之前清理
+      // 在启动 Electron 之前清理持久化文件
       await cleanupPersistenceFiles();
 
-      // 🔴 FIX 2: CI 环境中添加短暂延迟确保文件系统操作完成
+      // CI 环境中添加短暂延迟确保文件系统操作完成
       if (process.env.CI) {
         await new Promise((r) => setTimeout(r, 200));
       }
 
-      // 3. 启动 Electron
+      // 启动 Electron
       const app = await electron.launch({
         args: ['.', ...extraElectronArgs()],
         cwd: ROOT,
@@ -137,7 +145,7 @@ export const test = base.extend<E2EFixtures>({
       try {
         await use(app);
       } finally {
-        // 🔴 FIX 3: 先关闭所有窗口
+        // 先关闭所有窗口
         await app
           .evaluate(({ BrowserWindow }) => {
             BrowserWindow.getAllWindows().forEach((w) => {
@@ -157,7 +165,7 @@ export const test = base.extend<E2EFixtures>({
           console.error('[fixture] Error closing Electron app:', err);
         });
 
-        // 🔴 FIX 4: 再次清理持久化文件
+        // 再次清理持久化文件
         await cleanupPersistenceFiles();
       }
     },

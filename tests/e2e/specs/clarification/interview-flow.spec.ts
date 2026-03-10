@@ -1,4 +1,5 @@
-import { test, expect, cleanupPersistenceFiles } from '../../fixtures';
+import { workerTest as test, expect } from '../../fixtures/worker-fixtures';
+import { cleanupPersistenceFiles } from '../../fixtures';
 import {
   waitForElement,
   waitForText,

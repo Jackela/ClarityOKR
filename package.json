@@ -43,6 +43,7 @@
     "eslint-config-prettier": "^9.1.0",
     "eslint-import-resolver-typescript": "^4.4.4",
     "eslint-plugin-import": "^2.29.1",
+    "get-port": "^7.0.0",
     "jasmine-core": "5.1.1",
     "jest-environment-jsdom": "^29.7.0",
     "jest-preset-angular": "^14.2.1",
