@@ -19,6 +19,7 @@ export type LlmNextQuestionResponse = {
 
 export type OkrDraftRequest = {
   context?: ClarificationContext;
+  sessionId?: string;
 };
 
 export type OkrDraftResponse = {

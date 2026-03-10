@@ -281,18 +281,35 @@ export class ClarificationController {
       async (_event, payload): Promise<OkrDraftResponse> => {
         const body = payload as OkrDraftRequest;
         
-        // Try to get session from memory cache or persistent storage
+        // Try memory cache first, then fall back to persistent storage
         let session: ClarificationSession | null = null;
-        const persisted = await this.sessionRepository.load();
         
-        if (persisted.session) {
-          session = clarificationSessionSchema.parse(persisted.session);
-          // Restore to memory cache
-          this.sessions.set(session.id, session);
+        if (body.sessionId) {
+          session = this.sessions.get(body.sessionId) ?? null;
+        }
+        
+        if (!session) {
+          const persisted = await this.sessionRepository.load();
+          if (persisted.session) {
+            // If sessionId is provided, verify it matches; otherwise use the persisted session
+            if (body.sessionId && persisted.session.id !== body.sessionId) {
+              console.warn('[main] LLM_GENERATE_DRAFT: session ID mismatch', {
+                requested: body.sessionId,
+                persisted: persisted.session.id,
+              });
+            } else {
+              session = clarificationSessionSchema.parse(persisted.session);
+              // Restore to memory cache
+              if (session) {
+                this.sessions.set(session.id, session);
+              }
+            }
+          }
         }
         
         console.info('[main] LLM_GENERATE_DRAFT: loading session', {
           hasSession: Boolean(session),
+          requestedSessionId: body.sessionId,
           sessionId: session?.id,
         });
 
