@@ -8,22 +8,19 @@ import {
   getElectronEnv,
   ensureBuildArtifacts,
 } from '../helpers/build-check';
-import { ReliableMockServer } from '../helpers/reliable-mock-server';
+import type { MockResponseConfig } from '@clarityokr/contracts';
 
-// Re-export type from reliable-mock-server
-export type MockResponseConfig = {
-  nextQuestion?: (callNumber: number) => object | null | undefined;
-  draft?: object;
-  error?: { status: number; message: string } | null;
-  rawResponse?: string | (() => string);
-};
+// Re-export type from reliable-mock-server for compatibility
+export type { MockResponseConfig };
 
 type E2EFixtures = {
   mockServer: {
     url: string;
-    // 🔴 FIX: setResponses is now async
+    // setResponses is now async
     setResponses: (config: MockResponseConfig) => Promise<void>;
     getRequestLog: () => Array<{ method: string; url: string; body: unknown; timestamp: number }>;
+    // Reset the mock server state
+    reset: () => Promise<void>;
   };
   electronApp: ElectronApplication;
   mainWindow: Page;
@@ -43,20 +40,31 @@ export async function cleanupPersistenceFiles(): Promise<void> {
 export const test = base.extend<E2EFixtures>({
   mockServer: [
     async ({}, use) => {
-      const server = new ReliableMockServer();
-      const port = await server.start();
+      const port = process.env.MOCK_SERVER_PORT || '7777';
+      const url = `http://127.0.0.1:${port}`;
+
+      // 导入全局 server 实例
+      const { globalMockServer } = await import('../global-setup');
 
       await use({
-        url: server.getUrl(),
-        // 🔴 FIX: Wait for pending requests before setting responses
+        url,
+        // Wait for pending requests before setting responses
         setResponses: async (config: MockResponseConfig) => {
-          await server.waitForPendingRequests();
-          server.setResponses(config);
+          await globalMockServer.waitForPendingRequests();
+          globalMockServer.setResponses(config);
         },
-        getRequestLog: () => server.getRequestLog(),
+        getRequestLog: () => globalMockServer.getRequestLog(),
+        // Reset the mock server state for test isolation
+        reset: async () => {
+          await globalMockServer.waitForPendingRequests();
+          globalMockServer.setResponses({});
+        },
       });
 
-      await server.stop();
+      // Note: We don't stop the server here - it's managed by globalSetup teardown
+      // But we do reset the state for the next test
+      await globalMockServer.waitForPendingRequests();
+      globalMockServer.setResponses({});
     },
     { scope: 'test' },
   ],
@@ -64,15 +72,15 @@ export const test = base.extend<E2EFixtures>({
     async ({ mockServer }, use) => {
       ensureBuildArtifacts();
 
-      // 🔴 FIX 1: 在启动 Electron 之前清理
+      // 在启动 Electron 之前清理持久化文件
       await cleanupPersistenceFiles();
 
-      // 🔴 FIX 2: CI 环境中添加短暂延迟确保文件系统操作完成
+      // CI 环境中添加短暂延迟确保文件系统操作完成
       if (process.env.CI) {
         await new Promise((r) => setTimeout(r, 200));
       }
 
-      // 3. 启动 Electron
+      // 启动 Electron
       const app = await electron.launch({
         args: ['.', ...extraElectronArgs()],
         cwd: ROOT,
@@ -88,7 +96,7 @@ export const test = base.extend<E2EFixtures>({
       try {
         await use(app);
       } finally {
-        // 🔴 FIX 3: 先关闭所有窗口
+        // 先关闭所有窗口
         await app
           .evaluate(({ BrowserWindow }) => {
             BrowserWindow.getAllWindows().forEach((w) => {
@@ -108,7 +116,7 @@ export const test = base.extend<E2EFixtures>({
           console.error('[fixture] Error closing Electron app:', err);
         });
 
-        // 🔴 FIX 4: 再次清理持久化文件
+        // 再次清理持久化文件
         await cleanupPersistenceFiles();
       }
     },

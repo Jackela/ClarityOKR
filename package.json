@@ -28,6 +28,7 @@
   },
   "devDependencies": {
     "@ampproject/remapping": "^2.3.0",
+    "get-port": "^7.0.0",
     "@angular-devkit/build-angular": "17.3.12",
     "@playwright/test": "^1.44.0",
     "@types/jasmine": "4.3.6",
