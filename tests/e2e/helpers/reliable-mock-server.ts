@@ -21,7 +21,11 @@ export class ReliableMockServer {
   private callCounter = 0;
   private responseConfig: MockResponseConfig = {};
   private requestLog: RequestLogEntry[] = [];
-  private pendingRequests = new Map<string, Promise<void>>();
+
+  // 🔴 FIX: Add pending request tracking properties
+  private pendingRequests = 0;
+  private pendingRequestsPromise: Promise<void> = Promise.resolve();
+  private resolvePending!: () => void;
 
   async start(): Promise<number> {
     // Get a random available port
@@ -53,6 +57,14 @@ export class ReliableMockServer {
     });
 
     req.on('end', async () => {
+      // 🔴 FIX: Track pending request
+      this.pendingRequests++;
+      if (this.pendingRequests === 1) {
+        this.pendingRequestsPromise = new Promise(resolve => {
+          this.resolvePending = resolve;
+        });
+      }
+
       let parsedBody: unknown;
       try {
         parsedBody = body ? JSON.parse(body) : null;
@@ -77,7 +89,15 @@ export class ReliableMockServer {
       }
 
       // Handle request
-      await this.processRequest(req, res, parsedBody, requestId);
+      try {
+        await this.processRequest(req, res, parsedBody, requestId);
+      } finally {
+        // 🔴 FIX: Decrement pending and resolve if all done
+        this.pendingRequests--;
+        if (this.pendingRequests === 0) {
+          this.resolvePending();
+        }
+      }
     });
 
     req.on('error', (err) => {
@@ -93,8 +113,9 @@ export class ReliableMockServer {
     parsedBody: unknown,
     requestId: string,
   ): Promise<void> {
-    // Add small delay to ensure loading indicator is visible for tests
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    // 🔴 FIX: Use shorter delay in CI
+    const delay = process.env.CI ? 500 : 200;
+    await new Promise((resolve) => setTimeout(resolve, delay));
 
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -205,7 +226,20 @@ export class ReliableMockServer {
     res.end(rawBody ?? JSON.stringify(body));
   }
 
+  // 🔴 FIX: Add wait method for pending requests
+  async waitForPendingRequests(timeout = 5000): Promise<void> {
+    if (this.pendingRequests === 0) return;
+
+    const timeoutPromise = new Promise<void>((_, reject) =>
+      setTimeout(() => reject(new Error('waitForPendingRequests timeout')), timeout)
+    );
+
+    await Promise.race([this.pendingRequestsPromise, timeoutPromise]);
+  }
+
   setResponses(config: MockResponseConfig): void {
+    // 🔴 FIX: Now setResponses just sets config without waiting
+    // Callers should call waitForPendingRequests first if needed
     this.responseConfig = config;
     this.callCounter = 0;
     this.requestLog = [];

@@ -21,7 +21,8 @@ export type MockResponseConfig = {
 type E2EFixtures = {
   mockServer: {
     url: string;
-    setResponses: (config: MockResponseConfig) => void;
+    // 🔴 FIX: setResponses is now async
+    setResponses: (config: MockResponseConfig) => Promise<void>;
     getRequestLog: () => Array<{ method: string; url: string; body: unknown; timestamp: number }>;
   };
   electronApp: ElectronApplication;
@@ -47,7 +48,11 @@ export const test = base.extend<E2EFixtures>({
 
       await use({
         url: server.getUrl(),
-        setResponses: (config: MockResponseConfig) => server.setResponses(config),
+        // 🔴 FIX: Wait for pending requests before setting responses
+        setResponses: async (config: MockResponseConfig) => {
+          await server.waitForPendingRequests();
+          server.setResponses(config);
+        },
         getRequestLog: () => server.getRequestLog(),
       });
 
