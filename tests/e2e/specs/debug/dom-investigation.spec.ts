@@ -1,5 +1,6 @@
 import { test, expect } from '../../fixtures';
 import { ClarificationPage } from '../../page-objects';
+import { waitForStateChange, waitForLoadingComplete } from '../../helpers/native-dom';
 
 test('investigate: DOM structure when error occurs', async ({ mainWindow, mockServer }) => {
   mockServer.setResponses({ nextQuestion: () => null });
@@ -8,8 +9,14 @@ test('investigate: DOM structure when error occurs', async ({ mainWindow, mockSe
   await clarification.waitForReady();
   await clarification.startClarification('测试目标');
 
-  // 等待错误状态
-  await new Promise((resolve) => setTimeout(resolve, 3000));
+  // FIX: 使用条件等待替代固定延迟
+  // 等待加载状态出现然后消失，然后等待错误消息
+  await waitForStateChange(mainWindow, {
+    from: '[data-testid="clarification-loading"]',
+    to: '[data-testid="error-message"]',
+    timeout: 15000,
+    stabilizationDelay: 200,
+  });
 
   // 使用page.evaluate检查DOM
   const domInfo = await mainWindow.evaluate(() => {
@@ -59,7 +66,6 @@ test('investigate: DOM structure when error occurs', async ({ mainWindow, mockSe
         errorContainerExists: !!errorContainer,
         retryButtonExists: !!retryButton,
         errorContainerHTML: errorContainer ? errorContainer.outerHTML.substring(0, 500) : null,
-        retryButtonHTML: retryButton ? retryButton.outerHTML.substring(0, 500) : null,
         errorContainerStyle: getStyles(errorContainer),
         retryButtonStyle: getStyles(retryButton),
       },
@@ -130,8 +136,14 @@ test('investigate: retry button visibility in depth', async ({ mainWindow, mockS
   await clarification.waitForReady();
   await clarification.startClarification('测试目标');
 
-  // 等待错误状态
-  await new Promise((resolve) => setTimeout(resolve, 3000));
+  // FIX: 使用条件等待替代固定延迟
+  await waitForLoadingComplete(mainWindow, { maxWaitTime: 15000 });
+
+  // Wait for error message to appear
+  await waitForStateChange(mainWindow, {
+    to: '[data-testid="error-message"]',
+    timeout: 10000,
+  });
 
   // 深入检查可见性
   const visibilityInfo = await mainWindow.evaluate(() => {

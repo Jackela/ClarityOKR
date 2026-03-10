@@ -1,6 +1,13 @@
 import { test, expect } from '../../fixtures';
 import { ClarificationPage } from '../../page-objects';
-import { waitForElement, waitForErrorMessage, forceClick } from '../../helpers/native-dom';
+import {
+  waitForElement,
+  waitForErrorMessage,
+  forceClick,
+  waitForStateChange,
+  waitForLoadingComplete,
+  waitForErrorState,
+} from '../../helpers/native-dom';
 
 test('debug: verify error flow end-to-end', async ({ mainWindow, mockServer }) => {
   const clarification = new ClarificationPage(mainWindow);
@@ -58,10 +65,17 @@ test('debug: verify error flow end-to-end', async ({ mainWindow, mockServer }) =
   console.log('[DEBUG-TEST] Step 3: Answering question to trigger error');
   await forceClick(mainWindow, '[data-testid="clarification-option"]:first-child');
 
-  // Step 4: Wait for error state using native DOM
-  console.log('[DEBUG-TEST] Step 4: Waiting for error state (using native DOM)...');
-  await waitForErrorMessage(mainWindow, 15000);
-  console.log('[DEBUG-TEST] Error message is now visible');
+  // Step 4: FIX - Wait for loading to complete first, then wait for error state
+  console.log('[DEBUG-TEST] Step 4: Waiting for loading to complete and error to appear...');
+
+  // Use the new waitForErrorState helper that properly handles loading -> error transition
+  const errorState = await waitForErrorState(mainWindow, {
+    timeout: 20000,
+    waitForRetryButton: true,
+  });
+
+  console.log('[DEBUG-TEST] Error state detected:', errorState);
+  expect(errorState.hasError).toBe(true);
 
   // Step 5: Check DOM for error elements using native DOM
   console.log('[DEBUG-TEST] Step 5: Checking DOM for error elements');
@@ -75,9 +89,7 @@ test('debug: verify error flow end-to-end', async ({ mainWindow, mockServer }) =
   await mainWindow.screenshot({ path: 'test-results/06-before-retry-check.png', fullPage: true });
   console.log('[DEBUG-TEST] Screenshot saved: test-results/06-before-retry-check.png');
 
-  const hasRetry = await waitForElement(mainWindow, '[data-testid="retry-button"]', {
-    timeout: 5000,
-  });
+  const hasRetry = errorState.hasRetryButton;
   console.log('[DEBUG-TEST] Has retry button:', hasRetry);
 
   // Final screenshot after check
@@ -173,22 +185,31 @@ test('debug: verify error to success flow', async ({ mainWindow, mockServer }) =
   // Answer to trigger error
   await forceClick(mainWindow, '[data-testid="clarification-option"]:first-child');
 
-  // Wait for error using native DOM
-  console.log('[DEBUG-TEST] Waiting for error...');
-  await waitForErrorMessage(mainWindow, 15000);
+  // FIX: Wait for loading to complete first, then wait for error
+  console.log('[DEBUG-TEST] Waiting for loading to complete and error to appear...');
+  await waitForLoadingComplete(mainWindow, { maxWaitTime: 15000 });
+
+  // Now wait for error message
+  await waitForStateChange(mainWindow, {
+    to: '[data-testid="error-message"]',
+    timeout: 10000,
+  });
   console.log('[DEBUG-TEST] Error is visible');
 
-  // Additional wait for button
+  // Additional wait for button stabilization
   await mainWindow.waitForTimeout(500);
 
   // Click retry using forceClick
   console.log('[DEBUG-TEST] Clicking retry button');
   await forceClick(mainWindow, '[data-testid="retry-button"]');
 
-  // Wait for success using native DOM
+  // Wait for success using native DOM - wait for loading to complete first
+  console.log('[DEBUG-TEST] Waiting for retry loading to complete...');
+  await waitForLoadingComplete(mainWindow, { maxWaitTime: 15000 });
+
   console.log('[DEBUG-TEST] Waiting for success (question to appear)...');
   const question2Visible = await waitForElement(mainWindow, '[data-testid="prompt-question"]', {
-    timeout: 5000,
+    timeout: 10000,
   });
   console.log('[DEBUG-TEST] Success! Question is now visible');
   expect(question2Visible).toBe(true);
@@ -249,6 +270,10 @@ test('debug: log all state changes', async ({ mainWindow, mockServer }) => {
 
   // Answer to trigger error
   await forceClick(mainWindow, '[data-testid="clarification-option"]:first-child');
+
+  // FIX: Wait for loading to complete before checking error state
+  console.log('[DEBUG-TEST] Waiting for loading to complete...');
+  await waitForLoadingComplete(mainWindow, { maxWaitTime: 15000 });
 
   console.log('[DEBUG-TEST] Waiting 5 seconds for state changes...');
   await new Promise((resolve) => setTimeout(resolve, 5000));
