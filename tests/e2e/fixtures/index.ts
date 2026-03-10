@@ -1,4 +1,5 @@
 import { test as base, _electron as electron, ElectronApplication, Page } from '@playwright/test';
+import type { BrowserWindow } from 'electron';
 import { existsSync, promises as fs } from 'node:fs';
 import getPort from 'get-port';
 import {
@@ -26,7 +27,7 @@ type E2EFixtures = {
     /** The URL of the mock server */
     url: string;
     /** Configure response behavior */
-    setResponses: (config: MockResponseConfig) => void;
+    setResponses: (config: MockResponseConfig) => Promise<void>;
     /** Get the log of all requests made to the server */
     getRequestLog: () => Array<{ method: string; url: string; body: unknown; timestamp: number }>;
   };
@@ -93,7 +94,11 @@ export const test = base.extend<E2EFixtures>({
 
       await use({
         url: server.getUrl(),
-        setResponses: (config: MockResponseConfig) => server.setResponses(config),
+        // 🔴 FIX: Wait for pending requests before setting responses
+        setResponses: async (config: MockResponseConfig) => {
+          await server.waitForPendingRequests();
+          server.setResponses(config);
+        },
         getRequestLog: () => server.getRequestLog(),
       });
 
@@ -108,6 +113,15 @@ export const test = base.extend<E2EFixtures>({
     async ({ mockServer }, use, testInfo) => {
       ensureBuildArtifacts();
 
+      // 🔴 FIX 1: 在启动 Electron 之前清理
+      await cleanupPersistenceFiles();
+
+      // 🔴 FIX 2: CI 环境中添加短暂延迟确保文件系统操作完成
+      if (process.env.CI) {
+        await new Promise((r) => setTimeout(r, 200));
+      }
+
+      // 3. 启动 Electron
       const app = await electron.launch({
         args: ['.', ...extraElectronArgs()],
         cwd: ROOT,
@@ -115,16 +129,36 @@ export const test = base.extend<E2EFixtures>({
       });
 
       const childProcess = app.process();
-      childProcess.stderr?.on('data', (data) => process.stderr.write(data));
-      childProcess.stdout?.on('data', (data) => process.stdout.write(data));
+      const stderrHandler = (data: Buffer) => process.stderr.write(data);
+      const stdoutHandler = (data: Buffer) => process.stdout.write(data);
+      childProcess.stderr?.on('data', stderrHandler);
+      childProcess.stdout?.on('data', stdoutHandler);
 
       try {
         await use(app);
       } finally {
-        // Always close app, even on test failure
+        // 🔴 FIX 3: 先关闭所有窗口
+        await app
+          .evaluate(({ BrowserWindow }) => {
+            BrowserWindow.getAllWindows().forEach((w) => {
+              try {
+                w.close();
+              } catch {}
+            });
+          })
+          .catch(() => {});
+
+        // 移除事件监听
+        childProcess.stderr?.off('data', stderrHandler);
+        childProcess.stdout?.off('data', stdoutHandler);
+
+        // 关闭应用
         await app.close().catch((err) => {
           console.error('[fixture] Error closing Electron app:', err);
         });
+
+        // 🔴 FIX 4: 再次清理持久化文件
+        await cleanupPersistenceFiles();
       }
     },
     { scope: 'test' },
