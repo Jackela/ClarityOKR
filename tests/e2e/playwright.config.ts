@@ -1,10 +1,14 @@
 import { defineConfig, devices } from '@playwright/test';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { getOptimizedConfig } from './helpers/ci-env';
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const globalSetupPath = path.join(currentDir, 'global-setup.ts');
 const globalTeardownPath = path.join(currentDir, 'global-teardown.ts');
+
+// 获取根据环境优化的配置
+const optimized = getOptimizedConfig();
 
 /**
  * Unified timeout configuration for all E2E tests.
@@ -28,17 +32,17 @@ export const TIMEOUTS = {
 export default defineConfig({
   testDir: './specs',
 
-  // 完全并行（每个文件一个 worker）
-  fullyParallel: true,
+  // 完全并行（每个文件一个 worker）- CI 中禁用
+  fullyParallel: optimized.workers !== 1,
 
-  // CI 中使用 3 个 workers，本地自动检测
-  workers: process.env.CI ? 3 : undefined,
+  // 使用优化后的 worker 配置
+  workers: optimized.workers,
 
-  // 重试配置
-  retries: process.env.CI ? 2 : 0,
+  // 使用优化后的重试配置
+  retries: optimized.retries,
 
-  // 全局超时
-  timeout: TIMEOUTS.maximum,
+  // 使用优化后的超时配置
+  timeout: optimized.timeout,
 
   // 全局设置和清理
   globalSetup: globalSetupPath,
@@ -52,7 +56,7 @@ export default defineConfig({
   use: {
     headless: true,
     screenshot: 'only-on-failure',
-    trace: 'retain-on-failure',
+    trace: optimized.trace,
     video: 'on-first-retry',
     actionTimeout: TIMEOUTS.standard,
     navigationTimeout: TIMEOUTS.slow,

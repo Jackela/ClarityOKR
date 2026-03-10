@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "playwright test"
+    "test": "playwright test",
+    "test:ci": "playwright test --config=playwright.ci.config.ts"
   },
   "dependencies": {
     "@clarityokr/contracts": "workspace:^"
