@@ -64,6 +64,15 @@ export const test = base.extend<E2EFixtures>({
     async ({ mockServer }, use) => {
       ensureBuildArtifacts();
 
+      // 🔴 FIX 1: 在启动 Electron 之前清理
+      await cleanupPersistenceFiles();
+
+      // 🔴 FIX 2: CI 环境中添加短暂延迟确保文件系统操作完成
+      if (process.env.CI) {
+        await new Promise((r) => setTimeout(r, 200));
+      }
+
+      // 3. 启动 Electron
       const app = await electron.launch({
         args: ['.', ...extraElectronArgs()],
         cwd: ROOT,
@@ -71,11 +80,37 @@ export const test = base.extend<E2EFixtures>({
       });
 
       const childProcess = app.process();
-      childProcess.stderr?.on('data', (data) => process.stderr.write(data));
-      childProcess.stdout?.on('data', (data) => process.stdout.write(data));
+      const stderrHandler = (data: Buffer) => process.stderr.write(data);
+      const stdoutHandler = (data: Buffer) => process.stdout.write(data);
+      childProcess.stderr?.on('data', stderrHandler);
+      childProcess.stdout?.on('data', stdoutHandler);
 
-      await use(app);
-      await app.close();
+      try {
+        await use(app);
+      } finally {
+        // 🔴 FIX 3: 先关闭所有窗口
+        await app
+          .evaluate(({ BrowserWindow }) => {
+            BrowserWindow.getAllWindows().forEach((w) => {
+              try {
+                w.close();
+              } catch {}
+            });
+          })
+          .catch(() => {});
+
+        // 移除事件监听
+        childProcess.stderr?.off('data', stderrHandler);
+        childProcess.stdout?.off('data', stdoutHandler);
+
+        // 关闭应用
+        await app.close().catch((err) => {
+          console.error('[fixture] Error closing Electron app:', err);
+        });
+
+        // 🔴 FIX 4: 再次清理持久化文件
+        await cleanupPersistenceFiles();
+      }
     },
     { scope: 'test' },
   ],
