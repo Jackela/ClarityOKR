@@ -10,6 +10,13 @@ import {
   ensureBuildArtifacts,
 } from '../helpers/build-check';
 import type { MockResponseConfig } from '@clarityokr/contracts';
+import {
+  collectDiagnostics,
+  printDiagnostics,
+  getElectronArgs,
+  logPageState,
+  logElectronState,
+} from '../helpers/ci-diagnostics';
 
 /**
  * E2E test fixtures interface.
@@ -121,6 +128,12 @@ export const test = base.extend<E2EFixtures>({
     async ({ mockServer }, use, testInfo) => {
       ensureBuildArtifacts();
 
+      // 收集并打印诊断信息
+      if (process.env.CI) {
+        const diagnostics = await collectDiagnostics();
+        printDiagnostics(diagnostics);
+      }
+
       // 在启动 Electron 之前清理持久化文件
       await cleanupPersistenceFiles();
 
@@ -129,9 +142,12 @@ export const test = base.extend<E2EFixtures>({
         await new Promise((r) => setTimeout(r, 200));
       }
 
+      // 使用 CI 优化的 Electron 参数
+      const args = ['.', ...getElectronArgs(), ...extraElectronArgs()];
+
       // 启动 Electron
       const app = await electron.launch({
-        args: ['.', ...extraElectronArgs()],
+        args,
         cwd: ROOT,
         env: getElectronEnv(mockServer.url),
       });
@@ -145,6 +161,11 @@ export const test = base.extend<E2EFixtures>({
       try {
         await use(app);
       } finally {
+        // 记录最终状态（仅在 CI 且测试失败时）
+        if (process.env.CI && testInfo.status !== 'passed') {
+          await logElectronState(app);
+        }
+
         // 先关闭所有窗口
         await app
           .evaluate(({ BrowserWindow }) => {

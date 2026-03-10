@@ -113,6 +113,8 @@ jobs:
       ELECTRON_EXTRA_LAUNCH_ARGS: --no-sandbox --disable-setuid-sandbox --disable-gpu --disable-dev-shm-usage
       ELECTRON_DISABLE_SANDBOX: 'true'
       ELECTRON_ENABLE_LOGGING: 'true'
+      CI_DEBUG_SCREENSHOTS: 'true'
+      DEBUG: 'pw:api'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
