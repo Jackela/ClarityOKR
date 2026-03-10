@@ -17,6 +17,8 @@ import {
   logPageState,
   logElectronState,
 } from '../helpers/ci-diagnostics';
+import { getElectronLaunchOptions } from '../helpers/electron-ci';
+import { startXvfb, stopXvfb, isXvfbAvailable } from '../helpers/xvfb-config';
 
 /**
  * E2E test fixtures interface.
@@ -126,6 +128,11 @@ export const test = base.extend<E2EFixtures>({
   // Electron application fixture
   electronApp: [
     async ({ mockServer }, use, testInfo) => {
+      // CI 环境中启动 Xvfb
+      if (process.env.CI && isXvfbAvailable()) {
+        await startXvfb();
+      }
+
       ensureBuildArtifacts();
 
       // 收集并打印诊断信息
@@ -142,14 +149,20 @@ export const test = base.extend<E2EFixtures>({
         await new Promise((r) => setTimeout(r, 200));
       }
 
+      // 使用 CI 优化的 Electron 配置
+      const ciConfig = getElectronLaunchOptions();
+
       // 使用 CI 优化的 Electron 参数
-      const args = ['.', ...getElectronArgs(), ...extraElectronArgs()];
+      const args = ['.', ...getElectronArgs(), ...extraElectronArgs(), ...ciConfig.args];
 
       // 启动 Electron
       const app = await electron.launch({
         args,
         cwd: ROOT,
-        env: getElectronEnv(mockServer.url),
+        env: {
+          ...getElectronEnv(mockServer.url),
+          ...ciConfig.env,
+        },
       });
 
       const childProcess = app.process();
@@ -188,6 +201,11 @@ export const test = base.extend<E2EFixtures>({
 
         // 再次清理持久化文件
         await cleanupPersistenceFiles();
+
+        // CI 环境中停止 Xvfb
+        if (process.env.CI) {
+          await stopXvfb();
+        }
       }
     },
     { scope: 'test' },
