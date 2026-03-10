@@ -9,6 +9,14 @@ import {
   ensureBuildArtifacts,
 } from '../helpers/build-check';
 import type { MockResponseConfig } from '@clarityokr/contracts';
+import {
+  collectDiagnostics,
+  printDiagnostics,
+  getElectronArgs,
+  logElectronState,
+} from '../helpers/ci-diagnostics';
+import { getElectronLaunchOptions } from '../helpers/electron-ci';
+import { startXvfb, stopXvfb, isXvfbAvailable } from '../helpers/xvfb-config';
 
 // Re-export type from reliable-mock-server for compatibility
 export type { MockResponseConfig };
@@ -69,8 +77,19 @@ export const test = base.extend<E2EFixtures>({
     { scope: 'test' },
   ],
   electronApp: [
-    async ({ mockServer }, use) => {
+    async ({ mockServer }, use, testInfo) => {
+      // CI 环境中启动 Xvfb
+      if (process.env.CI && isXvfbAvailable()) {
+        await startXvfb();
+      }
+
       ensureBuildArtifacts();
+
+      // 收集并打印诊断信息
+      if (process.env.CI) {
+        const diagnostics = await collectDiagnostics();
+        printDiagnostics(diagnostics);
+      }
 
       // 在启动 Electron 之前清理持久化文件
       await cleanupPersistenceFiles();
@@ -80,11 +99,20 @@ export const test = base.extend<E2EFixtures>({
         await new Promise((r) => setTimeout(r, 200));
       }
 
+      // 使用 CI 优化的 Electron 配置
+      const ciConfig = getElectronLaunchOptions();
+
+      // 使用 CI 优化的 Electron 参数
+      const args = ['.', ...getElectronArgs(), ...extraElectronArgs(), ...ciConfig.args];
+
       // 启动 Electron
       const app = await electron.launch({
-        args: ['.', ...extraElectronArgs()],
+        args,
         cwd: ROOT,
-        env: getElectronEnv(mockServer.url),
+        env: {
+          ...getElectronEnv(mockServer.url),
+          ...ciConfig.env,
+        },
       });
 
       const childProcess = app.process();
@@ -96,6 +124,11 @@ export const test = base.extend<E2EFixtures>({
       try {
         await use(app);
       } finally {
+        // 记录最终状态（仅在 CI 且测试失败时）
+        if (process.env.CI && testInfo.status !== 'passed') {
+          await logElectronState(app);
+        }
+
         // 先关闭所有窗口
         await app
           .evaluate(({ BrowserWindow }) => {
@@ -118,6 +151,11 @@ export const test = base.extend<E2EFixtures>({
 
         // 再次清理持久化文件
         await cleanupPersistenceFiles();
+
+        // CI 环境中停止 Xvfb
+        if (process.env.CI) {
+          await stopXvfb();
+        }
       }
     },
     { scope: 'test' },

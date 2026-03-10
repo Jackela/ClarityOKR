@@ -1,9 +1,13 @@
 import { defineConfig } from '@playwright/test';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { getOptimizedConfig } from './helpers/ci-env';
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const globalSetupPath = path.join(currentDir, 'global-setup.ts');
+
+// 获取根据环境优化的配置
+const optimized = getOptimizedConfig();
 
 /**
  * Unified timeout configuration for all E2E tests.
@@ -27,13 +31,13 @@ export const TIMEOUTS = {
 export default defineConfig({
   testDir: './specs',
   // Global timeout for each test
-  timeout: TIMEOUTS.maximum,
-  // Retry configuration: CI=1 retry, local=0 retries
-  retries: process.env.CI || process.env.ACT ? 1 : 0,
+  timeout: optimized.timeout,
+  // Retry configuration: CI=3 retries, local=0 retries
+  retries: optimized.retries,
   // Workers configuration: CI=1 worker (sequential to avoid port conflicts), local=auto
-  workers: process.env.CI ? 1 : undefined,
+  workers: optimized.workers,
   // Disable parallel execution to ensure port 7777 is not shared
-  fullyParallel: false,
+  fullyParallel: optimized.workers !== 1,
   expect: {
     // Default assertion timeout
     timeout: TIMEOUTS.standard,
@@ -41,7 +45,7 @@ export default defineConfig({
   use: {
     headless: true,
     screenshot: 'only-on-failure',
-    trace: 'retain-on-failure',
+    trace: optimized.trace,
     video: 'on-first-retry',
     actionTimeout: TIMEOUTS.standard,
     navigationTimeout: TIMEOUTS.slow,
