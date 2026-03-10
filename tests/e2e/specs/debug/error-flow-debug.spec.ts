@@ -133,14 +133,17 @@ test('debug: verify error flow end-to-end', async ({ mainWindow, mockServer }) =
 test('debug: verify error to success flow', async ({ mainWindow, mockServer }) => {
   const clarification = new ClarificationPage(mainWindow);
   let callCount = 0;
+  let hasReturnedError = false;
+  let allowSuccess = false;
 
   console.log('[DEBUG-TEST] Testing error -> retry -> success flow');
 
-  // First call returns question, second returns 503, third returns success
+  // Use global error config to control flow more precisely
   mockServer.setResponses({
     nextQuestion: () => {
       callCount++;
-      console.log(`[DEBUG-TEST] Mock call #${callCount}`);
+      console.log(`[DEBUG-TEST] Mock call #${callCount}, hasReturnedError=${hasReturnedError}, allowSuccess=${allowSuccess}`);
+      
       if (callCount === 1) {
         console.log('[DEBUG-TEST] Returning first question');
         return {
@@ -154,11 +157,21 @@ test('debug: verify error to success flow', async ({ mainWindow, mockServer }) =
           },
         };
       }
-      if (callCount === 2) {
-        console.log('[DEBUG-TEST] Returning 503 (error)');
-        return null;
+      
+      // After first selection, always return error until retry is clicked
+      if (!hasReturnedError) {
+        hasReturnedError = true;
+        console.log('[DEBUG-TEST] Returning 503 (error) - first error');
+        return null; // 503
       }
-      console.log('[DEBUG-TEST] Returning success (retry)');
+      
+      // After error, wait for allowSuccess flag (set after clicking retry)
+      if (!allowSuccess) {
+        console.log('[DEBUG-TEST] Still returning 503 (error) - waiting for retry');
+        return null; // Keep returning 503 until retry
+      }
+      
+      console.log('[DEBUG-TEST] Returning success (after retry)');
       return {
         question: {
           id: 'q2',
@@ -185,19 +198,22 @@ test('debug: verify error to success flow', async ({ mainWindow, mockServer }) =
   // Answer to trigger error
   await forceClick(mainWindow, '[data-testid="clarification-option"]:first-child');
 
-  // FIX: Wait for loading to complete first, then wait for error
-  console.log('[DEBUG-TEST] Waiting for loading to complete and error to appear...');
-  await waitForLoadingComplete(mainWindow, { maxWaitTime: 15000 });
-
-  // Now wait for error message
-  await waitForStateChange(mainWindow, {
-    to: '[data-testid="error-message"]',
-    timeout: 10000,
+  // Wait for error state using the enhanced helper
+  console.log('[DEBUG-TEST] Waiting for error state...');
+  const errorState = await waitForErrorState(mainWindow, {
+    timeout: 20000,
+    waitForRetryButton: true,
   });
-  console.log('[DEBUG-TEST] Error is visible');
+  console.log('[DEBUG-TEST] Error state detected:', errorState);
+  expect(errorState.hasError).toBe(true);
+  expect(errorState.hasRetryButton).toBe(true);
 
   // Additional wait for button stabilization
   await mainWindow.waitForTimeout(500);
+
+  // Now allow success on next call
+  console.log('[DEBUG-TEST] Enabling success response');
+  allowSuccess = true;
 
   // Click retry using forceClick
   console.log('[DEBUG-TEST] Clicking retry button');
