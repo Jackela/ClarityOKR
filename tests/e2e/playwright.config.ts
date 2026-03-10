@@ -1,9 +1,10 @@
-import { defineConfig } from '@playwright/test';
+import { defineConfig, devices } from '@playwright/test';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const globalSetupPath = path.join(currentDir, 'global-setup.ts');
+const globalTeardownPath = path.join(currentDir, 'global-teardown.ts');
 
 /**
  * Unified timeout configuration for all E2E tests.
@@ -26,18 +27,28 @@ export const TIMEOUTS = {
 
 export default defineConfig({
   testDir: './specs',
-  // Global timeout for each test
+
+  // 完全并行（每个文件一个 worker）
+  fullyParallel: true,
+
+  // CI 中使用 3 个 workers，本地自动检测
+  workers: process.env.CI ? 3 : undefined,
+
+  // 重试配置
+  retries: process.env.CI ? 2 : 0,
+
+  // 全局超时
   timeout: TIMEOUTS.maximum,
-  // Retry configuration: CI=1 retry, local=0 retries
-  retries: process.env.CI || process.env.ACT ? 1 : 0,
-  // Workers configuration: CI=1 worker (sequential since we share a global mock server), local=auto
-  workers: process.env.CI ? 1 : undefined,
-  // Disable parallel execution since we share a global mock server
-  fullyParallel: false,
+
+  // 全局设置和清理
+  globalSetup: globalSetupPath,
+  globalTeardown: globalTeardownPath,
+
   expect: {
-    // Default assertion timeout
+    // 默认断言超时
     timeout: TIMEOUTS.standard,
   },
+
   use: {
     headless: true,
     screenshot: 'only-on-failure',
@@ -46,7 +57,16 @@ export default defineConfig({
     actionTimeout: TIMEOUTS.standard,
     navigationTimeout: TIMEOUTS.slow,
   },
-  // 全局设置 - 启动全局 mock server
-  globalSetup: globalSetupPath,
+
+  // 项目配置
+  projects: [
+    {
+      name: 'e2e',
+      use: {
+        ...devices['Desktop Chrome'],
+      },
+    },
+  ],
+
   reporter: [['list'], ...(process.env.CI ? ([['github']] as const) : [])],
 });

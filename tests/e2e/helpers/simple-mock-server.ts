@@ -1,4 +1,5 @@
 import http from 'node:http';
+import getPort from 'get-port';
 import type { MockResponseConfig } from '@clarityokr/contracts';
 
 /**
@@ -18,7 +19,8 @@ export class SimpleMockServer {
   private resolvePending!: () => void;
 
   async start(port?: number): Promise<number> {
-    this.port = port || 7777;
+    // 如果没有指定端口，使用 get-port 获取可用端口
+    this.port = port || await getPort({ port: [7777, 7778, 7779, 7780, 7781, 7782] });
     // Reset state on start to ensure clean state
     this.callCounter = 0;
     this.responseConfig = {};
@@ -213,6 +215,10 @@ export class SimpleMockServer {
 
   getUrl(): string {
     return `http://127.0.0.1:${this.port}`;
+  }
+
+  getPort(): number {
+    return this.port;
   }
 
   async stop(): Promise<void> {

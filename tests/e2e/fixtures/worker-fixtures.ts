@@ -49,12 +49,13 @@ export const workerTest = base.extend<{
 
       await use({
         url: workerMockServer.getUrl(),
-        port: parseInt(workerMockServer.getUrl().split(':')[2], 10),
+        port: workerMockServer.getPort(),
         setResponses: async (config: MockResponseConfig) => {
           await workerMockServer!.waitForPendingRequests(3000);
           workerMockServer!.setResponses(config);
         },
         getRequestLog: () => workerMockServer!.getRequestLog(),
+        reset: () => workerMockServer!.reset(),
       });
     },
     { scope: 'worker' },
