@@ -9,6 +9,7 @@ import { OkrRepository } from './persistence/okr-repository.js';
 import { SessionRepository } from './persistence/session-repository.js';
 import { ClarificationController } from './windows/clarification-controller.js';
 import { StickyWindowManager } from './windows/sticky-window-manager.js';
+import { initializeTestMode, type TestMode } from './test-mode.js';
 
 const { app, BrowserWindow } = electron;
 
@@ -25,8 +26,26 @@ const stickyWindowManager = new StickyWindowManager({
 });
 
 let mainWindow: ElectronBrowserWindow | null = null;
+
 // Instantiate IPC controllers once the process starts.
-new ClarificationController(sessionRepository, okrRepository, actionLogWriter, stickyWindowManager);
+const clarificationController = new ClarificationController(
+  sessionRepository,
+  okrRepository,
+  actionLogWriter,
+  stickyWindowManager
+);
+
+// Initialize TestMode API for E2E testing
+let testMode: TestMode | null = null;
+if (process.env.NODE_ENV === 'test' || process.env.CI || process.env.E2E_TEST) {
+  testMode = initializeTestMode(
+    clarificationController,
+    sessionRepository,
+    okrRepository,
+    actionLogWriter
+  );
+  console.info('[main] TestMode initialized:', !!testMode);
+}
 
 app.disableHardwareAcceleration();
 app.commandLine.appendSwitch('disable-gpu');
@@ -84,3 +103,6 @@ app.on('window-all-closed', () => {
 process.on('uncaughtException', (error) => {
   console.error('Uncaught exception in main process', error);
 });
+
+// Export for test access
+export { testMode };

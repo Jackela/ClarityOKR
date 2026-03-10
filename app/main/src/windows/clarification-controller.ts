@@ -510,4 +510,53 @@ export class ClarificationController {
       },
     ];
   }
+  }
+
+  // ==================== TestMode API Support ====================
+
+  /**
+   * Clear all in-memory sessions (for test mode)
+   */
+  clearAllSessions(): void {
+    this.sessions.clear();
+    console.info('[ClarificationController] All sessions cleared');
+  }
+
+  /**
+   * Get all sessions (for test mode)
+   * @returns A copy of the sessions map
+   */
+  getAllSessions(): Map<string, ClarificationSession> {
+    return new Map(this.sessions);
+  }
+
+  /**
+   * Get the current active session ID (for test mode)
+   * Returns the most recently accessed session
+   * @returns The current session ID or null
+   */
+  getCurrentSessionId(): string | null {
+    // Return the first session ID if any exist, or null
+    const firstKey = this.sessions.keys().next().value;
+    return firstKey ?? null;
+  }
+
+  /**
+   * Set a session directly (for test mode)
+   * @param sessionId - The session ID
+   * @param session - The session data
+   */
+  setSession(sessionId: string, session: ClarificationSession): void {
+    this.sessions.set(sessionId, session);
+    console.info('[ClarificationController] Session set:', sessionId);
+  }
+
+  /**
+   * Get a session by ID (for test mode)
+   * @param sessionId - The session ID
+   * @returns The session or undefined
+   */
+  getSession(sessionId: string): ClarificationSession | undefined {
+    return this.sessions.get(sessionId);
+  }
 }
