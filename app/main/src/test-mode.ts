@@ -408,9 +408,9 @@ export class TestMode implements TestModeAPI {
     // Delete OKR file by saving null (repository doesn't have delete method)
     // We need to handle this at the file system level
     const { promises: fsPromises } = await import('node:fs');
-    const { join } = await import('node:path');
-    const dataDir = process.env.CLARITY_OKR_DATA_DIR ?? join(process.cwd(), 'data');
-    const okrFile = join(dataDir, 'okr-document.json');
+    const path = await import('node:path');
+    const dataDir = process.env.CLARITY_OKR_DATA_DIR ?? path.join(process.cwd(), 'data');
+    const okrFile = path.join(dataDir, 'okr-document.json');
 
     try {
       await fsPromises.unlink(okrFile);
