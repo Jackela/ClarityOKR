@@ -9,6 +9,7 @@
   },
   "packageManager": "pnpm@9.0.0",
   "scripts": {
+    "setup-hooks": "./scripts/setup-hooks.sh",
     "test:integration": "pnpm --filter @clarityokr/tests-integration run test",
     "lint": "pnpm exec eslint .",
     "typecheck": "pnpm exec tsc --noEmit -p tsconfig.typecheck.json",
