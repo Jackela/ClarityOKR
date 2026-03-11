@@ -18,7 +18,7 @@
     "build:ci": "pnpm run build:contracts & pnpm run build:main & wait && pnpm run build:renderer:ci",
     "build:contracts": "pnpm --filter @clarityokr/contracts run build",
     "build:renderer": "pnpm --filter @clarityokr/renderer run build",
-    "build:renderer:ci": "cd app/renderer && ng build --watch=false --progress=false",
+    "build:renderer:ci": "cd app/renderer && pnpm exec ng build --watch=false --progress=false",
     "build:main": "pnpm --filter @clarityokr/main run build",
     "clean": "pnpm --filter @clarityokr/contracts run clean 2>/dev/null || true && pnpm --filter @clarityokr/main run clean 2>/dev/null || true && rimraf app/renderer/dist",
     "rebuild": "pnpm run clean && pnpm run build",
