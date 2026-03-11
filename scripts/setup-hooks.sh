@@ -1,6 +1,6 @@
 #!/bin/bash
 # Setup Git hooks for the project
-# 运行此脚本安装 pre-push hooks
+# 运行此脚本安装强制的 pre-push hooks
 
 set -e
 
@@ -15,76 +15,66 @@ echo "========================================"
 # 确保 hooks 目录存在
 mkdir -p "$HOOKS_DIR"
 
-# 复制 pre-push hook
+# 创建 pre-push hook
 cat > "$HOOKS_DIR/pre-push" << 'HOOK_EOF'
 #!/bin/bash
-# Pre-push hook - 全面的本地检查
-# 目标：所有问题在本地发现，绝不污染远程分支
+# Pre-push hook - 强制性本地检查
+# 规则：所有问题必须在本地修复，不允许污染远程分支
 
 set -e
 
 echo "========================================"
-echo "🚀 Pre-push 全面检查"
+echo "🚀 Pre-push 强制检查"
 echo "========================================"
+echo ""
+echo "⚠️  规则：所有检查必须通过才能 push"
+echo ""
 
 # 获取当前分支
 CURRENT_BRANCH=$(git symbolic-ref --short HEAD)
-echo "分支: $CURRENT_BRANCH"
+echo "📍 分支: $CURRENT_BRANCH"
 
 # 检查是否在 main 分支直接 push
 if [ "$CURRENT_BRANCH" = "main" ]; then
-    echo "❌ 错误: 不允许直接 push 到 main"
-    echo "   请使用 Pull Request"
+    echo ""
+    echo "❌ 错误: 不允许直接 push 到 main 分支"
+    echo "   请创建功能分支并提交 Pull Request"
+    echo ""
     exit 1
 fi
 
-# 获取即将 push 的提交范围
-if [ -z "$1" ]; then
-    if git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1; then
-        UPSTREAM="@{u}"
-    else
-        UPSTREAM="main"
-    fi
-else
-    UPSTREAM="$1"
-fi
-
 # 获取修改的文件列表
-echo "📁 检查修改的文件..."
-MODIFIED_FILES=$(git diff --name-only "$UPSTREAM"..HEAD 2>/dev/null || git diff --name-only HEAD~1..HEAD || echo "")
-
+echo "📁 扫描修改的文件..."
+MODIFIED_FILES=$(git diff --cached --name-only 2>/dev/null || echo "")
 if [ -z "$MODIFIED_FILES" ]; then
-    echo "⚠️  没有检测到文件变更，跳过详细检查"
-    exit 0
+    MODIFIED_FILES=$(git diff --name-only HEAD~1..HEAD 2>/dev/null || echo "")
 fi
 
-# 分类修改的文件
 TS_FILES=$(echo "$MODIFIED_FILES" | grep -E '\.(ts|tsx)$' || true)
 JS_FILES=$(echo "$MODIFIED_FILES" | grep -E '\.(js|jsx|cjs|mjs)$' || true)
 
-HAS_TS=false
-HAS_JS=false
-
 if [ -n "$TS_FILES" ]; then
-    HAS_TS=true
-    echo "  TypeScript 文件: $(echo "$TS_FILES" | wc -l) 个"
+    echo "   TypeScript 文件: $(echo "$TS_FILES" | wc -l) 个"
 fi
-
 if [ -n "$JS_FILES" ]; then
-    HAS_JS=true
-    echo "  JavaScript 文件: $(echo "$JS_FILES" | wc -l) 个"
+    echo "   JavaScript 文件: $(echo "$JS_FILES" | wc -l) 个"
 fi
-
 echo ""
 
 # ==================== 检查 1: Typecheck ====================
-echo "🔍 [1/4] 运行 TypeScript 类型检查..."
+echo "🔍 [1/3] TypeScript 类型检查"
+echo "   运行: pnpm run typecheck"
+echo ""
 
 if ! pnpm run typecheck 2>&1; then
     echo ""
     echo "❌ Typecheck 失败！"
     echo ""
-    echo "💡 运行 'pnpm run typecheck' 查看详细错误"
+    echo "💡 修复步骤:"
+    echo "   1. 运行 'pnpm run typecheck' 查看详细错误"
+    echo "   2. 修复所有类型错误"
+    echo "   3. 重新 commit 和 push"
+    echo ""
     exit 1
 fi
 
@@ -92,71 +82,100 @@ echo "   ✅ Typecheck 通过"
 echo ""
 
 # ==================== 检查 2: Lint ====================
-echo "🔍 [2/4] 运行 ESLint 检查..."
+echo "🔍 [2/3] ESLint 代码检查"
 
-if [ "$HAS_TS" = true ] || [ "$HAS_JS" = true ]; then
-    LINT_FILES="${TS_FILES}${JS_FILES}"
-    EXISTING_FILES=""
-    while IFS= read -r file; do
-        if [ -f "$file" ]; then
-            EXISTING_FILES="$EXISTING_FILES$file "
-        fi
-    done <<< "$LINT_FILES"
+# 检查是否有 TS/JS 文件修改
+if [ -z "$TS_FILES" ] && [ -z "$JS_FILES" ]; then
+    echo "   没有修改的 TS/JS 文件，跳过"
+else
+    # 先尝试自动修复
+    echo "   尝试自动修复..."
     
-    if [ -n "$EXISTING_FILES" ]; then
-        echo "   检查修改的文件..."
-        if ! pnpm exec eslint $EXISTING_FILES 2>&1; then
+    LINT_FILES=""
+    for file in $TS_FILES $JS_FILES; do
+        if [ -f "$file" ]; then
+            LINT_FILES="$LINT_FILES $file"
+        fi
+    done
+    
+    if [ -n "$LINT_FILES" ]; then
+        # 尝试自动修复
+        pnpm exec eslint --fix $LINT_FILES 2>/dev/null || true
+        
+        # 检查是否有未提交的修复
+        if ! git diff --quiet 2>/dev/null; then
+            echo "   ⚠️  ESLint 自动修复了一些问题"
+            echo ""
+            echo "💡 请执行以下操作:"
+            echo "   1. 查看修复: git diff"
+            echo "   2. 提交修复: git add -A && git commit --amend --no-edit"
+            echo "   3. 重新 push"
+            echo ""
+            exit 1
+        fi
+        
+        # 再次检查是否还有错误
+        echo "   验证修复结果..."
+        if ! pnpm exec eslint $LINT_FILES 2>&1 | head -30; then
             echo ""
             echo "❌ Lint 检查失败！"
             echo ""
-            echo "💡 修复建议:"
-            echo "   1. 运行 'pnpm exec eslint <文件>' 查看详细错误"
-            echo "   2. 运行 'pnpm run lint:fix' 自动修复"
+            echo "💡 修复步骤:"
+            echo "   1. 查看详细错误: pnpm exec eslint <文件>"
+            echo "   2. 尝试自动修复: pnpm run lint:fix"
+            echo "   3. 手动修复剩余问题"
+            echo "   4. 重新 commit 和 push"
+            echo ""
             exit 1
         fi
     fi
-else
-    echo "   没有修改的 TS/JS 文件，跳过"
 fi
 
 echo "   ✅ Lint 检查通过"
 echo ""
 
-# ==================== 检查 3: 快速构建验证 ====================
-echo "🔍 [3/4] 快速构建验证..."
+# ==================== 检查 3: 构建验证 ====================
+echo "🔍 [3/3] Contracts 构建验证"
+echo "   运行: pnpm run build:contracts"
+echo ""
 
 if ! pnpm run build:contracts 2>&1; then
     echo ""
-    echo "❌ Contracts 构建失败！"
+    echo "❌ 构建失败！"
+    echo ""
+    echo "💡 修复步骤:"
+    echo "   1. 运行 'pnpm run build:contracts' 查看详细错误"
+    echo "   2. 修复构建错误"
+    echo "   3. 重新 commit 和 push"
+    echo ""
     exit 1
 fi
 
 echo "   ✅ 构建验证通过"
 echo ""
 
-# ==================== 检查 4: 测试提醒 ====================
-echo "🔍 [4/4] 测试影响评估..."
+# ==================== 测试提醒 ====================
+echo "📋 测试建议"
 
-TEST_FILES=$(echo "$MODIFIED_FILES" | grep -E '(test|spec)\.(ts|js)' || true)
 MAIN_FILES=$(echo "$MODIFIED_FILES" | grep -E '^app/(main|renderer|contracts)/' || true)
+TEST_FILES=$(echo "$MODIFIED_FILES" | grep -E '(test|spec)\.(ts|js)' || true)
 
 if [ -n "$TEST_FILES" ]; then
-    echo "   ⚠️  检测到测试文件修改，建议运行: pnpm run test:unit"
+    echo "   ⚠️  检测到测试文件修改"
+    echo "   建议运行: pnpm run test:unit"
 fi
 
 if [ -n "$MAIN_FILES" ]; then
     echo "   ⚠️  检测到主代码修改"
-    if echo "$MAIN_FILES" | grep -q '^app/main/'; then
-        echo "   📍 建议运行: pnpm run test:integration"
-    fi
     if echo "$MODIFIED_FILES" | grep -qE '(test-mode|clarification-controller|fixtures)'; then
-        echo "   📍 建议运行: pnpm run test:e2e"
+        echo "   📍 E2E 相关代码已修改"
+        echo "   建议运行: pnpm run test:e2e"
     fi
 fi
 
 echo ""
 echo "========================================"
-echo "✅ 所有检查通过！准备 push..."
+echo "✅ 所有强制检查通过！"
 echo "========================================"
 echo ""
 exit 0
@@ -169,10 +188,16 @@ echo "✅ Pre-push hook 已安装"
 echo ""
 echo "📋 Hook 功能:"
 echo "   1. 禁止直接 push 到 main 分支"
-echo "   2. TypeScript 类型检查"
-echo "   3. ESLint 代码检查（仅修改的文件）"
-echo "   4. Contracts 构建验证"
-echo "   5. 测试影响提醒"
+echo "   2. TypeScript 类型检查（强制）"
+echo "   3. ESLint 代码检查（自动修复 + 强制通过）"
+echo "   4. Contracts 构建验证（强制）"
+echo "   5. 测试提醒"
 echo ""
-echo "💡 如果需要跳过 hook，使用: git push --no-verify"
+echo "⚠️  重要规则:"
+echo "   - 所有检查必须通过才能 push"
+echo "   - Lint 错误会自动尝试修复"
+echo "   - 修复后需要重新 commit"
+echo ""
+echo "💡 如需跳过 hook（紧急修复）:"
+echo "   git push --no-verify"
 echo ""
