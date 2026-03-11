@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "test": "playwright test",
-    "test:ci": "playwright test --config=playwright.ci.config.ts"
+    "test:ci": "playwright test --config=playwright.ci.config.ts",
+    "test:prepush": "playwright test --config=playwright.prepush.config.ts"
   },
   "dependencies": {
     "@clarityokr/contracts": "workspace:^"

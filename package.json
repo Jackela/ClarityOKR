@@ -28,6 +28,7 @@
     "test:component": "node scripts/run-component-tests.cjs",
     "test:e2e": "pnpm --filter @clarityokr/tests-e2e run test",
     "test:e2e:ci": "pnpm --filter @clarityokr/tests-e2e run test:ci",
+    "test:e2e:prepush": "pnpm --filter @clarityokr/tests-e2e run test:prepush",
     "test:performance": "pnpm --filter @clarityokr/tests-performance run test",
     "lint:fix": "pnpm exec eslint . --fix",
     "format": "prettier --check .",

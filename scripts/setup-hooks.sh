@@ -1,6 +1,6 @@
 #!/bin/bash
 # Setup Git hooks for the project
-# 运行此脚本安装完整的 pre-push hooks
+# 运行此脚本安装完整的 pre-push hooks（包含所有测试）
 
 set -e
 
@@ -18,17 +18,14 @@ mkdir -p "$HOOKS_DIR"
 # 创建 pre-push hook
 cat > "$HOOKS_DIR/pre-push" << 'HOOK_EOF'
 #!/bin/bash
-# Pre-push hook - 完整的本地检查
-# 目标：所有 CI 检查必须在本地通过，绝不污染远程分支
+# Pre-push hook - 完整的本地检查（包含所有测试）
+# 规则：所有检查和测试必须在本地通过，绝不污染远程分支
 
 set -e
 
 echo "========================================"
 echo "🚀 Pre-push 完整检查"
 echo "========================================"
-echo ""
-echo "⚠️  规则：所有检查必须通过才能 push"
-echo "   参考 CI: .github/workflows/ci.yml"
 echo ""
 
 # 获取当前分支
@@ -39,132 +36,72 @@ echo "📍 分支: $CURRENT_BRANCH"
 if [ "$CURRENT_BRANCH" = "main" ]; then
     echo ""
     echo "❌ 错误: 不允许直接 push 到 main 分支"
-    echo "   请创建功能分支并提交 Pull Request"
-    echo ""
     exit 1
 fi
 
-# 获取修改的文件列表
-echo "📁 扫描修改的文件..."
-MODIFIED_FILES=$(git diff --cached --name-only 2>/dev/null || echo "")
-if [ -z "$MODIFIED_FILES" ]; then
-    MODIFIED_FILES=$(git diff --name-only HEAD~1..HEAD 2>/dev/null || echo "")
-fi
+# ==================== 8 项检查 ====================
 
-TS_FILES=$(echo "$MODIFIED_FILES" | grep -E '\.(ts|tsx)$' || true)
-JS_FILES=$(echo "$MODIFIED_FILES" | grep -E '\.(js|jsx|cjs|mjs)$' || true)
-
-if [ -n "$TS_FILES" ]; then
-    echo "   TypeScript 文件: $(echo "$TS_FILES" | wc -l) 个"
-fi
-if [ -n "$JS_FILES" ]; then
-    echo "   JavaScript 文件: $(echo "$JS_FILES" | wc -l) 个"
-fi
-echo ""
-
-# ==================== 检查 1: Build Contracts ====================
-echo "🔍 [1/7] Build Contracts"
-
+echo "🔍 [1/8] Build Contracts"
 if ! pnpm run build:contracts 2>&1; then
-    echo ""
-    echo "❌ Build Contracts 失败！"
-    exit 1
+    echo "❌ Build Contracts 失败！"; exit 1
 fi
-echo "   ✅ Build Contracts 通过"
-echo ""
+echo "   ✅ 通过"
 
-# ==================== 检查 2: Lint ====================
-echo "🔍 [2/7] ESLint 检查"
-
-if [ -z "$TS_FILES" ] && [ -z "$JS_FILES" ]; then
-    echo "   没有修改的 TS/JS 文件，跳过"
-else
-    echo "   尝试自动修复..."
-    LINT_FILES=""
-    for file in $TS_FILES $JS_FILES; do
-        if [ -f "$file" ]; then
-            LINT_FILES="$LINT_FILES $file"
-        fi
-    done
-    
-    if [ -n "$LINT_FILES" ]; then
-        pnpm exec eslint --fix $LINT_FILES 2>/dev/null || true
-        
-        if ! git diff --quiet 2>/dev/null; then
-            echo "   ⚠️  ESLint 自动修复了一些问题"
-            echo "   请执行: git add -A && git commit --amend --no-edit"
-            exit 1
-        fi
-        
-        echo "   验证修复结果..."
-        if ! pnpm exec eslint $LINT_FILES 2>&1 | head -30; then
-            echo ""
-            echo "❌ Lint 检查失败！"
-            exit 1
-        fi
-    fi
+echo "🔍 [2/8] ESLint"
+if ! pnpm exec eslint --cache . 2>&1 | head -20; then
+    echo "❌ Lint 失败！运行 'pnpm run lint:fix' 修复"; exit 1
 fi
-echo "   ✅ Lint 检查通过"
-echo ""
+echo "   ✅ 通过"
 
-# ==================== 检查 3: Typecheck ====================
-echo "🔍 [3/7] TypeScript 类型检查"
-
+echo "🔍 [3/8] Typecheck"
 if ! pnpm run typecheck 2>&1; then
-    echo ""
-    echo "❌ Typecheck 失败！"
-    exit 1
+    echo "❌ Typecheck 失败！"; exit 1
 fi
-echo "   ✅ Typecheck 通过"
-echo ""
+echo "   ✅ 通过"
 
-# ==================== 检查 4: Build ====================
-echo "🔍 [4/7] 完整构建"
-
+echo "🔍 [4/8] Build"
 if ! pnpm run build 2>&1; then
-    echo ""
-    echo "❌ 构建失败！"
-    exit 1
+    echo "❌ 构建失败！"; exit 1
 fi
-echo "   ✅ 构建通过"
-echo ""
+echo "   ✅ 通过"
 
-# ==================== 检查 5: Unit Tests ====================
-echo "🔍 [5/7] 单元测试"
-
+echo "🔍 [5/8] Unit Tests"
 if ! pnpm run test:unit 2>&1; then
-    echo ""
-    echo "❌ 单元测试失败！"
-    exit 1
+    echo "❌ 单元测试失败！"; exit 1
 fi
-echo "   ✅ 单元测试通过"
-echo ""
+echo "   ✅ 通过"
 
-# ==================== 检查 6: Component Tests ====================
-echo "🔍 [6/7] 组件测试"
-
+echo "🔍 [6/8] Component Tests"
 if ! pnpm run test:component 2>&1; then
-    echo ""
-    echo "❌ 组件测试失败！"
-    exit 1
+    echo "❌ 组件测试失败！"; exit 1
 fi
-echo "   ✅ 组件测试通过"
-echo ""
+echo "   ✅ 通过"
 
-# ==================== 检查 7: Integration Tests ====================
-echo "🔍 [7/7] 集成测试"
-
+echo "🔍 [7/8] Integration Tests"
 if ! pnpm run test:integration 2>&1; then
-    echo ""
-    echo "❌ 集成测试失败！"
-    exit 1
+    echo "❌ 集成测试失败！"; exit 1
 fi
-echo "   ✅ 集成测试通过"
-echo ""
+echo "   ✅ 通过"
 
-# ==================== 完成 ====================
+echo "🔍 [8/8] E2E Tests (Pre-push)"
+# 检查是否有 E2E 相关修改
+MODIFIED_FILES=$(git diff --name-only HEAD~1..HEAD 2>/dev/null || echo "")
+E2E_FILES=$(echo "$MODIFIED_FILES" | grep -E '^tests/e2e/' || true)
+MAIN_FILES=$(echo "$MODIFIED_FILES" | grep -E '^app/' || true)
+
+if [ -n "$E2E_FILES" ] || [ -n "$MAIN_FILES" ]; then
+    echo "   运行 E2E 测试..."
+    if ! pnpm run test:e2e:prepush 2>&1; then
+        echo "❌ E2E 测试失败！"; exit 1
+    fi
+    echo "   ✅ 通过"
+else
+    echo "   无相关修改，跳过"
+fi
+
+echo ""
 echo "========================================"
-echo "✅ 所有 CI 检查通过！"
+echo "✅ 所有检查通过！准备 push..."
 echo "========================================"
 echo ""
 exit 0
@@ -175,18 +112,20 @@ chmod +x "$HOOKS_DIR/pre-push"
 
 echo "✅ Pre-push hook 已安装"
 echo ""
-echo "📋 Hook 功能（对应 CI 检查）:"
+echo "📋 Hook 功能（8 项检查）:"
 echo "   1. Build Contracts"
-echo "   2. ESLint（自动修复）"
+echo "   2. ESLint（带 cache）"
 echo "   3. Typecheck"
-echo "   4. Build（完整构建）"
+echo "   4. Build"
 echo "   5. Unit tests"
 echo "   6. Component tests"
 echo "   7. Integration tests"
+echo "   8. E2E tests（prepush 快速版）"
 echo ""
 echo "⚠️  规则:"
 echo "   - 所有检查必须通过才能 push"
-echo "   - 禁止直接 push 到 main"
+echo "   - 所有问题必须在本地修复"
+echo "   - 不随意触发 GA，使用 PR 统一验证"
 echo ""
 echo "💡 如需跳过: git push --no-verify"
 echo ""
