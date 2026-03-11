@@ -519,7 +519,6 @@ export class ClarificationController {
       },
     ];
   }
-  }
 
   // ==================== TestMode API Support ====================
 

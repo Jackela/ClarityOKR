@@ -8,11 +8,12 @@
  * - Observe internal state changes
  */
 
-import type { ClarificationSession, OKRDocument, MockResponseConfig } from '@clarityokr/contracts';
-import type { ClarificationController } from './windows/clarification-controller.js';
-import type { SessionRepository } from './persistence/session-repository.js';
-import type { OkrRepository } from './persistence/okr-repository.js';
+import type { ClarificationSession, MockResponseConfig, OKRDocument } from '@clarityokr/contracts';
+
 import type { ActionLogWriter } from './persistence/action-log-writer.js';
+import type { OkrRepository } from './persistence/okr-repository.js';
+import type { SessionRepository } from './persistence/session-repository.js';
+import type { ClarificationController } from './windows/clarification-controller.js';
 
 /**
  * Application state snapshot for testing
@@ -183,7 +184,7 @@ export class TestMode implements TestModeAPI {
     console.info('[testMode] Resetting all state...');
 
     // 1. Clear all sessions from controller
-    this.controller.clearAllSessions();
+    this.controller.resetSessions();
 
     // 2. Clear persistent storage
     await this.sessionRepo.saveSession(null);
@@ -206,9 +207,9 @@ export class TestMode implements TestModeAPI {
     console.info('[testMode] State reset complete');
   }
 
-  async resetSession(): Promise<void> {
+  resetSession(): void {
     console.info('[testMode] Resetting sessions...');
-    this.controller.clearAllSessions();
+    this.controller.resetSessions();
     this.notifyStateChange();
   }
 

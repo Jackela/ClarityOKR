@@ -7,9 +7,9 @@ import type { BrowserWindow as ElectronBrowserWindow, Event as ElectronEvent } f
 import { ActionLogWriter } from './persistence/action-log-writer.js';
 import { OkrRepository } from './persistence/okr-repository.js';
 import { SessionRepository } from './persistence/session-repository.js';
+import { initializeTestMode, type TestMode } from './test-mode.js';
 import { ClarificationController } from './windows/clarification-controller.js';
 import { StickyWindowManager } from './windows/sticky-window-manager.js';
-import { initializeTestMode, type TestMode } from './test-mode.js';
 
 const { app, BrowserWindow } = electron;
 
