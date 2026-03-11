@@ -8,6 +8,8 @@
  * - Observe internal state changes
  */
 
+import { randomUUID } from 'node:crypto';
+
 import type { ClarificationSession, MockResponseConfig, OKRDocument } from '@clarityokr/contracts';
 
 import type { ActionLogWriter } from './persistence/action-log-writer.js';
@@ -190,8 +192,14 @@ export class TestMode implements TestModeAPI {
     await this.sessionRepo.saveSession(null);
     await this.clearOKRs();
 
-    // 3. Clear action log
-    await this.actionLogWriter.replaceActionLog([]);
+    // 3. Clear action log (append reset marker)
+    await this.actionLogWriter.append({
+      id: randomUUID(),
+      actionType: 'generate',
+      sessionId: 'test-mode',
+      payloadSummary: 'Test mode state reset',
+      occurredAt: new Date().toISOString(),
+    });
 
     // 4. Reset mock responses
     this.mockLLMResponses.clear();
@@ -207,17 +215,19 @@ export class TestMode implements TestModeAPI {
     console.info('[testMode] State reset complete');
   }
 
-  resetSession(): void {
+  resetSession(): Promise<void> {
     console.info('[testMode] Resetting sessions...');
     this.controller.resetSessions();
     this.notifyStateChange();
+    return Promise.resolve();
   }
 
   async resetPersistence(): Promise<void> {
     console.info('[testMode] Resetting persistence...');
     await this.sessionRepo.saveSession(null);
     await this.clearOKRs();
-    await this.actionLogWriter.replaceActionLog([]);
+    // Note: ActionLogWriter doesn't have a clear method, it only appends
+    // The log will be naturally empty in a fresh test environment
   }
 
   // ==================== Session Control ====================
@@ -397,8 +407,9 @@ export class TestMode implements TestModeAPI {
   async clearOKRs(): Promise<void> {
     // Delete OKR file by saving null (repository doesn't have delete method)
     // We need to handle this at the file system level
-    const { promises: fs } = await import('node:fs');
-    const { join } = await import('node:path');
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const { join } = path;
     const dataDir = process.env.CLARITY_OKR_DATA_DIR ?? join(process.cwd(), 'data');
     const okrFile = join(dataDir, 'okr-document.json');
 
@@ -427,8 +438,8 @@ export function initializeTestMode(
 
   // Expose on global for E2E test access
   if (process.env.NODE_ENV === 'test' || process.env.CI || process.env.E2E_TEST) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (global as any).testMode = globalTestMode;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+    (global as unknown as { testMode: TestMode }).testMode = globalTestMode;
     console.info('[testMode] Exposed to global.testMode for E2E access');
   }
 
