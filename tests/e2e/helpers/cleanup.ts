@@ -97,8 +97,9 @@ export async function cleanupDataDirectory(): Promise<void> {
 async function resetMockServer(): Promise<void> {
   // Import dynamically to avoid circular dependencies
   const { globalMockServer } = await import('../global-setup');
-  if (globalMockServer && typeof globalMockServer.reset === 'function') {
-    globalMockServer.reset();
+  if (globalMockServer && typeof globalMockServer.setResponses === 'function') {
+    await globalMockServer.waitForPendingRequests();
+    globalMockServer.setResponses({});
   }
 }
 

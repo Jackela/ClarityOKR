@@ -10,6 +10,19 @@ export default async function globalTeardown() {
   // 清理所有 worker 的 Electron 实例和 Mock Server
   await cleanupWorker();
 
+  // 停止全局 mock server
+  const { globalMockServer } = await import('./global-setup');
+  if (globalMockServer) {
+    try {
+      await globalMockServer.stop();
+      console.log('[global-teardown] Mock server stopped');
+    } catch (e) {
+      console.warn('[global-teardown] Error stopping mock server:', e);
+    }
+  } else {
+    console.log('[global-teardown] Mock server was not running');
+  }
+
   // Clean up any leftover test artifacts
   const fs = await import('node:fs');
   const path = await import('node:path');

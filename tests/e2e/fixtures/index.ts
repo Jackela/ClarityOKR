@@ -99,8 +99,16 @@ export const test = base.extend<E2EFixtures>({
       const port = process.env.MOCK_SERVER_PORT || '7777';
       const url = `http://127.0.0.1:${port}`;
 
-      // 导入全局 server 实例
+      // 导入全局 server 实例（注意：global-setup.ts 中导出的是 let 变量）
       const { globalMockServer } = await import('../global-setup');
+
+      // 安全检查：确保 globalMockServer 已初始化
+      if (!globalMockServer) {
+        throw new Error(
+          'globalMockServer is not initialized. ' +
+          'Make sure global-setup.ts is configured in playwright config and is exporting globalMockServer.'
+        );
+      }
 
       await use({
         url,
@@ -119,8 +127,16 @@ export const test = base.extend<E2EFixtures>({
 
       // Note: We don't stop the server here - it's managed by globalSetup teardown
       // But we do reset the state for the next test
-      await globalMockServer.waitForPendingRequests();
-      globalMockServer.setResponses({});
+      // 🔴 FIX: Add null check for globalMockServer to prevent undefined errors
+      // The globalMockServer may be undefined if global-setup failed or was reloaded
+      if (globalMockServer) {
+        try {
+          await globalMockServer.waitForPendingRequests();
+          globalMockServer.setResponses({});
+        } catch (e) {
+          console.warn('[fixture] Error resetting mock server:', e);
+        }
+      }
     },
     { scope: 'test' },
   ],
@@ -214,7 +230,30 @@ export const test = base.extend<E2EFixtures>({
   // Main window fixture
   mainWindow: [
     async ({ electronApp }, use) => {
-      const window = await electronApp.waitForEvent('window', { timeout: 60_000 });
+      // 🔴 FIX: Add better error handling and diagnostics for window creation
+      let window: Page;
+      try {
+        window = await electronApp.waitForEvent('window', { timeout: 60_000 });
+      } catch (error) {
+        console.error('[mainWindow] Failed to wait for window event:', error);
+        
+        // Try to get diagnostic information
+        try {
+          const windows = await electronApp.evaluate(({ BrowserWindow }) => {
+            return BrowserWindow.getAllWindows().map(w => ({
+              id: w.id,
+              isVisible: w.isVisible(),
+              isDestroyed: w.isDestroyed(),
+              title: w.getTitle(),
+            }));
+          });
+          console.error('[mainWindow] Current Electron windows:', windows);
+        } catch (diagError) {
+          console.error('[mainWindow] Failed to get window diagnostics:', diagError);
+        }
+        
+        throw error;
+      }
 
       window.on('console', (message) => {
         console.info('[renderer]', message.type(), message.text());
