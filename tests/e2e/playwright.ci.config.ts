@@ -30,7 +30,7 @@ export default defineConfig({
     [
       'html',
       {
-        outputFolder: 'test-results/html-report',
+        outputFolder: '../../html-report',
         open: 'never',
       },
     ],
