@@ -132,7 +132,7 @@ describe('Main IPC LLM Handlers', () => {
 
   it('LLM_GENERATE_DRAFT generates and broadcasts OKR payload', async () => {
     const h = handlers['clarityokr:llm:generate-draft'];
-    const result = await h(null, { context: { turns: [] } });
+    const result = await h(null, { sessionId: 's1', context: { turns: [] } });
     expect(result).toHaveProperty('okr.objective');
     const hasBroadcast = sent.some((m) => m.channel === 'clarityokr:okr:generate');
     expect(hasBroadcast).toBe(true);

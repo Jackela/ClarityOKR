@@ -4,9 +4,17 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "playwright test"
+    "test": "playwright test",
+    "test:ci": "playwright test --config=playwright.ci.config.ts",
+    "test:prepush": "playwright test --config=playwright.prepush.config.ts"
+  },
+  "dependencies": {
+    "@clarityokr/contracts": "workspace:^"
   },
   "devDependencies": {
-    "@playwright/test": "^1.44.0"
+    "@playwright/test": "^1.44.0",
+    "@types/get-port": "^4.0.1",
+    "get-port": "^7.1.0",
+    "nock": "^14.0.11"
   }
 }

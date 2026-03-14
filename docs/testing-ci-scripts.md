@@ -28,6 +28,7 @@ pwsh scripts/act-run-ci.ps1 -DryRun
 ```
 
 **Verify:**
+
 - [ ] Command shows: `act push -W .github/workflows/ci.yml -j build-and-test -P ubuntu-latest=ghcr.io/catthehacker/ubuntu:act-24.04`
 - [ ] Script exits with code 0: `echo $LASTEXITCODE` (Windows) or `echo $?` (Linux)
 - [ ] No errors printed
@@ -44,6 +45,7 @@ pwsh scripts/act-run-ci.ps1 -DryRun -Verbose
 ```
 
 **Verify:**
+
 - [ ] See `[VERBOSE] Job Selection: build-and-test`
 - [ ] See `[VERBOSE] Event: push`
 - [ ] See `[VERBOSE] Full Command: act push ...`
@@ -60,6 +62,7 @@ pwsh scripts/act-run-ci.ps1 -Job all -DryRun
 ```
 
 **Verify:**
+
 - [ ] `build-and-test`: Shows `-j build-and-test` in command
 - [ ] `e2e`: Shows `workflow_dispatch` event and `--input run_e2e=true`
 - [ ] `all`: No `-j` flag (runs all jobs)
@@ -74,6 +77,7 @@ pwsh scripts/act-run-ci.ps1 -SkipLint -DryRun
 ```
 
 **Verify:**
+
 - [ ] See `--env ALLOW_LINT=false` in command output
 
 ### Test 1.5: act-run-clarify-okr-e2e.ps1 Dry-Run
@@ -88,8 +92,9 @@ pwsh scripts/act-run-clarify-okr-e2e.ps1 -DryRun -Verbose
 ```
 
 **Verify:**
-- [ ] Shows `act workflow_dispatch -W .github/workflows/clarify-okr.yml`
-- [ ] Shows `--input skip_sys_deps=true --input skip_e2e=false`
+
+- [ ] Shows `act workflow_dispatch -W .github/workflows/ci.yml`
+- [ ] Shows `--input skip_e2e=false`
 - [ ] Exit code 0
 
 ## Phase 2: Docker Image Validation
@@ -112,6 +117,7 @@ pwsh scripts/act-run-ci.ps1 -Verbose
 ```
 
 **Verify:**
+
 - [ ] Script detects missing image
 - [ ] Prompt appears
 - [ ] Choosing 'n' exits with error
@@ -133,6 +139,7 @@ pwsh scripts/act-run-ci.ps1 -Pull -SkipValidation -DryRun
 ```
 
 **Verify:**
+
 - [ ] Image pull starts automatically
 - [ ] No prompt appears
 - [ ] Image exists after: `docker images | grep act-24.04`
@@ -152,6 +159,7 @@ pwsh scripts/act-run-ci.ps1 -DryRun -Verbose
 ```
 
 **Verify:**
+
 - [ ] Script finds existing image
 - [ ] No pull prompt or download
 - [ ] Proceeds to dry-run
@@ -172,6 +180,7 @@ pwsh scripts/act-run-ci.ps1 -SkipValidation -DryRun
 ```
 
 **Verify:**
+
 - [ ] No image check performed
 - [ ] No prompt
 - [ ] Dry-run completes successfully
@@ -191,6 +200,7 @@ pwsh scripts/act-run-ci.ps1 -Job build-and-test -SkipLint
 ```
 
 **Monitor output for:**
+
 - [ ] Container starts: `[build-and-test/...] 🚀 Start image=...`
 - [ ] Steps execute: `[build-and-test/Checkout] ✅ Success`
 - [ ] pnpm install runs
@@ -198,6 +208,7 @@ pwsh scripts/act-run-ci.ps1 -Job build-and-test -SkipLint
 - [ ] Exit code 0 if successful
 
 **If it fails:**
+
 - Scroll up to find the actual error
 - Check if it's a script issue or legitimate failure
 - Compare with GitHub Actions output
@@ -218,6 +229,7 @@ if ($exitCode -eq 0) {
 ```
 
 **Verify:**
+
 - [ ] `$LASTEXITCODE` is 0 on success
 - [ ] `$LASTEXITCODE` is non-zero on failure
 
@@ -233,6 +245,7 @@ pwsh scripts/act-run-ci.ps1 -Job build-and-test -SkipLint -Verbose
 ```
 
 **Verify:**
+
 - [ ] Verbose logs appear before act runs
 - [ ] Act output is not suppressed
 - [ ] Final status message appears
@@ -320,6 +333,7 @@ docker run --rm ghcr.io/catthehacker/ubuntu:act-24.04 node --version
 ```
 
 **Document findings:**
+
 - Add to `docs/ci-simulation.md` under "Known Divergence"
 - Update scripts if configuration mismatch found
 
@@ -338,6 +352,7 @@ $LASTEXITCODE
 ```
 
 **Verify:**
+
 - [ ] Script runs without syntax errors
 - [ ] Output matches pwsh version
 - [ ] Exit code 0
@@ -349,6 +364,7 @@ pwsh -NoProfile -Command "& 'scripts/act-run-ci.ps1' -DryRun -Verbose"
 ```
 
 **Verify:**
+
 - [ ] Same behavior as PS 5.1
 - [ ] No warnings about compatibility
 
@@ -363,6 +379,7 @@ pwsh scripts/act-run-ci.ps1 -DryRun -Verbose
 ```
 
 **Verify:**
+
 - [ ] Script runs without errors
 - [ ] Paths are handled correctly
 - [ ] Docker commands work
@@ -381,6 +398,7 @@ act -j build-and-test -W .github/workflows/ci.yml
 ```
 
 **Verify:**
+
 - [ ] Command works as documented
 - [ ] Timing estimate is accurate
 - [ ] Output matches description
@@ -391,6 +409,7 @@ pwsh scripts/act-run-clarify-okr-e2e.ps1
 ```
 
 **Verify:**
+
 - [ ] Command works
 - [ ] Runs E2E tests as stated
 
@@ -426,11 +445,10 @@ Check if .actrc flags prevent this error:
 
 Verify the table in docs/ci-simulation.md is accurate:
 
-| Workflow | Test Command | Expected Result |
-|----------|-------------|-----------------|
-| ci.yml (build-and-test) | `pwsh scripts/act-run-ci.ps1` | ✅ Works |
-| ci.yml (e2e) | `pwsh scripts/act-run-ci.ps1 -Job e2e -RunE2E` | ✅ Works |
-| clarify-okr.yml | `pwsh scripts/act-run-clarify-okr-e2e.ps1` | ✅ Works |
+| Workflow                | Test Command                           | Expected Result |
+| ----------------------- | -------------------------------------- | --------------- |
+| ci.yml (build-and-test) | `pwsh scripts/act-run-ci.ps1`          | ✅ Works        |
+| ci.yml (e2e)            | `pwsh scripts/act-run-ci.ps1 -Job e2e` | ✅ Works        |
 
 - [ ] All commands execute as documented
 - [ ] Limitations are accurate
@@ -452,6 +470,7 @@ pwsh scripts/act-run-ci.ps1 -Job build-and-test &
 ```
 
 **Expected:**
+
 - Each run gets a separate container
 - No file conflicts
 - Both can complete
@@ -469,6 +488,7 @@ echo $LASTEXITCODE
 ```
 
 **Verify:**
+
 - [ ] Script exits cleanly
 - [ ] Exit code is non-zero
 - [ ] No zombie containers: `docker ps -a`
@@ -484,6 +504,7 @@ cat output.log | wc -l
 ```
 
 **Verify:**
+
 - [ ] All output captured
 - [ ] No buffer overflow errors
 - [ ] File is readable
@@ -493,10 +514,12 @@ cat output.log | wc -l
 When you find bugs or inaccuracies:
 
 1. **Document the issue:**
+
    ```markdown
    ## Issue: [Brief description]
 
    **Steps to reproduce:**
+
    1. ...
 
    **Expected behavior:**
@@ -506,6 +529,7 @@ When you find bugs or inaccuracies:
    ...
 
    **Environment:**
+
    - OS: Windows 11 / Ubuntu 22.04 / macOS 13
    - PowerShell: 7.4.0
    - Docker: 24.0.6
@@ -518,6 +542,7 @@ When you find bugs or inaccuracies:
    - Add test case to this file
 
 3. **Commit with reference:**
+
    ```bash
    git add scripts/ docs/
    git commit -m "fix: [description]

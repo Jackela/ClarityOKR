@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2022",
+    "types": ["jest", "node"],
+    "baseUrl": ".",
+    "paths": {
+      "@clarityokr/contracts": ["../../packages/contracts/src/index.ts"],
+      "@clarityokr/contracts/*": ["../../packages/contracts/src/*"]
+    }
+  },
+  "include": ["**/*.spec.ts", "**/*.test.ts"]
+}

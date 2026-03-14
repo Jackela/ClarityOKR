@@ -126,7 +126,7 @@ describe('Integration: IPC LLM handlers (main)', () => {
     new ClarificationController(sessionRepo, new OkrRepositoryStub(), new ActionLogWriterStub(), new StickyWindowManagerStub(), electStub);
 
     const h = handlers[IPCChannels.LLM_GENERATE_DRAFT];
-    const res = await h(null, { context: { turns: [] } });
+    const res = await h(null, { sessionId: 's-integration', context: { turns: [] } });
 
     expect(res).toHaveProperty('okr.objective');
     expect(JSON.stringify(res)).not.toContain(process.env.LLM_API_KEY!);

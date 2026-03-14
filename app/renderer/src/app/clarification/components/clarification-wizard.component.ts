@@ -1,46 +1,82 @@
+/* eslint-disable import/order, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment */
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output } from '@angular/core';
-import type { ClarificationPrompt } from '@clarityokr/contracts';
+import { Component, EventEmitter, Output } from '@angular/core';
+import { SyncClarificationState } from '../services/sync-clarification-state.service';
 
 @Component({
   selector: 'clarityokr-clarification-wizard',
   standalone: true,
   imports: [CommonModule],
   template: `
-    <section *ngIf="prompt">
-      <h2 data-testid="prompt-question">{{ prompt.question }}</h2>
-      <p class="context">{{ prompt.context }}</p>
-      <p class="loading" *ngIf="loading" data-testid="clarification-loading">正在加载下一步…</p>
-      <div class="error-container" *ngIf="error" data-testid="error-message">
-        <p class="error-text">{{ error }}</p>
-        <button type="button" class="retry" data-testid="retry-button" (click)="retry.emit()">
-          重试
-        </button>
-      </div>
-      <div class="option-grid" role="group" aria-label="Clarification options">
+    <section>
+      <!-- Loading indicator -->
+      @if (state.isLoading()) {
+        <p class="loading" data-testid="clarification-loading">正在加载下一步…</p>
+      }
+
+      <!-- Current prompt display -->
+      @if (state.currentPrompt(); as prompt) {
+        <h2 data-testid="prompt-question">{{ prompt.question }}</h2>
+
+        @if (prompt.context) {
+          <p class="context">{{ prompt.context }}</p>
+        }
+
+        <div class="option-grid" role="group" aria-label="Clarification options">
+          @for (option of prompt.options; track option.id) {
+            <button
+              type="button"
+              class="option"
+              data-testid="clarification-option"
+              (click)="onOptionSelect(option.id)"
+            >
+              <span class="option-label">{{ option.label }}</span>
+              @if (option.description) {
+                <small class="option-description">{{ option.description }}</small>
+              }
+            </button>
+          }
+        </div>
+
+        @if (state.validationError()) {
+          <p class="validation">{{ state.validationError() }}</p>
+        }
+
         <button
           type="button"
-          class="option"
-          data-testid="clarification-option"
-          *ngFor="let option of prompt.options"
-          (click)="optionSelected.emit(option.id)"
+          class="generate"
+          data-testid="clarification-generate"
+          [disabled]="!state.isReadyToGenerate()"
+          [attr.data-ready]="state.isReadyToGenerate()"
+          (click)="onGenerate()"
         >
-          <span class="option-label">{{ option.label }}</span>
-          <small *ngIf="option.description" class="option-description">{{
-            option.description
-          }}</small>
+          生成 OKR
         </button>
-      </div>
-      <p class="validation" *ngIf="validationError">{{ validationError }}</p>
-      <button
-        type="button"
-        class="generate"
-        data-testid="clarification-generate"
-        [disabled]="!isReadyToGenerate"
-        (click)="generate.emit()"
-      >
-        生成 OKR
-      </button>
+      }
+
+      <!-- Generate button when ready but no prompt (error state with selections) -->
+      @if (state.isReadyToGenerate() && !state.currentPrompt()) {
+        <button
+          type="button"
+          class="generate"
+          data-testid="clarification-generate"
+          [disabled]="false"
+          [attr.data-ready]="true"
+          (click)="onGenerate()"
+        >
+          生成 OKR
+        </button>
+      }
+
+      <!-- Error display -->
+      @if (state.hasError()) {
+        <div class="error-container" data-testid="error-message">
+          <p class="error-text">{{ state.errorMessage() }}</p>
+          <button type="button" class="retry" data-testid="retry-button" (click)="onRetry()">
+            重试
+          </button>
+        </div>
+      }
     </section>
   `,
   styles: [
@@ -135,13 +171,28 @@ import type { ClarificationPrompt } from '@clarityokr/contracts';
   ],
 })
 export class ClarificationWizardComponent {
-  @Input() prompt: ClarificationPrompt | null = null;
-  @Input() isReadyToGenerate = false;
-  @Input() validationError: string | null = null;
-  @Input() loading = false;
-  @Input() error: string | null = null;
-
   @Output() readonly optionSelected = new EventEmitter<string>();
   @Output() readonly generate = new EventEmitter<void>();
   @Output() readonly retry = new EventEmitter<void>();
+
+  constructor(public readonly state: SyncClarificationState) {}
+
+  onOptionSelect(optionId: string): void {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const prompt = this.state.currentPrompt();
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    if (prompt && prompt.id) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      this.state.recordSelection(prompt.id, optionId);
+    }
+    this.optionSelected.emit(optionId);
+  }
+
+  onGenerate(): void {
+    this.generate.emit();
+  }
+
+  onRetry(): void {
+    this.retry.emit();
+  }
 }

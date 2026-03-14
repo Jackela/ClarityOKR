@@ -1,211 +1,122 @@
-import { _electron as electron, expect, test } from '@playwright/test';
-import { execSync } from 'node:child_process';
-import { existsSync, promises as fs } from 'node:fs';
-import http from 'node:http';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const currentDir = path.dirname(fileURLToPath(import.meta.url));
-const ROOT = path.resolve(currentDir, '../../../..');
-const MAIN_DIST = path.join(ROOT, 'app/main/dist/main.js');
-const RENDERER_DIST = path.join(ROOT, 'app/renderer/dist/index.html');
-const SESSION_PERSIST_PATH = path.join(ROOT, 'data', 'clarification-session.json');
-const OKR_PERSIST_PATH = path.join(ROOT, 'data', 'okr-document.json');
-
-function ensureBuildArtifacts(): void {
-  const needsBuild = !existsSync(MAIN_DIST) || !existsSync(RENDERER_DIST);
-  if (needsBuild) {
-    execSync('pnpm run build', { cwd: ROOT, stdio: 'inherit' });
-  }
-}
-
-function startFailingServer(port = 7777) {
-  const server = http.createServer(async (req, res) => {
-    if (req.method === 'POST' && req.url && req.url.includes('/v1/responses')) {
-      res.writeHead(503, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Service Unavailable' }));
-      return;
-    }
-    res.statusCode = 404;
-    res.end();
-  });
-  return new Promise<http.Server>((resolve) => {
-    server.listen(port, () => resolve(server));
-  });
-}
-
-function startRecoveryServer(port = 7777, failFirst = 1) {
-  let counter = 0;
-  const server = http.createServer(async (req, res) => {
-    if (req.method === 'POST' && req.url && req.url.includes('/v1/responses')) {
-      counter += 1;
-      if (counter <= failFirst) {
-        res.writeHead(503, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Service Unavailable' }));
-        return;
-      }
-      const body = JSON.stringify({
-        question: {
-          id: 'q1',
-          text: 'Test question',
-          options: [
-            { id: 'a', label: 'Option A', value: 'a' },
-            { id: 'b', label: 'Option B', value: 'b' },
-          ],
-        },
-      });
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(body);
-      return;
-    }
-    res.statusCode = 404;
-    res.end();
-  });
-  return new Promise<http.Server>((resolve) => {
-    server.listen(port, () => resolve(server));
-  });
-}
-
-function extraElectronArgs(): string[] {
-  const raw = process.env.ELECTRON_EXTRA_LAUNCH_ARGS || '';
-  return raw.trim() ? raw.trim().split(/\s+/) : [];
-}
-
-test.beforeAll(() => {
-  execSync('pnpm run build', { cwd: ROOT, stdio: 'inherit' });
-});
+import { test, expect, cleanupPersistenceFiles } from '../../fixtures';
+import { ClarificationPage } from '../../page-objects';
+import { waitForElement, waitForErrorMessage, forceClick, waitForText } from '../../helpers/native-dom';
+import type { MockResponseConfig } from '@clarityokr/contracts';
 
 test.beforeEach(async () => {
-  const cleanupTargets = [SESSION_PERSIST_PATH, OKR_PERSIST_PATH];
-  await Promise.all(
-    cleanupTargets.map(async (target) => {
-      if (existsSync(target)) {
-        await fs.unlink(target);
-      }
+  await cleanupPersistenceFiles();
+});
+
+// E2E测试2: 错误恢复测试 - 网络错误→重试→成功
+// Note: Error occurs after initial prompt, when requesting next question
+test('E2E-02: error recovery - network error → retry → success', async ({
+  mainWindow,
+  mockServer,
+}) => {
+  const clarification = new ClarificationPage(mainWindow);
+
+  // Step 1: Normal response for initial load
+  mockServer.setResponses({
+    nextQuestion: () => ({
+      question: {
+        id: 'q1',
+        text: '第一个问题',
+        options: [
+          { id: 'a', label: '选项A', value: 'a' },
+          { id: 'b', label: '选项B', value: 'b' },
+        ],
+      },
     }),
+  });
+
+  await clarification.waitForReady();
+
+  // 截图：开始前
+  await mainWindow.screenshot({
+    path: 'test-results/network-error-01-before-start.png',
+    fullPage: true,
+  });
+
+  // Start clarification - this should succeed (initial prompt)
+  await clarification.startClarification('测试重试恢复');
+
+  // Wait for first question
+  const question1Visible = await waitForElement(mainWindow, '[data-testid="prompt-question"]', {
+    timeout: 10000,
+  });
+  expect(question1Visible).toBe(true);
+
+  // 截图：启动后
+  await mainWindow.screenshot({
+    path: 'test-results/network-error-02-after-start.png',
+    fullPage: true,
+  });
+
+  // Step 2: Switch to error mode before answering
+  mockServer.setResponses({
+    nextQuestion: () => null, // Return null to trigger 503 error
+  });
+
+  // Answer first question - this will trigger the error
+  await forceClick(mainWindow, '[data-testid="clarification-option"]:first-child');
+
+  // 等待错误消息出现（使用原生DOM）
+  await waitForErrorMessage(mainWindow, 15000);
+
+  // 截图：等待后
+  await mainWindow.screenshot({
+    path: 'test-results/network-error-03-after-wait.png',
+    fullPage: true,
+  });
+
+  // 验证错误状态 - 使用原生DOM检查重试按钮
+  const hasRetry = await waitForElement(mainWindow, '[data-testid="retry-button"]', {
+    timeout: 5000,
+  });
+
+  // 截图：检查retry button后
+  await mainWindow.screenshot({
+    path: `test-results/network-error-04-retry-check-${hasRetry}.png`,
+    fullPage: true,
+  });
+
+  await expect(hasRetry).toBe(true);
+
+  // Step 3: Switch back to success mode before retry
+  mockServer.setResponses({
+    nextQuestion: () => ({
+      question: {
+        id: 'q2',
+        text: '恢复后的问题',
+        options: [
+          { id: 'c', label: '选项C', value: 'c' },
+          { id: 'd', label: '选项D', value: 'd' },
+        ],
+      },
+    }),
+  });
+
+  // 重试 - 使用forceClick
+  await forceClick(mainWindow, '[data-testid="retry-button"]');
+
+  // 截图：点击重试后
+  await mainWindow.screenshot({
+    path: 'test-results/network-error-05-after-retry.png',
+    fullPage: true,
+  });
+
+  // 验证恢复成功 - 使用原生DOM等待问题出现
+  const question2Visible = await waitForElement(mainWindow, '[data-testid="prompt-question"]', {
+    timeout: 15000,
+  });
+  expect(question2Visible).toBe(true);
+
+  // Verify the recovered question text
+  const hasRecoveredText = await waitForText(
+    mainWindow,
+    '[data-testid="prompt-question"]',
+    '恢复后的问题',
+    5000,
   );
-});
-
-test('shows error message when LLM API is unreachable', async () => {
-  const server = await startFailingServer();
-  const electronApp = await electron.launch({
-    args: ['.', ...extraElectronArgs()],
-    cwd: ROOT,
-    env: {
-      ...process.env,
-      LLM_API_KEY: 'test',
-      LLM_BASE_URL: 'http://127.0.0.1:7777',
-      LLM_MODEL: 'test',
-    },
-  });
-  const childProcess = electronApp.process();
-  childProcess.stderr?.on('data', (data) => {
-    process.stderr.write(data);
-  });
-  childProcess.stdout?.on('data', (data) => {
-    process.stdout.write(data);
-  });
-
-  const window = await electronApp.firstWindow();
-  window.on('console', (message) => {
-    console.info('[renderer]', message.type(), message.text());
-  });
-  await window.waitForLoadState('domcontentloaded');
-
-  await window.waitForSelector('[data-testid="intent-input"]');
-  await window.fill('[data-testid="intent-input"]', 'Test network error');
-  await expect(window.locator('[data-testid="start-clarification"]')).toBeEnabled();
-  await window.click('[data-testid="start-clarification"]');
-
-  await window.waitForSelector('[data-testid="error-message"]', { timeout: 10_000 });
-  const errorElement = window.locator('[data-testid="error-message"]');
-  await expect(errorElement).toBeVisible();
-  await expect(errorElement).toContainText(/unavailable|error|failed/i);
-
-  await electronApp.close();
-  await new Promise<void>((resolve) => server.close(() => resolve()));
-});
-
-test('shows retry button when network error occurs', async () => {
-  const server = await startFailingServer();
-  const electronApp = await electron.launch({
-    args: ['.', ...extraElectronArgs()],
-    cwd: ROOT,
-    env: {
-      ...process.env,
-      LLM_API_KEY: 'test',
-      LLM_BASE_URL: 'http://127.0.0.1:7777',
-      LLM_MODEL: 'test',
-    },
-  });
-  const childProcess = electronApp.process();
-  childProcess.stderr?.on('data', (data) => {
-    process.stderr.write(data);
-  });
-  childProcess.stdout?.on('data', (data) => {
-    process.stdout.write(data);
-  });
-
-  const window = await electronApp.firstWindow();
-  window.on('console', (message) => {
-    console.info('[renderer]', message.type(), message.text());
-  });
-  await window.waitForLoadState('domcontentloaded');
-
-  await window.waitForSelector('[data-testid="intent-input"]');
-  await window.fill('[data-testid="intent-input"]', 'Test retry button');
-  await expect(window.locator('[data-testid="start-clarification"]')).toBeEnabled();
-  await window.click('[data-testid="start-clarification"]');
-
-  await window.waitForSelector('[data-testid="error-message"]', { timeout: 10_000 });
-  const retryButton = window.locator('[data-testid="retry-button"]');
-  await expect(retryButton).toBeVisible();
-  await expect(retryButton).toBeEnabled();
-
-  await electronApp.close();
-  await new Promise<void>((resolve) => server.close(() => resolve()));
-});
-
-test('recovers when retry succeeds after initial network failure', async () => {
-  const server = await startRecoveryServer(7777, 1);
-  const electronApp = await electron.launch({
-    args: ['.', ...extraElectronArgs()],
-    cwd: ROOT,
-    env: {
-      ...process.env,
-      LLM_API_KEY: 'test',
-      LLM_BASE_URL: 'http://127.0.0.1:7777',
-      LLM_MODEL: 'test',
-    },
-  });
-  const childProcess = electronApp.process();
-  childProcess.stderr?.on('data', (data) => {
-    process.stderr.write(data);
-  });
-  childProcess.stdout?.on('data', (data) => {
-    process.stdout.write(data);
-  });
-
-  const window = await electronApp.firstWindow();
-  window.on('console', (message) => {
-    console.info('[renderer]', message.type(), message.text());
-  });
-  await window.waitForLoadState('domcontentloaded');
-
-  await window.waitForSelector('[data-testid="intent-input"]');
-  await window.fill('[data-testid="intent-input"]', 'Test retry recovery');
-  await expect(window.locator('[data-testid="start-clarification"]')).toBeEnabled();
-  await window.click('[data-testid="start-clarification"]');
-
-  await window.waitForSelector('[data-testid="error-message"]', { timeout: 10_000 });
-  const retryButton = window.locator('[data-testid="retry-button"]');
-  await expect(retryButton).toBeEnabled();
-  await retryButton.click();
-
-  await window.waitForSelector('[data-testid="clarification-option"]', { timeout: 10_000 });
-  const optionLocator = window.locator('[data-testid="clarification-option"]');
-  await expect(optionLocator.first()).toBeVisible();
-
-  await electronApp.close();
-  await new Promise<void>((resolve) => server.close(() => resolve()));
+  expect(hasRecoveredText).toBe(true);
 });

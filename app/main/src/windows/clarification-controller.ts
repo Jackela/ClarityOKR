@@ -33,6 +33,9 @@ import { SessionRepository } from '../persistence/session-repository.js';
 import { StickyWindowManager } from './sticky-window-manager.js';
 
 export class ClarificationController {
+  private readonly sessions = new Map<string, ClarificationSession>();
+  private currentSessionId: string | null = null;
+
   constructor(
     private readonly sessionRepository: SessionRepository,
     private readonly okrRepository: OkrRepository,
@@ -46,30 +49,38 @@ export class ClarificationController {
   private registerHandlers(): void {
     this.elect.ipcMain.handle(IPCChannels.CLARIFICATION_PROMPT, async (_event, payload) => {
       const request = clarificationPromptRequestSchema.parse(payload);
-      const persisted = await this.sessionRepository.load();
+      
+      // Try memory cache first, then fall back to persistent storage
+      let session = this.sessions.get(request.sessionId);
+      if (!session) {
+        const persisted = await this.sessionRepository.load();
+        if (persisted.session && persisted.session.id === request.sessionId) {
+          session = clarificationSessionSchema.parse(persisted.session);
+          this.sessions.set(request.sessionId, session);
+        }
+      }
+      
       console.info('[main] prompt request received', {
         sessionId: request.sessionId,
         intent: request.intent,
-        hasPersistedSession: Boolean(persisted.session),
+        hasPersistedSession: Boolean(session),
       });
 
       const now = new Date().toISOString();
-      const persistedSession =
-        persisted.session && persisted.session.id === request.sessionId
-          ? clarificationSessionSchema.parse(persisted.session)
-          : null;
-
-      const session: ClarificationSession = persistedSession ?? {
-        id: request.sessionId,
-        initialIntent: request.intent,
-        status: 'collecting',
-        createdAt: now,
-        updatedAt: now,
-        steps: [],
-        selectedOptionIds: [],
-        confidence: 0,
-        pendingQuestionId: null,
-      };
+      if (!session) {
+        session = {
+          id: request.sessionId,
+          initialIntent: request.intent,
+          status: 'collecting',
+          createdAt: now,
+          updatedAt: now,
+          steps: [],
+          selectedOptionIds: [],
+          confidence: 0,
+          pendingQuestionId: null,
+        };
+        this.sessions.set(request.sessionId, session);
+      }
 
       // Use LLM to generate the initial prompt as well
       const llm = new OkrAgentService();
@@ -120,7 +131,8 @@ export class ClarificationController {
       session.pendingQuestionId = nextPrompt.id;
       session.updatedAt = new Date().toISOString();
 
-      await this.sessionRepository.saveSession(session);
+      // Save session to both memory and persistence
+      await this.saveSession(session);
       void this.logAction({
         actionType: 'generate',
         sessionId: session.id,
@@ -144,13 +156,20 @@ export class ClarificationController {
 
     this.elect.ipcMain.handle(IPCChannels.OKR_GENERATE, async (_event, payload) => {
       const request = generateOKRRequestSchema.parse(payload);
-      const persisted = await this.sessionRepository.load();
-      const sessionCandidate = persisted.session;
-      if (!sessionCandidate || sessionCandidate.id !== request.sessionId) {
+      
+      // Try memory cache first, then fall back to persistent storage
+      let session = this.sessions.get(request.sessionId);
+      if (!session) {
+        const persisted = await this.sessionRepository.load();
+        if (persisted.session && persisted.session.id === request.sessionId) {
+          session = clarificationSessionSchema.parse(persisted.session);
+          this.sessions.set(request.sessionId, session);
+        }
+      }
+      
+      if (!session) {
         throw new Error('No active session found for OKR generation.');
       }
-
-      const session = clarificationSessionSchema.parse(sessionCandidate);
       const okr = this.buildOkrDocument(session, request.intentSummary);
 
       console.info('[main] generating OKR document', {
@@ -163,7 +182,8 @@ export class ClarificationController {
       session.pendingQuestionId = null;
       session.confidence = Math.max(session.confidence, 0.9);
 
-      await this.sessionRepository.saveSession(session);
+      // Save session to both memory and persistence
+      await this.saveSession(session);
       await this.okrRepository.save(okr);
 
       await this.logAction({
@@ -212,17 +232,28 @@ export class ClarificationController {
           throw new Error(`Failed to get next question: ${errorMsg}`);
         }
 
-        if (!data || typeof data !== 'object' || !data.question) {
+        if (!data || typeof data !== 'object') {
           throw new Error('Empty or invalid response from LLM next question service');
         }
 
-        // Map LLM question into ClarificationPrompt and broadcast
-        const persisted = await this.sessionRepository.load();
-        const sessionCandidate = persisted.session;
-        if (!sessionCandidate) {
+        // If no question, it means clarification is complete (no more questions)
+        if (!data.question) {
+          console.info('[main] No more questions, clarification complete');
           return data;
         }
-        const session = clarificationSessionSchema.parse(sessionCandidate);
+
+        // Map LLM question into ClarificationPrompt and broadcast
+        // Try to find session in memory cache or load from persistent storage
+        let session: ClarificationSession | null = null;
+        const persisted = await this.sessionRepository.load();
+        if (persisted.session) {
+          session = clarificationSessionSchema.parse(persisted.session);
+          // Update memory cache
+          this.sessions.set(session.id, session);
+        }
+        if (!session) {
+          return data;
+        }
         const sequence = session.steps.length;
         const q = data.question;
         const prompt: ClarificationPrompt = {
@@ -240,7 +271,8 @@ export class ClarificationController {
         session.steps.push(prompt);
         session.pendingQuestionId = prompt.id;
         session.updatedAt = new Date().toISOString();
-        await this.sessionRepository.saveSession(session);
+        // Save session to both memory and persistence
+        await this.saveSession(session);
         this.elect.webContents
           .getAllWebContents()
           .forEach((wc) => wc.send(IPCChannels.CLARIFICATION_PROMPT, { prompt }));
@@ -252,13 +284,35 @@ export class ClarificationController {
       IPCChannels.LLM_GENERATE_DRAFT,
       async (_event, payload): Promise<OkrDraftResponse> => {
         const body = payload as OkrDraftRequest;
-        const persisted = await this.sessionRepository.load();
-        const session = persisted.session
-          ? clarificationSessionSchema.parse(persisted.session)
-          : null;
-
+        const requestSessionId = body.sessionId;
+        
+        // Validate sessionId
+        if (!requestSessionId) {
+          throw new Error('Session ID is required for LLM draft generation');
+        }
+        
+        // 1. Priority: Get from memory cache
+        let session = this.sessions.get(requestSessionId);
+        
+        // 2. Memory miss: Try loading from persistent storage
         if (!session) {
-          throw new Error('No active session found for LLM draft generation.');
+          console.info(`[ClarificationController] Session ${requestSessionId} not in memory, trying persistence...`);
+          const persisted = await this.sessionRepository.load();
+          
+          if (persisted.session && persisted.session.id === requestSessionId) {
+            // Restore to memory cache
+            session = clarificationSessionSchema.parse(persisted.session);
+            this.sessions.set(session.id, session);
+            this.currentSessionId = session.id;
+            console.info(`[ClarificationController] Session ${requestSessionId} restored from persistence`);
+          }
+        }
+        
+        // 3. Still not found: Log available sessions and throw error
+        if (!session) {
+          const availableSessions = Array.from(this.sessions.keys()).join(', ');
+          console.error(`[ClarificationController] Session ${requestSessionId} not found. Available sessions: ${availableSessions || '(none)'}`);
+          throw new Error(`No active session found for LLM draft generation. Session ID: ${requestSessionId}`);
         }
 
         const context = body.context ?? {
@@ -348,19 +402,42 @@ export class ClarificationController {
 
   private async handleResponse(payload: unknown): Promise<void> {
     const response = clarificationOptionSelectionSchema.parse(payload);
-    const persisted = await this.sessionRepository.load();
-    const sessionCandidate = persisted.session;
-    if (!sessionCandidate) {
+    
+    console.info('[main] handleResponse: recording selection', {
+      sessionId: response.sessionId,
+      promptId: response.promptId,
+      optionId: response.optionId,
+    });
+    
+    // Try memory cache first, then fall back to persistent storage
+    let session = this.sessions.get(response.sessionId);
+    if (!session) {
+      const persisted = await this.sessionRepository.load();
+      if (persisted.session && persisted.session.id === response.sessionId) {
+        session = clarificationSessionSchema.parse(persisted.session);
+        // Restore to memory cache
+        this.sessions.set(response.sessionId, session);
+      }
+    }
+    
+    if (!session) {
+      console.warn('[main] handleResponse: session not found', {
+        requestedId: response.sessionId,
+      });
       throw new Error('Cannot record selection without an active clarification session.');
     }
-
-    const session = clarificationSessionSchema.parse(sessionCandidate);
 
     session.selectedOptionIds = [...session.selectedOptionIds, response.optionId];
     session.pendingQuestionId = null;
     session.updatedAt = new Date().toISOString();
 
-    await this.sessionRepository.saveSession(session);
+    // Save session to both memory and persistence
+    await this.saveSession(session);
+    
+    console.info('[ClarificationController] handleResponse: selection saved', {
+      sessionId: session.id,
+      selectedOptionCount: session.selectedOptionIds.length,
+    });
     void this.logAction({
       actionType: 'edit',
       sessionId: session.id,
@@ -369,6 +446,20 @@ export class ClarificationController {
     }).catch((error) => {
       this.logUnexpectedError('Failed to record selection action', error);
     });
+  }
+
+  /**
+   * Unified method to save session to both memory cache and persistent storage
+   */
+  private async saveSession(session: ClarificationSession): Promise<void> {
+    // Update memory cache
+    this.sessions.set(session.id, session);
+    this.currentSessionId = session.id;
+    
+    // Sync to persistent storage
+    await this.sessionRepository.saveSession(session);
+    
+    console.info(`[ClarificationController] Session ${session.id} saved to memory and persistence`);
   }
 
   private buildOkrDocument(session: ClarificationSession, intentSummary: string): OKRDocument {
@@ -427,5 +518,63 @@ export class ClarificationController {
         owner: undefined,
       },
     ];
+  }
+
+  // ==================== TestMode API Support ====================
+
+  /**
+   * Reset all session state (for test mode)
+   * Clears both in-memory sessions and current session tracking
+   */
+  resetSessions(): void {
+    const count = this.sessions.size;
+    this.sessions.clear();
+    this.currentSessionId = null;
+    console.info(`[ClarificationController] All sessions cleared (${count} sessions)`);
+  }
+
+  /**
+   * Get all sessions (for test mode)
+   * @returns A copy of the sessions map
+   */
+  getAllSessions(): Map<string, ClarificationSession> {
+    return new Map(this.sessions);
+  }
+
+  /**
+   * Get the current active session ID (for test mode)
+   * Returns the most recently saved/accessed session
+   * @returns The current session ID or null
+   */
+  getCurrentSessionId(): string | null {
+    return this.currentSessionId;
+  }
+
+  /**
+   * Set a session directly (for test mode)
+   * @param sessionId - The session ID
+   * @param session - The session data
+   */
+  setSession(sessionId: string, session: ClarificationSession): void {
+    this.sessions.set(sessionId, session);
+    this.currentSessionId = sessionId;
+    console.info(`[ClarificationController] Session ${sessionId} set manually`);
+  }
+
+  /**
+   * Get a session by ID (for test mode)
+   * @param sessionId - The session ID
+   * @returns The session or undefined
+   */
+  getSession(sessionId: string): ClarificationSession | undefined {
+    return this.sessions.get(sessionId);
+  }
+
+  /**
+   * Get the number of active sessions (for test mode)
+   * @returns The count of sessions in memory
+   */
+  getSessionCount(): number {
+    return this.sessions.size;
   }
 }

@@ -1,0 +1,53 @@
+import { cleanupWorker } from './fixtures/worker-fixtures';
+
+/**
+ * Global teardown for E2E tests
+ * Runs once after all tests complete
+ */
+export default async function globalTeardown() {
+  console.log('[global-teardown] Running post-test cleanup...');
+
+  // 清理所有 worker 的 Electron 实例和 Mock Server
+  await cleanupWorker();
+
+  // 停止全局 mock server
+  const { globalMockServer } = await import('./global-setup');
+  if (globalMockServer) {
+    try {
+      await globalMockServer.stop();
+      console.log('[global-teardown] Mock server stopped');
+    } catch (e) {
+      console.warn('[global-teardown] Error stopping mock server:', e);
+    }
+  } else {
+    console.log('[global-teardown] Mock server was not running');
+  }
+
+  // Clean up any leftover test artifacts
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
+
+  const currentDir = path.dirname(fileURLToPath(import.meta.url));
+  const dataDir = path.join(currentDir, '..', '..', 'data');
+
+  // Clean up any remaining JSON files in data directory
+  if (fs.existsSync(dataDir)) {
+    try {
+      const files = fs.readdirSync(dataDir);
+      for (const file of files) {
+        if (file.endsWith('.json') && file.includes('test')) {
+          try {
+            fs.unlinkSync(path.join(dataDir, file));
+          } catch {
+            // Ignore cleanup errors
+          }
+        }
+      }
+    } catch {
+      // Ignore directory errors
+    }
+  }
+
+  console.log('[global-teardown] Cleanup complete');
+}
