@@ -116,21 +116,22 @@ export class AppComponent implements OnDestroy {
   });
 
   // Computed signals for template conditions
-  readonly showWizard = computed((): boolean => {
-    // Ensure wizard stays visible when error occurs to allow retry
-    // This prevents the retry button from being removed during error state transitions
+  private getShowWizard(): boolean {
     return this.state.hasPrompt() || this.state.hasError() || this.state.isLoading();
-  });
+  }
+
+  readonly showWizard = computed(() => this.getShowWizard());
 
   readonly hasStickyNote = computed((): boolean => {
     // Show sticky note reopen button when OKR has been generated
     return !!this.generatedSummary;
   });
 
-  readonly stickyViewModel = computed(() => {
-    // Get the current OKR view model from the gateway service
+  private getStickyViewModel() {
     return this.stickyGateway.getCurrentViewModel();
-  });
+  }
+
+  readonly stickyViewModel = computed(() => this.getStickyViewModel());
 
   readonly isStickyShell =
     typeof window !== 'undefined' &&
