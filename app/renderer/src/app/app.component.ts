@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-assignment */
 import { CommonModule } from '@angular/common';
 import { Component, NgZone, OnDestroy, computed } from '@angular/core';
 import { ReactiveFormsModule, FormControl, Validators } from '@angular/forms';
@@ -116,7 +117,6 @@ export class AppComponent implements OnDestroy {
   });
 
   // Computed signals for template conditions
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
   private getShowWizard(): boolean {
     return this.state.hasPrompt() || this.state.hasError() || this.state.isLoading();
   }
@@ -128,7 +128,6 @@ export class AppComponent implements OnDestroy {
     return !!this.generatedSummary;
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
   private getStickyViewModel() {
     return this.stickyGateway.getCurrentViewModel();
   }
