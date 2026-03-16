@@ -29,6 +29,7 @@ import type { ActionLogWriter } from '../persistence/action-log-writer.js';
 import type { OkrRepository } from '../persistence/okr-repository.js';
 import type { SessionRepository } from '../persistence/session-repository.js';
 import type { OkrAgentService } from '../services/okr-agent.service.js';
+
 import type { StickyWindowManager } from './sticky-window-manager.js';
 
 export class ClarificationController {

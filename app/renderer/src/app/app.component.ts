@@ -96,7 +96,7 @@ import { OkrStickyGatewayService } from './okr-sticky/services/okr-sticky-gatewa
 export class AppComponent implements OnDestroy {
   readonly intentControl = new FormControl('', {
     nonNullable: true,
-    validators: [Validators.required, Validators.minLength(2)],
+    validators: [Validators.required.bind(Validators), Validators.minLength(2).bind(Validators)],
   });
 
   // Computed signals for template conditions
