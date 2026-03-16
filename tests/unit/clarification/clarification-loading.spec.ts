@@ -1,9 +1,7 @@
-import '@angular/compiler';
-import { firstValueFrom } from 'rxjs';
-
 import type { ClarificationPrompt } from '@clarityokr/contracts';
 
-import { ClarificationStore } from '../../../app/renderer/src/app/clarification/state/clarification.store';
+import { SyncClarificationState } from '../../../app/renderer/src/app/clarification/services/sync-clarification-state.service';
+import { Logger } from '../../../app/renderer/src/app/core/services/logger.service';
 
 function buildPrompt(optionCount = 3): ClarificationPrompt {
   return {
@@ -20,34 +18,48 @@ function buildPrompt(optionCount = 3): ClarificationPrompt {
   } satisfies ClarificationPrompt;
 }
 
-describe('ClarificationStore loading flag', () => {
-  let store: ClarificationStore;
+describe('SyncClarificationState loading flag', () => {
+  let state: SyncClarificationState;
 
   beforeEach(() => {
-    store = new ClarificationStore();
+    const logger = new Logger();
+    state = new SyncClarificationState(logger);
   });
 
-  it('toggles loading state on setLoading', async () => {
+  it('toggles loading state on setLoading', () => {
     const states: boolean[] = [];
-    const sub = store.isLoading$.subscribe((v) => {
-      states.push(v);
-    });
+
+    // Subscribe to changes using effect (simulating subscription)
+    const originalValue = state.isLoading();
+    states.push(originalValue);
 
     // Initial state: not loading
     expect(states.length).toBe(1);
     expect(states[0]).toBe(false);
 
     // Transition to loading
-    store.setLoading();
+    state.setLoading(true);
+    states.push(state.isLoading());
     expect(states.length).toBe(2);
     expect(states[1]).toBe(true);
 
     // Set prompt transitions to prompting (not loading)
     const prompt = buildPrompt(3);
-    store.setPrompt(prompt);
+    state.setPrompt(prompt);
+    states.push(state.isLoading());
     expect(states.length).toBe(3);
     expect(states[2]).toBe(false);
+  });
 
-    sub.unsubscribe();
+  it('updates workflow state with loading', () => {
+    expect(state.workflowState()).toBe('idle');
+
+    state.setLoading(true, 'test-intent');
+    expect(state.workflowState()).toBe('loading');
+    expect(state.intent()).toBe('test-intent');
+
+    const prompt = buildPrompt(3);
+    state.setPrompt(prompt);
+    expect(state.workflowState()).toBe('prompting');
   });
 });
