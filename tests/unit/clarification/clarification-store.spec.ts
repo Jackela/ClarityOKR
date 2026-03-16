@@ -69,7 +69,7 @@ describe('ClarificationStore', () => {
     // depending on how the state machine handles single prompt selections
   });
 
-  it('transition to ready state after selections on 2 different prompts', async () => {
+  it('transition to ready state after selection on 1 prompt', async () => {
     const prompt1 = buildPrompt(2);
     prompt1.id = 'prompt-1';
 
@@ -87,18 +87,8 @@ describe('ClarificationStore', () => {
     state = await firstValueFrom(store.workflowState$);
     expect(state).toBe('prompting');
 
-    // First selection keeps state as 'prompting' (only 1 prompt has selection)
+    // First selection transitions to ready (only 1 prompt needed)
     store.recordSelection('opt-0');
-    state = await firstValueFrom(store.workflowState$);
-    expect(state).toBe('prompting');
-
-    // Now set a second prompt (this would come from the orchestrator in real scenario)
-    const prompt2 = buildPrompt(2);
-    prompt2.id = 'prompt-2';
-    store.setPrompt(prompt2);
-
-    // Make selection on second prompt - now 2 prompts have selections
-    store.recordSelection('opt-1');
     state = await firstValueFrom(store.workflowState$);
     expect(state).toBe('ready');
 
