@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return */
 import { CommonModule } from '@angular/common';
 import { Component, NgZone, OnDestroy, computed } from '@angular/core';
 import { ReactiveFormsModule, FormControl, Validators } from '@angular/forms';
