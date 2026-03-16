@@ -12,7 +12,7 @@ test.beforeEach(async () => {
   await cleanupPersistenceFiles();
 });
 
-test.skip('user can reopen sticky window after closing it', async ({
+test('user can reopen sticky window after closing it', async ({
   electronApp,
   mainWindow,
   mockServer,

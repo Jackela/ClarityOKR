@@ -4,7 +4,10 @@ import { test as base, expect, TestInfo } from '@playwright/test';
 export { expect };
 import { _electron as electron, ElectronApplication, Page } from '@playwright/test';
 import { extraElectronArgs, getElectronEnv, ROOT } from '../helpers/build-check';
-import { cleanupPersistenceFiles } from './index';
+import { cleanupPersistenceFiles as indexCleanupPersistenceFiles } from './index';
+
+// Re-export cleanupPersistenceFiles for convenience
+export const cleanupPersistenceFiles = indexCleanupPersistenceFiles;
 import { SimpleMockServer } from '../helpers/simple-mock-server';
 import type { MockResponseConfig } from '@clarityokr/contracts';
 
@@ -79,7 +82,7 @@ async function fallbackCleanup(): Promise<void> {
 async function logDiagnostics(
   electronApp: ElectronApplication,
   testInfo: TestInfo,
-  testId?: string
+  testId?: string,
 ): Promise<void> {
   try {
     const diagnostics = await electronApp.evaluate(() => {
@@ -106,7 +109,7 @@ async function logDiagnostics(
 
     console.error(
       `[E2E] Diagnostics for ${testInfo.title} (testId: ${testId}):`,
-      JSON.stringify(diagnostics, null, 2)
+      JSON.stringify(diagnostics, null, 2),
     );
   } catch (e) {
     console.error(`[E2E] Failed to collect diagnostics:`, e);
@@ -190,9 +193,11 @@ export const workerTest = base.extend<{
         console.log(`[worker ${workerId}] Electron started with mock server at ${mockServer.url}`);
 
         // 验证 testMode API 可用
-        const testModeAvailable = await workerElectronApp.evaluate(() => {
-          return !!(global as any).testMode;
-        }).catch(() => false);
+        const testModeAvailable = await workerElectronApp
+          .evaluate(() => {
+            return !!(global as any).testMode;
+          })
+          .catch(() => false);
         console.log(`[worker ${workerId}] TestMode API available: ${testModeAvailable}`);
       }
 
@@ -216,9 +221,11 @@ export const workerTest = base.extend<{
       const window = await electronApp.firstWindow();
 
       // 使用 testMode API 清理状态（更可靠）
-      const testModeAvailable = await electronApp.evaluate(() => {
-        return !!(global as any).testMode?.resetState;
-      }).catch(() => false);
+      const testModeAvailable = await electronApp
+        .evaluate(() => {
+          return !!(global as any).testMode?.resetState;
+        })
+        .catch(() => false);
 
       if (testModeAvailable) {
         await cleanupViaTestMode(electronApp);
@@ -228,7 +235,7 @@ export const workerTest = base.extend<{
       }
 
       // 等待重置完成
-      await new Promise(r => setTimeout(r, process.env.CI ? 200 : 100));
+      await new Promise((r) => setTimeout(r, process.env.CI ? 200 : 100));
 
       // 导航到首页（确保干净状态）
       await window.goto('about:blank');
