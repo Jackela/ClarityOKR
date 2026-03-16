@@ -8,10 +8,10 @@ import { Logger } from './core/logger.js';
 import { ActionLogWriter } from './persistence/action-log-writer.js';
 import { OkrRepository } from './persistence/okr-repository.js';
 import { SessionRepository } from './persistence/session-repository.js';
+import { OkrAgentService } from './services/okr-agent.service.js';
 import { initializeTestMode, type TestMode } from './test-mode.js';
 import { ClarificationController } from './windows/clarification-controller.js';
 import { StickyWindowManager } from './windows/sticky-window-manager.js';
-import { OkrAgentService } from './services/okr-agent.service.js';
 
 const { app, BrowserWindow } = electron;
 

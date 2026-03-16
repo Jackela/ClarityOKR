@@ -15,7 +15,6 @@ import type {
   OKRDocument,
   UserActionLogEntry,
 } from '@clarityokr/contracts';
-
 import electron from 'electron';
 
 import { IPCChannels } from '../bootstrap/ipc-channels.js';
@@ -26,10 +25,10 @@ import type {
   OkrDraftRequest,
   OkrDraftResponse,
 } from '../main/ipc.llm.js';
-import { OkrAgentService } from '../services/okr-agent.service.js';
 import { ActionLogWriter } from '../persistence/action-log-writer.js';
 import { OkrRepository } from '../persistence/okr-repository.js';
 import { SessionRepository } from '../persistence/session-repository.js';
+import { OkrAgentService } from '../services/okr-agent.service.js';
 import { StickyWindowManager } from './sticky-window-manager.js';
 
 export class ClarificationController {
@@ -151,7 +150,7 @@ export class ClarificationController {
       const request = generateOKRRequestSchema.parse(payload);
 
       // Get session from memory cache or persistent storage
-      let session = await this.getSession(request.sessionId);
+      const session = await this.getSession(request.sessionId);
 
       if (!session) {
         throw new Error('No active session found for OKR generation.');
@@ -277,7 +276,7 @@ export class ClarificationController {
         }
 
         // Get session from memory cache or persistent storage
-        let session = await this.getSession(requestSessionId);
+        const session = await this.getSession(requestSessionId);
 
         if (session) {
           Logger.info(
@@ -391,7 +390,7 @@ export class ClarificationController {
     });
 
     // Get session from memory cache or persistent storage
-    let session = await this.getSession(response.sessionId);
+    const session = await this.getSession(response.sessionId);
 
     if (!session) {
       Logger.warn('[main] handleResponse: session not found', {

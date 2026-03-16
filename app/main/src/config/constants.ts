@@ -45,7 +45,7 @@ export const CLARIFICATION_CONFIG = {
   // OKR document defaults
   okrDefaults: {
     regenerationPolicy: 'append' as const,
-    lastEditedAt: null as null,
+    lastEditedAt: null,
     manualEdits: [] as unknown[],
     maxKeyResultsFromDraft: 5,
   },
@@ -60,7 +60,7 @@ export const CLARIFICATION_CONFIG = {
     emptyLlmResponse: 'Empty or invalid response from LLM service',
     missingQuestionFields: 'LLM response missing required question fields',
     noActiveSession: 'No active session found for OKR generation.',
-    sessionNotFound: (id: string, available: string) =>
+    sessionNotFound: (id: string, _available: string) =>
       `No active session found for LLM draft generation. Session ID: ${id}`,
     missingDraftObjectives: 'LLM draft response missing required objectives field',
     missingObjectiveTitleOrDescription: 'LLM draft objective missing required title or description',
