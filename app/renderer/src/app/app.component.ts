@@ -4,13 +4,13 @@ import { ReactiveFormsModule, FormControl, Validators } from '@angular/forms';
 import type { ClarificationPrompt } from '@clarityokr/contracts';
 import { Subject } from 'rxjs';
 
+import { ClarificationWizardComponent } from './clarification/components/clarification-wizard.component';
 import { ClarificationOrchestratorService } from './clarification/services/clarification-orchestrator.service';
 import { IpcLlmGateway } from './clarification/services/ipc-llm-gateway.service';
 import { SyncClarificationState } from './clarification/services/sync-clarification-state.service';
-import { OkrStickyGatewayService } from './okr-sticky/services/okr-sticky-gateway.service';
-import { ClarificationWizardComponent } from './clarification/components/clarification-wizard.component';
-import { OkrStickyNoteComponent } from './okr-sticky/components/okr-sticky-note.component';
 import { Logger } from './core/services/logger.service';
+import { OkrStickyNoteComponent } from './okr-sticky/components/okr-sticky-note.component';
+import { OkrStickyGatewayService } from './okr-sticky/services/okr-sticky-gateway.service';
 
 @Component({
   selector: 'clarityokr-root',
