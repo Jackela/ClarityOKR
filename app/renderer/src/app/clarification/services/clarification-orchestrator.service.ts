@@ -11,6 +11,7 @@ import { catchError, map, tap } from 'rxjs/operators';
 import { Logger } from '../../core/services/logger.service';
 import { IPC_CHANNELS } from '../../shared/ipc-channel.tokens';
 import type { ClarifyOkrApi } from '../../shared/window';
+
 import { SyncClarificationState } from './sync-clarification-state.service';
 
 @Injectable({ providedIn: 'root' })
