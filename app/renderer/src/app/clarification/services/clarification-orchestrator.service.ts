@@ -70,7 +70,10 @@ export class ClarificationOrchestratorService {
       map(() => void 0),
       catchError((error) => {
         const message = error instanceof Error ? error.message : String(error);
-        this.logger.debug('[ORCHESTRATOR] Caught error in requestPrompt:', message, { error });
+        const safeError = error instanceof Error ? error : new Error(String(error));
+        this.logger.debug('[ORCHESTRATOR] Caught error in requestPrompt:', message, {
+          error: safeError,
+        });
         // Set error state synchronously
         this.state.setError({ message, recoverable: true });
         return throwError(() => (error instanceof Error ? error : new Error(message)));

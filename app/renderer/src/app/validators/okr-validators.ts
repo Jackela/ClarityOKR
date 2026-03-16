@@ -28,7 +28,7 @@ export function isValidDraft(payload: unknown): payload is OkrDraftResponse {
   if (typeof d !== 'object' || d === null) return false;
   const draft = d as { objectives?: unknown };
   if (!Array.isArray(draft.objectives) || draft.objectives.length < 1) return false;
-  const first = draft.objectives[0];
+  const first = draft.objectives[0] as unknown;
   if (typeof first !== 'object' || first === null) return false;
   const obj = first as { keyResults?: unknown };
   if (!Array.isArray(obj.keyResults) || obj.keyResults.length < 3) return false;
