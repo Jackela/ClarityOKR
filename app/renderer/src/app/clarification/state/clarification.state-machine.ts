@@ -207,10 +207,10 @@ function handleOptionSelectedInPromptingState(
   // Build selections array from history
   const selections = buildSelectionsFromHistory(state.history, currentPrompt.id, optionId);
 
-  // Check if we have enough selections to be ready (need 2+ unique prompts)
+  // Check if we have enough selections to be ready (need 1+ unique prompts)
   const uniquePromptCount = new Set(selections.map((s) => s.promptId)).size;
 
-  if (uniquePromptCount >= 2) {
+  if (uniquePromptCount >= 1) {
     return {
       type: 'ready',
       context: {

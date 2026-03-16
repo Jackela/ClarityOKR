@@ -21,6 +21,10 @@ export class OkrStickyGatewayService {
   readonly viewModel$: Observable<OkrStickyViewModel | null> = this.viewModelSubject.asObservable();
   readonly hasStickyNote$: Observable<boolean> = this.viewModel$.pipe(map((vm) => vm !== null));
 
+  getCurrentViewModel(): OkrStickyViewModel | null {
+    return this.viewModelSubject.getValue();
+  }
+
   constructor(private readonly projection: OkrProjectionService) {
     this.registerListeners();
     void this.hydrateFromMain();
@@ -34,7 +38,10 @@ export class OkrStickyGatewayService {
     } satisfies GenerateOKRRequest);
     // eslint-disable-next-line no-console
     console.info('[renderer] requesting OKR generation (LLM)', payload);
-    const response = await bridge.invoke(IPC_CHANNELS.LLM_GENERATE_DRAFT, { context: undefined, sessionId });
+    const response = await bridge.invoke(IPC_CHANNELS.LLM_GENERATE_DRAFT, {
+      context: undefined,
+      sessionId,
+    });
     const parsed = generateOKRResponseSchema.parse(response);
 
     return this.storeDocument(parsed.okr);

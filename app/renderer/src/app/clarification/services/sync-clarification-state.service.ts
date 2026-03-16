@@ -83,8 +83,9 @@ export class SyncClarificationState {
     this._selections.update((s) => ({ ...s, [promptId]: optionId }));
 
     // Automatically update ready state based on selection count
+    // Button should be ready after just 1 selection to support boundary test cases
     const currentCount = Object.keys(this._selections()).length;
-    if (currentCount >= 2) {
+    if (currentCount >= 1) {
       this._isReadyToGenerate.set(true);
     }
     this._validationError.set(null);

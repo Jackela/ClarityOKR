@@ -71,8 +71,11 @@ import { OkrStickyGatewayService } from './okr-sticky/services/okr-sticky-gatewa
         }
       </main>
     } @else {
-      <!-- Sticky note temporarily disabled during refactoring -->
-      <div>Sticky Note View (Temporarily Disabled)</div>
+      <!-- Sticky note view -->
+      <clarityokr-sticky-note
+        [okr]="stickyViewModel()"
+        (addKr)="onAddKeyResult()"
+      ></clarityokr-sticky-note>
     }
   `,
   styles: [
@@ -218,12 +221,19 @@ export class AppComponent implements OnDestroy {
 
   // Computed signals for template conditions
   readonly showWizard = computed((): boolean => {
+    // Ensure wizard stays visible when error occurs to allow retry
+    // This prevents the retry button from being removed during error state transitions
     return this.state.hasPrompt() || this.state.hasError() || this.state.isLoading();
   });
 
   readonly hasStickyNote = computed((): boolean => {
     // Show sticky note reopen button when OKR has been generated
     return !!this.generatedSummary;
+  });
+
+  readonly stickyViewModel = computed(() => {
+    // Get the current OKR view model from the gateway service
+    return this.stickyGateway.getCurrentViewModel();
   });
 
   readonly isStickyShell =
@@ -335,7 +345,8 @@ export class AppComponent implements OnDestroy {
         next: (result: unknown) => {
           console.log('[DEBUG] llmGateway.getNextQuestion next() - result:', result);
           // Check if no more questions (clarification complete)
-          const hasQuestion = result && typeof result === 'object' && 'question' in result && result.question;
+          const hasQuestion =
+            result && typeof result === 'object' && 'question' in result && result.question;
           if (!hasQuestion) {
             console.log('[DEBUG] No more questions, clearing prompt and setting ready to generate');
             this.state.setPrompt(null);
@@ -351,9 +362,9 @@ export class AppComponent implements OnDestroy {
             const errorMessage = err instanceof Error ? err.message : String(err);
             this.statusMessage = '请求超时或失败，请重试。';
             // Set error state to show error UI
+            // Note: setError already sets loading to false internally
             this.state.setError({ message: errorMessage, recoverable: true });
             this.llmBusy = false;
-            this.state.setLoading(false);
           });
         },
       });
@@ -401,8 +412,10 @@ export class AppComponent implements OnDestroy {
   }
 
   onRetry(): void {
-    this.orchestrator.clearError();
     this.statusMessage = '';
+    // Ensure loading state is set before clearing error to prevent wizard from disappearing
+    this.state.setLoading(true);
+    this.orchestrator.clearError();
     if (this.sessionId && this.intentControl.value) {
       this.orchestrator.requestPrompt(this.sessionId, this.intentControl.value).subscribe({
         error: (error: unknown) => {

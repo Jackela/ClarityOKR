@@ -54,6 +54,10 @@ function getCurrentPrompt(machineState: StateMachineState): ClarificationPrompt 
   if (machineState.type === 'prompting') {
     return machineState.prompt;
   }
+  if (machineState.type === 'ready' || machineState.type === 'generating') {
+    const history = machineState.context.history;
+    return history.length > 0 ? history[history.length - 1] : null;
+  }
   return null;
 }
 

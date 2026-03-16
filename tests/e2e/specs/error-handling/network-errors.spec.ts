@@ -1,6 +1,15 @@
-import { test, expect, cleanupPersistenceFiles } from '../../fixtures';
+import {
+  workerTest as test,
+  expect,
+  cleanupPersistenceFiles,
+} from '../../fixtures/worker-fixtures';
 import { ClarificationPage } from '../../page-objects';
-import { waitForElement, waitForErrorMessage, forceClick, waitForText } from '../../helpers/native-dom';
+import {
+  waitForElement,
+  waitForErrorMessage,
+  forceClick,
+  waitForText,
+} from '../../helpers/native-dom';
 import type { MockResponseConfig } from '@clarityokr/contracts';
 
 test.beforeEach(async () => {
