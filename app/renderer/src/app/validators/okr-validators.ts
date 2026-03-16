@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-redundant-type-constituents */
 export interface KeyResult {
   id: string;
   statement: string;
@@ -16,7 +15,7 @@ export interface Objective {
 export interface OkrDraft {
   objectives: Objective[];
   assumptions?: string[];
-  notes?: string;
+  notes?: string[];
 }
 
 export interface OkrDraftResponse {

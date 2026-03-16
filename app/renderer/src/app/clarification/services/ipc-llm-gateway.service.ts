@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-redundant-type-constituents */
 /**
  * IpcLlmGateway - Production implementation of LlmGateway using Electron IPC
  *
@@ -22,7 +21,7 @@ import { IPC_CHANNELS } from '../../shared/ipc-channel.tokens';
 import type { ClarifyOkrApi } from '../../shared/window';
 
 function bridgeOrThrow(): ClarifyOkrApi {
-  const candidate = (window as Window & { clarifyOkr?: ClarifyOkrApi }).clarifyOkr;
+  const candidate = window.clarifyOkr;
   if (!candidate) throw new Error('ClarifyOKR bridge is unavailable.');
   return candidate;
 }

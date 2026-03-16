@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-redundant-type-constituents */
 import { Injectable, NgZone } from '@angular/core';
 import {
   clarificationOptionSelectionSchema,
@@ -190,7 +189,6 @@ export class ClarificationOrchestratorService {
     if (typeof window === 'undefined') {
       return undefined;
     }
-    const candidate = (window as Window & { clarifyOkr?: ClarifyOkrApi }).clarifyOkr;
-    return candidate;
+    return window.clarifyOkr;
   }
 }

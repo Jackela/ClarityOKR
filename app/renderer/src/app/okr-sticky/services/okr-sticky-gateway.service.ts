@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-redundant-type-constituents */
 import { Injectable } from '@angular/core';
 import {
   generateOKRRequestSchema,
@@ -188,6 +187,6 @@ export class OkrStickyGatewayService {
     if (typeof window === 'undefined') {
       return undefined;
     }
-    return (window as Window & { clarifyOkr?: ClarifyOkrApi }).clarifyOkr;
+    return window.clarifyOkr;
   }
 }

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-redundant-type-constituents */
 import { Injectable } from '@angular/core';
 import { defer, Observable } from 'rxjs';
 import { finalize, tap } from 'rxjs/operators';
@@ -13,7 +12,7 @@ type ClarificationContext = {
 type LastChoice = { questionId: string; optionId: string };
 
 function bridgeOrThrow(): ClarifyOkrApi {
-  const candidate = (window as Window & { clarifyOkr?: ClarifyOkrApi }).clarifyOkr;
+  const candidate = window.clarifyOkr;
   if (!candidate) throw new Error('ClarifyOKR bridge is unavailable.');
   return candidate;
 }

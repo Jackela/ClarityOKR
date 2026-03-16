@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-redundant-type-constituents */
 import { bootstrapApplication } from '@angular/platform-browser';
 
 import { AppComponent } from './app/app.component';
@@ -10,10 +9,10 @@ bootstrapApplication(AppComponent, {
   providers: [{ provide: 'LlmGateway', useClass: IpcLlmGateway }, Logger],
 })
   .then((appRef) => {
-    const logger = appRef.injector.get(Logger);
+    const logger = appRef.injector.get<Logger>(Logger);
     logger.setLevel(environment.logLevel);
   })
-  .catch((err) => {
+  .catch((err: unknown) => {
     const logger = new Logger();
     logger.error(err);
   });
