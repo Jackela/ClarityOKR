@@ -70,6 +70,22 @@ export class SyncClarificationState {
 
   // Synchronous methods for immediate state updates
 
+  /**
+   * 设置当前的澄清提示
+   *
+   * 更新当前提示，停止加载状态，并将工作流状态转换为 'prompting'
+   * 同时将新提示添加到历史记录中
+   *
+   * @param prompt - 要显示的澄清提示，如果为 null 则清空当前提示
+   *
+   * @example
+   * state.setPrompt({
+   *   id: 'prompt-1',
+   *   question: '请选择您的目标类型',
+   *   options: [...]
+   * });
+   * // 状态变为 prompting，提示被添加到历史记录
+   */
   setPrompt(prompt: ClarificationPrompt | null): void {
     this.logger.debug('[SYNC-STATE] setPrompt called:', prompt?.id ?? 'null');
     this._currentPrompt.set(prompt);
@@ -92,6 +108,21 @@ export class SyncClarificationState {
     }
   }
 
+  /**
+   * 设置错误状态
+   *
+   * 将错误信息保存到状态中，停止加载状态，并将工作流状态转换为 'error'
+   * 如果传入字符串，会自动转换为 ErrorInfo 对象（默认可恢复）
+   *
+   * @param error - 错误信息字符串或 ErrorInfo 对象，null 表示清除错误
+   *
+   * @example
+   * state.setError('网络连接失败');
+   * // 状态变为 error，loading 被设置为 false
+   *
+   * state.setError({ message: '验证失败', recoverable: false });
+   * // 状态变为 error，且标记为不可恢复
+   */
   setError(error: string | ErrorInfo | null): void {
     this.logger.debug('[SYNC-STATE] setError:', error);
     const errorInfo = typeof error === 'string' ? { message: error, recoverable: true } : error;
@@ -116,6 +147,20 @@ export class SyncClarificationState {
     this._isReadyToGenerate.set(ready);
   }
 
+  /**
+   * 记录用户对提示选项的选择
+   *
+   * 保存用户的选择到状态中的 _selections，并自动检查是否可以开始生成 OKR
+   * 当有至少一个选择时，自动将工作流状态转换为 'ready'
+   * 同时清除任何验证错误
+   *
+   * @param promptId - 当前提示的唯一标识符
+   * @param optionId - 用户选择的选项 ID
+   *
+   * @example
+   * state.recordSelection('prompt-1', 'option-a');
+   * // 选择被保存，如果有至少一个选择，状态变为 ready
+   */
   recordSelection(promptId: string, optionId: string): void {
     this.logger.debug('[SYNC-STATE] recordSelection:', { promptId, optionId });
     this._selections.update((s) => ({ ...s, [promptId]: optionId }));
@@ -160,8 +205,16 @@ export class SyncClarificationState {
   }
 
   /**
-   * Start a new clarification flow (alias for setLoading with intent)
-   * @param intent - The clarification intent
+   * 开始新的澄清流程
+   *
+   * 将状态从 'idle' 转换为 'loading'，并保存用户的初始意图
+   * 这是澄清流程的入口方法，会触发 LLM 请求第一个澄清提示
+   *
+   * @param intent - 用户的初始目标意图描述
+   *
+   * @example
+   * state.start('提高团队效率');
+   * // 状态变为 loading，意图被保存，等待 LLM 返回第一个提示
    */
   start(intent: string): void {
     this.logger.debug('[SYNC-STATE] start:', intent);

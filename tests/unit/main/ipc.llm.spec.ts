@@ -9,18 +9,18 @@ const electStub = {
     handle: (channel: string, cb: Function) => {
       handlers[channel] = cb;
     },
-    on: (_channel: string, _cb: Function) => void 0
+    on: (_channel: string, _cb: Function) => void 0,
   },
   webContents: {
     getAllWebContents: () => [
       {
         send: (channel: string, payload: unknown) => {
           sent.push({ channel, payload });
-        }
-      }
+        },
+      },
     ],
-    fromId: (_id: number) => ({ send: (_ch: string, _payload: unknown) => void 0 })
-  }
+    fromId: (_id: number) => ({ send: (_ch: string, _payload: unknown) => void 0 }),
+  },
 } as any;
 
 // Minimal stubs for repositories and services
@@ -35,8 +35,8 @@ class SessionRepositoryStub {
       steps: [],
       selectedOptionIds: [],
       confidence: 0,
-      pendingQuestionId: null
-    }
+      pendingQuestionId: null,
+    },
   };
   async load() {
     return this.state;
@@ -56,11 +56,15 @@ class OkrRepositoryStub {
 }
 
 class ActionLogWriterStub {
-  async append(_entry: any) { return; }
+  async append(_entry: any) {
+    return;
+  }
 }
 
 class StickyWindowManagerStub {
-  async open(_doc: any) { return; }
+  async open(_doc: any) {
+    return;
+  }
 }
 
 // Mock main LLM agent methods via prototype override
@@ -80,9 +84,9 @@ describe('Main IPC LLM Handlers', () => {
         text: 'LLM question',
         options: [
           { id: 'a', label: 'A' },
-          { id: 'b', label: 'B' }
-        ]
-      }
+          { id: 'b', label: 'B' },
+        ],
+      },
     } as any);
     // eslint-disable-next-line @typescript-eslint/unbound-method
     jest.spyOn(OkrAgentService.prototype, 'generateDraft').mockResolvedValue({
@@ -94,16 +98,23 @@ describe('Main IPC LLM Handlers', () => {
             keyResults: [
               { id: 'kr1', statement: 'KR1', target: '10%', measurement: 'rate' },
               { id: 'kr2', statement: 'KR2', target: 5, measurement: 'count' },
-              { id: 'kr3', statement: 'KR3', target: '2s', measurement: 'latency' }
-            ]
-          }
-        ]
-      }
+              { id: 'kr3', statement: 'KR3', target: '2s', measurement: 'latency' },
+            ],
+          },
+        ],
+      },
     } as any);
 
     // Instantiate controller to register handlers with stubbed electron
     // @ts-ignore - using stubs that satisfy API surface
-    new ClarificationController(new SessionRepositoryStub(), new OkrRepositoryStub(), new ActionLogWriterStub(), new StickyWindowManagerStub(), electStub);
+    new ClarificationController(
+      new SessionRepositoryStub(),
+      new OkrRepositoryStub(),
+      new ActionLogWriterStub(),
+      new StickyWindowManagerStub(),
+      new OkrAgentService(),
+      electStub,
+    );
   });
 
   afterEach(() => {
@@ -124,7 +135,10 @@ describe('Main IPC LLM Handlers', () => {
 
   it('LLM_NEXT_QUESTION maps and broadcasts a ClarificationPrompt', async () => {
     const h = handlers['clarityokr:llm:next-question'];
-    const result = await h(null, { context: { turns: [] }, lastChoice: { questionId: 'q1', optionId: 'a' } });
+    const result = await h(null, {
+      context: { turns: [] },
+      lastChoice: { questionId: 'q1', optionId: 'a' },
+    });
     expect(result).toHaveProperty('question.id', 'q2');
     const hasBroadcast = sent.some((m) => m.channel === 'clarityokr:clarification:prompt');
     expect(hasBroadcast).toBe(true);

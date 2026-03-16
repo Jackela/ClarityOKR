@@ -11,6 +11,7 @@ import { SessionRepository } from './persistence/session-repository.js';
 import { initializeTestMode, type TestMode } from './test-mode.js';
 import { ClarificationController } from './windows/clarification-controller.js';
 import { StickyWindowManager } from './windows/sticky-window-manager.js';
+import { OkrAgentService } from './services/okr-agent.service.js';
 
 const { app, BrowserWindow } = electron;
 
@@ -25,6 +26,7 @@ const stickyWindowManager = new StickyWindowManager({
   preloadPath,
   rendererDistPath,
 });
+const okrAgentService = new OkrAgentService();
 
 let mainWindow: ElectronBrowserWindow | null = null;
 
@@ -34,6 +36,7 @@ const clarificationController = new ClarificationController(
   okrRepository,
   actionLogWriter,
   stickyWindowManager,
+  okrAgentService,
 );
 
 // Initialize TestMode API for E2E testing

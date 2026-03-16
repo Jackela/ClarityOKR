@@ -1,8 +1,10 @@
 import '@angular/compiler';
 
+import { TestBed } from '@angular/core/testing';
 import type { ClarificationPrompt } from '@clarityokr/contracts';
 
 import { SyncClarificationState } from '../../../app/renderer/src/app/clarification/services/sync-clarification-state.service';
+import { Logger } from '../../../app/renderer/src/app/core/services/logger.service';
 
 function buildPrompt(optionCount = 3, id = 'prompt-1'): ClarificationPrompt {
   return {
@@ -23,7 +25,10 @@ describe('SyncClarificationState', () => {
   let state: SyncClarificationState;
 
   beforeEach(() => {
-    state = new SyncClarificationState();
+    TestBed.configureTestingModule({
+      providers: [SyncClarificationState, Logger],
+    });
+    state = TestBed.inject(SyncClarificationState);
   });
 
   it('persists prompts with 2-5 options and exposes them', () => {

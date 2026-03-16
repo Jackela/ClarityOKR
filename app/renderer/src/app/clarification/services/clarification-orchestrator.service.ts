@@ -24,6 +24,24 @@ export class ClarificationOrchestratorService {
     this.registerPromptListener();
   }
 
+  /**
+   * 开始澄清流程并请求第一个提示
+   *
+   * 验证会话ID和意图，设置加载状态，然后调用 Electron IPC 通道
+   * 请求 LLM 返回第一个澄清提示。成功后更新状态为 prompting。
+   *
+   * @param sessionId - 会话的唯一标识符
+   * @param intent - 用户的初始目标意图描述
+   * @returns Observable 在成功设置提示后完成，错误时抛出
+   * @throws 当验证失败或 IPC 调用失败时抛出错误
+   *
+   * @example
+   * orchestrator.requestPrompt('session-123', '提高团队效率')
+   *   .subscribe({
+   *     next: () => console.log('第一个提示已加载'),
+   *     error: (err) => console.error('请求失败:', err)
+   *   });
+   */
   requestPrompt(sessionId: string, intent: string): Observable<void> {
     this.logger.debug('[ORCHESTRATOR] requestPrompt called', { sessionId, intent });
     const bridge = this.ensureBridge();
@@ -59,6 +77,22 @@ export class ClarificationOrchestratorService {
     );
   }
 
+  /**
+   * 处理用户对澄清提示选项的选择
+   *
+   * 同步更新状态记录用户选择，然后通过 IPC 通道发送选择到主进程
+   * 主进程会根据选择决定下一个提示或生成 OKR
+   *
+   * @param sessionId - 当前会话的唯一标识符
+   * @param promptId - 当前提示的唯一标识符
+   * @param optionId - 用户选择的选项 ID
+   * @returns Observable 完成时表示选择已发送
+   * @throws 当验证失败时抛出错误
+   *
+   * @example
+   * orchestrator.recordSelection('session-123', 'prompt-1', 'option-a')
+   *   .subscribe(() => console.log('选择已记录'));
+   */
   recordSelection(sessionId: string, promptId: string, optionId: string): Observable<void> {
     const bridge = this.ensureBridge();
 
@@ -82,9 +116,17 @@ export class ClarificationOrchestratorService {
   }
 
   /**
-   * Request next question via LLM gateway
-   * This method encapsulates the loading state management and error handling
-   * to prevent direct store manipulation from components
+   * 请求下一个澄清问题
+   *
+   * 封装加载状态管理和错误处理，防止组件直接操作 store
+   * 当前为临时实现，未来应使用新的 LlmGateway 抽象
+   *
+   * @param _questionId - 当前问题的 ID（预留参数）
+   * @param _optionId - 用户选择的选项 ID（预留参数）
+   * @returns Observable 完成时返回 null（当前为占位实现）
+   *
+   * @example
+   * orchestrator.requestNextQuestion('q-1', 'opt-a').subscribe();
    */
   requestNextQuestion(_questionId: string, _optionId: string): Observable<unknown> {
     this.state.setLoading(true);

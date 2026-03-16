@@ -74,7 +74,7 @@ export interface TestModeAPI {
    * @param sessionId - The session ID
    * @returns The session or undefined
    */
-  getSession(sessionId: string): ClarificationSession | undefined;
+  getSession(sessionId: string): Promise<ClarificationSession | undefined>;
 
   /**
    * Get all sessions
@@ -263,8 +263,8 @@ export class TestMode implements TestModeAPI {
     this.notifyStateChange();
   }
 
-  getSession(sessionId: string): ClarificationSession | undefined {
-    return this.controller.getSession(sessionId);
+  async getSession(sessionId: string): Promise<ClarificationSession | undefined> {
+    return this.controller.getSessionForTest(sessionId);
   }
 
   getAllSessions(): Map<string, ClarificationSession> {
