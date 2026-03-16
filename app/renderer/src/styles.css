@@ -1,8 +1,35 @@
+/*
+ * Global Styles - ClarityOKR
+ * ---------------------------
+ * Import design tokens first, then define global styles.
+ */
+
+@import './styles/tokens.css';
+@import './styles/responsive.css';
+
 :root {
-  font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  font-family: var(--font-family);
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  background: #f3f4ff;
+  background: var(--color-background);
+  color: var(--color-text);
+  line-height: var(--line-height-normal);
+}
+
+/* Global focus styles */
+*:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Selection styles */
+::selection {
+  background-color: var(--color-primary-light-hover);
+  color: var(--color-text);
 }

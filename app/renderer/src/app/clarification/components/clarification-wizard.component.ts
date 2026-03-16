@@ -1,4 +1,3 @@
-/* eslint-disable import/order, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment */
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Output } from '@angular/core';
 import { SyncClarificationState } from '../services/sync-clarification-state.service';
@@ -8,27 +7,46 @@ import { SyncClarificationState } from '../services/sync-clarification-state.ser
   standalone: true,
   imports: [CommonModule],
   template: `
-    <section>
+    <section aria-label="目标澄清向导">
+      <!-- Live region for loading status -->
+      <div aria-live="polite" aria-atomic="true" class="sr-only">
+        @if (state.isLoading()) {
+          正在加载下一步
+        }
+      </div>
+
       <!-- Loading indicator -->
       @if (state.isLoading()) {
-        <p class="loading" data-testid="clarification-loading">正在加载下一步…</p>
+        <p class="loading" data-testid="clarification-loading" role="status" aria-busy="true">
+          正在加载下一步…
+        </p>
       }
 
       <!-- Current prompt display -->
       @if (state.currentPrompt(); as prompt) {
-        <h2 data-testid="prompt-question">{{ prompt.question }}</h2>
+        <h2 data-testid="prompt-question" id="prompt-question">{{ prompt.question }}</h2>
 
         @if (prompt.context) {
-          <p class="context">{{ prompt.context }}</p>
+          <p class="context" id="prompt-context">{{ prompt.context }}</p>
         }
 
-        <div class="option-grid" role="group" aria-label="Clarification options">
+        <div
+          class="option-grid"
+          role="radiogroup"
+          [attr.aria-labelledby]="'prompt-question'"
+          [attr.aria-describedby]="prompt.context ? 'prompt-context' : null"
+        >
           @for (option of prompt.options; track option.id) {
             <button
               type="button"
               class="option"
               data-testid="clarification-option"
+              role="radio"
+              [attr.aria-label]="
+                option.label + (option.description ? '：' + option.description : '')
+              "
               (click)="onOptionSelect(option.id)"
+              (keydown)="onOptionKeydown($event, option.id)"
             >
               <span class="option-label">{{ option.label }}</span>
               @if (option.description) {
@@ -38,8 +56,8 @@ import { SyncClarificationState } from '../services/sync-clarification-state.ser
           }
         </div>
 
-        @if (state.validationError()) {
-          <p class="validation">{{ state.validationError() }}</p>
+        @if (state.validationError(); as validationError) {
+          <p class="validation" role="alert" id="validation-error">{{ validationError }}</p>
         }
 
         <button
@@ -48,6 +66,7 @@ import { SyncClarificationState } from '../services/sync-clarification-state.ser
           data-testid="clarification-generate"
           [disabled]="!state.isReadyToGenerate()"
           [attr.data-ready]="state.isReadyToGenerate()"
+          [attr.aria-describedby]="state.validationError() ? 'validation-error' : null"
           (click)="onGenerate()"
         >
           生成 OKR
@@ -62,6 +81,7 @@ import { SyncClarificationState } from '../services/sync-clarification-state.ser
           data-testid="clarification-generate"
           [disabled]="false"
           [attr.data-ready]="true"
+          [attr.aria-label]="'生成 OKR - 已准备好'"
           (click)="onGenerate()"
         >
           生成 OKR
@@ -70,9 +90,15 @@ import { SyncClarificationState } from '../services/sync-clarification-state.ser
 
       <!-- Error display -->
       @if (state.hasError()) {
-        <div class="error-container" data-testid="error-message">
+        <div class="error-container" data-testid="error-message" role="alert" aria-live="assertive">
           <p class="error-text">{{ state.errorMessage() }}</p>
-          <button type="button" class="retry" data-testid="retry-button" (click)="onRetry()">
+          <button
+            type="button"
+            class="retry"
+            data-testid="retry-button"
+            aria-label="重试加载澄清问题"
+            (click)="onRetry()"
+          >
             重试
           </button>
         </div>
@@ -83,89 +109,188 @@ import { SyncClarificationState } from '../services/sync-clarification-state.ser
     `
       :host {
         display: block;
-        padding: 1rem;
+        padding: var(--space-lg);
       }
       .context {
-        color: rgba(15, 23, 42, 0.7);
-        margin-bottom: 1rem;
+        color: var(--color-text-muted-alt);
+        margin-bottom: var(--space-lg);
       }
       .option-grid {
         display: grid;
-        gap: 0.75rem;
+        gap: var(--space-md);
         grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-        margin: 1rem 0;
+        margin: var(--space-lg) 0;
       }
       .option {
         display: flex;
         flex-direction: column;
         align-items: flex-start;
-        padding: 0.75rem;
-        border-radius: 0.75rem;
-        border: 1px solid rgba(37, 99, 235, 0.25);
-        background-color: rgba(37, 99, 235, 0.08);
+        padding: var(--space-md);
+        border-radius: var(--radius-md);
+        border: 1px solid var(--color-primary-alpha-25);
+        background-color: var(--color-primary-light);
         cursor: pointer;
         text-align: left;
         transition:
-          transform 120ms ease,
-          box-shadow 120ms ease;
+          transform var(--transition-fast),
+          box-shadow var(--transition-fast);
       }
       .option:hover {
         transform: translateY(-1px);
-        box-shadow: 0 8px 16px rgba(37, 99, 235, 0.1);
+        box-shadow: var(--shadow-md);
+      }
+
+      .option:focus-visible {
+        outline: 2px solid var(--color-primary);
+        outline-offset: 2px;
+        box-shadow: var(--shadow-ring);
       }
       .option-label {
-        font-weight: 600;
-        color: #1d4ed8;
+        font-weight: var(--font-weight-semibold);
+        color: var(--color-text-primary);
       }
       .option-description {
-        margin-top: 0.25rem;
-        color: rgba(30, 41, 59, 0.7);
+        margin-top: var(--space-xs);
+        color: var(--color-text-muted-alt);
       }
       .validation {
-        color: #b91c1c;
-        font-size: 0.9rem;
-        margin-bottom: 1rem;
+        color: var(--color-error-hover);
+        font-size: var(--font-size-md);
+        margin-bottom: var(--space-lg);
       }
       .loading {
-        color: #0f766e;
-        font-size: 0.9rem;
-        margin-bottom: 0.5rem;
+        color: var(--color-success);
+        font-size: var(--font-size-md);
+        margin-bottom: var(--space-sm);
       }
       .error-container {
-        background-color: rgba(239, 68, 68, 0.1);
-        border: 1px solid rgba(239, 68, 68, 0.3);
-        border-radius: 0.5rem;
-        padding: 1rem;
-        margin-bottom: 1rem;
+        background-color: var(--color-error-light);
+        border: 1px solid var(--color-error-alpha-30);
+        border-radius: var(--radius-sm);
+        padding: var(--space-lg);
+        margin-bottom: var(--space-lg);
       }
       .error-text {
-        color: #b91c1c;
-        font-size: 0.9rem;
-        margin-bottom: 0.75rem;
+        color: var(--color-error-hover);
+        font-size: var(--font-size-md);
+        margin-bottom: var(--space-md);
       }
       .retry {
-        padding: 0.5rem 1rem;
-        border-radius: 0.5rem;
-        background-color: #dc2626;
-        color: #fff;
+        padding: var(--space-sm) var(--space-lg);
+        border-radius: var(--radius-sm);
+        background-color: var(--color-error);
+        color: var(--color-surface);
         border: none;
         cursor: pointer;
-        font-size: 0.875rem;
+        font-size: var(--font-size-sm);
+        font-weight: var(--font-weight-semibold);
+        transition: background-color var(--transition-fast);
       }
       .retry:hover {
-        background-color: #b91c1c;
+        background-color: var(--color-error-hover);
       }
+
+      .retry:focus-visible {
+        outline: 2px solid var(--color-error);
+        outline-offset: 2px;
+      }
+
       .generate {
-        padding: 0.75rem 1.75rem;
-        border-radius: 999px;
-        background-color: #2563eb;
-        color: #fff;
+        padding: var(--space-md) var(--space-2xl);
+        border-radius: var(--radius-full);
+        background-color: var(--color-primary);
+        color: var(--color-surface);
         border: none;
         cursor: pointer;
+        font-weight: var(--font-weight-semibold);
+        transition:
+          background-color var(--transition-fast),
+          transform var(--transition-fast);
+      }
+      .generate:not(:disabled):hover {
+        background-color: var(--color-primary-hover);
+        transform: translateY(-1px);
       }
       .generate:disabled {
         background-color: rgba(37, 99, 235, 0.35);
         cursor: not-allowed;
+      }
+
+      .generate:focus-visible {
+        outline: 2px solid var(--color-primary);
+        outline-offset: 2px;
+      }
+
+      /* Screen reader only class */
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      /* Responsive styles */
+      @media (max-width: 768px) {
+        :host {
+          padding: var(--space-md);
+        }
+
+        .option-grid {
+          grid-template-columns: 1fr;
+          gap: var(--space-sm);
+        }
+
+        .option {
+          padding: var(--space-lg);
+        }
+
+        .generate {
+          width: 100%;
+          padding: var(--space-md) var(--space-lg);
+        }
+
+        .error-container {
+          padding: var(--space-md);
+        }
+      }
+
+      @media (max-width: 640px) {
+        h2 {
+          font-size: var(--font-size-lg);
+        }
+
+        .option {
+          padding: var(--space-md);
+        }
+
+        .option-label {
+          font-size: var(--font-size-base);
+        }
+
+        .option-description {
+          font-size: var(--font-size-xs);
+        }
+
+        .context {
+          font-size: var(--font-size-sm);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .option,
+        .retry,
+        .generate {
+          transition: none;
+        }
+
+        .option:hover {
+          transform: none;
+        }
       }
     `,
   ],
@@ -178,14 +303,18 @@ export class ClarificationWizardComponent {
   constructor(public readonly state: SyncClarificationState) {}
 
   onOptionSelect(optionId: string): void {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const prompt = this.state.currentPrompt();
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    if (prompt && prompt.id) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    if (prompt?.id) {
       this.state.recordSelection(prompt.id, optionId);
     }
     this.optionSelected.emit(optionId);
+  }
+
+  onOptionKeydown(event: KeyboardEvent, optionId: string): void {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      this.onOptionSelect(optionId);
+    }
   }
 
   onGenerate(): void {

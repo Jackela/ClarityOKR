@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 export interface KeyResult {
   id: string;
   statement: string;
@@ -36,9 +35,13 @@ export function isValidDraft(payload: unknown): payload is OkrDraftResponse {
   for (const kr of obj.keyResults as unknown[]) {
     if (typeof kr !== 'object' || kr === null) return false;
     const k = kr as { id?: unknown; statement?: unknown; measurement?: unknown; target?: unknown };
-    if (typeof k.id !== 'string' || typeof k.statement !== 'string' || typeof k.measurement !== 'string') return false;
+    if (
+      typeof k.id !== 'string' ||
+      typeof k.statement !== 'string' ||
+      typeof k.measurement !== 'string'
+    )
+      return false;
     if (!(typeof k.target === 'string' || typeof k.target === 'number')) return false;
   }
   return true;
 }
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */

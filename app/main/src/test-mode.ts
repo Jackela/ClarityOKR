@@ -12,6 +12,7 @@ import { randomUUID } from 'node:crypto';
 
 import type { ClarificationSession, MockResponseConfig, OKRDocument } from '@clarityokr/contracts';
 
+import { Logger } from './core/logger.js';
 import type { ActionLogWriter } from './persistence/action-log-writer.js';
 import type { OkrRepository } from './persistence/okr-repository.js';
 import type { SessionRepository } from './persistence/session-repository.js';
@@ -177,13 +178,13 @@ export class TestMode implements TestModeAPI {
     private readonly okrRepo: OkrRepository,
     private readonly actionLogWriter: ActionLogWriter,
   ) {
-    console.info('[testMode] Initialized');
+    Logger.info('[testMode] Initialized');
   }
 
   // ==================== State Reset ====================
 
   async resetState(): Promise<void> {
-    console.info('[testMode] Resetting all state...');
+    Logger.info('[testMode] Resetting all state...');
 
     // 1. Clear all sessions from controller
     this.controller.resetSessions();
@@ -212,18 +213,18 @@ export class TestMode implements TestModeAPI {
     // 6. Notify state change
     this.notifyStateChange();
 
-    console.info('[testMode] State reset complete');
+    Logger.info('[testMode] State reset complete');
   }
 
   resetSession(): Promise<void> {
-    console.info('[testMode] Resetting sessions...');
+    Logger.info('[testMode] Resetting sessions...');
     this.controller.resetSessions();
     this.notifyStateChange();
     return Promise.resolve();
   }
 
   async resetPersistence(): Promise<void> {
-    console.info('[testMode] Resetting persistence...');
+    Logger.info('[testMode] Resetting persistence...');
     await this.sessionRepo.saveSession(null);
     await this.clearOKRs();
     // Note: ActionLogWriter doesn't have a clear method, it only appends
@@ -253,7 +254,7 @@ export class TestMode implements TestModeAPI {
     await this.sessionRepo.saveSession(session);
     this.notifyStateChange();
 
-    console.info('[testMode] Created mock session:', sessionId);
+    Logger.info('[testMode] Created mock session:', sessionId);
     return sessionId;
   }
 
@@ -275,7 +276,7 @@ export class TestMode implements TestModeAPI {
   setMockLLMResponse(type: 'nextQuestion' | 'draft', response: unknown): void {
     this.mockLLMResponses.set(type, response);
     this.notifyStateChange();
-    console.info('[testMode] Set mock LLM response for:', type);
+    Logger.info('[testMode] Set mock LLM response for:', type);
   }
 
   clearMockResponses(): void {
@@ -315,7 +316,7 @@ export class TestMode implements TestModeAPI {
       try {
         cb(state);
       } catch (error) {
-        console.error('[testMode] Error in state change callback:', error);
+        Logger.error('[testMode] Error in state change callback:', error);
       }
     });
   }
@@ -325,14 +326,14 @@ export class TestMode implements TestModeAPI {
   pauseAsyncOperations(): void {
     this.asyncPaused = true;
     this.notifyStateChange();
-    console.info('[testMode] Async operations paused');
+    Logger.info('[testMode] Async operations paused');
   }
 
   resumeAsyncOperations(): void {
     this.asyncPaused = false;
     void this.drainAsyncQueue();
     this.notifyStateChange();
-    console.info('[testMode] Async operations resumed');
+    Logger.info('[testMode] Async operations resumed');
   }
 
   async waitForAsyncOperations(timeout = 30000): Promise<void> {
@@ -371,7 +372,7 @@ export class TestMode implements TestModeAPI {
         try {
           await op();
         } catch (error) {
-          console.error('[testMode] Error in async operation:', error);
+          Logger.error('[testMode] Error in async operation:', error);
         }
       }
     }
@@ -439,7 +440,7 @@ export function initializeTestMode(
   if (process.env.NODE_ENV === 'test' || process.env.CI || process.env.E2E_TEST) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
     (global as unknown as { testMode: TestMode }).testMode = globalTestMode;
-    console.info('[testMode] Exposed to global.testMode for E2E access');
+    Logger.info('[testMode] Exposed to global.testMode for E2E access');
   }
 
   return globalTestMode;

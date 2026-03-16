@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-redundant-type-constituents, import/order */
 import { Injectable, NgZone } from '@angular/core';
 import {
   clarificationOptionSelectionSchema,
@@ -8,6 +7,7 @@ import {
 import { from, Observable, of, throwError } from 'rxjs';
 import { catchError, map, tap } from 'rxjs/operators';
 
+import { Logger } from '../../core/services/logger.service';
 import { IPC_CHANNELS } from '../../shared/ipc-channel.tokens';
 import type { ClarifyOkrApi } from '../../shared/window';
 import { SyncClarificationState } from './sync-clarification-state.service';
@@ -19,25 +19,25 @@ export class ClarificationOrchestratorService {
   constructor(
     private readonly state: SyncClarificationState,
     private readonly zone: NgZone,
+    private readonly logger: Logger,
   ) {
     this.registerPromptListener();
   }
 
   requestPrompt(sessionId: string, intent: string): Observable<void> {
-    console.log('[ORCHESTRATOR] requestPrompt called', { sessionId, intent });
+    this.logger.debug('[ORCHESTRATOR] requestPrompt called', { sessionId, intent });
     const bridge = this.ensureBridge();
     const parsed = clarificationPromptRequestSchema.safeParse({ sessionId, intent });
     if (!parsed.success) {
       const message = parsed.error.message;
-      console.log('[ORCHESTRATOR] Validation error:', message);
+      this.logger.debug('[ORCHESTRATOR] Validation error:', message);
       this.state.setValidationError(message);
       return throwError(() => new Error(message));
     }
 
     this.state.setSessionId(sessionId);
-    this.state.setIntent(intent);
-    console.log('[ORCHESTRATOR] Setting loading state with intent:', intent);
-    this.state.setLoading(true);
+    this.logger.debug('[ORCHESTRATOR] Setting loading state with intent:', intent);
+    this.state.start(intent);
 
     return from(bridge.invoke(IPC_CHANNELS.CLARIFICATION_PROMPT, parsed.data)).pipe(
       map((response) => clarificationPromptResponseSchema.safeParse(response)),
@@ -45,13 +45,13 @@ export class ClarificationOrchestratorService {
         if (!result.success) {
           throw result.error;
         }
-        console.log('[ORCHESTRATOR] Setting prompt:', result.data.prompt.id);
+        this.logger.debug('[ORCHESTRATOR] Setting prompt:', result.data.prompt.id);
         this.state.setPrompt(result.data.prompt);
       }),
       map(() => void 0),
       catchError((error) => {
         const message = error instanceof Error ? error.message : String(error);
-        console.log('[ORCHESTRATOR] Caught error in requestPrompt:', message, { error });
+        this.logger.debug('[ORCHESTRATOR] Caught error in requestPrompt:', message, { error });
         // Set error state synchronously
         this.state.setError({ message, recoverable: true });
         return throwError(() => (error instanceof Error ? error : new Error(message)));
@@ -77,7 +77,7 @@ export class ClarificationOrchestratorService {
   }
 
   markReady(ready: boolean): void {
-    console.log('[ORCHESTRATOR] markReady:', ready);
+    this.logger.debug('[ORCHESTRATOR] markReady:', ready);
     this.state.setReady(ready);
   }
 
@@ -99,9 +99,9 @@ export class ClarificationOrchestratorService {
    * Clear error state
    */
   clearError(): void {
-    console.log('[ORCHESTRATOR] clearError called');
+    this.logger.debug('[ORCHESTRATOR] clearError called');
     this.state.clearError();
-    console.log('[ORCHESTRATOR] clearError completed');
+    this.logger.debug('[ORCHESTRATOR] clearError completed');
   }
 
   private registerPromptListener(): void {
@@ -115,16 +115,16 @@ export class ClarificationOrchestratorService {
     }
 
     bridge.on(IPC_CHANNELS.CLARIFICATION_PROMPT, (_event, payload) => {
-      console.log('[ORCHESTRATOR] Received CLARIFICATION_PROMPT event', payload);
+      this.logger.debug('[ORCHESTRATOR] Received CLARIFICATION_PROMPT event', payload);
       this.zone.run(() => {
         const parsed = clarificationPromptResponseSchema.safeParse(payload);
         if (!parsed.success) {
           const message = parsed.error.message;
-          console.log('[ORCHESTRATOR] Parse error in prompt listener:', message);
+          this.logger.debug('[ORCHESTRATOR] Parse error in prompt listener:', message);
           this.state.setError({ message, recoverable: true });
           return;
         }
-        console.log('[ORCHESTRATOR] Setting prompt from listener:', parsed.data.prompt.id);
+        this.logger.debug('[ORCHESTRATOR] Setting prompt from listener:', parsed.data.prompt.id);
         this.state.setPrompt(parsed.data.prompt);
       });
     });
@@ -135,10 +135,10 @@ export class ClarificationOrchestratorService {
   private ensureBridge(): ClarifyOkrApi {
     const bridge = this.bridgeOrUndefined();
     if (!bridge) {
-      console.error('[renderer] clarifyOkr bridge missing');
+      this.logger.error('[renderer] clarifyOkr bridge missing');
       throw new Error('ClarifyOKR bridge is unavailable.');
     }
-    console.info('[renderer] clarifyOkr bridge established');
+    this.logger.info('[renderer] clarifyOkr bridge established');
     return bridge;
   }
 

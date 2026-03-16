@@ -4,6 +4,7 @@ import type { OKRDocument } from '@clarityokr/contracts';
 import { BrowserWindow } from 'electron';
 
 import { IPCChannels } from '../bootstrap/ipc-channels.js';
+import { Logger } from '../core/logger.js';
 
 export interface StickyWindowConfig {
   preloadPath: string;
@@ -25,7 +26,7 @@ export class StickyWindowManager {
       return;
     }
 
-    console.info('[main] opening sticky window');
+    Logger.info('[main] opening sticky window');
     this.window = new BrowserWindow({
       width: 420,
       height: 560,
@@ -40,20 +41,20 @@ export class StickyWindowManager {
       webPreferences: {
         contextIsolation: true,
         nodeIntegration: false,
-        preload: this.config.preloadPath
-      }
+        preload: this.config.preloadPath,
+      },
     });
 
     this.window.setTitle('ClarityOKR Sticky');
     this.window.setAlwaysOnTop(true, 'screen-saver');
     this.window.setFullScreenable(false);
     this.window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-    console.info('[main] sticky window always-on-top state', this.window.isAlwaysOnTop());
+    Logger.info('[main] sticky window always-on-top state', this.window.isAlwaysOnTop());
 
     const indexFile = path.join(this.config.rendererDistPath, 'index.html');
 
     await this.window.loadFile(indexFile, { search: 'view=sticky' });
-    console.info('[main] sticky window content loaded');
+    Logger.info('[main] sticky window content loaded');
 
     this.window.on('closed', () => {
       this.window = null;
@@ -69,8 +70,11 @@ export class StickyWindowManager {
       this.window?.setAlwaysOnTop(true, 'screen-saver');
       this.window?.setFullScreenable(false);
       this.window?.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-      console.info('[main] sticky window post-load always-on-top state', this.window?.isAlwaysOnTop());
-      console.info('[main] sticky window ready, pushing document');
+      Logger.info(
+        '[main] sticky window post-load always-on-top state',
+        this.window?.isAlwaysOnTop(),
+      );
+      Logger.info('[main] sticky window ready, pushing document');
       this.sendDocument(document);
     });
 
@@ -89,9 +93,9 @@ export class StickyWindowManager {
       return;
     }
 
-    console.info('[main] sending OKR document to sticky window', { okrId: document.id });
+    Logger.info('[main] sending OKR document to sticky window', { okrId: document.id });
     this.window.webContents.send(IPCChannels.OKR_GENERATE, {
-      okr: document
+      okr: document,
     });
   }
 }

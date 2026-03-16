@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import electron from 'electron';
 import type { BrowserWindow as ElectronBrowserWindow, Event as ElectronEvent } from 'electron';
 
+import { Logger } from './core/logger.js';
 import { ActionLogWriter } from './persistence/action-log-writer.js';
 import { OkrRepository } from './persistence/okr-repository.js';
 import { SessionRepository } from './persistence/session-repository.js';
@@ -22,7 +23,7 @@ const okrRepository = new OkrRepository();
 const actionLogWriter = new ActionLogWriter();
 const stickyWindowManager = new StickyWindowManager({
   preloadPath,
-  rendererDistPath
+  rendererDistPath,
 });
 
 let mainWindow: ElectronBrowserWindow | null = null;
@@ -32,7 +33,7 @@ const clarificationController = new ClarificationController(
   sessionRepository,
   okrRepository,
   actionLogWriter,
-  stickyWindowManager
+  stickyWindowManager,
 );
 
 // Initialize TestMode API for E2E testing
@@ -42,9 +43,9 @@ if (process.env.NODE_ENV === 'test' || process.env.CI || process.env.E2E_TEST) {
     clarificationController,
     sessionRepository,
     okrRepository,
-    actionLogWriter
+    actionLogWriter,
   );
-  console.info('[main] TestMode initialized:', !!testMode);
+  Logger.info('[main] TestMode initialized:', !!testMode);
 }
 
 app.disableHardwareAcceleration();
@@ -61,8 +62,8 @@ async function createWindow(): Promise<void> {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
-      preload: preloadPath
-    }
+      preload: preloadPath,
+    },
   });
 
   if (process.env.ELECTRON_START_URL) {
@@ -76,12 +77,15 @@ async function createWindow(): Promise<void> {
   });
 
   mainWindow.webContents.on('did-finish-load', () => {
-    console.info('[main] renderer loaded');
+    Logger.info('[main] renderer loaded');
   });
 
-  mainWindow.webContents.on('did-fail-load', (_event: ElectronEvent, errorCode: number, errorDescription: string) => {
-    console.error('[main] renderer failed to load', errorCode, errorDescription);
-  });
+  mainWindow.webContents.on(
+    'did-fail-load',
+    (_event: ElectronEvent, errorCode: number, errorDescription: string) => {
+      Logger.error('[main] renderer failed to load', errorCode, errorDescription);
+    },
+  );
 }
 
 void app.whenReady().then(() => {
@@ -101,7 +105,7 @@ app.on('window-all-closed', () => {
 });
 
 process.on('uncaughtException', (error) => {
-  console.error('Uncaught exception in main process', error);
+  Logger.error('Uncaught exception in main process', error);
 });
 
 // Export for test access

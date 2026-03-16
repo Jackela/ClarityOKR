@@ -1,0 +1,107 @@
+/*
+ * Responsive Styles - ClarityOKR
+ * --------------------------------
+ * Mobile-first responsive utilities and media queries.
+ */
+
+/* Responsive text sizing */
+@media (max-width: 768px) {
+  :root {
+    --font-size-2xl: 1.5rem;
+    --font-size-xl: 1.125rem;
+    --font-size-lg: 1rem;
+    --container-padding: 1rem;
+    --space-4xl: 2rem;
+    --space-5xl: 3rem;
+  }
+}
+
+@media (max-width: 640px) {
+  :root {
+    --font-size-2xl: 1.25rem;
+    --font-size-xl: 1rem;
+    --container-padding: 0.75rem;
+    --space-4xl: 1.5rem;
+    --space-5xl: 2rem;
+  }
+}
+
+/* Utility: Responsive grid */
+.responsive-grid {
+  display: grid;
+  gap: var(--space-md);
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+@media (max-width: 768px) {
+  .responsive-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Utility: Stack on mobile */
+.stack-mobile {
+  display: flex;
+  flex-direction: row;
+}
+
+@media (max-width: 768px) {
+  .stack-mobile {
+    flex-direction: column;
+  }
+}
+
+/* Utility: Full-width on mobile */
+.full-width-mobile {
+  width: auto;
+}
+
+@media (max-width: 768px) {
+  .full-width-mobile {
+    width: 100%;
+  }
+}
+
+/* Skip link styles */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--color-primary);
+  color: var(--color-surface);
+  padding: var(--space-sm) var(--space-lg);
+  text-decoration: none;
+  font-weight: var(--font-weight-semibold);
+  border-radius: 0 0 var(--radius-md) 0;
+  z-index: calc(var(--z-modal) + 1);
+  transition: top var(--transition-fast);
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+/* Focus visible indicator */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  :root {
+    --color-text-muted: #000000;
+    --color-primary-alpha-25: rgba(37, 99, 235, 0.5);
+  }
+}

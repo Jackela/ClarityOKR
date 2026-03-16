@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-redundant-type-constituents */
 import { Injectable } from '@angular/core';
 import {
   generateOKRRequestSchema,
@@ -9,6 +8,7 @@ import type { GenerateOKRRequest, OKRDocument } from '@clarityokr/contracts';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 
+import { Logger } from '../../core/services/logger.service';
 import { IPC_CHANNELS } from '../../shared/ipc-channel.tokens';
 import type { ClarifyOkrApi } from '../../shared/window';
 
@@ -25,7 +25,10 @@ export class OkrStickyGatewayService {
     return this.viewModelSubject.getValue();
   }
 
-  constructor(private readonly projection: OkrProjectionService) {
+  constructor(
+    private readonly projection: OkrProjectionService,
+    private readonly logger: Logger,
+  ) {
     this.registerListeners();
     void this.hydrateFromMain();
   }
@@ -36,8 +39,7 @@ export class OkrStickyGatewayService {
       sessionId,
       intentSummary,
     } satisfies GenerateOKRRequest);
-    // eslint-disable-next-line no-console
-    console.info('[renderer] requesting OKR generation (LLM)', payload);
+    this.logger.info('[renderer] requesting OKR generation (LLM)', payload);
     const response = await bridge.invoke(IPC_CHANNELS.LLM_GENERATE_DRAFT, {
       context: undefined,
       sessionId,
@@ -61,8 +63,10 @@ export class OkrStickyGatewayService {
     bridge.on(IPC_CHANNELS.OKR_GENERATE, (_event, payload) => {
       const parsedResponse = generateOKRResponseSchema.safeParse(payload);
       if (parsedResponse.success) {
-        // eslint-disable-next-line no-console
-        console.info('[renderer] received OKR payload via response', parsedResponse.data.okr.id);
+        this.logger.info(
+          '[renderer] received OKR payload via response',
+          parsedResponse.data.okr.id,
+        );
         this.storeDocument(parsedResponse.data.okr);
         return;
       }
@@ -71,14 +75,12 @@ export class OkrStickyGatewayService {
         (payload as { okr?: unknown })?.okr ?? payload,
       );
       if (parsedDocument.success) {
-        // eslint-disable-next-line no-console
-        console.info('[renderer] received OKR document broadcast', parsedDocument.data.id);
+        this.logger.info('[renderer] received OKR document broadcast', parsedDocument.data.id);
         this.storeDocument(parsedDocument.data);
         return;
       }
 
-      // eslint-disable-next-line no-console
-      console.error(
+      this.logger.error(
         '[renderer] Failed to parse OKR payload from main process',
         parsedResponse.error,
       );
@@ -123,13 +125,11 @@ export class OkrStickyGatewayService {
       const latest = await bridge.invoke(IPC_CHANNELS.OKR_LATEST, undefined);
       const parsed = okrDocumentSchema.safeParse(latest);
       if (parsed.success) {
-        // eslint-disable-next-line no-console
-        console.info('[renderer] hydrated sticky note from persisted OKR', parsed.data.id);
+        this.logger.info('[renderer] hydrated sticky note from persisted OKR', parsed.data.id);
         this.storeDocument(parsed.data);
       }
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('[renderer] failed to hydrate sticky note', error);
+      this.logger.error('[renderer] failed to hydrate sticky note', error);
     }
   }
 
