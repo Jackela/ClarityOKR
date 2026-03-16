@@ -58,15 +58,17 @@ describe('ClarificationStore', () => {
     let selectedIds = await firstValueFrom(store.selectedOptionIds$);
     expect(selectedIds).toEqual(['opt-0']);
 
+    // In 'ready' state (after first selection), selection changes should still work
+    // Note: state transitions to 'ready' after first selection with new logic
     store.recordSelection('opt-1');
     selectedIds = await firstValueFrom(store.selectedOptionIds$);
+    // The second selection should still be recorded (user can change their mind)
     expect(selectedIds).toEqual(['opt-1']);
 
     // markReady is deprecated but should not break
     store.markReady(true);
     const isReady = await firstValueFrom(store.isReadyToGenerate$);
-    // State machine determines readiness automatically, so this may not be ready
-    // depending on how the state machine handles single prompt selections
+    // State machine determines readiness automatically
   });
 
   it('transition to ready state after selection on 1 prompt', async () => {
