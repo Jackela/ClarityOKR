@@ -25,12 +25,11 @@ import type {
   OkrDraftRequest,
   OkrDraftResponse,
 } from '../main/ipc.llm.js';
-import { ActionLogWriter } from '../persistence/action-log-writer.js';
-import { OkrRepository } from '../persistence/okr-repository.js';
-import { SessionRepository } from '../persistence/session-repository.js';
+import type { ActionLogWriter } from '../persistence/action-log-writer.js';
+import type { OkrRepository } from '../persistence/okr-repository.js';
+import type { SessionRepository } from '../persistence/session-repository.js';
 import type { OkrAgentService } from '../services/okr-agent.service.js';
-
-import { StickyWindowManager } from './sticky-window-manager.js';
+import type { StickyWindowManager } from './sticky-window-manager.js';
 
 export class ClarificationController {
   private readonly sessions = new Map<string, ClarificationSession>();
