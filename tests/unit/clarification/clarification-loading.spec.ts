@@ -1,6 +1,3 @@
-import '@angular/compiler';
-
-import { TestBed } from '@angular/core/testing';
 import type { ClarificationPrompt } from '@clarityokr/contracts';
 
 import { SyncClarificationState } from '../../../app/renderer/src/app/clarification/services/sync-clarification-state.service';
@@ -25,10 +22,8 @@ describe('SyncClarificationState loading flag', () => {
   let state: SyncClarificationState;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({
-      providers: [SyncClarificationState, Logger],
-    });
-    state = TestBed.inject(SyncClarificationState);
+    const logger = new Logger();
+    state = new SyncClarificationState(logger);
   });
 
   it('toggles loading state on setLoading', () => {
