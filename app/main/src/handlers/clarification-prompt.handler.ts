@@ -4,9 +4,9 @@ import {
 } from '@clarityokr/contracts';
 import type { ClarificationPrompt, ClarificationSession } from '@clarityokr/contracts';
 
-import { Logger } from '../../core/logger.js';
-import type { OkrAgentService } from '../../services/okr-agent.service.js';
-import type { SessionManager } from '../../services/session-manager.service.js';
+import { Logger } from '../core/logger.js';
+import type { OkrAgentService } from '../services/okr-agent.service.js';
+import type { SessionManager } from '../services/session-manager.service.js';
 
 export interface ClarificationPromptRequest {
   sessionId: string;
