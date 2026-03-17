@@ -2,7 +2,7 @@ import {
   clarificationPromptRequestSchema,
   clarificationPromptResponseSchema,
 } from '@clarityokr/contracts';
-import type { ClarificationPrompt, ClarificationSession } from '@clarityokr/contracts';
+import type { ClarificationPrompt } from '@clarityokr/contracts';
 
 import { Logger } from '../core/logger.js';
 import type { OkrAgentService } from '../services/okr-agent.service.js';

@@ -1,5 +1,3 @@
-import { randomUUID } from 'node:crypto';
-
 import type { ClarificationSession } from '@clarityokr/contracts';
 
 import { Logger } from '../core/logger.js';
@@ -73,7 +71,7 @@ export class SessionManager {
   /**
    * 更新会话步骤
    */
-  async addStep(session: ClarificationSession, promptId: string, sequence: number): Promise<void> {
+  async addStep(session: ClarificationSession, promptId: string, _sequence: number): Promise<void> {
     session.pendingQuestionId = promptId;
     session.updatedAt = new Date().toISOString();
     await this.saveSession(session);
