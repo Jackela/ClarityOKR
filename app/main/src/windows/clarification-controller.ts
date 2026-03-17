@@ -1,21 +1,19 @@
+import type { ClarificationSession } from '@clarityokr/contracts';
 import electron from 'electron';
 
 import { IPCChannels } from '../bootstrap/ipc-channels.js';
-import type { OkrRepository } from '../persistence/okr-repository.js';
-import type { SessionRepository } from '../persistence/session-repository.js';
-import { ActionLogService } from '../services/action-log.service.js';
-import type { OkrAgentService } from '../services/okr-agent.service.js';
-import { SessionManager } from '../services/session-manager.service.js';
-import type { ActionLogWriter } from '../persistence/action-log-writer.js';
-import type { StickyWindowManager } from './sticky-window-manager.js';
-
 import { ClarificationPromptHandler } from '../handlers/clarification-prompt.handler.js';
 import { ClarificationRespondHandler } from '../handlers/clarification-respond.handler.js';
 import { LlmGenerateDraftHandler } from '../handlers/llm-generate-draft.handler.js';
 import { LlmNextQuestionHandler } from '../handlers/llm-next-question.handler.js';
 import { OkrGenerateHandler } from '../handlers/okr-generate.handler.js';
-
-import type { ClarificationSession } from '@clarityokr/contracts';
+import type { ActionLogWriter } from '../persistence/action-log-writer.js';
+import type { OkrRepository } from '../persistence/okr-repository.js';
+import type { SessionRepository } from '../persistence/session-repository.js';
+import { ActionLogService } from '../services/action-log.service.js';
+import type { OkrAgentService } from '../services/okr-agent.service.js';
+import { SessionManager } from '../services/session-manager.service.js';
+import type { StickyWindowManager } from './sticky-window-manager.js';
 
 /**
  * ClarificationController - 澄清流程协调器（重构后）

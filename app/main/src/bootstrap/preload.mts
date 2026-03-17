@@ -1,5 +1,5 @@
-import { contextBridge, ipcRenderer } from 'electron';
-import type { IpcRendererEvent } from 'electron';
+import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
+
 import { IPCChannels } from './ipc-channels.js';
 
 // IPC 通道白名单 - 只允许这些通道的通信

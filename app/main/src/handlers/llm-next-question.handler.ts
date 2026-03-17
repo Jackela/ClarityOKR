@@ -1,7 +1,6 @@
-import electron from 'electron';
-
-import { clarificationSessionSchema } from '@clarityokr/contracts';
 import type { ClarificationPrompt } from '@clarityokr/contracts';
+import { clarificationSessionSchema } from '@clarityokr/contracts';
+import electron from 'electron';
 
 import { IPCChannels } from '../bootstrap/ipc-channels.js';
 import { Logger } from '../core/logger.js';

@@ -1,9 +1,8 @@
 import { randomUUID } from 'node:crypto';
 
-import electron from 'electron';
-
-import { generateOKRResponseSchema } from '@clarityokr/contracts';
 import type { OKRDocument } from '@clarityokr/contracts';
+import { generateOKRResponseSchema } from '@clarityokr/contracts';
+import electron from 'electron';
 
 import { IPCChannels } from '../bootstrap/ipc-channels.js';
 import { Logger } from '../core/logger.js';
