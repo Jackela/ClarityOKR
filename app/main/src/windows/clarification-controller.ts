@@ -13,6 +13,7 @@ import type { SessionRepository } from '../persistence/session-repository.js';
 import { ActionLogService } from '../services/action-log.service.js';
 import type { OkrAgentService } from '../services/okr-agent.service.js';
 import { SessionManager } from '../services/session-manager.service.js';
+
 import type { StickyWindowManager } from './sticky-window-manager.js';
 
 /**
