@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 
 import type { OkrStickyViewModel } from '../services/okr-projection.service';
 
@@ -7,6 +7,7 @@ import type { OkrStickyViewModel } from '../services/okr-projection.service';
   selector: 'clarityokr-sticky-note',
   standalone: true,
   imports: [CommonModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './okr-sticky-note.component.html',
   styleUrls: ['./okr-sticky-note.component.scss'],
 })

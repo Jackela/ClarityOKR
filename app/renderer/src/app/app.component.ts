@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, NgZone, OnDestroy, computed } from '@angular/core';
+import { ChangeDetectionStrategy, Component, NgZone, OnDestroy, computed } from '@angular/core';
 import { ReactiveFormsModule, FormControl, Validators } from '@angular/forms';
 import type { ClarificationPrompt } from '@clarityokr/contracts';
 import { Subject } from 'rxjs';
@@ -37,6 +37,7 @@ interface DraftResponse {
     ClarificationWizardComponent,
     OkrStickyNoteComponent,
   ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (!isStickyShell) {
       <a href="#main-content" class="skip-link">跳转到主内容</a>

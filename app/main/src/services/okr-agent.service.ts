@@ -1,9 +1,19 @@
 import { nextQuestionResponseSchema, okrDraftResponseSchema } from '@clarityokr/contracts';
 
+import { Logger } from '../core/logger.js';
 import { getLlmConfig } from '../env.js';
+import { LlmCacheService, type CacheStats } from './llm-cache.service.js';
+import { LlmCircuitBreaker, type CircuitBreakerMetrics } from './llm-circuit-breaker.service.js';
 
-type ClarificationContext = { turns: Array<{ questionId: string; optionId: string; timestamp: string }> };
+type ClarificationContext = {
+  turns: Array<{ questionId: string; optionId: string; timestamp: string }>;
+};
 type LastChoice = { questionId: string; optionId: string };
+
+export interface PerformanceMetrics {
+  cache: CacheStats;
+  circuitBreaker: CircuitBreakerMetrics;
+}
 
 export class OkrAgentService {
   private readonly cfg = getLlmConfig();
@@ -11,37 +21,46 @@ export class OkrAgentService {
   private readonly model = this.cfg.model || 'gpt-4o-mini';
   private readonly timeoutMs = 5000;
 
+  private readonly cache: LlmCacheService;
+  private readonly circuitBreaker: LlmCircuitBreaker;
+
+  constructor() {
+    this.cache = LlmCacheService.getInstance();
+
+    // Initialize circuit breaker for LLM API calls
+    this.circuitBreaker = new LlmCircuitBreaker(
+      (...args: unknown[]) => {
+        const [path, body] = args as [string, unknown];
+        return this.postJson(path, body);
+      },
+      {
+        failureThreshold: 5,
+        resetTimeoutMs: 30000,
+        timeout: this.timeoutMs,
+      },
+    );
+
+    // Set fallback for when circuit is open
+    this.circuitBreaker.fallback(() => {
+      throw new Error('LLM service temporarily unavailable - circuit breaker is open');
+    });
+
+    Logger.info('[OkrAgentService] Initialized with cache and circuit breaker');
+  }
+
   private async postJson(path: string, body: unknown, signal?: AbortSignal): Promise<unknown> {
     const url = `${this.baseUrl}${path}`;
     const res = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.cfg.apiKey}`
+        Authorization: `Bearer ${this.cfg.apiKey}`,
       },
       body: JSON.stringify(body),
-      signal
+      signal,
     });
     if (!res.ok) throw new Error(`LLM request failed: ${res.status}`);
     return res.json() as unknown;
-  }
-
-  private async withTimeout<T>(p: Promise<T>, ms: number, controller?: AbortSignal | { abort: () => void }): Promise<T> {
-    return await Promise.race([
-      p,
-      new Promise<T>((_resolve, reject) => {
-        const timer = setTimeout(() => {
-          try {
-            controller && 'abort' in controller && controller.abort();
-          } catch {
-            // ignore abort errors
-            void 0;
-          }
-          reject(new Error('LLM request timed out'));
-        }, ms);
-        p.finally(() => clearTimeout(timer)).catch(() => clearTimeout(timer));
-      })
-    ]);
   }
 
   private isValidNextQuestion(payload: unknown): boolean {
@@ -53,43 +72,93 @@ export class OkrAgentService {
   }
 
   /**
-   * Calls the configured LLM HTTP endpoint and validates the structured response.
-   * Performs a single retry when a transport failure occurs or validation fails.
+   * Calls the configured LLM HTTP endpoint with caching and circuit breaker protection.
    * Never leaks secrets to renderer; runs in Electron main.
    */
-  private async callLlmApi<T = unknown>(path: string, body: unknown, validate: (x: unknown) => boolean): Promise<T> {
-    const attempt = async () => {
-      const ac = new AbortController();
-      const fetchPromise = this.postJson(path, body, ac.signal);
-      return this.withTimeout(fetchPromise, this.timeoutMs, ac);
-    };
-
-    let result: unknown;
-    try {
-      result = await attempt();
-      if (validate(result)) return result as T;
-    } catch (_err) {
-      // continue to repair attempt
-      void _err;
+  private async callLlmApi<T = unknown>(
+    path: string,
+    body: unknown,
+    validate: (x: unknown) => boolean,
+    cacheKey?: string,
+  ): Promise<T> {
+    // Check cache first if cache key is provided
+    if (cacheKey) {
+      const cached = this.cache.get<T>(cacheKey);
+      if (cached) {
+        Logger.debug('[OkrAgentService] Cache hit for', cacheKey.substring(0, 20));
+        return cached;
+      }
     }
-    result = await attempt();
-    if (!validate(result)) throw new Error('LLM response invalid after repair attempt');
+
+    // Execute with circuit breaker protection
+    const result = await this.circuitBreaker.fire<unknown>(path, body);
+
+    if (!validate(result)) {
+      throw new Error('LLM response validation failed');
+    }
+
+    // Store in cache if cache key is provided
+    if (cacheKey) {
+      this.cache.set(cacheKey, result);
+      Logger.debug('[OkrAgentService] Cached response for', cacheKey.substring(0, 20));
+    }
+
     return result as T;
   }
 
   async getNextQuestion(context: ClarificationContext, lastChoice: LastChoice): Promise<unknown> {
     /**
-     * Requests the next clarification question and options using the full context and last choice.
+     * Requests the next clarification question with caching and circuit breaker protection.
      */
     const payload = { context, lastChoice, model: this.model, type: 'next-question' };
-    return this.callLlmApi('/v1/responses', payload, (x) => this.isValidNextQuestion(x));
+    const cacheKey = this.cache.generateCacheKey(
+      'next-question',
+      { context, lastChoice },
+      this.model,
+    );
+
+    return this.callLlmApi('/v1/responses', payload, (x) => this.isValidNextQuestion(x), cacheKey);
   }
 
   async generateDraft(context: ClarificationContext): Promise<unknown> {
     /**
-     * Generates an OKR draft using the clarification context. Validates a minimal viable draft and returns it.
+     * Generates an OKR draft with caching and circuit breaker protection.
      */
     const payload = { context, model: this.model, type: 'okr-draft' };
-    return this.callLlmApi('/v1/responses', payload, (x) => this.isValidDraft(x));
+    const cacheKey = this.cache.generateCacheKey('okr-draft', context, this.model);
+
+    return this.callLlmApi('/v1/responses', payload, (x) => this.isValidDraft(x), cacheKey);
+  }
+
+  /**
+   * Gets current performance metrics for monitoring
+   */
+  getMetrics(): PerformanceMetrics {
+    return {
+      cache: this.cache.getStats(),
+      circuitBreaker: this.circuitBreaker.getMetrics(),
+    };
+  }
+
+  /**
+   * Clears the LLM response cache
+   */
+  clearCache(): void {
+    this.cache.clear();
+    Logger.info('[OkrAgentService] Cache cleared');
+  }
+
+  /**
+   * Gets cache statistics
+   */
+  getCacheStats(): CacheStats {
+    return this.cache.getStats();
+  }
+
+  /**
+   * Gets circuit breaker state and metrics
+   */
+  getCircuitBreakerMetrics(): CircuitBreakerMetrics {
+    return this.circuitBreaker.getMetrics();
   }
 }

@@ -41,6 +41,7 @@ export class StickyWindowManager {
       webPreferences: {
         contextIsolation: true,
         nodeIntegration: false,
+        sandbox: true,
         preload: this.config.preloadPath,
       },
     });

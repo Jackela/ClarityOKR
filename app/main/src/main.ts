@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-redundant-type-constituents */
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -17,7 +16,7 @@ import { StickyWindowManager } from './windows/sticky-window-manager.js';
 const { app, BrowserWindow } = electron;
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
-const preloadPath = path.resolve(currentDir, 'bootstrap', 'preload.cjs');
+const preloadPath = path.resolve(currentDir, 'bootstrap', 'preload.js');
 const rendererDistPath = path.resolve(currentDir, '../../renderer/dist');
 
 const sessionRepository = new SessionRepository();
@@ -52,10 +51,6 @@ if (process.env.NODE_ENV === 'test' || process.env.CI || process.env.E2E_TEST) {
   Logger.info('[main] TestMode initialized:', !!testMode);
 }
 
-app.disableHardwareAcceleration();
-app.commandLine.appendSwitch('disable-gpu');
-app.commandLine.appendSwitch('disable-software-rasterizer');
-
 async function createWindow(): Promise<void> {
   const indexPath = path.join(rendererDistPath, 'index.html');
 
@@ -66,6 +61,7 @@ async function createWindow(): Promise<void> {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
       preload: preloadPath,
     },
   });

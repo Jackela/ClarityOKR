@@ -3,7 +3,8 @@ import { join } from 'node:path';
 
 import type { ClarificationSession, OKRDocument, UserActionLogEntry } from '@clarityokr/contracts';
 
-import { ensureDataDir, readJson, writeJson } from './utils.js';
+import { Logger } from '../core/logger.js';
+import { ensureDataDir, readEncryptedJson, writeEncryptedJson } from './encrypted-persistence.js';
 
 export interface PersistedState {
   session: ClarificationSession | null;
@@ -36,50 +37,76 @@ export class SessionRepository {
   async load(): Promise<PersistedState> {
     await ensureDataDir(this.dataDir);
 
-    const [session, okr, actions] = await Promise.all([
-      readJson<ClarificationSession>(this.sessionFile),
-      readJson<OKRDocument>(this.okrFile),
-      readJson<UserActionLogEntry[]>(this.actionLogFile),
-    ]);
+    try {
+      const [session, okr, actions] = await Promise.all([
+        readEncryptedJson<ClarificationSession>(this.sessionFile),
+        readEncryptedJson<OKRDocument>(this.okrFile),
+        readEncryptedJson<UserActionLogEntry[]>(this.actionLogFile),
+      ]);
 
-    return {
-      session,
-      okr,
-      actions: actions ?? [],
-    };
+      return {
+        session,
+        okr,
+        actions: actions ?? [],
+      };
+    } catch (error) {
+      Logger.error('[SessionRepository] Failed to load state', error);
+      return { session: null, okr: null, actions: [] };
+    }
   }
 
   async saveSession(session: ClarificationSession | null): Promise<void> {
     await ensureDataDir(this.dataDir);
 
-    if (session) {
-      await writeJson(this.sessionFile, session);
-    } else {
-      await fs.rm(this.sessionFile, { force: true });
+    try {
+      if (session) {
+        await writeEncryptedJson(this.sessionFile, session);
+      } else {
+        await fs.rm(this.sessionFile, { force: true });
+      }
+    } catch (error) {
+      Logger.error('[SessionRepository] Failed to save session', error);
+      throw error;
     }
   }
 
   async saveOKRDocument(document: OKRDocument | null): Promise<void> {
     await ensureDataDir(this.dataDir);
 
-    if (document) {
-      await writeJson(this.okrFile, document);
-    } else {
-      await fs.rm(this.okrFile, { force: true });
+    try {
+      if (document) {
+        await writeEncryptedJson(this.okrFile, document);
+      } else {
+        await fs.rm(this.okrFile, { force: true });
+      }
+    } catch (error) {
+      Logger.error('[SessionRepository] Failed to save OKR document', error);
+      throw error;
     }
   }
 
   async appendActionLog(entry: UserActionLogEntry): Promise<void> {
     await ensureDataDir(this.dataDir);
 
-    const current = (await readJson<UserActionLogEntry[]>(this.actionLogFile)) ?? [];
-    current.push(entry);
-    await writeJson(this.actionLogFile, current);
+    try {
+      const current = (await readEncryptedJson<UserActionLogEntry[]>(this.actionLogFile)) ?? [];
+      current.push(entry);
+      await writeEncryptedJson(this.actionLogFile, current);
+    } catch (error) {
+      Logger.error('[SessionRepository] Failed to append action log', error);
+      throw error;
+    }
   }
 
   async replaceActionLog(entries: UserActionLogEntry[]): Promise<void> {
     await ensureDataDir(this.dataDir);
-    await writeJson(this.actionLogFile, entries);
+
+    try {
+      await writeEncryptedJson(this.actionLogFile, entries);
+    } catch (error) {
+      Logger.error('[SessionRepository] Failed to replace action log', error);
+      throw error;
+    }
   }
 
   // ========== 多会话支持（新增方法） ==========
@@ -91,20 +118,32 @@ export class SessionRepository {
   async loadMultiSessionState(): Promise<MultiSessionState> {
     await ensureDataDir(this.dataDir);
 
-    const state = await readJson<MultiSessionState>(this.multiSessionFile);
+    try {
+      const state = await readEncryptedJson<MultiSessionState>(this.multiSessionFile);
 
-    if (!state) {
-      // 如果没有多会话状态，尝试从旧格式迁移
-      const legacyState = await this.load();
-      if (legacyState.session) {
+      if (!state) {
+        // 如果没有多会话状态，尝试从旧格式迁移
+        const legacyState = await this.load();
+        if (legacyState.session) {
+          return {
+            sessions: { [legacyState.session.id]: legacyState.session },
+            okrs: legacyState.okr ? { [legacyState.session.id]: legacyState.okr } : {},
+            actions: legacyState.session ? { [legacyState.session.id]: legacyState.actions } : {},
+            activeSessionId: legacyState.session.id,
+          };
+        }
+
         return {
-          sessions: { [legacyState.session.id]: legacyState.session },
-          okrs: legacyState.okr ? { [legacyState.session.id]: legacyState.okr } : {},
-          actions: legacyState.session ? { [legacyState.session.id]: legacyState.actions } : {},
-          activeSessionId: legacyState.session.id,
+          sessions: {},
+          okrs: {},
+          actions: {},
+          activeSessionId: null,
         };
       }
 
+      return state;
+    } catch (error) {
+      Logger.error('[SessionRepository] Failed to load multi-session state', error);
       return {
         sessions: {},
         okrs: {},
@@ -112,8 +151,6 @@ export class SessionRepository {
         activeSessionId: null,
       };
     }
-
-    return state;
   }
 
   /**
@@ -122,7 +159,13 @@ export class SessionRepository {
    */
   async saveMultiSessionState(state: MultiSessionState): Promise<void> {
     await ensureDataDir(this.dataDir);
-    await writeJson(this.multiSessionFile, state);
+
+    try {
+      await writeEncryptedJson(this.multiSessionFile, state);
+    } catch (error) {
+      Logger.error('[SessionRepository] Failed to save multi-session state', error);
+      throw error;
+    }
   }
 
   /**

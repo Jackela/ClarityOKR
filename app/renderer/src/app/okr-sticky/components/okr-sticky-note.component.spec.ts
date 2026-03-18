@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
 import { TestBed } from '@angular/core/testing';
 import type { ComponentFixture } from '@angular/core/testing';
 
@@ -16,24 +15,24 @@ describe('OkrStickyNoteComponent', () => {
         id: 'kr-1',
         statement: '将迭代周期缩短到 3 周',
         metricLabel: '周期 <= 21 天',
-        ownerLabel: '运营团队'
+        ownerLabel: '运营团队',
       },
       {
         id: 'kr-2',
         statement: '将上线缺陷率控制在 0.5%',
         metricLabel: null,
-        ownerLabel: null
-      }
+        ownerLabel: null,
+      },
     ],
     generatedAt: '2025-10-31T10:12:00.000Z',
     lastEditedAt: null,
     hasManualEdits: false,
-    regenerationPolicy: 'append'
+    regenerationPolicy: 'append',
   };
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [OkrStickyNoteComponent]
+      imports: [OkrStickyNoteComponent],
     }).compileComponents();
 
     fixture = TestBed.createComponent(OkrStickyNoteComponent);
@@ -52,7 +51,7 @@ describe('OkrStickyNoteComponent', () => {
     expect(keyResults.item(0).textContent).toContain('将迭代周期缩短到 3 周');
 
     const badgeElements = Array.from<Element>(
-      fixture.nativeElement.querySelectorAll('[data-testid="sticky-kr-badge"]')
+      fixture.nativeElement.querySelectorAll('[data-testid="sticky-kr-badge"]'),
     );
     const badges = badgeElements.map((element) => element.textContent?.trim());
     expect(badges).toContain('周期 <= 21 天');

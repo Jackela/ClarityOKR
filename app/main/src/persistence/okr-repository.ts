@@ -2,7 +2,8 @@ import { join } from 'node:path';
 
 import type { OKRDocument } from '@clarityokr/contracts';
 
-import { ensureDataDir, readJson, writeJson } from './utils.js';
+import { Logger } from '../core/logger.js';
+import { ensureDataDir, readEncryptedJson, writeEncryptedJson } from './encrypted-persistence.js';
 
 const DEFAULT_DATA_DIR = join(process.cwd(), 'data');
 
@@ -19,11 +20,23 @@ export class OkrRepository {
 
   async loadLatest(): Promise<OKRDocument | null> {
     await ensureDataDir(this.dataDir);
-    return readJson<OKRDocument>(this.okrFile);
+
+    try {
+      return await readEncryptedJson<OKRDocument>(this.okrFile);
+    } catch (error) {
+      Logger.error('[OkrRepository] Failed to load latest OKR', error);
+      return null;
+    }
   }
 
   async save(document: OKRDocument): Promise<void> {
     await ensureDataDir(this.dataDir);
-    await writeJson(this.okrFile, document);
+
+    try {
+      await writeEncryptedJson(this.okrFile, document);
+    } catch (error) {
+      Logger.error('[OkrRepository] Failed to save OKR document', error);
+      throw error;
+    }
   }
 }

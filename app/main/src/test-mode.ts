@@ -169,7 +169,7 @@ export class TestMode implements TestModeAPI {
   private mockLLMResponses: Map<string, unknown> = new Map();
   private mockResponseConfig: MockResponseConfig = {};
   private asyncPaused = false;
-  private asyncQueue: (() => Promise<void>)[] = [];
+  private asyncQueue: Array<() => Promise<void>> = [];
   private asyncResolvers: Array<() => void> = [];
 
   constructor(
@@ -438,8 +438,11 @@ export function initializeTestMode(
 
   // Expose on global for E2E test access
   if (process.env.NODE_ENV === 'test' || process.env.CI || process.env.E2E_TEST) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
-    (global as unknown as { testMode: TestMode }).testMode = globalTestMode;
+    // Use type-safe global extension
+    interface TestGlobal {
+      testMode: TestMode;
+    }
+    (global as unknown as TestGlobal).testMode = globalTestMode;
     Logger.info('[testMode] Exposed to global.testMode for E2E access');
   }
 

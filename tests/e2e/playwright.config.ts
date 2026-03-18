@@ -41,7 +41,7 @@ export default defineConfig({
   // 使用优化后的重试配置
   retries: optimized.retries,
 
-  // 使用优化后的超时配置
+  // 优化后的超时配置 - 移除120s超长超时，使用合理值
   timeout: optimized.timeout,
 
   // 全局设置和清理

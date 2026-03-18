@@ -112,11 +112,23 @@ test.describe('E2E-04: boundary cases', () => {
     await mainWindow.fill('[data-testid="intent-input"]', '复杂目标需要多轮澄清');
     await mainWindow.click('[data-testid="start-clarification"]');
 
-    // Answer all questions
+    // Answer all questions - 任务18.2: 使用确定性等待替代waitForTimeout
     for (let i = 0; i < maxQuestions; i++) {
+      // 等待问题元素出现（确定当前问题已加载）
       await waitForElement(mainWindow, '[data-testid="prompt-question"]', { timeout: 10000 });
+      // 验证问题文本更新后再点击
+      await waitForText(
+        mainWindow,
+        '[data-testid="prompt-question"]',
+        `问题 ${i + 1}/${maxQuestions}`,
+        10000,
+      );
       await forceClick(mainWindow, '[data-testid="clarification-option"]:first-child');
-      await mainWindow.waitForTimeout(300);
+      // 等待选项选择后的UI更新完成
+      await mainWindow.waitForFunction(
+        () => !document.querySelector('[data-testid="clarification-option"]:active'),
+        { timeout: 5000 },
+      );
     }
 
     // Wait for generate button and click

@@ -1,8 +1,10 @@
 import {
   clarificationPromptRequestSchema,
   clarificationPromptResponseSchema,
+  llmQuestionSchema,
 } from '@clarityokr/contracts';
 import type { ClarificationPrompt } from '@clarityokr/contracts';
+import { z } from 'zod';
 
 import { Logger } from '../core/logger.js';
 import type { OkrAgentService } from '../services/okr-agent.service.js';
@@ -12,6 +14,11 @@ export interface ClarificationPromptRequest {
   sessionId: string;
   intent: string;
 }
+
+// Zod schema for LLM next question response validation
+const nextQuestionResponseSchema = z.object({
+  question: llmQuestionSchema,
+});
 
 /**
  * ClarificationPromptHandler - 处理CLARIFICATION_PROMPT IPC请求
@@ -57,14 +64,13 @@ export class ClarificationPromptHandler {
       throw new Error('Empty or invalid response from LLM service');
     }
 
-    type NextQ = {
-      question: {
-        id: string;
-        text: string;
-        options: Array<{ id: string; label: string; value?: string }>;
-      };
-    };
-    const typedData = data as NextQ;
+    // Use Zod for runtime validation instead of type assertion
+    const parseResult = nextQuestionResponseSchema.safeParse(data);
+    if (!parseResult.success) {
+      throw new Error(`LLM response validation failed: ${parseResult.error.message}`);
+    }
+
+    const typedData = parseResult.data;
 
     if (!typedData.question || !typedData.question.id || !typedData.question.text) {
       throw new Error('LLM response missing required question fields');

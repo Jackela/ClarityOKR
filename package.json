@@ -59,5 +59,10 @@
     "rimraf": "^5.0.5",
     "typescript": "~5.4.5"
   },
-  "main": "app/main/dist/main.js"
+  "main": "app/main/dist/main.js",
+  "dependencies": {
+    "better-sqlite3": "^12.8.0",
+    "lru-cache": "^11.2.7",
+    "opossum": "^9.0.0"
+  }
 }

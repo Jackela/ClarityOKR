@@ -3,7 +3,7 @@
  * 用于 CI 环境中的虚拟显示
  */
 
-import { spawn, ChildProcess } from 'child_process';
+import { spawn, ChildProcess, execSync } from 'child_process';
 
 let xvfbProcess: ChildProcess | null = null;
 
@@ -57,12 +57,12 @@ export async function startXvfb(): Promise<string | null> {
     );
 
     // 等待 Xvfb 启动
-    await new Promise((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error('Xvfb start timeout'));
       }, 5000);
 
-      xvfbProcess!.on('error', (err) => {
+      xvfbProcess!.on('error', (err: Error) => {
         clearTimeout(timeout);
         reject(err);
       });
@@ -70,7 +70,7 @@ export async function startXvfb(): Promise<string | null> {
       // 简单等待，实际应该检查 X 是否可用
       setTimeout(() => {
         clearTimeout(timeout);
-        resolve(undefined);
+        resolve();
       }, 1000);
     });
 
@@ -96,7 +96,6 @@ export async function stopXvfb(): Promise<void> {
 export function isXvfbAvailable(): boolean {
   try {
     // 简单检查 Xvfb 命令是否存在
-    const { execSync } = require('child_process');
     execSync('which Xvfb', { stdio: 'ignore' });
     return true;
   } catch {
