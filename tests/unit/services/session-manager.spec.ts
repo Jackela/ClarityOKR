@@ -141,6 +141,9 @@ describe('SessionManager Unit Tests', () => {
       const session = sessionManager.createSession('step-test', 'Add step');
       const oldUpdatedAt = session.updatedAt;
 
+      // 等待一小段时间确保时间戳不同
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
       await sessionManager.addStep(session, 'prompt-1', 0);
 
       expect(session.pendingQuestionId).toBe('prompt-1');

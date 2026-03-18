@@ -5,9 +5,11 @@
  * Keys are securely stored in the OS keychain/credential manager.
  */
 
-import { safeStorage } from 'electron';
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+
+import { safeStorage } from 'electron';
+
 import { generateEncryptionKey, isValidEncryptionKey } from './encryption.service.js';
 
 /**

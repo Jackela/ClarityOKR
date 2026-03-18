@@ -1,8 +1,15 @@
+import type { Database } from 'better-sqlite3';
+import BetterSqlite3 from 'better-sqlite3';
 import { join } from 'node:path';
 
-import BetterSqlite3 from 'better-sqlite3';
-
-import type { ClarificationSession, OKRDocument, UserActionLogEntry } from '@clarityokr/contracts';
+import type {
+  ClarificationPrompt,
+  ClarificationSession,
+  KeyResult,
+  ManualEditRecord,
+  OKRDocument,
+  UserActionLogEntry,
+} from '@clarityokr/contracts';
 
 import { Logger } from '../core/logger.js';
 
@@ -12,7 +19,7 @@ export interface DatabaseOptions {
 }
 
 export class DatabaseService {
-  private db: BetterSqlite3.Database | null = null;
+  private db: Database | null = null;
   private readonly dataDir: string;
   private readonly dbPath: string;
 
@@ -102,7 +109,7 @@ export class DatabaseService {
   /**
    * Get the database instance
    */
-  getDb(): BetterSqlite3.Database {
+  getDb(): Database {
     if (!this.db) {
       throw new Error('Database not initialized. Call initialize() first.');
     }
@@ -170,8 +177,8 @@ export class DatabaseService {
       status: row.status as ClarificationSession['status'],
       createdAt: row.created_at,
       updatedAt: row.updated_at,
-      steps: JSON.parse(row.steps),
-      selectedOptionIds: JSON.parse(row.selected_option_ids),
+      steps: JSON.parse(row.steps) as ClarificationPrompt[],
+      selectedOptionIds: JSON.parse(row.selected_option_ids) as string[],
       confidence: row.confidence,
       pendingQuestionId: row.pending_question_id,
     };
@@ -208,8 +215,8 @@ export class DatabaseService {
       status: row.status as ClarificationSession['status'],
       createdAt: row.created_at,
       updatedAt: row.updated_at,
-      steps: JSON.parse(row.steps),
-      selectedOptionIds: JSON.parse(row.selected_option_ids),
+      steps: JSON.parse(row.steps) as ClarificationPrompt[],
+      selectedOptionIds: JSON.parse(row.selected_option_ids) as string[],
       confidence: row.confidence,
       pendingQuestionId: row.pending_question_id,
     }));
@@ -280,12 +287,12 @@ export class DatabaseService {
     return {
       id: row.id,
       objective: row.objective,
-      keyResults: JSON.parse(row.key_results),
+      keyResults: JSON.parse(row.key_results) as KeyResult[],
       sourceSessionId: row.source_session_id,
       generatedAt: row.generated_at,
       lastEditedAt: row.last_edited_at,
       regenerationPolicy: row.regeneration_policy as OKRDocument['regenerationPolicy'],
-      manualEdits: JSON.parse(row.manual_edits),
+      manualEdits: JSON.parse(row.manual_edits) as ManualEditRecord[],
     };
   }
 
@@ -320,12 +327,12 @@ export class DatabaseService {
     return {
       id: row.id,
       objective: row.objective,
-      keyResults: JSON.parse(row.key_results),
+      keyResults: JSON.parse(row.key_results) as KeyResult[],
       sourceSessionId: row.source_session_id,
       generatedAt: row.generated_at,
       lastEditedAt: row.last_edited_at,
       regenerationPolicy: row.regeneration_policy as OKRDocument['regenerationPolicy'],
-      manualEdits: JSON.parse(row.manual_edits),
+      manualEdits: JSON.parse(row.manual_edits) as ManualEditRecord[],
     };
   }
 

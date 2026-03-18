@@ -59,7 +59,7 @@ export class SessionRepository {
   /**
    * Load single session state (legacy compatibility)
    */
-  async load(): Promise<PersistedState> {
+  load(): PersistedState {
     const sessions = this.db.getAllSessions();
     const session = sessions[0] ?? null;
 
@@ -77,7 +77,7 @@ export class SessionRepository {
   /**
    * Save session
    */
-  async saveSession(session: ClarificationSession | null): Promise<void> {
+  saveSession(session: ClarificationSession | null): void {
     if (session) {
       this.db.saveSession(session);
     }
@@ -86,7 +86,7 @@ export class SessionRepository {
   /**
    * Save OKR document
    */
-  async saveOKRDocument(document: OKRDocument | null): Promise<void> {
+  saveOKRDocument(document: OKRDocument | null): void {
     if (document) {
       this.db.saveOKR(document);
     }
@@ -95,14 +95,14 @@ export class SessionRepository {
   /**
    * Append action log entry
    */
-  async appendActionLog(entry: UserActionLogEntry): Promise<void> {
+  appendActionLog(entry: UserActionLogEntry): void {
     this.db.saveActionLog(entry);
   }
 
   /**
    * Replace action logs for a session
    */
-  async replaceActionLog(_entries: UserActionLogEntry[]): Promise<void> {
+  replaceActionLog(_entries: UserActionLogEntry[]): void {
     // In SQLite, we just append - no need to replace entire log
     // This method exists for API compatibility
   }
@@ -112,7 +112,7 @@ export class SessionRepository {
   /**
    * Load all sessions state
    */
-  async loadMultiSessionState(): Promise<MultiSessionState> {
+  loadMultiSessionState(): MultiSessionState {
     const sessions = this.db.getAllSessions();
 
     const sessionsRecord: Record<string, ClarificationSession> = {};
@@ -141,7 +141,7 @@ export class SessionRepository {
   /**
    * Save multi-session state
    */
-  async saveMultiSessionState(state: MultiSessionState): Promise<void> {
+  saveMultiSessionState(state: MultiSessionState): void {
     // Save all sessions
     for (const session of Object.values(state.sessions)) {
       this.db.saveSession(session);
@@ -163,49 +163,49 @@ export class SessionRepository {
   /**
    * Get specific session
    */
-  async getSession(sessionId: string): Promise<ClarificationSession | null> {
+  getSession(sessionId: string): ClarificationSession | null {
     return this.db.getSession(sessionId);
   }
 
   /**
    * Save session (multi-session API)
    */
-  async saveSessionMulti(session: ClarificationSession): Promise<void> {
+  saveSessionMulti(session: ClarificationSession): void {
     this.db.saveSession(session);
   }
 
   /**
    * Get OKR for specific session
    */
-  async getOKR(sessionId: string): Promise<OKRDocument | null> {
+  getOKR(sessionId: string): OKRDocument | null {
     return this.db.getOKRBySessionId(sessionId);
   }
 
   /**
    * Save OKR (multi-session API)
    */
-  async saveOKRMulti(sessionId: string, okr: OKRDocument): Promise<void> {
+  saveOKRMulti(_sessionId: string, okr: OKRDocument): void {
     this.db.saveOKR(okr);
   }
 
   /**
    * Get all sessions
    */
-  async getAllSessions(): Promise<ClarificationSession[]> {
+  getAllSessions(): ClarificationSession[] {
     return this.db.getAllSessions();
   }
 
   /**
    * Delete session
    */
-  async deleteSession(sessionId: string): Promise<void> {
+  deleteSession(sessionId: string): void {
     this.db.deleteSession(sessionId);
   }
 
   /**
    * Set active session (for compatibility, SQLite handles this automatically)
    */
-  async setActiveSession(_sessionId: string): Promise<void> {
+  setActiveSession(_sessionId: string): void {
     // In SQLite, we don't need to track active session separately
     // The most recently updated session is considered active
   }
@@ -213,7 +213,7 @@ export class SessionRepository {
   /**
    * Get active session ID
    */
-  async getActiveSessionId(): Promise<string | null> {
+  getActiveSessionId(): string | null {
     const sessions = this.db.getAllSessions();
     return sessions.length > 0 ? sessions[0].id : null;
   }

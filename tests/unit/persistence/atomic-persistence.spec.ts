@@ -108,12 +108,12 @@ describe('AtomicPersistenceService', () => {
       // 损坏主文件
       await fs.writeFile(filePath, 'invalid json', 'utf-8');
 
-      // 读取应该自动恢复
+      // 读取应该自动恢复（从备份恢复，备份中是第二次写入前的数据即 originalData）
       const result = await service.atomicRead(filePath);
 
       expect(result.success).toBe(true);
       expect(result.recoveredFrom).toBeDefined();
-      expect(result.data).toEqual(newData);
+      expect(result.data).toEqual(originalData); // 备份中存储的是 originalData
     });
 
     it('should return failure when file does not exist', async () => {

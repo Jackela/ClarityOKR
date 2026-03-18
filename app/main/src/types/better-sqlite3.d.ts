@@ -1,6 +1,20 @@
 // Type declaration for better-sqlite3
+
 declare module 'better-sqlite3' {
-  class Database {
+  export interface Statement {
+    run(...params: unknown[]): { lastInsertRowid: number; changes: number };
+    get(...params: unknown[]): unknown;
+    all(...params: unknown[]): unknown[];
+  }
+
+  export interface Transaction {
+    (): void;
+    deferred: () => void;
+    immediate: () => void;
+    exclusive: () => void;
+  }
+
+  export class Database {
     constructor(filename: string);
 
     pragma(pragma: string): unknown;
@@ -10,18 +24,6 @@ declare module 'better-sqlite3' {
     transaction(fn: () => void): Transaction;
   }
 
-  interface Statement {
-    run(...params: unknown[]): { lastInsertRowid: number; changes: number };
-    get(...params: unknown[]): unknown;
-    all(...params: unknown[]): unknown[];
-  }
-
-  interface Transaction {
-    (): void;
-    deferred: () => void;
-    immediate: () => void;
-    exclusive: () => void;
-  }
-
-  export = Database;
+  const _default: typeof Database;
+  export default _default;
 }

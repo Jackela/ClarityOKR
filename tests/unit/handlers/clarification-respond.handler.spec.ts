@@ -1,13 +1,18 @@
+import { jest } from '@jest/globals';
 import type { SessionManager } from '../../../app/main/src/services/session-manager.service.js';
 import { ClarificationRespondHandler } from '../../../app/main/src/handlers/clarification-respond.handler.js';
 import type { ClarificationSession } from '@clarityokr/contracts';
 
 describe('ClarificationRespondHandler', () => {
   let handler: ClarificationRespondHandler;
-  let mockSessionManager: jasmine.SpyObj<SessionManager>;
+  let mockSessionManager: jest.Mocked<SessionManager>;
 
   beforeEach(() => {
-    mockSessionManager = jasmine.createSpyObj('SessionManager', ['getSession', 'recordSelection']);
+    mockSessionManager = {
+      getSession: jest.fn(),
+      recordSelection: jest.fn(),
+    } as unknown as jest.Mocked<SessionManager>;
+
     handler = new ClarificationRespondHandler(mockSessionManager);
   });
 
@@ -24,8 +29,8 @@ describe('ClarificationRespondHandler', () => {
       pendingQuestionId: null,
     };
 
-    mockSessionManager.getSession.and.returnValue(Promise.resolve(session));
-    mockSessionManager.recordSelection.and.returnValue(Promise.resolve());
+    mockSessionManager.getSession.mockResolvedValue(session);
+    mockSessionManager.recordSelection.mockResolvedValue(undefined);
 
     await handler.handle({
       sessionId: 'session-1',
@@ -38,14 +43,14 @@ describe('ClarificationRespondHandler', () => {
   });
 
   it('should throw error when session not found', async () => {
-    mockSessionManager.getSession.and.returnValue(Promise.resolve(null));
+    mockSessionManager.getSession.mockResolvedValue(null);
 
-    await expectAsync(
+    await expect(
       handler.handle({
         sessionId: 'nonexistent',
         promptId: 'prompt-1',
         optionId: 'option-1',
       }),
-    ).toBeRejectedWithError('Cannot record selection without an active clarification session.');
+    ).rejects.toThrow('Cannot record selection without an active clarification session.');
   });
 });

@@ -1,19 +1,29 @@
+import { jest } from '@jest/globals';
 import type { SessionManager } from '../../../app/main/src/services/session-manager.service.js';
 import type { OkrRepository } from '../../../app/main/src/persistence/okr-repository.js';
 import type { StickyWindowManager } from '../../../app/main/src/windows/sticky-window-manager.js';
 import { OkrGenerateHandler } from '../../../app/main/src/handlers/okr-generate.handler.js';
-import type { ClarificationSession, OKRDocument } from '@clarityokr/contracts';
+import type { ClarificationSession } from '@clarityokr/contracts';
 
 describe('OkrGenerateHandler', () => {
   let handler: OkrGenerateHandler;
-  let mockSessionManager: jasmine.SpyObj<SessionManager>;
-  let mockOkrRepository: jasmine.SpyObj<OkrRepository>;
-  let mockStickyWindowManager: jasmine.SpyObj<StickyWindowManager>;
+  let mockSessionManager: jest.Mocked<SessionManager>;
+  let mockOkrRepository: jest.Mocked<OkrRepository>;
+  let mockStickyWindowManager: jest.Mocked<StickyWindowManager>;
 
   beforeEach(() => {
-    mockSessionManager = jasmine.createSpyObj('SessionManager', ['getSession', 'completeSession']);
-    mockOkrRepository = jasmine.createSpyObj('OkrRepository', ['save']);
-    mockStickyWindowManager = jasmine.createSpyObj('StickyWindowManager', ['open']);
+    mockSessionManager = {
+      getSession: jest.fn(),
+      completeSession: jest.fn(),
+    } as unknown as jest.Mocked<SessionManager>;
+
+    mockOkrRepository = {
+      save: jest.fn(),
+    } as unknown as jest.Mocked<OkrRepository>;
+
+    mockStickyWindowManager = {
+      open: jest.fn(),
+    } as unknown as jest.Mocked<StickyWindowManager>;
 
     handler = new OkrGenerateHandler(
       mockSessionManager,
@@ -35,10 +45,10 @@ describe('OkrGenerateHandler', () => {
       pendingQuestionId: null,
     };
 
-    mockSessionManager.getSession.and.returnValue(Promise.resolve(session));
-    mockSessionManager.completeSession.and.returnValue(Promise.resolve());
-    mockOkrRepository.save.and.returnValue(Promise.resolve());
-    mockStickyWindowManager.open.and.returnValue(Promise.resolve());
+    mockSessionManager.getSession.mockResolvedValue(session);
+    mockSessionManager.completeSession.mockResolvedValue(undefined);
+    mockOkrRepository.save.mockResolvedValue(undefined);
+    mockStickyWindowManager.open.mockResolvedValue(undefined);
 
     const result = await handler.handle({
       sessionId: 'session-1',
@@ -47,20 +57,20 @@ describe('OkrGenerateHandler', () => {
 
     expect(result.okr).toBeDefined();
     expect(result.okr.objective).toContain('Improve productivity');
-    expect(result.okr.keyResults).toHaveSize(2);
+    expect(result.okr.keyResults).toHaveLength(2);
     expect(mockSessionManager.completeSession).toHaveBeenCalledWith(session);
     expect(mockOkrRepository.save).toHaveBeenCalled();
     expect(mockStickyWindowManager.open).toHaveBeenCalled();
   });
 
   it('should throw error when session not found', async () => {
-    mockSessionManager.getSession.and.returnValue(Promise.resolve(null));
+    mockSessionManager.getSession.mockResolvedValue(null);
 
-    await expectAsync(
+    await expect(
       handler.handle({
         sessionId: 'nonexistent',
         intentSummary: 'Test',
       }),
-    ).toBeRejectedWithError('No active session found for OKR generation.');
+    ).rejects.toThrow('No active session found for OKR generation.');
   });
 });

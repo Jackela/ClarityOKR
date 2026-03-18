@@ -32,5 +32,5 @@ declare module 'opossum' {
     fallback<T>(fn: (...args: unknown[]) => T | Promise<T>): void;
   }
 
-  export = CircuitBreaker;
+  export default CircuitBreaker;
 }

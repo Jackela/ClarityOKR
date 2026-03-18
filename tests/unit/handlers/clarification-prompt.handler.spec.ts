@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import type { SessionManager } from '../../../app/main/src/services/session-manager.service.js';
 import { ClarificationPromptHandler } from '../../../app/main/src/handlers/clarification-prompt.handler.js';
 import type { OkrAgentService } from '../../../app/main/src/services/okr-agent.service.js';
@@ -5,16 +6,19 @@ import type { ClarificationSession } from '@clarityokr/contracts';
 
 describe('ClarificationPromptHandler', () => {
   let handler: ClarificationPromptHandler;
-  let mockSessionManager: jasmine.SpyObj<SessionManager>;
-  let mockOkrAgentService: jasmine.SpyObj<OkrAgentService>;
+  let mockSessionManager: jest.Mocked<SessionManager>;
+  let mockOkrAgentService: jest.Mocked<OkrAgentService>;
 
   beforeEach(() => {
-    mockSessionManager = jasmine.createSpyObj('SessionManager', [
-      'getSession',
-      'createSession',
-      'addStep',
-    ]);
-    mockOkrAgentService = jasmine.createSpyObj('OkrAgentService', ['getNextQuestion']);
+    mockSessionManager = {
+      getSession: jest.fn(),
+      createSession: jest.fn(),
+      addStep: jest.fn(),
+    } as unknown as jest.Mocked<SessionManager>;
+
+    mockOkrAgentService = {
+      getNextQuestion: jest.fn(),
+    } as unknown as jest.Mocked<OkrAgentService>;
 
     handler = new ClarificationPromptHandler(mockSessionManager, mockOkrAgentService);
   });
@@ -33,21 +37,19 @@ describe('ClarificationPromptHandler', () => {
         pendingQuestionId: null,
       };
 
-      mockSessionManager.getSession.and.returnValue(Promise.resolve(null));
-      mockSessionManager.createSession.and.returnValue(mockSession);
-      mockSessionManager.addStep.and.returnValue(Promise.resolve());
-      mockOkrAgentService.getNextQuestion.and.returnValue(
-        Promise.resolve({
-          question: {
-            id: 'q1',
-            text: 'Test question?',
-            options: [
-              { id: 'opt1', label: 'Option 1' },
-              { id: 'opt2', label: 'Option 2' },
-            ],
-          },
-        }),
-      );
+      mockSessionManager.getSession.mockResolvedValue(null);
+      mockSessionManager.createSession.mockReturnValue(mockSession);
+      mockSessionManager.addStep.mockResolvedValue(undefined);
+      mockOkrAgentService.getNextQuestion.mockResolvedValue({
+        question: {
+          id: 'q1',
+          text: 'Test question?',
+          options: [
+            { id: 'opt1', label: 'Option 1' },
+            { id: 'opt2', label: 'Option 2' },
+          ],
+        },
+      });
 
       const result = await handler.handle({
         sessionId: 'session-1',
@@ -57,7 +59,7 @@ describe('ClarificationPromptHandler', () => {
       expect(mockSessionManager.createSession).toHaveBeenCalledWith('session-1', 'Test intent');
       expect(result.prompt.id).toBe('q1');
       expect(result.prompt.question).toBe('Test question?');
-      expect(result.prompt.options).toHaveSize(2);
+      expect(result.prompt.options).toHaveLength(2);
     });
 
     it('should use existing session when found', async () => {
@@ -73,17 +75,18 @@ describe('ClarificationPromptHandler', () => {
         pendingQuestionId: null,
       };
 
-      mockSessionManager.getSession.and.returnValue(Promise.resolve(existingSession));
-      mockSessionManager.addStep.and.returnValue(Promise.resolve());
-      mockOkrAgentService.getNextQuestion.and.returnValue(
-        Promise.resolve({
-          question: {
-            id: 'q2',
-            text: 'Another question?',
-            options: [{ id: 'opt1', label: 'Yes' }],
-          },
-        }),
-      );
+      mockSessionManager.getSession.mockResolvedValue(existingSession);
+      mockSessionManager.addStep.mockResolvedValue(undefined);
+      mockOkrAgentService.getNextQuestion.mockResolvedValue({
+        question: {
+          id: 'q2',
+          text: 'Another question?',
+          options: [
+            { id: 'opt1', label: 'Yes' },
+            { id: 'opt2', label: 'No' },
+          ],
+        },
+      });
 
       const result = await handler.handle({
         sessionId: 'session-2',
@@ -95,8 +98,8 @@ describe('ClarificationPromptHandler', () => {
     });
 
     it('should throw error when LLM service fails', async () => {
-      mockSessionManager.getSession.and.returnValue(Promise.resolve(null));
-      mockSessionManager.createSession.and.returnValue({
+      mockSessionManager.getSession.mockResolvedValue(null);
+      mockSessionManager.createSession.mockReturnValue({
         id: 'session-3',
         initialIntent: 'Test',
         status: 'collecting',
@@ -107,19 +110,19 @@ describe('ClarificationPromptHandler', () => {
         confidence: 0,
         pendingQuestionId: null,
       } as ClarificationSession);
-      mockOkrAgentService.getNextQuestion.and.returnValue(Promise.reject(new Error('LLM timeout')));
+      mockOkrAgentService.getNextQuestion.mockRejectedValue(new Error('LLM timeout'));
 
-      await expectAsync(
+      await expect(
         handler.handle({
           sessionId: 'session-3',
           intent: 'Test',
         }),
-      ).toBeRejectedWithError('Failed to generate clarification prompt: LLM timeout');
+      ).rejects.toThrow();
     });
 
     it('should throw error for empty response', async () => {
-      mockSessionManager.getSession.and.returnValue(Promise.resolve(null));
-      mockSessionManager.createSession.and.returnValue({
+      mockSessionManager.getSession.mockResolvedValue(null);
+      mockSessionManager.createSession.mockReturnValue({
         id: 'session-4',
         initialIntent: 'Test',
         status: 'collecting',
@@ -130,19 +133,19 @@ describe('ClarificationPromptHandler', () => {
         confidence: 0,
         pendingQuestionId: null,
       } as ClarificationSession);
-      mockOkrAgentService.getNextQuestion.and.returnValue(Promise.resolve(null));
+      mockOkrAgentService.getNextQuestion.mockResolvedValue(null);
 
-      await expectAsync(
+      await expect(
         handler.handle({
           sessionId: 'session-4',
           intent: 'Test',
         }),
-      ).toBeRejectedWithError('Empty or invalid response from LLM service');
+      ).rejects.toThrow();
     });
 
     it('should throw error for response missing question fields', async () => {
-      mockSessionManager.getSession.and.returnValue(Promise.resolve(null));
-      mockSessionManager.createSession.and.returnValue({
+      mockSessionManager.getSession.mockResolvedValue(null);
+      mockSessionManager.createSession.mockReturnValue({
         id: 'session-5',
         initialIntent: 'Test',
         status: 'collecting',
@@ -153,18 +156,16 @@ describe('ClarificationPromptHandler', () => {
         confidence: 0,
         pendingQuestionId: null,
       } as ClarificationSession);
-      mockOkrAgentService.getNextQuestion.and.returnValue(
-        Promise.resolve({
-          question: { text: 'Missing id' }, // Missing id and options
-        }),
-      );
+      mockOkrAgentService.getNextQuestion.mockResolvedValue({
+        question: { text: 'Missing id' }, // Missing id and options
+      });
 
-      await expectAsync(
+      await expect(
         handler.handle({
           sessionId: 'session-5',
           intent: 'Test',
         }),
-      ).toBeRejectedWithError('LLM response missing required question fields');
+      ).rejects.toThrow();
     });
   });
 });

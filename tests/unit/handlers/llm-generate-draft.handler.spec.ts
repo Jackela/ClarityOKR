@@ -1,21 +1,32 @@
+import { jest } from '@jest/globals';
 import type { SessionManager } from '../../../app/main/src/services/session-manager.service.js';
 import type { OkrRepository } from '../../../app/main/src/persistence/okr-repository.js';
 import type { OkrAgentService } from '../../../app/main/src/services/okr-agent.service.js';
 import { LlmGenerateDraftHandler } from '../../../app/main/src/handlers/llm-generate-draft.handler.js';
-import type { ClarificationSession, OKRDocument } from '@clarityokr/contracts';
+import type { ClarificationSession } from '@clarityokr/contracts';
 
 describe('LlmGenerateDraftHandler', () => {
   let handler: LlmGenerateDraftHandler;
-  let mockSessionManager: jasmine.SpyObj<SessionManager>;
-  let mockOkrRepository: jasmine.SpyObj<OkrRepository>;
-  let mockOkrAgentService: jasmine.SpyObj<OkrAgentService>;
+  let mockSessionManager: jest.Mocked<SessionManager>;
+  let mockOkrRepository: jest.Mocked<OkrRepository>;
+  let mockOkrAgentService: jest.Mocked<OkrAgentService>;
   let mockElectron: any;
   let sentMessages: any[];
 
   beforeEach(() => {
-    mockSessionManager = jasmine.createSpyObj('SessionManager', ['getSession']);
-    mockOkrRepository = jasmine.createSpyObj('OkrRepository', ['save']);
-    mockOkrAgentService = jasmine.createSpyObj('OkrAgentService', ['generateDraft']);
+    mockSessionManager = {
+      getSession: jest.fn(),
+      getAllSessions: jest.fn(),
+    } as unknown as jest.Mocked<SessionManager>;
+
+    mockOkrRepository = {
+      save: jest.fn(),
+    } as unknown as jest.Mocked<OkrRepository>;
+
+    mockOkrAgentService = {
+      generateDraft: jest.fn(),
+    } as unknown as jest.Mocked<OkrAgentService>;
+
     sentMessages = [];
     mockElectron = {
       webContents: {
@@ -50,21 +61,19 @@ describe('LlmGenerateDraftHandler', () => {
       pendingQuestionId: null,
     };
 
-    mockSessionManager.getSession.and.returnValue(Promise.resolve(session));
-    mockOkrAgentService.generateDraft.and.returnValue(
-      Promise.resolve({
-        draft: {
-          objectives: [
-            {
-              id: 'o1',
-              title: 'Objective 1',
-              keyResults: [{ id: 'kr1', statement: 'KR1', target: 10, measurement: 'count' }],
-            },
-          ],
-        },
-      }),
-    );
-    mockOkrRepository.save.and.returnValue(Promise.resolve());
+    mockSessionManager.getSession.mockResolvedValue(session);
+    mockOkrAgentService.generateDraft.mockResolvedValue({
+      draft: {
+        objectives: [
+          {
+            id: 'o1',
+            title: 'Objective 1',
+            keyResults: [{ id: 'kr1', statement: 'KR1', target: 10, measurement: 'count' }],
+          },
+        ],
+      },
+    });
+    mockOkrRepository.save.mockResolvedValue(undefined);
 
     const result = await handler.handle({
       sessionId: 'session-1',
@@ -78,23 +87,23 @@ describe('LlmGenerateDraftHandler', () => {
   });
 
   it('should throw error when session ID is missing', async () => {
-    await expectAsync(
+    await expect(
       handler.handle({
         sessionId: '',
         context: { turns: [] },
       }),
-    ).toBeRejectedWithError('Session ID is required');
+    ).rejects.toThrow('Invalid request payload');
   });
 
   it('should throw error when session not found', async () => {
-    mockSessionManager.getSession.and.returnValue(Promise.resolve(null));
-    mockSessionManager.getAllSessions.and.returnValue(new Map());
+    mockSessionManager.getSession.mockResolvedValue(null);
+    mockSessionManager.getAllSessions.mockReturnValue(new Map());
 
-    await expectAsync(
+    await expect(
       handler.handle({
         sessionId: 'nonexistent',
         context: { turns: [] },
       }),
-    ).toBeRejectedWithError('No active session found');
+    ).rejects.toThrow('No active session found');
   });
 });

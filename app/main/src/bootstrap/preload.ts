@@ -1,4 +1,5 @@
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
+import type { IpcRendererEvent } from 'electron';
+import { contextBridge, ipcRenderer } from 'electron';
 
 import { ALLOWED_CHANNELS, validateChannel, type AllowedChannel } from '@clarityokr/contracts';
 

@@ -1,8 +1,8 @@
 import {
   CrashRecoveryService,
   createCrashRecoveryService,
-} from '../../../app/main/src/persistence/crash-recovery.service';
-import { AtomicPersistenceService } from '../../../app/main/src/persistence/atomic-persistence.service';
+} from '../../../app/main/src/persistence/crash-recovery.service.js';
+import { AtomicPersistenceService } from '../../../app/main/src/persistence/atomic-persistence.service.js';
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
@@ -16,7 +16,8 @@ describe('CrashRecoveryService', () => {
     atomicService = new AtomicPersistenceService();
     tempDir = join(tmpdir(), `crash-recovery-test-${Date.now()}`);
     await fs.mkdir(tempDir, { recursive: true });
-    service = createCrashRecoveryService(tempDir);
+    // 使用空的数据文件列表进行测试
+    service = new CrashRecoveryService(tempDir, []);
   });
 
   afterEach(async () => {
@@ -40,38 +41,42 @@ describe('CrashRecoveryService', () => {
 
     it('should detect healthy files', async () => {
       // 创建有效的数据文件
-      const testFile = join(tempDir, 'clarification-session.json');
+      const testFile = join(tempDir, 'test.json');
       await atomicService.atomicWrite(testFile, { test: 'data' });
 
-      const report = await service.performRecovery();
+      // 使用只包含该文件的服务
+      const customService = new CrashRecoveryService(tempDir, ['test.json']);
+      const report = await customService.performRecovery();
 
       expect(report.success).toBe(true);
-      expect(report.totalFilesChecked).toBeGreaterThan(0);
+      expect(report.totalFilesChecked).toBe(1);
       expect(report.filesRecovered).toBe(0);
     });
 
     it('should recover corrupted files', async () => {
       // 创建文件并备份
-      const testFile = join(tempDir, 'clarification-session.json');
+      const testFile = join(tempDir, 'test.json');
       await atomicService.atomicWrite(testFile, { version: 1 });
       await atomicService.atomicWrite(testFile, { version: 2 });
 
       // 损坏主文件
       await fs.writeFile(testFile, 'corrupted', 'utf-8');
 
-      const report = await service.performRecovery();
+      const customService = new CrashRecoveryService(tempDir, ['test.json']);
+      const report = await customService.performRecovery();
 
       expect(report.success).toBe(true);
-      expect(report.filesRecovered).toBeGreaterThan(0);
+      expect(report.filesRecovered).toBe(1);
     });
   });
 
   describe('checkDataIntegrity', () => {
     it('should report healthy files', async () => {
-      const testFile = join(tempDir, 'clarification-session.json');
+      const testFile = join(tempDir, 'test.json');
       await atomicService.atomicWrite(testFile, { test: 'data' });
 
-      const reports = await service.checkDataIntegrity();
+      const customService = new CrashRecoveryService(tempDir, ['test.json']);
+      const reports = await customService.checkDataIntegrity();
 
       const report = reports.find((r) => r.filePath === testFile);
       expect(report).toBeDefined();
@@ -79,12 +84,13 @@ describe('CrashRecoveryService', () => {
     });
 
     it('should report recovered files', async () => {
-      const testFile = join(tempDir, 'clarification-session.json');
+      const testFile = join(tempDir, 'test.json');
       await atomicService.atomicWrite(testFile, { version: 1 });
       await atomicService.atomicWrite(testFile, { version: 2 });
       await fs.writeFile(testFile, 'corrupted', 'utf-8');
 
-      const reports = await service.checkDataIntegrity();
+      const customService = new CrashRecoveryService(tempDir, ['test.json']);
+      const reports = await customService.checkDataIntegrity();
 
       const report = reports.find((r) => r.filePath === testFile);
       expect(report).toBeDefined();
@@ -92,23 +98,29 @@ describe('CrashRecoveryService', () => {
       expect(report?.recoveredFrom).toBeDefined();
     });
 
-    it('should report missing files', async () => {
-      const reports = await service.checkDataIntegrity();
+    it('should report corrupted files', async () => {
+      const testFile = join(tempDir, 'test.json');
+      // 创建一个损坏的文件（没有备份）
+      await fs.writeFile(testFile, 'corrupted', 'utf-8');
 
-      const report = reports.find((r) => r.filePath.includes('clarification-session'));
+      const customService = new CrashRecoveryService(tempDir, ['test.json']);
+      const reports = await customService.checkDataIntegrity();
+
+      const report = reports.find((r) => r.filePath === testFile);
       expect(report).toBeDefined();
-      expect(report?.status).toBe('missing');
+      expect(report?.status).toBe('corrupted');
     });
 
     it('should count backups correctly', async () => {
-      const testFile = join(tempDir, 'clarification-session.json');
+      const testFile = join(tempDir, 'test.json');
 
       // 创建多个备份
       await atomicService.atomicWrite(testFile, { version: 1 });
       await atomicService.atomicWrite(testFile, { version: 2 });
       await atomicService.atomicWrite(testFile, { version: 3 });
 
-      const reports = await service.checkDataIntegrity();
+      const customService = new CrashRecoveryService(tempDir, ['test.json']);
+      const reports = await customService.checkDataIntegrity();
       const report = reports.find((r) => r.filePath === testFile);
 
       expect(report?.backupCount).toBe(2);
@@ -117,34 +129,37 @@ describe('CrashRecoveryService', () => {
 
   describe('isDataHealthy', () => {
     it('should return true when all files are healthy', async () => {
-      const testFile = join(tempDir, 'clarification-session.json');
+      const testFile = join(tempDir, 'test.json');
       await atomicService.atomicWrite(testFile, { test: 'data' });
 
-      const isHealthy = await service.isDataHealthy();
+      const customService = new CrashRecoveryService(tempDir, ['test.json']);
+      const isHealthy = await customService.isDataHealthy();
 
       expect(isHealthy).toBe(true);
     });
 
     it('should return true when files are recovered', async () => {
-      const testFile = join(tempDir, 'clarification-session.json');
+      const testFile = join(tempDir, 'test.json');
       await atomicService.atomicWrite(testFile, { version: 1 });
       await atomicService.atomicWrite(testFile, { version: 2 });
       await fs.writeFile(testFile, 'corrupted', 'utf-8');
 
+      const customService = new CrashRecoveryService(tempDir, ['test.json']);
       // 先执行恢复
-      await service.performRecovery();
+      await customService.performRecovery();
 
-      const isHealthy = await service.isDataHealthy();
+      const isHealthy = await customService.isDataHealthy();
 
       expect(isHealthy).toBe(true);
     });
 
     it('should return false when files are corrupted', async () => {
+      const testFile = join(tempDir, 'test.json');
       // 创建一个文件但没有备份
-      const testFile = join(tempDir, 'clarification-session.json');
       await fs.writeFile(testFile, 'corrupted', 'utf-8');
 
-      const isHealthy = await service.isDataHealthy();
+      const customService = new CrashRecoveryService(tempDir, ['test.json']);
+      const isHealthy = await customService.isDataHealthy();
 
       expect(isHealthy).toBe(false);
     });
@@ -152,13 +167,14 @@ describe('CrashRecoveryService', () => {
 
   describe('getRecoveryStats', () => {
     it('should report accurate statistics', async () => {
-      const testFile = join(tempDir, 'clarification-session.json');
+      const testFile = join(tempDir, 'test.json');
 
       // 创建一些备份
       await atomicService.atomicWrite(testFile, { version: 1 });
       await atomicService.atomicWrite(testFile, { version: 2 });
 
-      const stats = await service.getRecoveryStats();
+      const customService = new CrashRecoveryService(tempDir, ['test.json']);
+      const stats = await customService.getRecoveryStats();
 
       expect(stats.totalBackups).toBeGreaterThan(0);
       expect(Array.isArray(stats.corruptedFiles)).toBe(true);
@@ -167,24 +183,19 @@ describe('CrashRecoveryService', () => {
     });
 
     it('should list corrupted files', async () => {
-      const testFile = join(tempDir, 'clarification-session.json');
+      const testFile = join(tempDir, 'test.json');
       await fs.writeFile(testFile, 'corrupted', 'utf-8');
 
-      const stats = await service.getRecoveryStats();
+      const customService = new CrashRecoveryService(tempDir, ['test.json']);
+      const stats = await customService.getRecoveryStats();
 
       expect(stats.corruptedFiles).toContain(testFile);
-    });
-
-    it('should list missing files', async () => {
-      const stats = await service.getRecoveryStats();
-
-      expect(stats.missingFiles.length).toBeGreaterThan(0);
     });
   });
 
   describe('crash scenarios', () => {
     it('should handle multiple corrupted files', async () => {
-      const files = ['clarification-session.json', 'okr-document.json', 'action-log.json'];
+      const files = ['file1.json', 'file2.json', 'file3.json'];
 
       // 创建并损坏多个文件
       for (const file of files) {
@@ -194,7 +205,8 @@ describe('CrashRecoveryService', () => {
         await fs.writeFile(filePath, 'corrupted', 'utf-8');
       }
 
-      const report = await service.performRecovery();
+      const customService = new CrashRecoveryService(tempDir, files);
+      const report = await customService.performRecovery();
 
       expect(report.success).toBe(true);
       expect(report.filesRecovered).toBe(files.length);

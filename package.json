@@ -11,14 +11,14 @@
   "scripts": {
     "setup-hooks": "./scripts/setup-hooks.sh",
     "test:integration": "pnpm --filter @clarityokr/tests-integration run test",
-    "lint": "pnpm exec eslint .",
+    "lint": "pnpm exec eslint . --cache --cache-location .eslintcache",
     "typecheck": "pnpm exec tsc --noEmit -p tsconfig.typecheck.json",
     "build": "pnpm run build:contracts && pnpm run build:main && pnpm run build:renderer",
     "build:parallel": "pnpm run build:contracts & pnpm run build:main & wait && pnpm run build:renderer",
     "build:ci": "pnpm run build:contracts & pnpm run build:main & wait && pnpm run build:renderer:ci",
     "build:contracts": "pnpm --filter @clarityokr/contracts run build",
     "build:renderer": "pnpm --filter @clarityokr/renderer run build",
-    "build:renderer:ci": "cd app/renderer && pnpm exec ng build --watch=false --progress=false",
+    "build:renderer:ci": "cd app/renderer && NODE_OPTIONS='--max-old-space-size=4096' pnpm exec ng build --watch=false --progress=false",
     "build:main": "pnpm --filter @clarityokr/main run build",
     "clean": "pnpm --filter @clarityokr/contracts run clean 2>/dev/null || true && pnpm --filter @clarityokr/main run clean 2>/dev/null || true && rimraf app/renderer/dist",
     "rebuild": "pnpm run clean && pnpm run build",
@@ -30,7 +30,7 @@
     "test:e2e:ci": "pnpm --filter @clarityokr/tests-e2e run test:ci",
     "test:e2e:prepush": "pnpm --filter @clarityokr/tests-e2e run test:prepush",
     "test:performance": "pnpm --filter @clarityokr/tests-performance run test",
-    "lint:fix": "pnpm exec eslint . --fix",
+    "lint:fix": "pnpm exec eslint . --fix --cache --cache-location .eslintcache",
     "format": "prettier --check .",
     "format:write": "prettier --write ."
   },
@@ -60,9 +60,5 @@
     "typescript": "~5.4.5"
   },
   "main": "app/main/dist/main.js",
-  "dependencies": {
-    "better-sqlite3": "^12.8.0",
-    "lru-cache": "^11.2.7",
-    "opossum": "^9.0.0"
-  }
+  "dependencies": {}
 }

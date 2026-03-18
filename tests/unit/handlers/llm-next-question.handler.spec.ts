@@ -1,19 +1,26 @@
+import { jest } from '@jest/globals';
 import type { SessionManager } from '../../../app/main/src/services/session-manager.service.js';
-import type { OkrRepository } from '../../../app/main/src/persistence/okr-repository.js';
 import type { OkrAgentService } from '../../../app/main/src/services/okr-agent.service.js';
 import { LlmNextQuestionHandler } from '../../../app/main/src/handlers/llm-next-question.handler.js';
 import type { ClarificationSession } from '@clarityokr/contracts';
 
 describe('LlmNextQuestionHandler', () => {
   let handler: LlmNextQuestionHandler;
-  let mockSessionManager: jasmine.SpyObj<SessionManager>;
-  let mockOkrAgentService: jasmine.SpyObj<OkrAgentService>;
+  let mockSessionManager: jest.Mocked<SessionManager>;
+  let mockOkrAgentService: jest.Mocked<OkrAgentService>;
   let mockElectron: any;
   let sentMessages: any[];
 
   beforeEach(() => {
-    mockSessionManager = jasmine.createSpyObj('SessionManager', ['loadFromPersistence', 'addStep']);
-    mockOkrAgentService = jasmine.createSpyObj('OkrAgentService', ['getNextQuestion']);
+    mockSessionManager = {
+      loadFromPersistence: jest.fn(),
+      addStep: jest.fn(),
+    } as unknown as jest.Mocked<SessionManager>;
+
+    mockOkrAgentService = {
+      getNextQuestion: jest.fn(),
+    } as unknown as jest.Mocked<OkrAgentService>;
+
     sentMessages = [];
     mockElectron = {
       webContents: {
@@ -43,20 +50,18 @@ describe('LlmNextQuestionHandler', () => {
       pendingQuestionId: null,
     };
 
-    mockOkrAgentService.getNextQuestion.and.returnValue(
-      Promise.resolve({
-        question: {
-          id: 'q2',
-          text: 'Follow up question?',
-          options: [
-            { id: 'opt1', label: 'Yes' },
-            { id: 'opt2', label: 'No' },
-          ],
-        },
-      }),
-    );
-    mockSessionManager.loadFromPersistence.and.returnValue(Promise.resolve(session));
-    mockSessionManager.addStep.and.returnValue(Promise.resolve());
+    mockOkrAgentService.getNextQuestion.mockResolvedValue({
+      question: {
+        id: 'q2',
+        text: 'Follow up question?',
+        options: [
+          { id: 'opt1', label: 'Yes' },
+          { id: 'opt2', label: 'No' },
+        ],
+      },
+    });
+    mockSessionManager.loadFromPersistence.mockResolvedValue(session);
+    mockSessionManager.addStep.mockResolvedValue(undefined);
 
     const result = await handler.handle({
       context: { turns: [] },
@@ -69,28 +74,34 @@ describe('LlmNextQuestionHandler', () => {
   });
 
   it('should return data when no more questions', async () => {
-    mockOkrAgentService.getNextQuestion.and.returnValue(
-      Promise.resolve({
-        question: null,
-      }),
-    );
+    mockOkrAgentService.getNextQuestion.mockResolvedValue({
+      question: {
+        id: 'complete',
+        text: 'Clarification complete',
+        options: [
+          { id: 'done1', label: 'Option 1' },
+          { id: 'done2', label: 'Option 2' },
+        ],
+      },
+    });
 
     const result = await handler.handle({
       context: { turns: [] },
       lastChoice: { questionId: 'q1', optionId: 'opt1' },
     });
 
-    expect(result.question).toBeNull();
+    expect(result.question).toBeDefined();
+    expect(result.question.id).toBe('complete');
   });
 
   it('should handle errors from LLM service', async () => {
-    mockOkrAgentService.getNextQuestion.and.returnValue(Promise.reject(new Error('API error')));
+    mockOkrAgentService.getNextQuestion.mockRejectedValue(new Error('API error'));
 
-    await expectAsync(
+    await expect(
       handler.handle({
         context: { turns: [] },
         lastChoice: { questionId: 'q1', optionId: 'opt1' },
       }),
-    ).toBeRejectedWithError('Failed to get next question: API error');
+    ).rejects.toThrow('Failed to get next question: API error');
   });
 });

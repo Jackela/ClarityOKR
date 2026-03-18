@@ -29,6 +29,12 @@ export interface RecoveryResult<T = unknown> {
   data?: T;
 }
 
+interface PersistedPayload<T = unknown> {
+  checksum: string;
+  timestamp: string;
+  data: T;
+}
+
 /**
  * 原子持久化服务
  * 实现write-to-temp-then-rename模式，确保数据完整性
@@ -277,7 +283,7 @@ export class AtomicPersistenceService {
   private async verifyFile(filePath: string, expectedChecksum: string): Promise<boolean> {
     try {
       const content = await fs.readFile(filePath, 'utf-8');
-      const parsed = JSON.parse(content);
+      const parsed = JSON.parse(content) as PersistedPayload;
 
       if (!parsed.checksum || !parsed.data) {
         return false;
@@ -295,7 +301,7 @@ export class AtomicPersistenceService {
   private async readAndVerify<T>(filePath: string): Promise<{ success: boolean; data?: T }> {
     try {
       const content = await fs.readFile(filePath, 'utf-8');
-      const parsed = JSON.parse(content);
+      const parsed = JSON.parse(content) as PersistedPayload<T>;
 
       if (!parsed.checksum || !parsed.data) {
         this.metrics.checksumFailures++;
@@ -310,7 +316,7 @@ export class AtomicPersistenceService {
         return { success: false };
       }
 
-      return { success: true, data: parsed.data as T };
+      return { success: true, data: parsed.data };
     } catch {
       return { success: false };
     }
@@ -368,7 +374,7 @@ export class AtomicPersistenceService {
   private async recoverFromTempFile(tempPath: string): Promise<void> {
     try {
       const content = await fs.readFile(tempPath, 'utf-8');
-      const parsed = JSON.parse(content);
+      const parsed = JSON.parse(content) as PersistedPayload;
 
       if (parsed.checksum && parsed.data) {
         const jsonData = JSON.stringify(parsed.data, null, 2);

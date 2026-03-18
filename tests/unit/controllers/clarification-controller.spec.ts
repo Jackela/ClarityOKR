@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { ClarificationController } from '../../../app/main/src/windows/clarification-controller.js';
 import type { SessionRepository } from '../../../app/main/src/persistence/session-repository.js';
 import type { OkrRepository } from '../../../app/main/src/persistence/okr-repository.js';
@@ -8,23 +9,37 @@ import type { OKRDocument } from '@clarityokr/contracts';
 
 describe('ClarificationController', () => {
   let controller: ClarificationController;
-  let mockSessionRepository: jasmine.SpyObj<SessionRepository>;
-  let mockOkrRepository: jasmine.SpyObj<OkrRepository>;
-  let mockActionLogWriter: jasmine.SpyObj<ActionLogWriter>;
-  let mockStickyWindowManager: jasmine.SpyObj<StickyWindowManager>;
-  let mockOkrAgentService: jasmine.SpyObj<OkrAgentService>;
+  let mockSessionRepository: jest.Mocked<SessionRepository>;
+  let mockOkrRepository: jest.Mocked<OkrRepository>;
+  let mockActionLogWriter: jest.Mocked<ActionLogWriter>;
+  let mockStickyWindowManager: jest.Mocked<StickyWindowManager>;
+  let mockOkrAgentService: jest.Mocked<OkrAgentService>;
   let mockElectron: any;
   let ipcHandlers: Record<string, Function>;
 
   beforeEach(() => {
-    mockSessionRepository = jasmine.createSpyObj('SessionRepository', ['load', 'saveSession']);
-    mockOkrRepository = jasmine.createSpyObj('OkrRepository', ['loadLatest', 'save']);
-    mockActionLogWriter = jasmine.createSpyObj('ActionLogWriter', ['append']);
-    mockStickyWindowManager = jasmine.createSpyObj('StickyWindowManager', ['open']);
-    mockOkrAgentService = jasmine.createSpyObj('OkrAgentService', [
-      'getNextQuestion',
-      'generateDraft',
-    ]);
+    mockSessionRepository = {
+      load: jest.fn(),
+      saveSession: jest.fn(),
+    } as unknown as jest.Mocked<SessionRepository>;
+
+    mockOkrRepository = {
+      loadLatest: jest.fn(),
+      save: jest.fn(),
+    } as unknown as jest.Mocked<OkrRepository>;
+
+    mockActionLogWriter = {
+      append: jest.fn(),
+    } as unknown as jest.Mocked<ActionLogWriter>;
+
+    mockStickyWindowManager = {
+      open: jest.fn(),
+    } as unknown as jest.Mocked<StickyWindowManager>;
+
+    mockOkrAgentService = {
+      getNextQuestion: jest.fn(),
+      generateDraft: jest.fn(),
+    } as unknown as jest.Mocked<OkrAgentService>;
 
     ipcHandlers = {};
     mockElectron = {
@@ -97,7 +112,7 @@ describe('ClarificationController', () => {
         regenerationPolicy: 'append',
         manualEdits: [],
       };
-      mockOkrRepository.loadLatest.and.returnValue(Promise.resolve(mockOkr));
+      mockOkrRepository.loadLatest.mockResolvedValue(mockOkr);
 
       const handler = ipcHandlers['clarityokr:okr:latest'];
       const result = await handler();
@@ -106,7 +121,7 @@ describe('ClarificationController', () => {
     });
 
     it('should return null when no OKR exists', async () => {
-      mockOkrRepository.loadLatest.and.returnValue(Promise.resolve(null));
+      mockOkrRepository.loadLatest.mockResolvedValue(null);
 
       const handler = ipcHandlers['clarityokr:okr:latest'];
       const result = await handler();
@@ -127,23 +142,23 @@ describe('ClarificationController', () => {
         regenerationPolicy: 'append',
         manualEdits: [],
       };
-      mockOkrRepository.loadLatest.and.returnValue(Promise.resolve(mockOkr));
-      mockStickyWindowManager.open.and.returnValue(Promise.resolve());
+      mockOkrRepository.loadLatest.mockResolvedValue(mockOkr);
+      mockStickyWindowManager.open.mockResolvedValue(undefined);
 
       const handler = ipcHandlers['clarityokr:sticky:reopen'];
       const result = await handler();
 
-      expect(result.success).toBeTrue();
+      expect(result.success).toBe(true);
       expect(mockStickyWindowManager.open).toHaveBeenCalledWith(mockOkr);
     });
 
     it('should return failure when no OKR exists', async () => {
-      mockOkrRepository.loadLatest.and.returnValue(Promise.resolve(null));
+      mockOkrRepository.loadLatest.mockResolvedValue(null);
 
       const handler = ipcHandlers['clarityokr:sticky:reopen'];
       const result = await handler();
 
-      expect(result.success).toBeFalse();
+      expect(result.success).toBe(false);
     });
   });
 });
