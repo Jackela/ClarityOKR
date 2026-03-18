@@ -1,0 +1,119 @@
+#!/bin/sh
+# Pre-push hook - Comprehensive checks before allowing push
+# This hook ensures code quality, type safety, and test coverage
+
+set -e
+
+echo ""
+echo "========================================"
+echo "🔒 Pre-push Hook - Complete CI Checks"
+echo "========================================"
+echo ""
+
+# Track if any check fails
+FAILED=0
+
+# Function to print section headers
+print_header() {
+    echo ""
+    echo "🔍 [$1/8] $2"
+    echo "----------------------------------------"
+}
+
+# Function to run a check
+run_check() {
+    local cmd=$1
+    local name=$2
+    local timeout_seconds=${3:-300}
+    
+    echo "Running: $name"
+    
+    if timeout $timeout_seconds $cmd; then
+        echo "   ✅ $name passed"
+        return 0
+    else
+        echo "   ❌ $name failed"
+        FAILED=1
+        return 1
+    fi
+}
+
+# 1. Build Contracts
+print_header "1" "Build Contracts"
+run_check "pnpm run build:contracts" "Build Contracts" 60 || true
+
+# 2. Lint (with 5 minute timeout)
+print_header "2" "ESLint"
+run_check "pnpm run lint" "ESLint" 300 || true
+
+# 3. Typecheck
+print_header "3" "TypeScript Type Check"
+run_check "pnpm run typecheck" "TypeScript Type Check" 120 || true
+
+# 4. Build Main
+print_header "4" "Build Main Process"
+run_check "pnpm run build:main" "Build Main" 120 || true
+
+# 5. Build Renderer
+print_header "5" "Build Renderer"
+run_check "pnpm run build:renderer" "Build Renderer" 300 || true
+
+# 6. Unit Tests with Coverage (must be 80%+)
+print_header "6" "Unit Tests with Coverage"
+echo "Running tests with 80% coverage requirement..."
+
+if timeout 300 pnpm run test:unit -- --coverage --coverageThreshold='{"global":{"branches":80,"functions":80,"lines":80,"statements":80}}'; then
+    echo "   ✅ Unit Tests passed with 80%+ coverage"
+else
+    echo "   ❌ Unit Tests failed or coverage below 80%"
+    echo "   💡 Run 'pnpm run test:unit -- --coverage' to see detailed report"
+    FAILED=1
+fi
+
+# 7. Security Audit
+print_header "7" "Security Audit"
+echo "Checking for security vulnerabilities..."
+
+if timeout 60 pnpm audit --audit-level=high; then
+    echo "   ✅ Security audit passed"
+else
+    # Audit returns non-zero if vulnerabilities found, but we handle that separately
+    echo "   ⚠️  Security audit completed (check output above)"
+    
+    # Check for critical vulnerabilities
+    CRITICAL_VULNS=$(pnpm audit --json 2>/dev/null | grep -c '"severity":"critical"' || echo "0")
+    if [ "$CRITICAL_VULNS" -gt 0 ]; then
+        echo "   ❌ $CRITICAL_VULNS CRITICAL vulnerabilities found!"
+        echo "   Fix before pushing: pnpm audit --fix"
+        FAILED=1
+    fi
+fi
+
+# 8. Final Summary
+print_header "8" "Summary"
+
+if [ $FAILED -eq 0 ]; then
+    echo ""
+    echo "✅ ALL CHECKS PASSED!"
+    echo "   - Build: Success"
+    echo "   - Lint: 0 errors"
+    echo "   - Typecheck: Strict mode passed"
+    echo "   - Tests: 80%+ coverage"
+    echo "   - Security: No critical vulnerabilities"
+    echo ""
+    echo "Pushing code..."
+    exit 0
+else
+    echo ""
+    echo "❌ PRE-PUSH CHECKS FAILED!"
+    echo ""
+    echo "Fix the issues above before pushing."
+    echo ""
+    echo "Quick fixes:"
+    echo "  - Lint errors:   pnpm run lint:fix"
+    echo "  - Type errors:   pnpm run typecheck"
+    echo "  - Test failures: pnpm run test:unit"
+    echo "  - Security:      pnpm audit --fix"
+    echo ""
+    exit 1
+fi
