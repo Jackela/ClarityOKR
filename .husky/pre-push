@@ -42,9 +42,24 @@ run_check() {
 print_header "1" "Build Contracts"
 run_check "pnpm run build:contracts" "Build Contracts" 60 || true
 
-# 2. Lint (with 5 minute timeout)
-print_header "2" "ESLint"
-run_check "pnpm run lint" "ESLint" 300 || true
+# 2. Lint (ZERO TOLERANCE - no errors, no warnings)
+print_header "2" "ESLint (Zero Tolerance)"
+echo "Running ESLint with --max-warnings=0 (zero tolerance for warnings)..."
+
+if timeout 300 pnpm exec eslint . --max-warnings=0; then
+    echo "   ✅ ESLint passed (0 errors, 0 warnings)"
+else
+    echo "   ❌ ESLint failed!"
+    echo ""
+    echo "   This project has ZERO TOLERANCE for ESLint issues."
+    echo "   You must fix ALL errors and warnings before pushing."
+    echo ""
+    echo "   Quick fixes:"
+    echo "     pnpm run lint:fix     # Auto-fix issues"
+    echo "     pnpm run lint         # Check remaining issues"
+    echo ""
+    FAILED=1
+fi
 
 # 3. Typecheck
 print_header "3" "TypeScript Type Check"
@@ -96,7 +111,7 @@ if [ $FAILED -eq 0 ]; then
     echo ""
     echo "✅ ALL CHECKS PASSED!"
     echo "   - Build: Success"
-    echo "   - Lint: 0 errors"
+    echo "   - Lint: 0 errors, 0 warnings"
     echo "   - Typecheck: Strict mode passed"
     echo "   - Tests: 80%+ coverage"
     echo "   - Security: No critical vulnerabilities"

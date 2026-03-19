@@ -1,7 +1,7 @@
 import type { IpcRendererEvent } from 'electron';
 import { contextBridge, ipcRenderer } from 'electron';
 
-import { ALLOWED_CHANNELS, validateChannel, type AllowedChannel } from '@clarityokr/contracts';
+import { validateChannel, type AllowedChannel } from '@clarityokr/contracts';
 
 /**
  * 验证 IPC 通道是否在白名单中

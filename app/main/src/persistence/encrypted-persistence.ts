@@ -13,8 +13,6 @@ import {
   EncryptionError,
   type EncryptedData,
   isEncryptedData,
-  serializeEncrypted,
-  deserializeEncrypted,
 } from '../services/encryption.service.js';
 import { getOrCreateMasterKey } from '../services/secure-storage.service.js';
 import { atomicPersistence, type PersistenceResult } from './atomic-persistence.service.js';

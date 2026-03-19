@@ -1,6 +1,6 @@
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
-import { atomicPersistence, type RecoveryResult } from './atomic-persistence.service.js';
+import { atomicPersistence } from './atomic-persistence.service.js';
 
 export interface CrashRecoveryReport {
   tempFilesCleaned: number;

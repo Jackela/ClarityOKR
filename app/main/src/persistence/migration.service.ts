@@ -147,7 +147,7 @@ export class MigrationService {
     }
 
     // Migrate action logs
-    for (const [sessionId, entries] of Object.entries(data.actions)) {
+    for (const entries of Object.values(data.actions)) {
       for (const entry of entries) {
         try {
           this.db.saveActionLog(entry);

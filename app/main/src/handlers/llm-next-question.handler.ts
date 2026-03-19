@@ -4,7 +4,7 @@ import { z } from 'zod';
 
 import { IPC_CHANNELS } from '../bootstrap/ipc-channels.js';
 import { Logger } from '../core/logger.js';
-import type { LlmNextQuestionRequest, LlmNextQuestionResponse } from '../main/ipc.llm.js';
+import type { LlmNextQuestionResponse } from '../main/ipc.llm.js';
 import type { OkrAgentService } from '../services/okr-agent.service.js';
 import type { SessionManager } from '../services/session-manager.service.js';
 
