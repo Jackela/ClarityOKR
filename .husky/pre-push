@@ -1,5 +1,89 @@
 #!/bin/sh
-# Pre-push hook - Skip local checks, trust CI
-echo "🔒 Pre-push hook: Skipping local checks, trusting CI"
-echo "Push allowed - full validation on GitHub Actions"
-exit 0
+# Pre-push hook - Comprehensive checks before allowing push
+# All checks must pass before push is allowed
+
+set -e
+
+echo ""
+echo "========================================"
+echo "Pre-push Hook - Running All Checks"
+echo "========================================"
+echo ""
+
+# Track if any check fails
+FAILED=0
+
+# Function to run a check with timeout
+run_check() {
+    local cmd="$1"
+    local name="$2"
+    local timeout_sec="${3:-120}"
+    
+    echo "Running: $name (timeout: ${timeout_sec}s)"
+    
+    if timeout "$timeout_sec" sh -c "$cmd"; then
+        echo "   [PASS] $name"
+        return 0
+    else
+        echo "   [FAIL] $name"
+        FAILED=1
+        return 1
+    fi
+}
+
+# 1. Build contracts
+echo ""
+echo "[1/6] Build Contracts"
+run_check "pnpm run build:contracts" "Build Contracts" 60 || true
+
+# 2. Typecheck
+echo ""
+echo "[2/6] TypeScript Type Check"
+run_check "pnpm run typecheck" "TypeScript Type Check" 120 || true
+
+# 3. Build main
+echo ""
+echo "[3/6] Build Main Process"
+run_check "pnpm run build:main" "Build Main" 120 || true
+
+# 4. Build renderer
+echo ""
+echo "[4/6] Build Renderer"
+run_check "pnpm run build:renderer" "Build Renderer" 300 || true
+
+# 5. Quick lint check on source files only (skip tests for speed)
+echo ""
+echo "[5/6] ESLint (src files only)"
+run_check "pnpm exec eslint app/main/src app/renderer/src packages/contracts/src --max-warnings=0" "ESLint" 180 || true
+
+# 6. Unit tests
+echo ""
+echo "[6/6] Unit Tests"
+run_check "pnpm run test:unit" "Unit Tests" 180 || true
+
+# Summary
+echo ""
+echo "========================================"
+echo "Summary"
+echo "========================================"
+
+if [ $FAILED -eq 0 ]; then
+    echo ""
+    echo "ALL CHECKS PASSED!"
+    echo ""
+    echo "Pushing code..."
+    exit 0
+else
+    echo ""
+    echo "SOME CHECKS FAILED!"
+    echo ""
+    echo "Fix the issues above before pushing."
+    echo ""
+    echo "Quick fixes:"
+    echo "  - Build errors:   pnpm run build"
+    echo "  - Type errors:    pnpm run typecheck"
+    echo "  - Lint errors:   pnpm exec eslint --fix"
+    echo "  - Test failures: pnpm run test:unit"
+    echo ""
+    exit 1
+fi
