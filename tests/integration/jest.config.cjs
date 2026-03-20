@@ -14,5 +14,6 @@ module.exports = {
     '^(\\.{1,2}/.*)\\.js$': '$1',
     '^@clarityokr/(.*)$': '<rootDir>/../../packages/$1/dist/index.js',
     '^../../../app/main/(.*)$': '<rootDir>/../../app/main/$1',
+    '^electron$': '<rootDir>/__mocks__/electron.ts',
   },
 };
