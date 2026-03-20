@@ -12,7 +12,7 @@ module.exports = {
   },
   moduleNameMapper: {
     '^@clarityokr/(.*)$': '<rootDir>/../../packages/$1/dist/index.js',
-    '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^(\\.{1,3}/.*)\\.js$': '<rootDir>/../../$1',
     '^../../../app/main/src/services/(.*)\\.js$': '<rootDir>/../../app/main/src/services/$1',
     '^../../../app/main/(.*)$': '<rootDir>/../../app/main/$1',
     '^electron$': '<rootDir>/__mocks__/electron.ts',
