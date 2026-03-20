@@ -11,7 +11,7 @@ module.exports = {
     '^.+\\.(ts|tsx)$': ['ts-jest', { tsconfig: '../../tsconfig.base.json', useESM: true }],
   },
   moduleNameMapper: {
-    '^(\\.{1,3}/.*)\\.js$': '$1',
+    '^(.+)\\.js$': '$1',
     '^@clarityokr/(.*)$': '<rootDir>/../../packages/$1/dist/index.js',
     '^../../../app/main/(.*)$': '<rootDir>/../../app/main/$1',
     '^electron$': '<rootDir>/__mocks__/electron.ts',
