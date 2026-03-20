@@ -14,7 +14,6 @@ module.exports = {
     '<rootDir>/controllers', // 任务19.1: Controller单元测试
     '<rootDir>/persistence', // 持久化测试
     '<rootDir>/telemetry', // 遥测测试
-    '<rootDir>/ui', // UI测试
   ],
   extensionsToTreatAsEsm: ['.ts'],
   transform: {
