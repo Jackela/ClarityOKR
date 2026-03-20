@@ -101,7 +101,7 @@ jobs:
 
       - name: Unit tests with coverage
         timeout-minutes: 15
-        run: pnpm run test:unit --coverage
+        run: COVERAGE=true pnpm run test:unit
 
       - name: Check test coverage (minimum 80%)
         id: coverage
