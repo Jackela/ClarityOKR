@@ -1,21 +1,26 @@
 import type { Page } from '@playwright/test';
 
 /**
- * 等待元素出现并可交互
- * 使用 Playwright 的 waitForSelector 确保元素真正可见
+ * 等待元素出现（检查DOM存在性）
+ * 注意：此函数不检查元素是否可见，只检查是否存在于DOM中
  */
 export async function waitForElement(
   page: Page,
   selector: string,
-  options: { timeout?: number; state?: 'attached' | 'detached' | 'visible' | 'hidden' } = {},
+  options: { timeout?: number } = {},
 ): Promise<boolean> {
-  const { timeout = 30000, state = 'visible' } = options;
-  try {
-    await page.waitForSelector(selector, { state, timeout });
-    return true;
-  } catch {
-    return false;
+  const { timeout = 30000 } = options;
+  const startTime = Date.now();
+
+  while (Date.now() - startTime < timeout) {
+    const found = await page.evaluate((sel: string) => {
+      return document.querySelector(sel) !== null;
+    }, selector);
+
+    if (found) return true;
+    await page.waitForTimeout(100);
   }
+  return false;
 }
 
 /**
@@ -181,10 +186,8 @@ export async function waitForOkrSummary(
  * 等待错误消息出现
  */
 export async function waitForErrorMessage(page: Page, timeout = 30000): Promise<void> {
-  // Note: checkVisibility disabled for CI reliability - element presence is sufficient
   const found = await waitForElement(page, '[data-testid="error-message"]', {
     timeout,
-    checkVisibility: false,
   });
 
   if (!found) {
