@@ -124,21 +124,70 @@ export async function forceClick(page: Page, selector: string): Promise<void> {
 export async function clickGenerateButton(page: Page, timeout = 30000): Promise<void> {
   const selector = '[data-testid="clarification-generate"]';
 
-  // 等待按钮存在
+  // Wait for button to exist
   const exists = await waitForElement(page, selector, { timeout });
   if (!exists) {
     throw new Error(`Generate button not found after ${timeout}ms`);
   }
 
-  // 检查是否可用
-  const enabled = await isButtonEnabled(page, selector);
+  // Wait for button to be enabled (data-ready="true")
+  await page.waitForFunction(
+    (sel) => {
+      const btn = document.querySelector(sel) as HTMLButtonElement | null;
+      return btn && !btn.disabled;
+    },
+    selector,
+    { timeout },
+  );
 
-  if (enabled) {
-    await page.click(selector);
-  } else {
-    // 强制启用并点击
-    await forceClick(page, selector);
+  // Small delay to ensure Angular has processed the click handler
+  await page.waitForTimeout(100);
+
+  await page.click(selector);
+}
+
+/**
+ * Wait for OKR summary to appear with multiple polling strategies
+ * More reliable than simple text matching in CI environments
+ */
+export async function waitForOkrSummary(
+  page: Page,
+  expectedText: string,
+  timeout = 30000,
+): Promise<{ found: boolean; actualText: string | null }> {
+  const selector = '[data-testid="okr-summary"]';
+  const startTime = Date.now();
+  let lastActualText: string | null = null;
+
+  while (Date.now() - startTime < timeout) {
+    const result = await page.evaluate(
+      ({ sel, expected }: { sel: string; expected: string }) => {
+        const el = document.querySelector(sel);
+        if (!el) return { found: false, actualText: null };
+        const text = el.textContent ?? '';
+        return { found: text.includes(expected), actualText: text };
+      },
+      { sel: selector, expected: expectedText },
+    );
+
+    if (result.found) {
+      return { found: true, actualText: result.actualText };
+    }
+
+    lastActualText = result.actualText;
+
+    // Log progress every 5 seconds
+    const elapsed = Date.now() - startTime;
+    if (elapsed % 5000 < 100) {
+      console.log(
+        `[waitForOkrSummary] Waiting... ${elapsed}ms elapsed, last text: "${lastActualText}"`,
+      );
+    }
+
+    await page.waitForTimeout(200);
   }
+
+  return { found: false, actualText: lastActualText };
 }
 
 /**
@@ -260,13 +309,7 @@ export async function waitForStateChange(
   page: Page,
   options: WaitForStateChangeOptions,
 ): Promise<void> {
-  const {
-    to,
-    from,
-    timeout = 30000,
-    checkVisibility = false,
-    stabilizationDelay = 0,
-  } = options;
+  const { to, from, timeout = 30000, checkVisibility = false, stabilizationDelay = 0 } = options;
 
   const startTime = Date.now();
 
@@ -308,9 +351,7 @@ export async function waitForStateChange(
     await page.waitForTimeout(100);
   }
 
-  throw new Error(
-    `State change timeout: expected "${to}" to appear within ${timeout}ms`,
-  );
+  throw new Error(`State change timeout: expected "${to}" to appear within ${timeout}ms`);
 }
 
 /**

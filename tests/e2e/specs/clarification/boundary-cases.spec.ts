@@ -1,10 +1,43 @@
+import type { Page } from '@playwright/test';
 import { workerTest as test, expect } from '../../fixtures/worker-fixtures';
 import { cleanupPersistenceFiles } from '../../fixtures';
-import { waitForElement, waitForText, forceClick } from '../../helpers/native-dom';
+import { waitForElement, waitForOkrSummary, clickGenerateButton } from '../../helpers/native-dom';
 
 test.beforeEach(async () => {
   await cleanupPersistenceFiles();
 });
+
+async function waitForLoadingFinished(page: Page, timeout = 10000): Promise<void> {
+  try {
+    await page.waitForSelector('[data-testid="clarification-loading"]', {
+      state: 'hidden',
+      timeout,
+    });
+  } catch {
+    // Loading might not appear if operation is fast
+  }
+}
+
+async function answerQuestion(page: Page, expectedText?: string): Promise<void> {
+  await waitForElement(page, '[data-testid="prompt-question"]', { timeout: 15000 });
+
+  if (expectedText) {
+    await page.waitForFunction(
+      ({ expected }: { expected: string }) => {
+        const el = document.querySelector('[data-testid="prompt-question"]');
+        return el?.textContent?.includes(expected);
+      },
+      { expected: expectedText },
+      { timeout: 15000 },
+    );
+  }
+
+  // Click first option
+  await page.click('[data-testid="clarification-option"]:first-child');
+
+  // Wait for UI to settle
+  await waitForLoadingFinished(page);
+}
 
 // E2E测试4: 边界情况测试
 test.describe('E2E-04: boundary cases', () => {
@@ -47,25 +80,17 @@ test.describe('E2E-04: boundary cases', () => {
     await mainWindow.click('[data-testid="start-clarification"]');
 
     // Answer first question
-    await waitForElement(mainWindow, '[data-testid="prompt-question"]', { timeout: 10000 });
-    await forceClick(mainWindow, '[data-testid="clarification-option"]:first-child');
+    await answerQuestion(mainWindow);
 
     // Answer second question
-    await waitForElement(mainWindow, '[data-testid="prompt-question"]', { timeout: 10000 });
-    await forceClick(mainWindow, '[data-testid="clarification-option"]:first-child');
+    await answerQuestion(mainWindow);
 
     // Wait for generate button and click
-    await waitForElement(mainWindow, '[data-testid="clarification-generate"]', { timeout: 15000 });
-    await forceClick(mainWindow, '[data-testid="clarification-generate"]');
+    await clickGenerateButton(mainWindow, 20000);
 
     // Verify OKR generated
-    const okrText = await waitForText(
-      mainWindow,
-      '[data-testid="okr-summary"]',
-      '最小澄清OKR',
-      15000,
-    );
-    expect(okrText).toBe(true);
+    const result = await waitForOkrSummary(mainWindow, '最小澄清OKR', 30000);
+    expect(result.found, `OKR text not found. Actual text: "${result.actualText}"`).toBe(true);
   });
 
   test('maximum questions - completes after many clarifications', async ({
@@ -112,37 +137,17 @@ test.describe('E2E-04: boundary cases', () => {
     await mainWindow.fill('[data-testid="intent-input"]', '复杂目标需要多轮澄清');
     await mainWindow.click('[data-testid="start-clarification"]');
 
-    // Answer all questions - 任务18.2: 使用确定性等待替代waitForTimeout
+    // Answer all questions
     for (let i = 0; i < maxQuestions; i++) {
-      // 等待问题元素出现（确定当前问题已加载）
-      await waitForElement(mainWindow, '[data-testid="prompt-question"]', { timeout: 10000 });
-      // 验证问题文本更新后再点击
-      await waitForText(
-        mainWindow,
-        '[data-testid="prompt-question"]',
-        `问题 ${i + 1}/${maxQuestions}`,
-        10000,
-      );
-      await forceClick(mainWindow, '[data-testid="clarification-option"]:first-child');
-      // 等待选项选择后的UI更新完成
-      await mainWindow.waitForFunction(
-        () => !document.querySelector('[data-testid="clarification-option"]:active'),
-        { timeout: 5000 },
-      );
+      await answerQuestion(mainWindow, `问题 ${i + 1}/${maxQuestions}`);
     }
 
     // Wait for generate button and click
-    await waitForElement(mainWindow, '[data-testid="clarification-generate"]', { timeout: 15000 });
-    await forceClick(mainWindow, '[data-testid="clarification-generate"]');
+    await clickGenerateButton(mainWindow, 20000);
 
     // Verify OKR generated
-    const okrText = await waitForText(
-      mainWindow,
-      '[data-testid="okr-summary"]',
-      '多轮澄清后的OKR',
-      15000,
-    );
-    expect(okrText).toBe(true);
+    const result = await waitForOkrSummary(mainWindow, '多轮澄清后的OKR', 30000);
+    expect(result.found, `OKR text not found. Actual text: "${result.actualText}"`).toBe(true);
   });
 
   test('few questions boundary - completes with just enough selections', async ({
@@ -184,24 +189,16 @@ test.describe('E2E-04: boundary cases', () => {
     await mainWindow.click('[data-testid="start-clarification"]');
 
     // Answer first question
-    await waitForElement(mainWindow, '[data-testid="prompt-question"]', { timeout: 10000 });
-    await forceClick(mainWindow, '[data-testid="clarification-option"]:first-child');
+    await answerQuestion(mainWindow);
 
     // Answer second question
-    await waitForElement(mainWindow, '[data-testid="prompt-question"]', { timeout: 10000 });
-    await forceClick(mainWindow, '[data-testid="clarification-option"]:first-child');
+    await answerQuestion(mainWindow);
 
     // Wait for generate button and click
-    await waitForElement(mainWindow, '[data-testid="clarification-generate"]', { timeout: 15000 });
-    await forceClick(mainWindow, '[data-testid="clarification-generate"]');
+    await clickGenerateButton(mainWindow, 20000);
 
     // Verify OKR
-    const okrText = await waitForText(
-      mainWindow,
-      '[data-testid="okr-summary"]',
-      '少问题OKR',
-      15000,
-    );
-    expect(okrText).toBe(true);
+    const result = await waitForOkrSummary(mainWindow, '少问题OKR', 30000);
+    expect(result.found, `OKR text not found. Actual text: "${result.actualText}"`).toBe(true);
   });
 });
