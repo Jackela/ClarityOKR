@@ -37,5 +37,10 @@ module.exports = {
     'ipc\\.llm',
     'persistence/',
     'draft\\.success',
+    'draft\\.incomplete',
+    'clarification\\.success',
+    'clarification\\.provider-errors',
+    'clarification\\.timeout',
+    'draft\\.errors',
   ],
 };
