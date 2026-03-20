@@ -28,8 +28,8 @@ module.exports = {
   testPathIgnorePatterns: [
     '/node_modules/',
     '/circuit-breaker/',
-    '/llm-cache/',
-    '/encrypted-storage/',
+    '/llm-cache.integration',
+    '/encrypted-storage.integration',
     '/clarification\\.repair',
     '/clarification\\.error',
     '/error-handling/',
