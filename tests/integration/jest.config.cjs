@@ -8,7 +8,7 @@ module.exports = {
   setupFilesAfterEnv: ['<rootDir>/setup.ts'],
   testTimeout: 30000,
   transform: {
-    '^.+\\.(ts|tsx)$': ['ts-jest', { tsconfig: './tsconfig.test.json', useESM: true }],
+    '^.+\\.(ts|tsx)$': ['ts-jest', { tsconfig: '../../tsconfig.base.json', useESM: true }],
   },
   moduleNameMapper: {
     '^@clarityokr/(.*)$': '<rootDir>/../../packages/$1/dist/index.js',
