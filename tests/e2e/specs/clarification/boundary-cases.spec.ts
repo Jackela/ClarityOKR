@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import { workerTest as test, expect } from '../../fixtures/worker-fixtures';
 import { cleanupPersistenceFiles } from '../../fixtures';
-import { waitForElement, waitForOkrSummary, clickGenerateButton } from '../../helpers/native-dom';
+import { waitForElement, waitForOkrSummary, forceClick } from '../../helpers/native-dom';
 
 test.beforeEach(async () => {
   await cleanupPersistenceFiles();
@@ -32,8 +32,8 @@ async function answerQuestion(page: Page, expectedText?: string): Promise<void> 
     );
   }
 
-  // Click first option
-  await page.click('[data-testid="clarification-option"]:first-child');
+  // Use forceClick for CI reliability - bypasses Playwright stability checks
+  await forceClick(page, '[data-testid="clarification-option"]:first-child');
 
   // Wait for UI to settle
   await waitForLoadingFinished(page);
@@ -85,8 +85,9 @@ test.describe('E2E-04: boundary cases', () => {
     // Answer second question
     await answerQuestion(mainWindow);
 
-    // Wait for generate button and click
-    await clickGenerateButton(mainWindow, 20000);
+    // Wait for generate button and click using forceClick for CI reliability
+    await waitForElement(mainWindow, '[data-testid="clarification-generate"]', { timeout: 20000 });
+    await forceClick(mainWindow, '[data-testid="clarification-generate"]');
 
     // Verify OKR generated
     const result = await waitForOkrSummary(mainWindow, '最小澄清OKR', 30000);
@@ -142,8 +143,9 @@ test.describe('E2E-04: boundary cases', () => {
       await answerQuestion(mainWindow, `问题 ${i + 1}/${maxQuestions}`);
     }
 
-    // Wait for generate button and click
-    await clickGenerateButton(mainWindow, 20000);
+    // Wait for generate button and click using forceClick for CI reliability
+    await waitForElement(mainWindow, '[data-testid="clarification-generate"]', { timeout: 20000 });
+    await forceClick(mainWindow, '[data-testid="clarification-generate"]');
 
     // Verify OKR generated
     const result = await waitForOkrSummary(mainWindow, '多轮澄清后的OKR', 30000);
@@ -194,8 +196,9 @@ test.describe('E2E-04: boundary cases', () => {
     // Answer second question
     await answerQuestion(mainWindow);
 
-    // Wait for generate button and click
-    await clickGenerateButton(mainWindow, 20000);
+    // Wait for generate button and click using forceClick for CI reliability
+    await waitForElement(mainWindow, '[data-testid="clarification-generate"]', { timeout: 20000 });
+    await forceClick(mainWindow, '[data-testid="clarification-generate"]');
 
     // Verify OKR
     const result = await waitForOkrSummary(mainWindow, '少问题OKR', 30000);

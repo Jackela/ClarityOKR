@@ -1,34 +1,21 @@
 import type { Page } from '@playwright/test';
 
 /**
- * 可靠的DOM查询工具 - 使用原生document.querySelector
+ * 等待元素出现并可交互
+ * 使用 Playwright 的 waitForSelector 确保元素真正可见
  */
 export async function waitForElement(
   page: Page,
   selector: string,
-  options: { timeout?: number; checkVisibility?: boolean } = {},
+  options: { timeout?: number; state?: 'attached' | 'detached' | 'visible' | 'hidden' } = {},
 ): Promise<boolean> {
-  const { timeout = 30000, checkVisibility = false } = options;
-  const startTime = Date.now();
-
-  while (Date.now() - startTime < timeout) {
-    const found = await page.evaluate(
-      ({ sel, checkVis }: { sel: string; checkVis: boolean }) => {
-        const el = document.querySelector(sel);
-        if (!el) return false;
-        if (checkVis) {
-          const htmlEl = el as HTMLElement;
-          return htmlEl.offsetParent !== null;
-        }
-        return true;
-      },
-      { sel: selector, checkVis: checkVisibility },
-    );
-
-    if (found) return true;
-    await page.waitForTimeout(100);
+  const { timeout = 30000, state = 'visible' } = options;
+  try {
+    await page.waitForSelector(selector, { state, timeout });
+    return true;
+  } catch {
+    return false;
   }
-  return false;
 }
 
 /**
