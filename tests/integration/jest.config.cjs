@@ -32,5 +32,10 @@ module.exports = {
     'encrypted-storage',
     'clarification\\.repair',
     'clarification\\.error',
+    'error-handling',
+    'llm/',
+    'ipc\\.llm',
+    'persistence/',
+    'draft\\.success',
   ],
 };
