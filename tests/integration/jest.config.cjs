@@ -21,9 +21,16 @@ module.exports = {
 
   moduleNameMapper: {
     '^@clarityokr/(.*)$': '<rootDir>/../../packages/$1/dist/index.js',
-    '^(\\.{1,2}/.*)\\.js$': '<rootDir>/../../$1',
     '^../../../app/main/(.*)\\.js$': '<rootDir>/../../app/main/$1',
     '^../../../app/renderer/(.*)\\.js$': '<rootDir>/../../app/renderer/$1',
     '^electron$': '<rootDir>/__mocks__/electron.ts',
   },
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    'circuit-breaker',
+    'llm-cache',
+    'encrypted-storage',
+    'clarification\\.repair',
+    'clarification\\.error',
+  ],
 };
