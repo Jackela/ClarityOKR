@@ -8,11 +8,11 @@ module.exports = {
   setupFilesAfterEnv: ['<rootDir>/setup.ts'],
   testTimeout: 30000,
   transform: {
-    '^.+\\.(ts|tsx)$': ['ts-jest', { tsconfig: '../../tsconfig.base.json', useESM: true }],
+    '^.+\\.(ts|tsx)$': ['ts-jest', { tsconfig: './tsconfig.test.json', useESM: true }],
   },
   moduleNameMapper: {
     '^@clarityokr/(.*)$': '<rootDir>/../../packages/$1/dist/index.js',
-    '^((\\.{1,3}/)+.*)\\.js$': '$1',
+    '^(\\.{1,2}/.*)\\.js$': '$1',
     '^../../../app/main/src/services/(.*)\\.js$': '<rootDir>/../../app/main/src/services/$1',
     '^../../../app/main/(.*)$': '<rootDir>/../../app/main/$1',
     '^electron$': '<rootDir>/__mocks__/electron.ts',
