@@ -1,11 +1,6 @@
 import { workerTest as test, expect } from '../../fixtures/worker-fixtures';
 import { cleanupPersistenceFiles } from '../../fixtures';
-import {
-  waitForElement,
-  waitForText,
-  forceClick,
-  clickGenerateButton,
-} from '../../helpers/native-dom';
+import { waitForText, clickGenerateButton } from '../../helpers/native-dom';
 import type { MockResponseConfig } from '@clarityokr/contracts';
 
 test.beforeEach(async () => {
@@ -13,9 +8,14 @@ test.beforeEach(async () => {
 });
 
 test('completes interview and enables OKR generation', async ({ mainWindow, mockServer }) => {
+  // Wait for app to fully load
+  await mainWindow.waitForLoadState('domcontentloaded');
+  await mainWindow.waitForTimeout(1000); // Give Angular time to bootstrap
+
   // Configure mock
   const mockConfig: MockResponseConfig = {
     nextQuestion: (callNumber) => {
+      console.log(`[mock] nextQuestion called with callNumber=${callNumber}`);
       if (callNumber <= 2) {
         return {
           question: {
@@ -47,39 +47,125 @@ test('completes interview and enables OKR generation', async ({ mainWindow, mock
       },
     },
   };
-  mockServer.setResponses(mockConfig);
 
-  // SIMPLIFIED TEST: Just verify the basic flow works
+  await mockServer.setResponses(mockConfig);
+  console.log('[test] Mock responses configured');
 
-  // 1. Fill intent and start
-  await mainWindow.fill('[data-testid="intent-input"]', '提高效率');
-  await mainWindow.click('[data-testid="start-clarification"]');
+  // Try to get Angular component and manually trigger change detection
+  const angularResult = await mainWindow.evaluate(() => {
+    // Check if zone.js is loaded
+    const Zone = (window as unknown as { Zone?: unknown }).Zone;
 
-  // 2. Wait for first question (using native DOM)
-  const questionVisible = await waitForElement(mainWindow, '[data-testid="prompt-question"]', {
-    timeout: 10000,
+    // Check if Angular core is loaded
+    const ngCore = (window as unknown as { ng?: unknown }).ng;
+
+    // Check document for Angular-specific elements
+    const angularRoot = document.querySelector('clarityokr-root, app-root, [ng-version]');
+    const htmlElement = document.documentElement.getAttribute('ng-version');
+
+    // Try to find Angular's internal context
+    const root = document.querySelector('clarityokr-root, app-root');
+    const hasNgContext = root && '__ngContext__' in root;
+    const rootOuterHtml = root?.outerHTML?.substring(0, 200);
+
+    return {
+      hasZone: typeof Zone !== 'undefined',
+      hasNgCore: typeof ngCore !== 'undefined',
+      hasAngularRoot: !!angularRoot,
+      htmlNgVersion: htmlElement,
+      hasNgContext,
+      rootTagName: root?.tagName,
+      rootOuterHtml,
+    };
   });
-  expect(questionVisible).toBe(true);
+  console.log('[test] Angular diagnostic:', JSON.stringify(angularResult));
 
-  // 3. Answer first question
-  await forceClick(mainWindow, '[data-testid="clarification-option"]:has-text("A")');
+  // Fill the input using JavaScript and dispatch input event
+  await mainWindow.evaluate(() => {
+    const input = document.querySelector('[data-testid="intent-input"]') as HTMLInputElement;
+    if (input) {
+      input.value = '提高效率';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  });
+  console.log('[test] Filled intent input via JS');
 
-  // 4. Wait for second question
-  const secondQuestionVisible = await waitForText(
-    mainWindow,
-    '[data-testid="prompt-question"]',
-    '再补充',
-    10000,
-  );
-  expect(secondQuestionVisible).toBe(true);
+  // Click the submit button directly via JavaScript
+  await mainWindow.evaluate(() => {
+    const button = document.querySelector(
+      '[data-testid="start-clarification"]',
+    ) as HTMLButtonElement;
+    if (button) {
+      button.click();
+    }
+  });
+  console.log('[test] Clicked start-clarification via JS');
 
-  // 5. Answer second question
-  await forceClick(mainWindow, '[data-testid="clarification-option"]:has-text("B")');
+  // Wait for the request to be sent
+  await mainWindow.waitForTimeout(1000);
 
-  // 6. Click generate button
-  await clickGenerateButton(mainWindow, 15000);
+  // Check what was sent to mock server
+  const requestLog = mockServer.getRequestLog();
+  console.log('[test] Request log after start:', JSON.stringify(requestLog, null, 2));
 
-  // 7. Verify OKR generated
-  const okrText = await waitForText(mainWindow, '[data-testid="okr-summary"]', '提高效率', 15000);
-  expect(okrText).toBe(true);
+  // Debug: Check if Angular is even running
+  const debugInfo = await mainWindow.evaluate(() => {
+    return {
+      hasNg: typeof (window as unknown as { ng?: unknown }).ng !== 'undefined',
+      hasZone: typeof (window as unknown as { Zone?: unknown }).Zone !== 'undefined',
+      formExists: !!document.querySelector('.intent-form'),
+      buttonExists: !!document.querySelector('[data-testid="start-clarification"]'),
+      inputValue: (document.querySelector('[data-testid="intent-input"]') as HTMLInputElement)
+        ?.value,
+    };
+  });
+  console.log('[test] Debug info:', JSON.stringify(debugInfo));
+
+  // If request was sent, proceed with the flow
+  if (requestLog.length > 0) {
+    console.log('[test] IPC request was sent, waiting for question...');
+
+    // Wait for first question
+    const questionVisible = await mainWindow
+      .waitForSelector('[data-testid="prompt-question"]', { state: 'visible', timeout: 20000 })
+      .then(() => true)
+      .catch(() => false);
+    console.log('[test] Question visible:', questionVisible);
+    expect(questionVisible).toBe(true);
+
+    // Answer first question
+    await mainWindow.evaluate(() => {
+      const option = document.querySelector('[data-testid="clarification-option"]') as HTMLElement;
+      option?.click();
+    });
+    console.log('[test] Answered first question');
+
+    // Wait for second question
+    const secondQuestionVisible = await waitForText(
+      mainWindow,
+      '[data-testid="prompt-question"]',
+      '再补充',
+      10000,
+    );
+    expect(secondQuestionVisible).toBe(true);
+
+    // Answer second question
+    await mainWindow.evaluate(() => {
+      const option = document.querySelector('[data-testid="clarification-option"]') as HTMLElement;
+      option?.click();
+    });
+    console.log('[test] Answered second question');
+
+    // Click generate button
+    await clickGenerateButton(mainWindow, 15000);
+    console.log('[test] Clicked generate button');
+
+    // Verify OKR generated
+    const okrText = await waitForText(mainWindow, '[data-testid="okr-summary"]', '提高效率', 15000);
+    expect(okrText).toBe(true);
+  } else {
+    // If no request was sent, fail with debug info
+    expect(requestLog.length).toBeGreaterThan(0);
+  }
 });

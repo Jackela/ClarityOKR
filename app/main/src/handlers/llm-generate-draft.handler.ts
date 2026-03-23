@@ -3,13 +3,51 @@ import { randomUUID } from 'node:crypto';
 import type { OKRDocument } from '@clarityokr/contracts';
 import { generateOKRResponseSchema } from '@clarityokr/contracts';
 import electron from 'electron';
+import { z } from 'zod';
 
-import { IPCChannels } from '../bootstrap/ipc-channels.js';
+import { IPC_CHANNELS } from '../bootstrap/ipc-channels.js';
 import { Logger } from '../core/logger.js';
-import type { OkrDraftRequest, OkrDraftResponse } from '../main/ipc.llm.js';
+import type { OkrDraftResponse } from '../main/ipc.llm.js';
 import type { OkrRepository } from '../persistence/okr-repository.js';
 import type { OkrAgentService } from '../services/okr-agent.service.js';
 import type { SessionManager } from '../services/session-manager.service.js';
+
+// Zod schemas for runtime validation
+const clarificationTurnSchema = z.object({
+  questionId: z.string().min(1),
+  optionId: z.string().min(1),
+  timestamp: z.string().min(1),
+});
+
+const clarificationContextSchema = z.object({
+  turns: z.array(clarificationTurnSchema),
+});
+
+const okrDraftRequestSchema = z.object({
+  context: clarificationContextSchema.optional(),
+  sessionId: z.string().min(1).optional(),
+});
+
+// Extended schema for LLM draft response validation
+const draftKeyResultSchema = z.object({
+  id: z.string().min(1).optional(),
+  statement: z.string().min(1).optional(),
+  target: z.union([z.string(), z.number()]).optional(),
+  measurement: z.string().min(1).optional(),
+});
+
+const draftObjectiveSchema = z.object({
+  id: z.string().min(1).optional(),
+  title: z.string().min(1).optional(),
+  description: z.string().min(1).optional(),
+  keyResults: z.array(draftKeyResultSchema).optional(),
+});
+
+const draftPayloadSchema = z.object({
+  draft: z.object({
+    objectives: z.array(draftObjectiveSchema).min(1),
+  }),
+});
 
 /**
  * LlmGenerateDraftHandler - 处理LLM_GENERATE_DRAFT IPC请求
@@ -24,7 +62,13 @@ export class LlmGenerateDraftHandler {
   ) {}
 
   async handle(payload: unknown): Promise<OkrDraftResponse> {
-    const body = payload as OkrDraftRequest;
+    // Validate payload using Zod
+    const parseResult = okrDraftRequestSchema.safeParse(payload);
+    if (!parseResult.success) {
+      throw new Error(`Invalid request payload: ${parseResult.error.message}`);
+    }
+    const body = parseResult.data;
+
     const requestSessionId = body.sessionId;
 
     // 验证sessionId
@@ -73,27 +117,15 @@ export class LlmGenerateDraftHandler {
       throw new Error('Empty or invalid response from LLM draft service');
     }
 
-    type DraftKR = {
-      id?: string;
-      statement?: string;
-      target?: unknown;
-      measurement?: string;
-    };
-    type DraftObj = {
-      id?: string;
-      title?: string;
-      description?: string;
-      keyResults?: DraftKR[];
-    };
-    type DraftPayload = { draft?: { objectives?: DraftObj[] } };
-    const draft = (llmDraft as DraftPayload).draft;
+    // Validate LLM response using Zod
+    const draftParseResult = draftPayloadSchema.safeParse(llmDraft);
+    if (!draftParseResult.success) {
+      throw new Error(`Invalid LLM draft response: ${draftParseResult.error.message}`);
+    }
 
-    if (
-      !draft ||
-      !draft.objectives ||
-      !Array.isArray(draft.objectives) ||
-      draft.objectives.length === 0
-    ) {
+    const draft = draftParseResult.data.draft;
+
+    if (!draft.objectives || !Array.isArray(draft.objectives) || draft.objectives.length === 0) {
       throw new Error('LLM draft response missing required objectives field');
     }
 
@@ -126,7 +158,7 @@ export class LlmGenerateDraftHandler {
     const response = generateOKRResponseSchema.parse({ okr, session });
     this.elect.webContents
       .getAllWebContents()
-      .forEach((wc) => wc.send(IPCChannels.OKR_GENERATE, response));
+      .forEach((wc) => wc.send(IPC_CHANNELS.OKR_GENERATE, response));
     return response;
   }
 }

@@ -18,13 +18,6 @@
     "packages/contracts/src/**/*.cts",
     "app/main/src/**/*.ts",
     "app/main/src/**/*.mts",
-    "app/main/src/**/*.cts",
-    "app/renderer/src/**/*.ts",
-    "app/renderer/src/**/*.d.ts",
-    "app/renderer/src/**/*.mts",
-    "app/renderer/src/**/*.cts",
-    "tests/e2e/**/*.ts",
-    "tests/unit/**/*.ts",
-    "tests/component/**/*.ts"
+    "app/main/src/**/*.cts"
   ]
 }

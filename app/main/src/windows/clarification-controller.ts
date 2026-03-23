@@ -1,7 +1,7 @@
 import type { ClarificationSession } from '@clarityokr/contracts';
 import electron from 'electron';
 
-import { IPCChannels } from '../bootstrap/ipc-channels.js';
+import { IPC_CHANNELS } from '../bootstrap/ipc-channels.js';
 import { ClarificationPromptHandler } from '../handlers/clarification-prompt.handler.js';
 import { ClarificationRespondHandler } from '../handlers/clarification-respond.handler.js';
 import { LlmGenerateDraftHandler } from '../handlers/llm-generate-draft.handler.js';
@@ -79,7 +79,7 @@ export class ClarificationController {
 
   private registerHandlers(): void {
     // CLARIFICATION_PROMPT: 生成初始澄清提示
-    this.elect.ipcMain.handle(IPCChannels.CLARIFICATION_PROMPT, async (_event, payload) => {
+    this.elect.ipcMain.handle(IPC_CHANNELS.CLARIFICATION_PROMPT, async (_event, payload) => {
       const result = await this.clarificationPromptHandler.handle(payload);
       // 异步记录日志，不阻塞主流程
       void this.actionLogService
@@ -91,14 +91,14 @@ export class ClarificationController {
     });
 
     // CLARIFICATION_RESPOND: 记录用户响应
-    this.elect.ipcMain.on(IPCChannels.CLARIFICATION_RESPOND, (_event, payload) => {
+    this.elect.ipcMain.on(IPC_CHANNELS.CLARIFICATION_RESPOND, (_event, payload) => {
       void this.clarificationRespondHandler.handle(payload).catch((error) => {
         this.actionLogService.logUnexpectedError('Failed to handle response', error);
       });
     });
 
     // OKR_GENERATE: 生成OKR文档
-    this.elect.ipcMain.handle(IPCChannels.OKR_GENERATE, async (_event, payload) => {
+    this.elect.ipcMain.handle(IPC_CHANNELS.OKR_GENERATE, async (_event, payload) => {
       const result = await this.okrGenerateHandler.handle(payload);
       // 记录生成动作
       await this.actionLogService.logAction(
@@ -111,7 +111,7 @@ export class ClarificationController {
     });
 
     // STICKY_REOPEN: 重新打开浮动窗口
-    this.elect.ipcMain.handle(IPCChannels.STICKY_REOPEN, async () => {
+    this.elect.ipcMain.handle(IPC_CHANNELS.STICKY_REOPEN, async () => {
       const okr = await this.okrRepository.loadLatest();
       if (!okr) {
         return { success: false };
@@ -121,18 +121,18 @@ export class ClarificationController {
     });
 
     // OKR_LATEST: 获取最新OKR
-    this.elect.ipcMain.handle(IPCChannels.OKR_LATEST, async () => {
+    this.elect.ipcMain.handle(IPC_CHANNELS.OKR_LATEST, async () => {
       const okr = await this.okrRepository.loadLatest();
       return okr ?? null;
     });
 
     // LLM_NEXT_QUESTION: 获取下一个LLM问题
-    this.elect.ipcMain.handle(IPCChannels.LLM_NEXT_QUESTION, async (_event, payload) => {
+    this.elect.ipcMain.handle(IPC_CHANNELS.LLM_NEXT_QUESTION, async (_event, payload) => {
       return this.llmNextQuestionHandler.handle(payload);
     });
 
     // LLM_GENERATE_DRAFT: 生成OKR草案
-    this.elect.ipcMain.handle(IPCChannels.LLM_GENERATE_DRAFT, async (_event, payload) => {
+    this.elect.ipcMain.handle(IPC_CHANNELS.LLM_GENERATE_DRAFT, async (_event, payload) => {
       return this.llmGenerateDraftHandler.handle(payload);
     });
   }

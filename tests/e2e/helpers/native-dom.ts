@@ -1,29 +1,21 @@
 import type { Page } from '@playwright/test';
 
 /**
- * 可靠的DOM查询工具 - 使用原生document.querySelector
+ * 等待元素出现（检查DOM存在性）
+ * 注意：此函数不检查元素是否可见，只检查是否存在于DOM中
  */
 export async function waitForElement(
   page: Page,
   selector: string,
-  options: { timeout?: number; checkVisibility?: boolean } = {},
+  options: { timeout?: number } = {},
 ): Promise<boolean> {
-  const { timeout = 30000, checkVisibility = false } = options;
+  const { timeout = 30000 } = options;
   const startTime = Date.now();
 
   while (Date.now() - startTime < timeout) {
-    const found = await page.evaluate(
-      ({ sel, checkVis }: { sel: string; checkVis: boolean }) => {
-        const el = document.querySelector(sel);
-        if (!el) return false;
-        if (checkVis) {
-          const htmlEl = el as HTMLElement;
-          return htmlEl.offsetParent !== null;
-        }
-        return true;
-      },
-      { sel: selector, checkVis: checkVisibility },
-    );
+    const found = await page.evaluate((sel: string) => {
+      return document.querySelector(sel) !== null;
+    }, selector);
 
     if (found) return true;
     await page.waitForTimeout(100);
@@ -124,31 +116,78 @@ export async function forceClick(page: Page, selector: string): Promise<void> {
 export async function clickGenerateButton(page: Page, timeout = 30000): Promise<void> {
   const selector = '[data-testid="clarification-generate"]';
 
-  // 等待按钮存在
+  // Wait for button to exist
   const exists = await waitForElement(page, selector, { timeout });
   if (!exists) {
     throw new Error(`Generate button not found after ${timeout}ms`);
   }
 
-  // 检查是否可用
-  const enabled = await isButtonEnabled(page, selector);
+  // Wait for button to be enabled (data-ready="true")
+  await page.waitForFunction(
+    (sel) => {
+      const btn = document.querySelector(sel) as HTMLButtonElement | null;
+      return btn && !btn.disabled;
+    },
+    selector,
+    { timeout },
+  );
 
-  if (enabled) {
-    await page.click(selector);
-  } else {
-    // 强制启用并点击
-    await forceClick(page, selector);
+  // Small delay to ensure Angular has processed the click handler
+  await page.waitForTimeout(100);
+
+  await page.click(selector);
+}
+
+/**
+ * Wait for OKR summary to appear with multiple polling strategies
+ * More reliable than simple text matching in CI environments
+ */
+export async function waitForOkrSummary(
+  page: Page,
+  expectedText: string,
+  timeout = 30000,
+): Promise<{ found: boolean; actualText: string | null }> {
+  const selector = '[data-testid="okr-summary"]';
+  const startTime = Date.now();
+  let lastActualText: string | null = null;
+
+  while (Date.now() - startTime < timeout) {
+    const result = await page.evaluate(
+      ({ sel, expected }: { sel: string; expected: string }) => {
+        const el = document.querySelector(sel);
+        if (!el) return { found: false, actualText: null };
+        const text = el.textContent ?? '';
+        return { found: text.includes(expected), actualText: text };
+      },
+      { sel: selector, expected: expectedText },
+    );
+
+    if (result.found) {
+      return { found: true, actualText: result.actualText };
+    }
+
+    lastActualText = result.actualText;
+
+    // Log progress every 5 seconds
+    const elapsed = Date.now() - startTime;
+    if (elapsed % 5000 < 100) {
+      console.log(
+        `[waitForOkrSummary] Waiting... ${elapsed}ms elapsed, last text: "${lastActualText}"`,
+      );
+    }
+
+    await page.waitForTimeout(200);
   }
+
+  return { found: false, actualText: lastActualText };
 }
 
 /**
  * 等待错误消息出现
  */
 export async function waitForErrorMessage(page: Page, timeout = 30000): Promise<void> {
-  // Note: checkVisibility disabled for CI reliability - element presence is sufficient
   const found = await waitForElement(page, '[data-testid="error-message"]', {
     timeout,
-    checkVisibility: false,
   });
 
   if (!found) {
@@ -260,13 +299,7 @@ export async function waitForStateChange(
   page: Page,
   options: WaitForStateChangeOptions,
 ): Promise<void> {
-  const {
-    to,
-    from,
-    timeout = 30000,
-    checkVisibility = false,
-    stabilizationDelay = 0,
-  } = options;
+  const { to, from, timeout = 30000, checkVisibility = false, stabilizationDelay = 0 } = options;
 
   const startTime = Date.now();
 
@@ -308,9 +341,7 @@ export async function waitForStateChange(
     await page.waitForTimeout(100);
   }
 
-  throw new Error(
-    `State change timeout: expected "${to}" to appear within ${timeout}ms`,
-  );
+  throw new Error(`State change timeout: expected "${to}" to appear within ${timeout}ms`);
 }
 
 /**

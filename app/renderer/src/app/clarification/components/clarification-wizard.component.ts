@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Output } from '@angular/core';
 
 import { SyncClarificationState } from '../services/sync-clarification-state.service';
 
@@ -7,6 +7,7 @@ import { SyncClarificationState } from '../services/sync-clarification-state.ser
   selector: 'clarityokr-clarification-wizard',
   standalone: true,
   imports: [CommonModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section aria-label="目标澄清向导">
       <!-- Live region for loading status -->

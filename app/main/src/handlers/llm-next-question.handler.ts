@@ -1,11 +1,49 @@
 import type { ClarificationPrompt } from '@clarityokr/contracts';
 import electron from 'electron';
+import { z } from 'zod';
 
-import { IPCChannels } from '../bootstrap/ipc-channels.js';
+import { IPC_CHANNELS } from '../bootstrap/ipc-channels.js';
 import { Logger } from '../core/logger.js';
-import type { LlmNextQuestionRequest, LlmNextQuestionResponse } from '../main/ipc.llm.js';
+import type { LlmNextQuestionResponse } from '../main/ipc.llm.js';
 import type { OkrAgentService } from '../services/okr-agent.service.js';
 import type { SessionManager } from '../services/session-manager.service.js';
+
+// Zod schemas for runtime validation
+const lastChoiceSchema = z.object({
+  questionId: z.string().min(1),
+  optionId: z.string().min(1),
+});
+
+const clarificationTurnSchema = z.object({
+  questionId: z.string().min(1),
+  optionId: z.string().min(1),
+  timestamp: z.string().min(1),
+});
+
+const clarificationContextSchema = z.object({
+  turns: z.array(clarificationTurnSchema),
+});
+
+const llmNextQuestionRequestSchema = z.object({
+  context: clarificationContextSchema,
+  lastChoice: lastChoiceSchema,
+});
+
+const nextQuestionOptionSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  value: z.string().optional(),
+});
+
+const nextQuestionSchema = z.object({
+  id: z.string().min(1),
+  text: z.string().min(1),
+  options: z.array(nextQuestionOptionSchema).min(2).max(6),
+});
+
+const llmNextQuestionResponseSchema = z.object({
+  question: nextQuestionSchema,
+});
 
 /**
  * LlmNextQuestionHandler - 处理LLM_NEXT_QUESTION IPC请求
@@ -19,14 +57,16 @@ export class LlmNextQuestionHandler {
   ) {}
 
   async handle(payload: unknown): Promise<LlmNextQuestionResponse> {
-    const body = payload as LlmNextQuestionRequest;
+    // Validate payload using Zod instead of type assertion
+    const parseResult = llmNextQuestionRequestSchema.safeParse(payload);
+    if (!parseResult.success) {
+      throw new Error(`Invalid request payload: ${parseResult.error.message}`);
+    }
+    const body = parseResult.data;
 
-    let data: LlmNextQuestionResponse;
+    let data: unknown;
     try {
-      data = (await this.okrAgentService.getNextQuestion(
-        body.context,
-        body.lastChoice,
-      )) as LlmNextQuestionResponse;
+      data = await this.okrAgentService.getNextQuestion(body.context, body.lastChoice);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       Logger.error('[main] LLM getNextQuestion failed:', errorMsg);
@@ -37,20 +77,28 @@ export class LlmNextQuestionHandler {
       throw new Error('Empty or invalid response from LLM next question service');
     }
 
+    // Validate response using Zod
+    const responseParseResult = llmNextQuestionResponseSchema.safeParse(data);
+    if (!responseParseResult.success) {
+      throw new Error(`Invalid LLM response: ${responseParseResult.error.message}`);
+    }
+
+    const validatedData = responseParseResult.data;
+
     // 如果没有问题，表示澄清已完成
-    if (!data.question) {
+    if (!validatedData.question) {
       Logger.info('[main] No more questions, clarification complete');
-      return data;
+      return validatedData;
     }
 
     // 将LLM问题映射为ClarificationPrompt并广播
     const session = await this.loadAndCacheSession();
     if (!session) {
-      return data;
+      return validatedData;
     }
 
     const sequence = session.steps.length;
-    const q = data.question;
+    const q = validatedData.question;
     const prompt: ClarificationPrompt = {
       id: q.id,
       sequence,
@@ -70,9 +118,9 @@ export class LlmNextQuestionHandler {
     // 广播到所有窗口
     this.elect.webContents
       .getAllWebContents()
-      .forEach((wc) => wc.send(IPCChannels.CLARIFICATION_PROMPT, { prompt }));
+      .forEach((wc) => wc.send(IPC_CHANNELS.CLARIFICATION_PROMPT, { prompt }));
 
-    return data;
+    return validatedData;
   }
 
   /**

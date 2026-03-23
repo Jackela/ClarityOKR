@@ -8,7 +8,8 @@ export const IPC_CHANNELS = {
   SESSION_PERSIST: 'clarityokr:session:persist',
   CLIPBOARD_EXPORT: 'clarityokr:clipboard:export',
   STICKY_REOPEN: 'clarityokr:sticky:reopen',
-  OKR_LATEST: 'clarityokr:okr:latest'
+  OKR_LATEST: 'clarityokr:okr:latest',
 } as const;
 
-export type RendererIpcChannel = typeof IPC_CHANNELS[keyof typeof IPC_CHANNELS];
+export type RendererIpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];
+export type IpcChannel = RendererIpcChannel;

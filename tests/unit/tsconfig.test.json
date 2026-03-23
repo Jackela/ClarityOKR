@@ -1,0 +1,22 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2022",
+    "strict": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "@clarityokr/contracts": ["../../packages/contracts/src/index.ts"],
+      "@clarityokr/contracts/*": ["../../packages/contracts/src/*"],
+      "@clarityokr/main/*": ["../../app/main/src/*"],
+      "@clarityokr/renderer/*": ["../../app/renderer/src/*"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.spec.ts"]
+}

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "cross-env NODE_OPTIONS=--experimental-vm-modules pnpm exec jest --config jest.config.cjs"
+    "test": "cross-env NODE_OPTIONS=--experimental-vm-modules pnpm exec jest --config jest.config.cjs --forceExit"
   },
   "dependencies": {
     "jest": "^29.7.0",
@@ -18,4 +18,3 @@
     "typescript": "~5.4.5"
   }
 }
-

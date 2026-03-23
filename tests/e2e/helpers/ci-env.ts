@@ -51,7 +51,7 @@ export function getCIInfo(): {
   };
 }
 
-// 根据环境获取最佳配置
+// 根据环境获取最佳配置 - 修复flaky测试，移除重试掩盖问题
 export function getOptimizedConfig(): {
   workers: number | undefined;
   timeout: number;
@@ -60,10 +60,11 @@ export function getOptimizedConfig(): {
 } {
   const ci = isCI();
 
+  // 任务18.6: 移除重试掩盖问题，任务18.7: 减少超时到合理值
   return {
     workers: ci ? 1 : undefined,
-    timeout: ci ? 120000 : 30000,
-    retries: ci ? 3 : 0,
+    timeout: ci ? 60000 : 30000, // 从120s降低到60s
+    retries: 0, // 移除重试，强制修复根本问题
     trace: ci ? 'retain-on-failure' : 'on-first-retry',
   };
 }

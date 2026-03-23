@@ -1,21 +1,65 @@
+/**
+ * Environment Configuration
+ *
+ * This module provides configuration for LLM services.
+ * Secrets are securely stored using the system's keychain/credential manager.
+ * For development/testing, environment variables can be used as fallback.
+ */
+
+import {
+  getActiveLlmConfig,
+  storeLlmConfig,
+  SecureStorageError,
+  type SecureLlmConfig,
+} from './services/secure-storage.service.js';
+
+/**
+ * LLM Configuration interface
+ */
 export interface LlmConfig {
+  /** The API key for LLM service */
   apiKey: string;
+  /** Optional base URL for custom LLM endpoint */
   baseUrl?: string;
+  /** Optional model name */
   model?: string;
 }
 
 /**
- * Returns LLM configuration sourced from environment variables.
- * Secrets must only be read in the Electron main process.
- * Throws if the required API key is missing.
+ * Returns LLM configuration from secure storage.
+ * Falls back to environment variables for development/testing.
+ * Secrets are only read in the Electron main process.
+ * @throws SecureStorageError if no configuration is available
  */
 export function getLlmConfig(): LlmConfig {
-  const apiKey = process.env.LLM_API_KEY?.trim();
-  if (!apiKey) {
-    throw new Error('LLM_API_KEY is required but was not found in environment');
-  }
-  const baseUrl = process.env.LLM_BASE_URL?.trim();
-  const model = process.env.LLM_MODEL?.trim();
-  return { apiKey, baseUrl, model };
+  const config = getActiveLlmConfig();
+  return {
+    apiKey: config.apiKey,
+    baseUrl: config.baseUrl,
+    model: config.model,
+  };
 }
-import 'dotenv/config';
+
+/**
+ * Sets LLM configuration in secure storage.
+ * @param config - The LLM configuration to store
+ * @throws SecureStorageError if storage fails
+ */
+export function setLlmConfig(config: SecureLlmConfig): void {
+  storeLlmConfig(config);
+}
+
+/**
+ * Checks if LLM configuration is available
+ * @returns true if configuration exists
+ */
+export function hasLlmConfiguration(): boolean {
+  try {
+    getLlmConfig();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export { SecureStorageError };

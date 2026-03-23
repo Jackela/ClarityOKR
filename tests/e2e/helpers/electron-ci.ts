@@ -20,8 +20,8 @@ export function getElectronCIConfig(): ElectronCIConfig {
       '--disable-dev-shm-usage',
       '--disable-accelerated-2d-canvas',
       '--no-first-run',
-      '--no-zygote',
-      '--single-process', // 在某些 CI 环境中需要
+      // '--no-zygote', // REMOVED: breaks zone.js event patching
+      // '--single-process', // REMOVED: breaks zone.js - requires multi-process for EventTarget patching
       '--disable-extensions',
       '--disable-software-rasterizer',
       '--disable-background-networking',

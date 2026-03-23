@@ -9,7 +9,7 @@
  */
 
 import { CommonModule } from '@angular/common';
-import { Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 
 export type SpinnerSize = 'sm' | 'md' | 'lg';
 
@@ -17,6 +17,7 @@ export type SpinnerSize = 'sm' | 'md' | 'lg';
   selector: 'clarityokr-loading-spinner',
   standalone: true,
   imports: [CommonModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="spinner-container" [class.spinner-container--inline]="!message">
       <div

@@ -20,7 +20,7 @@ export class SimpleMockServer {
 
   async start(port?: number): Promise<number> {
     // 如果没有指定端口，使用 get-port 获取可用端口
-    this.port = port || await getPort({ port: [7777, 7778, 7779, 7780, 7781, 7782] });
+    this.port = port || (await getPort({ port: [7777, 7778, 7779, 7780, 7781, 7782] }));
     // Reset state on start to ensure clean state
     this.callCounter = 0;
     this.responseConfig = {};
@@ -55,7 +55,7 @@ export class SimpleMockServer {
       // 🔴 FIX: Track pending request
       this.pendingRequests++;
       if (this.pendingRequests === 1) {
-        this.pendingRequestsPromise = new Promise(resolve => {
+        this.pendingRequestsPromise = new Promise((resolve) => {
           this.resolvePending = resolve;
         });
       }
@@ -123,9 +123,24 @@ export class SimpleMockServer {
                       id: 'o1',
                       title: '提高执行力',
                       keyResults: [
-                        { id: 'kr1', statement: '完成目标1', target: '100%', measurement: 'percent' },
-                        { id: 'kr2', statement: '完成目标2', target: '100%', measurement: 'percent' },
-                        { id: 'kr3', statement: '完成目标3', target: '100%', measurement: 'percent' },
+                        {
+                          id: 'kr1',
+                          statement: '完成目标1',
+                          target: '100%',
+                          measurement: 'percent',
+                        },
+                        {
+                          id: 'kr2',
+                          statement: '完成目标2',
+                          target: '100%',
+                          measurement: 'percent',
+                        },
+                        {
+                          id: 'kr3',
+                          statement: '完成目标3',
+                          target: '100%',
+                          measurement: 'percent',
+                        },
                       ],
                     },
                   ],
@@ -195,18 +210,35 @@ export class SimpleMockServer {
     if (this.pendingRequests === 0) return;
 
     const timeoutPromise = new Promise<void>((_, reject) =>
-      setTimeout(() => reject(new Error('waitForPendingRequests timeout')), timeout)
+      setTimeout(() => reject(new Error('waitForPendingRequests timeout')), timeout),
     );
 
     await Promise.race([this.pendingRequestsPromise, timeoutPromise]);
   }
 
   setResponses(config: MockResponseConfig): void {
-    // 🔴 FIX: Now setResponses just sets config without waiting
-    // Callers should call waitForPendingRequests first if needed
     this.responseConfig = config;
     this.callCounter = 0;
     this.requestLog = [];
+  }
+
+  setResponsesWithDelay(config: MockResponseConfig, delayMs: number): void {
+    const originalConfig = { ...this.responseConfig };
+    this.responseConfig = config;
+
+    setTimeout(() => {
+      this.responseConfig = originalConfig;
+    }, delayMs);
+  }
+
+  getLastResponse(): unknown {
+    const log = this.getRequestLog();
+    if (log.length === 0) return null;
+    return log[log.length - 1].body;
+  }
+
+  getResponseCount(): number {
+    return this.callCounter;
   }
 
   getRequestLog(): Array<{ method: string; url: string; body: unknown; timestamp: number }> {

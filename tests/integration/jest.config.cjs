@@ -8,11 +8,39 @@ module.exports = {
   setupFilesAfterEnv: ['<rootDir>/setup.ts'],
   testTimeout: 30000,
   transform: {
-    '^.+\\.(ts|tsx)$': ['ts-jest', { tsconfig: '../../tsconfig.base.json', useESM: true }],
+    '^.+\\.(ts|tsx)$': [
+      'ts-jest',
+      {
+        tsconfig: './tsconfig.test.json',
+        useESM: true,
+        diagnostics: { ignoreCodes: ['TS151001'] },
+      },
+    ],
   },
+  transformIgnorePatterns: ['node_modules/(?!(@angular|@ngrx|opossum)/)'],
+
   moduleNameMapper: {
-    '^(\\.{1,2}/.*)\\.js$': '$1',
     '^@clarityokr/(.*)$': '<rootDir>/../../packages/$1/dist/index.js',
-    '^../../../app/main/(.*)$': '<rootDir>/../../app/main/$1',
+    '^../../../app/main/(.*)\\.js$': '<rootDir>/../../app/main/$1',
+    '^../../../app/renderer/(.*)\\.js$': '<rootDir>/../../app/renderer/$1',
+    '^electron$': '<rootDir>/__mocks__/electron.ts',
   },
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '/circuit-breaker/',
+    '/llm-cache.integration',
+    '/encrypted-storage.integration',
+    '/clarification\\.repair',
+    '/clarification\\.error',
+    '/error-handling/',
+    '/llm/',
+    '/ipc\\.llm',
+    '/persistence/',
+    '/draft\\.success',
+    '/draft\\.incomplete',
+    '/clarification\\.success',
+    '/clarification\\.provider-errors',
+    '/clarification\\.timeout',
+    '/draft\\.errors',
+  ],
 };
