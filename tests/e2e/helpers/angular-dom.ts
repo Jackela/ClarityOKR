@@ -100,23 +100,26 @@ export async function waitForAngularStable(page: Page, timeout = 10000): Promise
 
 /**
  * Fill an input and trigger Angular's change detection properly.
- * Uses native input event dispatch to ensure zone.js patches the change.
+ * Uses JavaScript to set value and dispatch events that zone.js patches.
  */
 export async function angularFill(page: Page, selector: string, value: string): Promise<void> {
   // Wait for Angular to be ready
   await waitForAngularBootstrap(page, 5000).catch(() => {});
 
-  // Fill using Playwright's fill (types character by character)
-  await page.fill(selector, value);
+  // Wait for the input element to be ready
+  await page.waitForSelector(selector, { state: 'attached' });
 
-  // Trigger Angular's change detection by dispatching events that zone.js patches
+  // Use JavaScript to set the value directly and dispatch input event
+  // This ensures zone.js patches the event properly
   await page.evaluate(
     ({ sel, val }) => {
       const input = document.querySelector(sel) as HTMLInputElement | null;
       if (input) {
-        // Dispatch input event (zone.js patches this for Angular)
+        // Set value directly
+        input.value = val;
+        // Create and dispatch input event (zone.js patches EventTarget.prototype.addEventListener)
         input.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
-        // Dispatch change event
+        // Create and dispatch change event
         input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
       }
     },
@@ -124,12 +127,13 @@ export async function angularFill(page: Page, selector: string, value: string): 
   );
 
   // Wait for Angular to process
+  await page.waitForTimeout(200);
   await waitForAngularStable(page, 2000).catch(() => {});
 }
 
 /**
  * Click an element and ensure Angular's change detection runs.
- * Uses proper event dispatch that zone.js intercepts.
+ * Uses JavaScript's native .click() which zone.js patches properly.
  */
 export async function angularClick(
   page: Page,
@@ -145,11 +149,17 @@ export async function angularClick(
   const element = page.locator(selector);
   await element.waitFor({ state: 'visible', timeout });
 
-  // Perform click using Playwright (this uses CDP click which should work with zone.js)
-  await page.click(selector, { timeout, force });
+  // Use JavaScript's native .click() which zone.js properly patches
+  // This is different from Playwright's CDP click which bypasses zone.js
+  await page.evaluate((sel) => {
+    const el = document.querySelector(sel) as HTMLElement | null;
+    if (el) {
+      el.click();
+    }
+  }, selector);
 
   // Wait for Angular to process the click
-  await page.waitForTimeout(100);
+  await page.waitForTimeout(200);
   await waitForAngularStable(page, 5000).catch(() => {});
 }
 
