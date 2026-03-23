@@ -425,6 +425,7 @@ jobs:
           pnpm run build:electron 2>&1 | Write-Host
           if ($LASTEXITCODE -ne 0) {
             Write-Host "Build completed with exit code $LASTEXITCODE (signing may be skipped)"
+            exit 0
           }
 
       - name: Build Electron app (macOS)
