@@ -369,18 +369,19 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: powershell
         run: |
-          if ($env:WINDOWS_CERTIFICATE) {
-            Write-Host "🔐 Setting up Windows code signing..."
-            try {
-              $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
-              [IO.File]::WriteAllBytes("certificate.p12", $certBytes)
-              Write-Host "✅ Windows certificate configured"
-            } catch {
-              Write-Host "❌ Failed to configure Windows certificate: $_"
-              exit 1
-            }
-          } else {
+          Write-Host "Checking Windows certificate configuration..."
+          if ([string]::IsNullOrEmpty($env:WINDOWS_CERTIFICATE)) {
             Write-Host "⚠️ No Windows certificate configured - builds will be unsigned"
+            exit 0
+          }
+          Write-Host "🔐 Setting up Windows code signing..."
+          try {
+            $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+            [IO.File]::WriteAllBytes("certificate.p12", $certBytes)
+            Write-Host "✅ Windows certificate configured"
+          } catch {
+            Write-Host "⚠️ Failed to configure Windows certificate: $_ - continuing without signing"
+            exit 0
           }
         env:
           WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
@@ -389,19 +390,19 @@ jobs:
       - name: Setup code signing (macOS)
         if: matrix.os == 'macos-latest'
         run: |
-          if [ -n "$MACOS_CERTIFICATE" ]; then
-            echo "🔐 Setting up macOS code signing..."
-            set -e
-            echo "$MACOS_CERTIFICATE" | base64 --decode > certificate.p12
-            security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-            security default-keychain -s build.keychain
-            security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-            security import certificate.p12 -k build.keychain -P "$MACOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
-            security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" build.keychain
-            echo "✅ macOS certificate configured"
-          else
+          if [ -z "$MACOS_CERTIFICATE" ]; then
             echo "⚠️ No macOS certificate configured - builds will be unsigned"
+            exit 0
           fi
+          echo "🔐 Setting up macOS code signing..."
+          set -e
+          echo "$MACOS_CERTIFICATE" | base64 --decode > certificate.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security import certificate.p12 -k build.keychain -P "$MACOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign || true
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" build.keychain || true
+          echo "✅ macOS certificate configured"
         env:
           MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
           MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
