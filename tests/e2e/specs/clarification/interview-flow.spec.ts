@@ -62,6 +62,13 @@ test('completes interview and enables OKR generation', async ({ mainWindow, mock
   await mainWindow.fill('[data-testid="intent-input"]', '提高效率');
   console.log('[test] Filled intent input');
 
+  // Check if button is enabled after filling
+  const buttonEnabled = await mainWindow.evaluate(() => {
+    const btn = document.querySelector('[data-testid="start-clarification"]') as HTMLButtonElement;
+    return btn && !btn.disabled;
+  });
+  console.log('[test] Button enabled after fill:', buttonEnabled);
+
   await mainWindow.click('[data-testid="start-clarification"]');
   console.log('[test] Clicked start-clarification');
 
