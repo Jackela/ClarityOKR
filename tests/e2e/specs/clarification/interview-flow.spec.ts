@@ -51,6 +51,40 @@ test('completes interview and enables OKR generation', async ({ mainWindow, mock
   await mockServer.setResponses(mockConfig);
   console.log('[test] Mock responses configured');
 
+  // Try to get Angular component and manually trigger change detection
+  const angularResult = await mainWindow.evaluate(() => {
+    // Try to find Angular's internal context
+    const root = document.querySelector('clarityokr-root, app-root');
+    if (!root) return { error: 'No root element found' };
+
+    // Angular stores component context on the root element
+    const context = (root as unknown as { __ngContext__?: unknown }).__ngContext__;
+    if (!context) return { error: 'No Angular context found' };
+
+    // Try to get ng global (only in dev mode)
+    const ng = (window as unknown as { ng?: { getComponent?: (el: unknown) => unknown } }).ng;
+    if (ng && ng.getComponent) {
+      try {
+        const component = ng.getComponent(root);
+        return {
+          componentFound: true,
+          hasBeginClarification: !!(component as { beginClarification?: () => void })
+            ?.beginClarification,
+        };
+      } catch {
+        return { error: 'ng.getComponent failed' };
+      }
+    }
+
+    return {
+      contextFound: true,
+      hasNg: typeof ng !== 'undefined',
+      rootClasses: root.className,
+      rootAttributes: root.getAttributeNames(),
+    };
+  });
+  console.log('[test] Angular diagnostic:', JSON.stringify(angularResult));
+
   // Fill the input using JavaScript and dispatch input event
   await mainWindow.evaluate(() => {
     const input = document.querySelector('[data-testid="intent-input"]') as HTMLInputElement;
