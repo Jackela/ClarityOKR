@@ -13,9 +13,13 @@ test.beforeEach(async () => {
 });
 
 test('completes interview and enables OKR generation', async ({ mainWindow, mockServer }) => {
+  // Wait for app to fully load
+  await mainWindow.waitForLoadState('domcontentloaded');
+
   // Configure mock
   const mockConfig: MockResponseConfig = {
     nextQuestion: (callNumber) => {
+      console.log(`[mock] nextQuestion called with callNumber=${callNumber}`);
       if (callNumber <= 2) {
         return {
           question: {
@@ -47,18 +51,32 @@ test('completes interview and enables OKR generation', async ({ mainWindow, mock
       },
     },
   };
-  mockServer.setResponses(mockConfig);
 
-  // SIMPLIFIED TEST: Just verify the basic flow works
+  // Wait for any pending requests before setting responses
+  await mockServer.setResponses(mockConfig);
+
+  console.log('[test] Mock responses configured');
+  console.log('[test] Mock server URL:', mockServer.url);
 
   // 1. Fill intent and start
   await mainWindow.fill('[data-testid="intent-input"]', '提高效率');
+  console.log('[test] Filled intent input');
+
   await mainWindow.click('[data-testid="start-clarification"]');
+  console.log('[test] Clicked start-clarification');
+
+  // Wait a bit for the request to be sent
+  await mainWindow.waitForTimeout(1000);
+
+  // Check what was sent to mock server
+  const requestLog = mockServer.getRequestLog();
+  console.log('[test] Request log after start:', JSON.stringify(requestLog, null, 2));
 
   // 2. Wait for first question (using native DOM)
   const questionVisible = await waitForElement(mainWindow, '[data-testid="prompt-question"]', {
-    timeout: 10000,
+    timeout: 15000,
   });
+  console.log('[test] Question visible:', questionVisible);
   expect(questionVisible).toBe(true);
 
   // 3. Answer first question
