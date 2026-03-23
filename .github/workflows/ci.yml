@@ -371,16 +371,16 @@ jobs:
         run: |
           Write-Host "Checking Windows certificate configuration..."
           if ([string]::IsNullOrEmpty($env:WINDOWS_CERTIFICATE)) {
-            Write-Host "⚠️ No Windows certificate configured - builds will be unsigned"
+            Write-Host "No Windows certificate configured - builds will be unsigned"
             exit 0
           }
-          Write-Host "🔐 Setting up Windows code signing..."
+          Write-Host "Setting up Windows code signing..."
           try {
             $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
             [IO.File]::WriteAllBytes("certificate.p12", $certBytes)
-            Write-Host "✅ Windows certificate configured"
+            Write-Host "Windows certificate configured"
           } catch {
-            Write-Host "⚠️ Failed to configure Windows certificate: $_ - continuing without signing"
+            Write-Host "Failed to configure Windows certificate: $($_.Exception.Message) - continuing without signing"
             exit 0
           }
         env:
