@@ -52,6 +52,7 @@ export default defineConfig({
     video: 'retain-on-failure',
 
     // CI 专用的启动选项
+    // 注意: --single-process 和 --no-zygote 已移除,因为它们破坏 zone.js 的事件拦截功能
     launchOptions: {
       slowMo: 0, // CI 中不减速
       args: [
@@ -61,7 +62,6 @@ export default defineConfig({
         '--disable-dev-shm-usage',
         '--disable-accelerated-2d-canvas',
         '--no-first-run',
-        '--no-zygote',
         '--disable-extensions',
         '--disable-software-rasterizer',
         '--disable-background-networking',
@@ -94,8 +94,8 @@ export default defineConfig({
     {
       name: 'ci-e2e',
       testMatch: [
-        // 'specs/clarification/interview-flow.spec.ts', // FIXME: Angular zone.js not patching events in headless CI
-        // 'specs/clarification/boundary-cases.spec.ts', // FIXME: Same issue - depends on same Angular flow
+        'specs/clarification/interview-flow.spec.ts',
+        // 'specs/clarification/boundary-cases.spec.ts', // TODO: Re-enable after interview-flow passes
       ],
       use: {
         ...devices['Desktop Chrome'],

@@ -1,11 +1,12 @@
 import { workerTest as test, expect } from '../../fixtures/worker-fixtures';
 import { cleanupPersistenceFiles } from '../../fixtures';
+import { waitForText, clickGenerateButton } from '../../helpers/native-dom';
 import {
-  waitForElement,
-  waitForText,
-  forceClick,
-  clickGenerateButton,
-} from '../../helpers/native-dom';
+  angularFill,
+  angularClick,
+  waitForAngularElement,
+  waitForAngularBootstrap,
+} from '../../helpers/angular-dom';
 import type { MockResponseConfig } from '@clarityokr/contracts';
 
 test.beforeEach(async () => {
@@ -13,8 +14,9 @@ test.beforeEach(async () => {
 });
 
 test('completes interview and enables OKR generation', async ({ mainWindow, mockServer }) => {
-  // Wait for app to fully load
+  // Wait for app to fully load and Angular to bootstrap
   await mainWindow.waitForLoadState('domcontentloaded');
+  await waitForAngularBootstrap(mainWindow, 30000);
 
   // Configure mock
   const mockConfig: MockResponseConfig = {
@@ -55,38 +57,35 @@ test('completes interview and enables OKR generation', async ({ mainWindow, mock
   await mockServer.setResponses(mockConfig);
   console.log('[test] Mock responses configured');
 
-  // 1. Fill intent and submit form directly
-  await mainWindow.fill('[data-testid="intent-input"]', '提高效率');
+  // 1. Fill intent using Angular-aware fill
+  await angularFill(mainWindow, '[data-testid="intent-input"]', '提高效率');
   console.log('[test] Filled intent input');
 
-  // Trigger form submit directly via evaluate to bypass Angular zone issues
-  await mainWindow.evaluate(() => {
-    const form = document.querySelector('.intent-form') as HTMLFormElement;
-    if (form) {
-      const event = new Event('submit', { bubbles: true, cancelable: true });
-      form.dispatchEvent(event);
-    }
-  });
-  console.log('[test] Form submitted via dispatchEvent');
+  // 2. Click start button using Angular-aware click
+  await angularClick(mainWindow, '[data-testid="start-clarification"]', { timeout: 15000 });
+  console.log('[test] Clicked start-clarification');
 
-  // Wait a bit for the request to be sent
-  await mainWindow.waitForTimeout(1000);
+  // Wait for the request to be sent
+  await mainWindow.waitForTimeout(500);
 
   // Check what was sent to mock server
   const requestLog = mockServer.getRequestLog();
   console.log('[test] Request log after start:', JSON.stringify(requestLog, null, 2));
 
-  // 2. Wait for first question (using native DOM)
-  const questionVisible = await waitForElement(mainWindow, '[data-testid="prompt-question"]', {
-    timeout: 15000,
-  });
+  // 3. Wait for first question using Angular-aware wait
+  const questionVisible = await waitForAngularElement(
+    mainWindow,
+    '[data-testid="prompt-question"]',
+    { timeout: 20000 },
+  );
   console.log('[test] Question visible:', questionVisible);
   expect(questionVisible).toBe(true);
 
-  // 3. Answer first question
-  await forceClick(mainWindow, '[data-testid="clarification-option"]:has-text("A")');
+  // 4. Answer first question using Angular-aware click
+  await angularClick(mainWindow, '[data-testid="clarification-option"]:has-text("A")');
+  console.log('[test] Answered first question');
 
-  // 4. Wait for second question
+  // 5. Wait for second question
   const secondQuestionVisible = await waitForText(
     mainWindow,
     '[data-testid="prompt-question"]',
@@ -95,13 +94,15 @@ test('completes interview and enables OKR generation', async ({ mainWindow, mock
   );
   expect(secondQuestionVisible).toBe(true);
 
-  // 5. Answer second question
-  await forceClick(mainWindow, '[data-testid="clarification-option"]:has-text("B")');
+  // 6. Answer second question
+  await angularClick(mainWindow, '[data-testid="clarification-option"]:has-text("B")');
+  console.log('[test] Answered second question');
 
-  // 6. Click generate button
+  // 7. Click generate button
   await clickGenerateButton(mainWindow, 15000);
+  console.log('[test] Clicked generate button');
 
-  // 7. Verify OKR generated
+  // 8. Verify OKR generated
   const okrText = await waitForText(mainWindow, '[data-testid="okr-summary"]', '提高效率', 15000);
   expect(okrText).toBe(true);
 });
