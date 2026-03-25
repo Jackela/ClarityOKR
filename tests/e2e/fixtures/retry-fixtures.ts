@@ -2,34 +2,43 @@ import { test as base } from '@playwright/test';
 
 // Enhanced fixtures with retry support
 export const retryTest = base.extend<{
-  testInfo: any;
+  testInfo: import('@playwright/test').TestInfo;
 }>({
   // Automatically inject testInfo
-  testInfo: [async ({}, use, testInfo) => {
-    await use(testInfo);
-  }, { scope: 'test' }],
-  
+  testInfo: [
+    async (_fixtures, use, testInfo) => {
+      await use(testInfo);
+    },
+    { scope: 'test' },
+  ],
+
   // Enhanced page fixture with retry cleanup
-  page: [async ({ page }, use, testInfo) => {
-    // Extra cleanup on retry
-    if (testInfo.retry > 0) {
-      console.log(`[retry ${testInfo.retry}] Performing extra cleanup before test`);
-      
-      // Clear localStorage
-      await page.evaluate(() => localStorage.clear()).catch(() => {});
-      
-      // Clear sessionStorage
-      await page.evaluate(() => sessionStorage.clear()).catch(() => {});
-      
-      // Clear cookies
-      await page.context().clearCookies().catch(() => {});
-      
-      // Wait for state to reset
-      await page.waitForTimeout(500);
-    }
-    
-    await use(page);
-  }, { scope: 'test' }],
+  page: [
+    async ({ page }, use, testInfo) => {
+      // Extra cleanup on retry
+      if (testInfo.retry > 0) {
+        console.log(`[retry ${testInfo.retry}] Performing extra cleanup before test`);
+
+        // Clear localStorage
+        await page.evaluate(() => localStorage.clear()).catch(() => {});
+
+        // Clear sessionStorage
+        await page.evaluate(() => sessionStorage.clear()).catch(() => {});
+
+        // Clear cookies
+        await page
+          .context()
+          .clearCookies()
+          .catch(() => {});
+
+        // Wait for state to reset
+        await page.waitForTimeout(500);
+      }
+
+      await use(page);
+    },
+    { scope: 'test' },
+  ],
 });
 
 /**
@@ -43,7 +52,7 @@ export function flakyTest(
   test: typeof base,
   title: string,
   testFn: Parameters<typeof base>[1],
-  options: { retry?: number; timeout?: number } = {}
+  options: { retry?: number; timeout?: number } = {},
 ): void {
   test(title, testFn, {
     ...options,
@@ -62,7 +71,7 @@ export function slowTest(
   test: typeof base,
   title: string,
   testFn: Parameters<typeof base>[1],
-  options: { timeout?: number } = {}
+  options: { timeout?: number } = {},
 ): void {
   test(title, testFn, {
     ...options,

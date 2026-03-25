@@ -95,7 +95,7 @@ export async function cleanupPersistenceFiles(): Promise<void> {
 export const test = base.extend<E2EFixtures>({
   // Mock server fixture - uses global HTTP server for Electron compatibility
   mockServer: [
-    async ({}, use) => {
+    async (_fixtures, use) => {
       const port = process.env.MOCK_SERVER_PORT || '7777';
       const url = `http://127.0.0.1:${port}`;
 
@@ -201,7 +201,9 @@ export const test = base.extend<E2EFixtures>({
             BrowserWindow.getAllWindows().forEach((w) => {
               try {
                 w.close();
-              } catch {}
+              } catch {
+                // ignore
+              }
             });
           })
           .catch(() => {});
