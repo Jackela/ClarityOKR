@@ -44,8 +44,6 @@ module.exports = {
         minimumDescriptionLength: 3,
       },
     ],
-    '@typescript-eslint/prefer-nullish-coalescing': 'warn',
-    '@typescript-eslint/prefer-optional-chain': 'warn',
   },
   overrides: [
     {
