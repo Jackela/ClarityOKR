@@ -1,15 +1,10 @@
-export const IPC_CHANNELS = {
-  CLARIFICATION_PROMPT: 'clarityokr:clarification:prompt',
-  CLARIFICATION_RESPOND: 'clarityokr:clarification:respond',
-  LLM_NEXT_QUESTION: 'clarityokr:llm:next-question',
-  LLM_GENERATE_DRAFT: 'clarityokr:llm:generate-draft',
-  OKR_GENERATE: 'clarityokr:okr:generate',
-  OKR_REGENERATE: 'clarityokr:okr:regenerate',
-  SESSION_PERSIST: 'clarityokr:session:persist',
-  CLIPBOARD_EXPORT: 'clarityokr:clipboard:export',
-  STICKY_REOPEN: 'clarityokr:sticky:reopen',
-  OKR_LATEST: 'clarityokr:okr:latest',
-} as const;
+import {
+  IPC_CHANNELS as BaseIPC_CHANNELS,
+  type IpcChannel as BaseIpcChannel,
+} from '@clarityokr/contracts';
 
-export type RendererIpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];
-export type IpcChannel = RendererIpcChannel;
+export const IPC_CHANNELS = BaseIPC_CHANNELS;
+export type IpcChannel = BaseIpcChannel;
+
+// Backward compatibility alias
+export type RendererIpcChannel = IpcChannel;

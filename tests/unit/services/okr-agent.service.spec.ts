@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals';
-import { OkrAgentService } from '../../../app/main/src/services/okr-agent.service.js';
-import { setFallbackConfig } from '../../../app/main/src/services/secure-storage.service.js';
+import { OkrAgentService } from '@clarityokr/main/services/okr-agent.service';
+import { setFallbackConfig } from '@clarityokr/main/services/secure-storage.service';
 
 describe('OkrAgentService Unit Tests', () => {
   let okrAgentService: OkrAgentService;

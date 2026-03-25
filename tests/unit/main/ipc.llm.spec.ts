@@ -1,4 +1,4 @@
-import { ClarificationController } from '../../../app/main/src/windows/clarification-controller';
+import { ClarificationController } from '@clarityokr/main/windows/clarification-controller';
 
 // Capture handlers and a stub webContents
 const handlers: Record<string, Function> = {};
@@ -68,7 +68,7 @@ class StickyWindowManagerStub {
 }
 
 // Mock main LLM agent methods via prototype override
-import { OkrAgentService } from '../../../app/main/src/services/okr-agent.service';
+import { OkrAgentService } from '@clarityokr/main/services/okr-agent.service';
 import { jest } from '@jest/globals';
 
 describe('Main IPC LLM Handlers', () => {

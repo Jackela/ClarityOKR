@@ -1,5 +1,5 @@
-import { ClarificationController } from '../../../app/main/src/windows/clarification-controller';
-import { OkrAgentService } from '../../../app/main/src/services/okr-agent.service';
+import { ClarificationController } from '@clarityokr/main/windows/clarification-controller';
+import { OkrAgentService } from '@clarityokr/main/services/okr-agent.service';
 import { jest } from '@jest/globals';
 
 const handlers: Record<string, Function> = {};

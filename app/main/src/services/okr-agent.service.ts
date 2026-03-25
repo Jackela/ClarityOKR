@@ -60,7 +60,8 @@ export class OkrAgentService {
       signal,
     });
     if (!res.ok) throw new Error(`LLM request failed: ${res.status}`);
-    return res.json() as unknown;
+    const jsonData = await res.json();
+    return jsonData;
   }
 
   private isValidNextQuestion(payload: unknown): boolean {
@@ -103,7 +104,7 @@ export class OkrAgentService {
       Logger.debug('[OkrAgentService] Cached response for', cacheKey.substring(0, 20));
     }
 
-    return result as T;
+    return result as unknown as T;
   }
 
   async getNextQuestion(context: ClarificationContext, lastChoice: LastChoice): Promise<unknown> {

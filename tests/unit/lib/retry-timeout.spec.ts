@@ -1,4 +1,4 @@
-import { retryOnce, withTimeout } from '../../../app/renderer/src/app/lib/retry-timeout';
+import { retryOnce, withTimeout } from '@clarityokr/renderer/app/lib/retry-timeout';
 
 describe('retry-timeout helpers', () => {
   it('withTimeout rejects when the operation exceeds the limit', async () => {

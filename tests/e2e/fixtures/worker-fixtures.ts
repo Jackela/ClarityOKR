@@ -90,19 +90,21 @@ async function logDiagnostics(
       if (!testMode) return { error: 'testMode not available' };
 
       const state = testMode.getCurrentState();
-      const sessions = Array.from(state.sessions?.entries?.() || []);
+      const sessions: Array<[string, any]> = Array.from(state.sessions?.entries?.() || []);
+
+      const sessionData = sessions.map(([id, session]) => ({
+        id,
+        intent: session.initialIntent,
+        status: session.status,
+        confidence: session.confidence,
+        selectionCount: session.selections?.length || 0,
+      }));
 
       return {
         testModeAvailable: true,
         sessionCount: sessions.length,
         currentSessionId: state.currentSessionId,
-        sessions: sessions.map(([id, session]: [string, any]) => ({
-          id,
-          intent: session.initialIntent,
-          status: session.status,
-          confidence: session.confidence,
-          selectionCount: session.selections?.length || 0,
-        })),
+        sessions: sessionData,
         mockConfig: state.mockResponses,
       };
     });
@@ -128,19 +130,35 @@ async function logDiagnostics(
  * - Supports parallel workers in CI with dynamic port allocation
  * - Comprehensive diagnostics for failed tests
  */
-export const workerTest = base.extend<{
+// Worker-scoped fixtures type definition
+type WorkerFixtures = {
   mockServer: MockServerFixture;
   electronApp: ElectronApplication;
+};
+
+// Test-scoped fixtures type definition
+type TestFixtures = {
   mainWindow: Page;
   testId: string;
-}>({
+};
+
+// Type assertion helper for fixtures
+const workerFixture = <T>(
+  fn: (args: any, use: (value: T) => Promise<void>, testInfo: TestInfo) => Promise<void>,
+) => [fn, { scope: 'worker' as const }] as const;
+
+const testFixture = <T>(
+  fn: (args: any, use: (value: T) => Promise<void>, testInfo: TestInfo) => Promise<void>,
+) => [fn, { scope: 'test' as const }] as const;
+
+export const workerTest = base.extend<TestFixtures, WorkerFixtures>({
   // Test ID fixture for tracing
   testId: [
     async ({}, use, testInfo) => {
       const id = `${testInfo.workerIndex}-${testInfo.retry}-${Date.now()}`;
       await use(id);
     },
-    { scope: 'test' },
+    { scope: 'test' as const },
   ],
 
   // Worker 级别：每个 worker 启动自己的 Mock Server
@@ -164,7 +182,7 @@ export const workerTest = base.extend<{
         getRequestLog: () => workerMockServer!.getRequestLog(),
       });
     },
-    { scope: 'worker' },
+    { scope: 'worker' as const },
   ],
 
   // Worker 级别：每个 worker 启动一次 Electron
@@ -203,7 +221,7 @@ export const workerTest = base.extend<{
 
       await use(workerElectronApp!);
     },
-    { scope: 'worker' },
+    { scope: 'worker' as const },
   ],
 
   // Test 级别：每个测试使用相同的 Electron 但清理状态

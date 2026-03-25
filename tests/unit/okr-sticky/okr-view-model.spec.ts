@@ -1,4 +1,4 @@
-import { OkrProjectionService } from '../../../app/renderer/src/app/okr-sticky/services/okr-projection.service';
+import { OkrProjectionService } from '@clarityokr/renderer/app/okr-sticky/services/okr-projection.service';
 import type { OKRDocument } from '@clarityokr/contracts';
 
 describe('OkrProjectionService', () => {

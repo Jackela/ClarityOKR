@@ -19,7 +19,7 @@ import { firstValueFrom } from 'rxjs';
 import {
   createMockLlmGateway,
   type MockLlmGateway,
-} from '../../../app/renderer/src/app/clarification/services/mock-llm-gateway.service.js';
+} from '@clarityokr/renderer/app/clarification/services/mock-llm-gateway.service';
 
 describe('MockLlmGateway', () => {
   // Factory function using actual implementation

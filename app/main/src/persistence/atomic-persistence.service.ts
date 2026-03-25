@@ -3,6 +3,8 @@ import { dirname, join, basename, extname } from 'node:path';
 import { createHash } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 
+import { Logger } from '../core/logger.js';
+
 export interface PersistenceMetrics {
   writeLatency: number;
   writeCount: number;
@@ -84,6 +86,7 @@ export class AtomicPersistenceService {
         this.metrics.backupCount++;
       } catch {
         // 文件不存在，无需备份
+        Logger.debug('[AtomicPersistenceService] File does not exist, no backup needed');
       }
 
       // 2. 写入临时文件
@@ -128,7 +131,8 @@ export class AtomicPersistenceService {
       try {
         await fs.unlink(filePath + this.tempSuffix);
       } catch {
-        // 忽略清理错误
+        // 临时文件不存在或无法删除，这是预期的情况
+        Logger.debug('[AtomicPersistenceService] Failed to clean up temp file (may not exist)');
       }
 
       return {
@@ -199,13 +203,20 @@ export class AtomicPersistenceService {
             cleaned.push(tempPath);
           } catch {
             // 主文件不存在，这可能是写入中断，尝试恢复
+            Logger.debug(
+              '[AtomicPersistenceService] Main file not found, attempting recovery from temp',
+            );
             await this.recoverFromTempFile(tempPath);
             cleaned.push(tempPath);
           }
         }
       }
-    } catch {
-      // 目录不存在或无法读取，忽略
+    } catch (error) {
+      // 目录不存在或无法读取，这是预期的错误
+      Logger.debug(
+        '[AtomicPersistenceService] Failed to read directory for cleanup',
+        error instanceof Error ? error.message : String(error),
+      );
     }
 
     return cleaned;
@@ -266,13 +277,23 @@ export class AtomicPersistenceService {
       while (backups.length > this.backupRetentionCount) {
         const oldBackup = backups.shift();
         if (oldBackup) {
-          await fs.unlink(oldBackup).catch(() => {
-            // 忽略删除错误
-          });
+          try {
+            await fs.unlink(oldBackup);
+          } catch (error) {
+            // 忽略删除错误（文件可能已被删除）
+            Logger.debug(
+              '[AtomicPersistenceService] Failed to delete old backup',
+              error instanceof Error ? error.message : String(error),
+            );
+          }
         }
       }
-    } catch {
-      // 忽略旋转错误
+    } catch (error) {
+      // 备份旋转过程中的错误，记录但不中断主流程
+      Logger.debug(
+        '[AtomicPersistenceService] Backup rotation error',
+        error instanceof Error ? error.message : String(error),
+      );
     }
   }
 
@@ -293,7 +314,12 @@ export class AtomicPersistenceService {
       const actualChecksum = this.calculateChecksum(jsonData);
 
       return actualChecksum === expectedChecksum;
-    } catch {
+    } catch (error) {
+      // 文件验证失败，可能是文件损坏或不存在
+      Logger.debug(
+        '[AtomicPersistenceService] File verification failed',
+        error instanceof Error ? error.message : String(error),
+      );
       return false;
     }
   }
@@ -317,7 +343,12 @@ export class AtomicPersistenceService {
       }
 
       return { success: true, data: parsed.data };
-    } catch {
+    } catch (error) {
+      // 读取或验证文件失败
+      Logger.debug(
+        '[AtomicPersistenceService] Read and verify failed',
+        error instanceof Error ? error.message : String(error),
+      );
       return { success: false };
     }
   }
@@ -354,13 +385,21 @@ export class AtomicPersistenceService {
               data: result.data,
             };
           }
-        } catch {
+        } catch (error) {
           // 尝试下一个备份
+          Logger.debug(
+            '[AtomicPersistenceService] Backup verification failed, trying next',
+            error instanceof Error ? error.message : String(error),
+          );
           continue;
         }
       }
-    } catch {
-      // 无法恢复
+    } catch (error) {
+      // 无法恢复，记录错误
+      Logger.debug(
+        '[AtomicPersistenceService] Recovery from backup failed',
+        error instanceof Error ? error.message : String(error),
+      );
     }
 
     return {
@@ -393,11 +432,21 @@ export class AtomicPersistenceService {
         // 格式不正确，删除
         await fs.unlink(tempPath);
       }
-    } catch {
+    } catch (error) {
       // 无法恢复，删除临时文件
-      await fs.unlink(tempPath).catch(() => {
-        // 忽略错误
-      });
+      Logger.debug(
+        '[AtomicPersistenceService] Failed to recover from temp file',
+        error instanceof Error ? error.message : String(error),
+      );
+      try {
+        await fs.unlink(tempPath);
+      } catch (unlinkError) {
+        // 删除失败，记录但继续
+        Logger.debug(
+          '[AtomicPersistenceService] Failed to delete temp file after recovery failure',
+          unlinkError instanceof Error ? unlinkError.message : String(unlinkError),
+        );
+      }
     }
   }
 }

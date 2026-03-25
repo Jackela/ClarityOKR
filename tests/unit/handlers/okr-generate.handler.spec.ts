@@ -1,8 +1,8 @@
 import { jest } from '@jest/globals';
-import type { SessionManager } from '../../../app/main/src/services/session-manager.service.js';
-import type { OkrRepository } from '../../../app/main/src/persistence/okr-repository.js';
-import type { StickyWindowManager } from '../../../app/main/src/windows/sticky-window-manager.js';
-import { OkrGenerateHandler } from '../../../app/main/src/handlers/okr-generate.handler.js';
+import type { SessionManager } from '@clarityokr/main/services/session-manager.service';
+import type { OkrRepository } from '@clarityokr/main/persistence/okr-repository';
+import type { StickyWindowManager } from '@clarityokr/main/windows/sticky-window-manager';
+import { OkrGenerateHandler } from '@clarityokr/main/handlers/okr-generate.handler';
 import type { ClarificationSession } from '@clarityokr/contracts';
 
 describe('OkrGenerateHandler', () => {

@@ -1,7 +1,7 @@
 import { jest } from '@jest/globals';
-import type { SessionManager } from '../../../app/main/src/services/session-manager.service.js';
-import { ClarificationPromptHandler } from '../../../app/main/src/handlers/clarification-prompt.handler.js';
-import type { OkrAgentService } from '../../../app/main/src/services/okr-agent.service.js';
+import type { SessionManager } from '@clarityokr/main/services/session-manager.service';
+import { ClarificationPromptHandler } from '@clarityokr/main/handlers/clarification-prompt.handler';
+import type { OkrAgentService } from '@clarityokr/main/services/okr-agent.service';
 import type { ClarificationSession } from '@clarityokr/contracts';
 
 describe('ClarificationPromptHandler', () => {

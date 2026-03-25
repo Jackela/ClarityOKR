@@ -21,6 +21,7 @@ export const ALLOWED_CHANNELS = [
   'clarityokr:clipboard:export',
   'clarityokr:sticky:reopen',
   'clarityokr:okr:latest',
+  'clarityokr:error:report',
 ] as const;
 
 /**
@@ -42,6 +43,7 @@ export const IPC_CHANNELS = {
   CLIPBOARD_EXPORT: 'clarityokr:clipboard:export',
   STICKY_REOPEN: 'clarityokr:sticky:reopen',
   OKR_LATEST: 'clarityokr:okr:latest',
+  ERROR_REPORT: 'clarityokr:error:report',
 } as const;
 
 /**

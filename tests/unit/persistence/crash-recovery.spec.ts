@@ -1,8 +1,8 @@
 import {
   CrashRecoveryService,
   createCrashRecoveryService,
-} from '../../../app/main/src/persistence/crash-recovery.service.js';
-import { AtomicPersistenceService } from '../../../app/main/src/persistence/atomic-persistence.service.js';
+} from '@clarityokr/main/persistence/crash-recovery.service';
+import { AtomicPersistenceService } from '@clarityokr/main/persistence/atomic-persistence.service';
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';

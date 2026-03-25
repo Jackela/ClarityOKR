@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, OnDestroy } from '@angular/core';
 import {
   generateOKRRequestSchema,
   generateOKRResponseSchema,
@@ -15,8 +15,9 @@ import type { ClarifyOkrApi } from '../../shared/window';
 import { OkrProjectionService, type OkrStickyViewModel } from './okr-projection.service';
 
 @Injectable({ providedIn: 'root' })
-export class OkrStickyGatewayService {
+export class OkrStickyGatewayService implements OnDestroy {
   private readonly viewModelSubject = new BehaviorSubject<OkrStickyViewModel | null>(null);
+  private okrListenerUnsubscribe?: () => void;
 
   readonly viewModel$: Observable<OkrStickyViewModel | null> = this.viewModelSubject.asObservable();
   readonly hasStickyNote$: Observable<boolean> = this.viewModel$.pipe(map((vm) => vm !== null));
@@ -31,6 +32,14 @@ export class OkrStickyGatewayService {
   ) {
     this.registerListeners();
     void this.hydrateFromMain();
+  }
+
+  ngOnDestroy(): void {
+    if (this.okrListenerUnsubscribe) {
+      this.okrListenerUnsubscribe();
+      this.okrListenerUnsubscribe = undefined;
+      this.logger.debug('[STICKY-GATEWAY] IPC listener cleaned up');
+    }
   }
 
   /**
@@ -88,7 +97,7 @@ export class OkrStickyGatewayService {
       return;
     }
 
-    bridge.on(IPC_CHANNELS.OKR_GENERATE, (_event, payload) => {
+    this.okrListenerUnsubscribe = bridge.on(IPC_CHANNELS.OKR_GENERATE, (_event, payload) => {
       const parsedResponse = generateOKRResponseSchema.safeParse(payload);
       if (parsedResponse.success) {
         this.logger.info(
@@ -113,6 +122,7 @@ export class OkrStickyGatewayService {
         parsedResponse.error,
       );
     });
+    this.logger.debug('[STICKY-GATEWAY] IPC listener registered');
   }
 
   private storeDocument(document: OKRDocument): OkrStickyViewModel {

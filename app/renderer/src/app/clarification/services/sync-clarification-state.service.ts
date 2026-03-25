@@ -1,293 +1,260 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import type { ClarificationPrompt } from '@clarityokr/contracts';
 
 import { Logger } from '../../core/services/logger.service';
+import {
+  ClarificationStateMachine,
+  ErrorInfo,
+  WorkflowState,
+} from './clarification-state-machine.service';
 
 /**
- * Error information for error state
- */
-export interface ErrorInfo {
-  message: string;
-  recoverable: boolean;
-}
-
-/**
- * Workflow state types
- */
-export type WorkflowState =
-  | 'idle'
-  | 'loading'
-  | 'prompting'
-  | 'ready'
-  | 'generating'
-  | 'completed'
-  | 'error';
-
-/**
- * Sync Clarification State using Angular Signals
- * Provides synchronous, immediate state updates for better DOM response
+ * SyncClarificationState - 状态机适配器服务
  *
- * Migration from ComponentStore complete - all state now managed via Signals
+ * 此服务现在是 ClarificationStateMachine 的适配器层。
+ * 提供与旧API的完全向后兼容性。
+ *
+ * 架构:
+ * - ClarificationStateMachine: 单一数据源，管理所有状态转换
+ * - SyncClarificationState: 适配器，保持旧API兼容
+ *
+ * @deprecated 请直接使用 ClarificationStateMachine
+ *
+ * @example
+ * // 新推荐用法
+ * constructor(private stateMachine: ClarificationStateMachine) {}
+ *
+ * // 兼容旧用法(仍可工作)
+ * constructor(private state: SyncClarificationState) {}
  */
 @Injectable({ providedIn: 'root' })
 export class SyncClarificationState {
-  // Core signals
-  private readonly _currentPrompt = signal<ClarificationPrompt | null>(null);
-  private readonly _isLoading = signal(false);
-  private readonly _error = signal<ErrorInfo | null>(null);
-  private readonly _isReadyToGenerate = signal(false);
-  private readonly _selections = signal<Record<string, string>>({});
-  private readonly _sessionId = signal<string | null>(null);
-  private readonly _validationError = signal<string | null>(null);
-  private readonly _intent = signal<string>('');
-  private readonly _workflowState = signal<WorkflowState>('idle');
-  private readonly _history = signal<ClarificationPrompt[]>([]);
+  private readonly stateMachine = inject(ClarificationStateMachine);
 
-  // Public readonly signals
-  readonly currentPrompt = this._currentPrompt.asReadonly();
-  readonly isLoading = this._isLoading.asReadonly();
-  readonly error = this._error.asReadonly();
-  readonly isReadyToGenerate = this._isReadyToGenerate.asReadonly();
-  readonly selections = this._selections.asReadonly();
-  readonly sessionId = this._sessionId.asReadonly();
-  readonly validationError = this._validationError.asReadonly();
-  readonly intent = this._intent.asReadonly();
-  readonly workflowState = this._workflowState.asReadonly();
-  readonly history = this._history.asReadonly();
+  // === 派生自 StateMachine 的 Signals ===
 
-  // Computed signals
-  readonly hasError = computed(() => this._error() !== null);
-  readonly selectionCount = computed(() => Object.keys(this._selections()).length);
-  readonly hasPrompt = computed(() => this._currentPrompt() !== null);
-  readonly errorMessage = computed(() => this._error()?.message ?? null);
-  readonly currentSelection = computed(() => {
-    const prompt = this._currentPrompt();
-    if (!prompt) return null;
-    return this._selections()[prompt.id] ?? null;
-  });
-  readonly selectedOptionIds = computed(() => Object.values(this._selections()));
+  /** 当前澄清提示 */
+  readonly currentPrompt = this.stateMachine.currentPrompt;
 
-  constructor(private readonly logger: Logger) {}
+  /** 是否加载中 */
+  readonly isLoading = this.stateMachine.isLoading;
 
-  // Synchronous methods for immediate state updates
+  /** 错误信息 */
+  readonly error = this.stateMachine.error;
+
+  /** 是否准备好生成 */
+  readonly isReadyToGenerate = this.stateMachine.isReadyToGenerate;
+
+  /** 用户选择记录 */
+  readonly selections = this.stateMachine.selections;
+
+  /** 会话ID */
+  readonly sessionId = this.stateMachine.sessionId;
+
+  /** 验证错误信息 */
+  readonly validationError = this.stateMachine.validationError;
+
+  /** 用户意图 */
+  readonly intent = this.stateMachine.intent;
+
+  /** 工作流状态 */
+  readonly workflowState = this.stateMachine.workflowState;
+
+  /** 历史记录 */
+  readonly history = this.stateMachine.history;
+
+  // === 计算属性 Signals ===
+
+  /** 是否有错误 */
+  readonly hasError = this.stateMachine.hasError;
+
+  /** 选择数量 */
+  readonly selectionCount = this.stateMachine.selectionCount;
+
+  /** 是否有提示 */
+  readonly hasPrompt = this.stateMachine.hasPrompt;
+
+  /** 错误消息文本 */
+  readonly errorMessage = this.stateMachine.errorMessage;
+
+  /** 当前选择 */
+  readonly currentSelection = this.stateMachine.currentSelection;
+
+  /** 已选择的选项ID列表 */
+  readonly selectedOptionIds = this.stateMachine.selectedOptionIds;
+
+  constructor(private readonly logger: Logger) {
+    this.logger.debug('[SYNC-STATE] Adapter initialized (delegates to StateMachine)');
+  }
+
+  // === 同步方法 (委托给 StateMachine) ===
 
   /**
    * 设置当前的澄清提示
-   *
-   * 更新当前提示，停止加载状态，并将工作流状态转换为 'prompting'
-   * 同时将新提示添加到历史记录中
-   *
-   * @param prompt - 要显示的澄清提示，如果为 null 则清空当前提示
-   *
-   * @example
-   * state.setPrompt({
-   *   id: 'prompt-1',
-   *   question: '请选择您的目标类型',
-   *   options: [...]
-   * });
-   * // 状态变为 prompting，提示被添加到历史记录
+   * @param prompt - 要显示的澄清提示
    */
   setPrompt(prompt: ClarificationPrompt | null): void {
-    this.logger.debug('[SYNC-STATE] setPrompt called:', prompt?.id ?? 'null');
-    this._currentPrompt.set(prompt);
-    if (prompt) {
-      this._isLoading.set(false);
-      this._workflowState.set('prompting');
-      this._history.update((h) => [...h, prompt]);
-    }
+    this.logger.debug('[SYNC-STATE] setPrompt (delegated)');
+    this.stateMachine.setPrompt(prompt);
   }
 
+  /**
+   * 设置加载状态
+   * @param loading - 是否加载中
+   * @param intent - 可选的意图
+   */
   setLoading(loading: boolean, intent?: string): void {
-    this.logger.debug('[SYNC-STATE] setLoading:', loading);
-    this._isLoading.set(loading);
-    if (loading) {
-      this._validationError.set(null);
-      this._workflowState.set('loading');
-      if (intent) {
-        this._intent.set(intent);
-      }
-    }
+    this.logger.debug('[SYNC-STATE] setLoading (delegated)');
+    this.stateMachine.setLoading(loading, intent);
   }
 
   /**
    * 设置错误状态
-   *
-   * 将错误信息保存到状态中，停止加载状态，并将工作流状态转换为 'error'
-   * 如果传入字符串，会自动转换为 ErrorInfo 对象（默认可恢复）
-   *
-   * @param error - 错误信息字符串或 ErrorInfo 对象，null 表示清除错误
-   *
-   * @example
-   * state.setError('网络连接失败');
-   * // 状态变为 error，loading 被设置为 false
-   *
-   * state.setError({ message: '验证失败', recoverable: false });
-   * // 状态变为 error，且标记为不可恢复
+   * @param error - 错误信息字符串或对象
    */
   setError(error: string | ErrorInfo | null): void {
-    this.logger.debug('[SYNC-STATE] setError:', error);
-    const errorInfo = typeof error === 'string' ? { message: error, recoverable: true } : error;
-    this._error.set(errorInfo);
-    if (errorInfo) {
-      this._isLoading.set(false);
-      this._workflowState.set('error');
-    }
-  }
-
-  clearError(): void {
-    this.logger.debug('[SYNC-STATE] clearError called');
-    this._error.set(null);
-    // When clearing error, go back to idle or keep current state based on context
-    if (this._workflowState() === 'error') {
-      this._workflowState.set('idle');
-    }
-  }
-
-  setReady(ready: boolean): void {
-    this.logger.debug('[SYNC-STATE] setReady:', ready);
-    this._isReadyToGenerate.set(ready);
+    this.logger.debug('[SYNC-STATE] setError (delegated)');
+    this.stateMachine.setError(error);
   }
 
   /**
-   * 记录用户对提示选项的选择
-   *
-   * 保存用户的选择到状态中的 _selections，并自动检查是否可以开始生成 OKR
-   * 当有至少一个选择时，自动将工作流状态转换为 'ready'
-   * 同时清除任何验证错误
-   *
-   * @param promptId - 当前提示的唯一标识符
-   * @param optionId - 用户选择的选项 ID
-   *
-   * @example
-   * state.recordSelection('prompt-1', 'option-a');
-   * // 选择被保存，如果有至少一个选择，状态变为 ready
+   * 清除错误状态
+   */
+  clearError(): void {
+    this.logger.debug('[SYNC-STATE] clearError (delegated)');
+    this.stateMachine.clearError();
+  }
+
+  /**
+   * 设置就绪状态
+   * @deprecated 就绪状态现在自动计算
+   * @param ready - 是否就绪
+   */
+  setReady(ready: boolean): void {
+    this.stateMachine.setReady(ready);
+  }
+
+  /**
+   * 记录用户选择
+   * @param promptId - 提示ID
+   * @param optionId - 选择的选项ID
    */
   recordSelection(promptId: string, optionId: string): void {
-    this.logger.debug('[SYNC-STATE] recordSelection:', { promptId, optionId });
-    this._selections.update((s) => ({ ...s, [promptId]: optionId }));
-
-    // Automatically update ready state based on selection count
-    // Button should be ready after just 1 selection to support boundary test cases
-    const currentCount = Object.keys(this._selections()).length;
-    if (currentCount >= 1) {
-      this._isReadyToGenerate.set(true);
-      this._workflowState.set('ready');
-    }
-    this._validationError.set(null);
+    this.logger.debug('[SYNC-STATE] recordSelection (delegated)');
+    this.stateMachine.recordSelection(promptId, optionId);
   }
 
+  /**
+   * 设置会话ID
+   * @param sessionId - 会话ID或null
+   */
   setSessionId(sessionId: string | null): void {
-    this.logger.debug('[SYNC-STATE] setSessionId:', sessionId);
-    this._sessionId.set(sessionId);
+    this.logger.debug('[SYNC-STATE] setSessionId (delegated)');
+    this.stateMachine.setSessionId(sessionId);
   }
 
+  /**
+   * 设置验证错误
+   * @param message - 错误消息或null
+   */
   setValidationError(message: string | null): void {
-    this.logger.debug('[SYNC-STATE] setValidationError:', message);
-    this._validationError.set(message);
+    this.logger.debug('[SYNC-STATE] setValidationError (delegated)');
+    this.stateMachine.setValidationError(message);
   }
 
+  /**
+   * 设置意图
+   * @param intent - 用户意图
+   */
   setIntent(intent: string): void {
-    this.logger.debug('[SYNC-STATE] setIntent:', intent);
-    this._intent.set(intent);
+    this.logger.debug('[SYNC-STATE] setIntent (delegated)');
+    this.stateMachine.setIntent(intent);
   }
 
+  /**
+   * 重置所有状态
+   */
   reset(): void {
-    this.logger.debug('[SYNC-STATE] reset called');
-    this._currentPrompt.set(null);
-    this._isLoading.set(false);
-    this._error.set(null);
-    this._isReadyToGenerate.set(false);
-    this._selections.set({});
-    this._sessionId.set(null);
-    this._validationError.set(null);
-    this._intent.set('');
-    this._workflowState.set('idle');
-    this._history.set([]);
+    this.logger.debug('[SYNC-STATE] reset (delegated)');
+    this.stateMachine.reset();
   }
 
   /**
    * 开始新的澄清流程
-   *
-   * 将状态从 'idle' 转换为 'loading'，并保存用户的初始意图
-   * 这是澄清流程的入口方法，会触发 LLM 请求第一个澄清提示
-   *
    * @param intent - 用户的初始目标意图描述
-   *
-   * @example
-   * state.start('提高团队效率');
-   * // 状态变为 loading，意图被保存，等待 LLM 返回第一个提示
    */
   start(intent: string): void {
-    this.logger.debug('[SYNC-STATE] start:', intent);
-    this.setLoading(true, intent);
+    this.logger.debug('[SYNC-STATE] start (delegated)');
+    this.stateMachine.start(intent);
   }
 
   /**
-   * Record an option selection for the current prompt (alias for recordSelection)
-   * @param optionId - The selected option ID
-   * @deprecated Use recordSelection(promptId, optionId) instead
+   * 记录选项选择
+   * @deprecated 使用 recordSelection(promptId, optionId)
+   * @param optionId - 选择的选项ID
    */
   selectOption(optionId: string): void {
-    const prompt = this._currentPrompt();
-    if (prompt) {
-      this.recordSelection(prompt.id, optionId);
-    } else {
-      this.logger.warn('[SYNC-STATE] selectOption called with no current prompt');
-    }
+    this.stateMachine.selectOption(optionId);
   }
 
   /**
-   * Report an error (alias for setError)
-   * @param error - Error string or ErrorInfo object
-   * @deprecated Use setError(error) instead
+   * 报告错误
+   * @deprecated 使用 setError(error)
+   * @param error - 错误信息
    */
   reportError(error: string | ErrorInfo | null): void {
-    this.setError(error);
+    this.stateMachine.reportError(error);
   }
 
   /**
-   * Set generating state
-   * Transitions workflow state to 'generating'
+   * 设置为生成中状态
    */
   setGenerating(): void {
-    this.logger.debug('[SYNC-STATE] setGenerating');
-    this._isLoading.set(true);
-    this._workflowState.set('generating');
+    this.logger.debug('[SYNC-STATE] setGenerating (delegated)');
+    this.stateMachine.setGenerating();
   }
 
   /**
-   * Set completed state with OKR result
-   * Transitions workflow state to 'completed'
+   * 设置为完成状态
+   * @param okr - 可选的OKR结果
    */
   setCompleted(okr?: { objectives: unknown[] }): void {
-    this.logger.debug('[SYNC-STATE] setCompleted');
-    this._isLoading.set(false);
-    this._workflowState.set('completed');
-    // OKR data can be stored here if needed in the future
-    this.logger.debug('[SYNC-STATE] OKR generated:', okr);
+    this.logger.debug('[SYNC-STATE] setCompleted (delegated)');
+    this.stateMachine.setCompleted(okr);
   }
 
   /**
-   * Mark as ready to generate (deprecated, auto-determined now)
-   * @deprecated Readiness is now determined automatically based on selections
+   * 标记为就绪生成
+   * @deprecated 使用 recordSelection 自动触发就绪状态
+   * @param _ready - 是否就绪(已忽略)
    */
   markReady(_ready: boolean): void {
-    this.logger.warn('[SYNC-STATE] markReady is deprecated, readiness determined automatically');
-    // No-op - readiness is auto-calculated
+    this.stateMachine.markReady(_ready);
   }
 
-  // Helper methods
+  // === 辅助方法 (委托给 StateMachine) ===
+
+  /**
+   * 获取特定提示的选择
+   * @param promptId - 提示ID
+   * @returns 选择的选项ID或null
+   */
   getSelection(promptId: string): string | null {
-    return this._selections()[promptId] ?? null;
-  }
-
-  hasSelection(promptId: string): boolean {
-    return promptId in this._selections();
+    return this.stateMachine.getSelection(promptId);
   }
 
   /**
-   * Get current state snapshot for debugging/testing
-   * Provides compatibility with old store interface
+   * 检查是否有特定提示的选择
+   * @param promptId - 提示ID
+   * @returns 是否已选择
+   */
+  hasSelection(promptId: string): boolean {
+    return this.stateMachine.hasSelection(promptId);
+  }
+
+  /**
+   * 获取当前状态快照
+   * @returns 完整状态对象
    */
   getStateSnapshot(): {
     workflowState: WorkflowState;
@@ -298,14 +265,6 @@ export class SyncClarificationState {
     validationError: string | null;
     error: ErrorInfo | null;
   } {
-    return {
-      workflowState: this._workflowState(),
-      sessionId: this._sessionId(),
-      currentPrompt: this._currentPrompt(),
-      selections: this._selections(),
-      history: this._history(),
-      validationError: this._validationError(),
-      error: this._error(),
-    };
+    return this.stateMachine.getStateSnapshot();
   }
 }

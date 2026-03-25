@@ -63,7 +63,7 @@ export class LlmCircuitBreaker {
       name: 'llm-api-circuit-breaker',
     };
 
-    this.breaker = new CircuitBreaker(action, breakerOptions) as CircuitBreakerInstance;
+    this.breaker = new CircuitBreaker(action, breakerOptions) as unknown as CircuitBreakerInstance;
 
     // Event listeners for monitoring
     this.breaker.on('open', () => {
@@ -89,7 +89,8 @@ export class LlmCircuitBreaker {
    * Execute the wrapped action with circuit breaker protection
    */
   async fire<T>(...args: unknown[]): Promise<T> {
-    return this.breaker.fire(...args) as Promise<T>;
+    const result = await this.breaker.fire(...args);
+    return result as unknown as T;
   }
 
   /**

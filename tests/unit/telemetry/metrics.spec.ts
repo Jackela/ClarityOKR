@@ -1,4 +1,4 @@
-import { TelemetryService } from '../../../app/renderer/src/app/services/telemetry.service';
+import { TelemetryService } from '@clarityokr/renderer/app/services/telemetry.service';
 
 describe('TelemetryService', () => {
   it('records outcomes and computes basic percentiles', () => {

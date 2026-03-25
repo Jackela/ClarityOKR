@@ -2,7 +2,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import electron from 'electron';
-import type { BrowserWindow as ElectronBrowserWindow, Event as ElectronEvent } from 'electron';
+import type {
+  BrowserWindow as ElectronBrowserWindow,
+  Event as ElectronEvent,
+  IpcMainEvent,
+} from 'electron';
 
 import { Logger } from './core/logger.js';
 import { ActionLogWriter } from './persistence/action-log-writer.js';
@@ -13,7 +17,7 @@ import { initializeTestMode, type TestMode } from './test-mode.js';
 import { ClarificationController } from './windows/clarification-controller.js';
 import { StickyWindowManager } from './windows/sticky-window-manager.js';
 
-const { app, BrowserWindow } = electron;
+const { app, BrowserWindow, ipcMain } = electron;
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const preloadPath = path.resolve(currentDir, 'bootstrap', 'preload.js');
@@ -63,6 +67,8 @@ async function createWindow(): Promise<void> {
       nodeIntegration: false,
       sandbox: true,
       preload: preloadPath,
+      allowRunningInsecureContent: false,
+      webSecurity: true,
     },
   });
 
@@ -107,6 +113,22 @@ app.on('window-all-closed', () => {
 process.on('uncaughtException', (error) => {
   Logger.error('Uncaught exception in main process', error);
 });
+
+// Handle error reports from renderer process
+ipcMain.on(
+  'clarityokr:error:report',
+  (
+    _event: IpcMainEvent,
+    report: { message: string; stack?: string; timestamp: string; url?: string },
+  ) => {
+    Logger.error('[renderer-error-report]', {
+      message: report.message,
+      stack: report.stack,
+      timestamp: report.timestamp,
+      url: report.url,
+    });
+  },
+);
 
 // Export for test access
 export { testMode };

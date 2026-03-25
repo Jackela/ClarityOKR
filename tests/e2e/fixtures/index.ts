@@ -106,7 +106,7 @@ export const test = base.extend<E2EFixtures>({
       if (!globalMockServer) {
         throw new Error(
           'globalMockServer is not initialized. ' +
-          'Make sure global-setup.ts is configured in playwright config and is exporting globalMockServer.'
+            'Make sure global-setup.ts is configured in playwright config and is exporting globalMockServer.',
         );
       }
 
@@ -178,7 +178,7 @@ export const test = base.extend<E2EFixtures>({
         env: {
           ...getElectronEnv(mockServer.url),
           ...ciConfig.env,
-        },
+        } as Record<string, string>,
       });
 
       const childProcess = app.process();
@@ -236,11 +236,11 @@ export const test = base.extend<E2EFixtures>({
         window = await electronApp.waitForEvent('window', { timeout: 60_000 });
       } catch (error) {
         console.error('[mainWindow] Failed to wait for window event:', error);
-        
+
         // Try to get diagnostic information
         try {
           const windows = await electronApp.evaluate(({ BrowserWindow }) => {
-            return BrowserWindow.getAllWindows().map(w => ({
+            return BrowserWindow.getAllWindows().map((w) => ({
               id: w.id,
               isVisible: w.isVisible(),
               isDestroyed: w.isDestroyed(),
@@ -251,7 +251,7 @@ export const test = base.extend<E2EFixtures>({
         } catch (diagError) {
           console.error('[mainWindow] Failed to get window diagnostics:', diagError);
         }
-        
+
         throw error;
       }
 

@@ -1,7 +1,7 @@
 import type {
   MockResponseConfig,
   MockNextQuestionResponse,
-  MockOkrDraftResponse,
+  OkrDraftResponse,
 } from '@clarityokr/contracts';
 
 /**
@@ -13,7 +13,7 @@ import type {
 export type {
   MockResponseConfig,
   MockNextQuestionResponse as QuestionResponse,
-  MockOkrDraftResponse as DraftResponse,
+  OkrDraftResponse as DraftResponse,
 };
 
 /**
@@ -72,37 +72,42 @@ export const DefaultMockResponses = {
   /**
    * Standard draft response
    */
-  standardDraft: (): MockOkrDraftResponse => ({
-    objectives: [
-      {
-        id: 'o1',
-        title: '提高效率',
-        description: '自动生成',
-        keyResults: [
-          { id: 'kr1', statement: 'KR1', target: '10%', measurement: 'rate' },
-          { id: 'kr2', statement: 'KR2', target: 5, measurement: 'count' },
-          { id: 'kr3', statement: 'KR3', target: '2s', measurement: 'latency' },
+  standardDraft: (): OkrDraftResponse =>
+    ({
+      draft: {
+        objectives: [
+          {
+            id: 'o1',
+            title: '提高效率',
+            description: '自动生成',
+            keyResults: [
+              { id: 'kr1', statement: 'KR1', target: '10%', measurement: 'rate' },
+              { id: 'kr2', statement: 'KR2', target: 5, measurement: 'count' },
+              { id: 'kr3', statement: 'KR3', target: '2s', measurement: 'latency' },
+            ],
+          },
         ],
       },
-    ],
-  }),
+    }) as OkrDraftResponse,
 
   /**
    * Alternative draft response with different objective
    */
-  alternativeDraft: (): MockOkrDraftResponse => ({
-    objectives: [
-      {
-        id: 'o1',
-        title: '提高执行力',
-        description: '自动生成',
-        keyResults: [
-          { id: 'kr1', statement: 'KR1', target: '10%', measurement: 'rate' },
-          { id: 'kr2', statement: 'KR2', target: 5, measurement: 'count' },
-          { id: 'kr3', statement: 'KR3', target: '2s', measurement: 'latency' },
-        ],
-      },
-    ],
+  alternativeDraft: (): OkrDraftResponse => ({
+    draft: {
+      objectives: [
+        {
+          id: 'o1',
+          title: '提高执行力',
+          description: '自动生成',
+          keyResults: [
+            { id: 'kr1', statement: 'KR1', target: '10%', measurement: 'rate' },
+            { id: 'kr2', statement: 'KR2', target: 5, measurement: 'count' },
+            { id: 'kr3', statement: 'KR3', target: '2s', measurement: 'latency' },
+          ],
+        },
+      ],
+    },
   }),
 } as const;
 
@@ -137,19 +142,21 @@ export function createCompleteFlowConfig(options?: {
       return null;
     },
     draft: {
-      objectives: [
-        {
-          id: 'o1',
-          title: objectiveTitle,
-          description: '自动生成',
-          keyResults: Array.from({ length: keyResultCount }, (_, i) => ({
-            id: `kr${i + 1}`,
-            statement: `KR${i + 1}`,
-            target: i === 0 ? '10%' : i === 1 ? 5 : '2s',
-            measurement: i === 0 ? 'rate' : i === 1 ? 'count' : 'latency',
-          })),
-        },
-      ],
+      draft: {
+        objectives: [
+          {
+            id: 'o1',
+            title: objectiveTitle,
+            description: '自动生成',
+            keyResults: Array.from({ length: keyResultCount }, (_, i) => ({
+              id: `kr${i + 1}`,
+              statement: `KR${i + 1}`,
+              target: i === 0 ? '10%' : i === 1 ? 5 : '2s',
+              measurement: i === 0 ? 'rate' : i === 1 ? 'count' : 'latency',
+            })),
+          },
+        ],
+      },
     },
   };
 }

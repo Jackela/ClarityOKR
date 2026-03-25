@@ -3,7 +3,7 @@ const { defaultsESM } = require('ts-jest/presets');
 module.exports = {
   ...defaultsESM,
   testEnvironment: 'node',
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.cjs'],
   roots: [
     '<rootDir>/clarification',
     '<rootDir>/okr-sticky',
@@ -35,7 +35,9 @@ module.exports = {
     '^(\\.{1,2}/.*)\\.js$': '$1',
     '^@clarityokr/contracts$': '<rootDir>/../../packages/contracts/src/index.ts',
     '^@clarityokr/main/(.*)$': '<rootDir>/../../app/main/src/$1',
-    '^@clarityokr/renderer/(.*)$': '<rootDir>/../../app/renderer/src/$1',
+    '^@clarityokr/renderer/(.*)$': '<rootDir>/__mocks__/angular-renderer/$1',
+    '^@angular/core$': '<rootDir>/__mocks__/angular-core.ts',
+    '^rxjs$': '<rootDir>/__mocks__/rxjs.ts',
     '^electron$': '<rootDir>/__mocks__/electron.ts',
     '^.*secure-storage.service\\.js$': '<rootDir>/__mocks__/secure-storage.service.ts',
   },

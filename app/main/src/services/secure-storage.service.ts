@@ -8,7 +8,7 @@
  * derived from environment variables for test isolation.
  */
 
-import { createHash } from 'node:crypto';
+import { pbkdf2Sync, randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -280,15 +280,13 @@ function shouldUseFallbackKey(): boolean {
 
 /**
  * Gets a fallback encryption key for CI/E2E environments.
- * Derives a consistent key from environment variables using SHA-256.
+ * Derives a secure key from environment variables using PBKDF2.
  * @returns A 256-bit encryption key derived from environment
  */
 function getFallbackEncryptionKey(): Buffer {
-  const seed =
-    process.env.E2E_FALLBACK_KEY_SEED || process.env.NODE_ENV || 'clarityokr-fallback-key';
-  const hash = createHash('sha256');
-  hash.update(seed);
-  return hash.digest();
+  const seed = process.env.E2E_FALLBACK_KEY_SEED || randomBytes(32).toString('hex');
+  const salt = randomBytes(16);
+  return pbkdf2Sync(seed, salt, 100000, 32, 'sha256');
 }
 
 let fallbackConfig: SecureLlmConfig | null = null;
