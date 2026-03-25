@@ -18,6 +18,95 @@ import type { OkrAgentService } from '../services/okr-agent.service.js';
 
 import type { StickyWindowManager } from './sticky-window-manager.js';
 
+// ============================================================================
+// IPC Payload Types for Backward Compatibility
+// ============================================================================
+
+interface ClarificationTurn {
+  questionId: string;
+  optionId: string;
+  timestamp: string;
+}
+
+interface ClarificationContext {
+  turns: ClarificationTurn[];
+}
+
+interface LastChoice {
+  questionId: string;
+  optionId: string;
+}
+
+/** New format for LLM_NEXT_QUESTION */
+interface NextQuestionPayloadNew {
+  sessionId: string;
+  currentQuestionId: string;
+  context: ClarificationContext;
+}
+
+/** Old format for LLM_NEXT_QUESTION (backward compatibility) */
+interface NextQuestionPayloadOld {
+  context: ClarificationContext;
+  lastChoice: LastChoice;
+}
+
+/** Union type for LLM_NEXT_QUESTION payload */
+type NextQuestionPayload = NextQuestionPayloadNew | NextQuestionPayloadOld;
+
+/** New format for LLM_GENERATE_DRAFT */
+interface GenerateDraftPayloadNew {
+  sessionId: string;
+}
+
+/** Old format for LLM_GENERATE_DRAFT (backward compatibility) */
+interface GenerateDraftPayloadOld {
+  context: ClarificationContext;
+}
+
+/** Union type for LLM_GENERATE_DRAFT payload */
+type GenerateDraftPayload = GenerateDraftPayloadNew | GenerateDraftPayloadOld;
+
+/**
+ * Type guard to check if payload is new format for LLM_NEXT_QUESTION
+ */
+function isNextQuestionPayloadNew(payload: unknown): payload is NextQuestionPayloadNew {
+  return (
+    typeof payload === 'object' &&
+    payload !== null &&
+    'sessionId' in payload &&
+    typeof (payload as Record<string, unknown>).sessionId === 'string' &&
+    'currentQuestionId' in payload &&
+    typeof (payload as Record<string, unknown>).currentQuestionId === 'string'
+  );
+}
+
+/**
+ * Type guard to check if payload is old format for LLM_NEXT_QUESTION
+ */
+function isNextQuestionPayloadOld(payload: unknown): payload is NextQuestionPayloadOld {
+  return (
+    typeof payload === 'object' &&
+    payload !== null &&
+    'context' in payload &&
+    'lastChoice' in payload &&
+    typeof (payload as Record<string, unknown>).lastChoice === 'object' &&
+    (payload as Record<string, unknown>).lastChoice !== null &&
+    'questionId' in ((payload as Record<string, unknown>).lastChoice as Record<string, unknown>)
+  );
+}
+
+/**
+ * Type guard to check if payload is new format for LLM_GENERATE_DRAFT
+ */
+function isGenerateDraftPayloadNew(payload: unknown): payload is GenerateDraftPayloadNew {
+  return (
+    typeof payload === 'object' &&
+    payload !== null &&
+    'sessionId' in payload &&
+    typeof (payload as Record<string, unknown>).sessionId === 'string'
+  );
+}
+
 /**
  * ClarificationController - 澄清流程协调器 (Facade模式)
  *
@@ -91,9 +180,32 @@ export class ClarificationController {
       });
     });
 
-    // LLM_NEXT_QUESTION: 获取下一个问题
+    // LLM_NEXT_QUESTION: 获取下一个问题 (支持新旧两种payload格式)
     this.elect.ipcMain.handle(IPC_CHANNELS.LLM_NEXT_QUESTION, async (_event, payload) => {
-      const { sessionId, currentQuestionId, context } = payload;
+      let sessionId: string;
+      let currentQuestionId: string;
+      let context: ClarificationContext;
+
+      if (isNextQuestionPayloadNew(payload)) {
+        // 新格式: { sessionId, currentQuestionId, context }
+        sessionId = payload.sessionId;
+        currentQuestionId = payload.currentQuestionId;
+        context = payload.context;
+      } else if (isNextQuestionPayloadOld(payload)) {
+        // 旧格式: { context, lastChoice } - 向后兼容
+        const currentSessionId = this.sessionManager.getCurrentSessionId();
+        if (!currentSessionId) {
+          throw new Error('No active session found. Please start a clarification session first.');
+        }
+        sessionId = currentSessionId;
+        currentQuestionId = payload.lastChoice.questionId;
+        context = payload.context;
+      } else {
+        throw new Error(
+          'Invalid payload format for LLM_NEXT_QUESTION. Expected { sessionId, currentQuestionId, context } or { context, lastChoice }',
+        );
+      }
+
       const question = await this.promptHandler.getNextQuestion(
         sessionId,
         currentQuestionId,
@@ -102,21 +214,42 @@ export class ClarificationController {
       return question;
     });
 
-    // LLM_GENERATE_DRAFT: 生成OKR草案
-    this.elect.ipcMain.handle(IPC_CHANNELS.LLM_GENERATE_DRAFT, async (_event, payload) => {
-      const result = await this.draftHandler.generateDraft(payload.sessionId);
-      await this.okrRepository.save(result.okr);
-      this.elect.webContents
-        .getAllWebContents()
-        .forEach((wc) => wc.send(IPC_CHANNELS.OKR_GENERATE, result));
-      await this.actionLogService.logAction(
-        'generate',
-        result.session.id,
-        result.okr.id,
-        `okr:${result.okr.id}`,
-      );
-      return result;
-    });
+    // LLM_GENERATE_DRAFT: 生成OKR草案 (支持新旧两种payload格式)
+    this.elect.ipcMain.handle(
+      IPC_CHANNELS.LLM_GENERATE_DRAFT,
+      async (_event, payload: GenerateDraftPayload) => {
+        let sessionId: string;
+
+        if (isGenerateDraftPayloadNew(payload)) {
+          // 新格式: { sessionId }
+          sessionId = payload.sessionId;
+        } else if ('context' in payload && payload.context) {
+          // 旧格式: { context } - 向后兼容，使用当前会话
+          const currentSessionId = this.sessionManager.getCurrentSessionId();
+          if (!currentSessionId) {
+            throw new Error('No active session found. Please start a clarification session first.');
+          }
+          sessionId = currentSessionId;
+        } else {
+          throw new Error(
+            'Invalid payload format for LLM_GENERATE_DRAFT. Expected { sessionId } or { context }',
+          );
+        }
+
+        const result = await this.draftHandler.generateDraft(sessionId);
+        await this.okrRepository.save(result.okr);
+        this.elect.webContents
+          .getAllWebContents()
+          .forEach((wc) => wc.send(IPC_CHANNELS.OKR_GENERATE, result));
+        await this.actionLogService.logAction(
+          'generate',
+          result.session.id,
+          result.okr.id,
+          `okr:${result.okr.id}`,
+        );
+        return result;
+      },
+    );
 
     // STICKY_REOPEN: 重新打开浮动窗口
     this.elect.ipcMain.handle(IPC_CHANNELS.STICKY_REOPEN, async () => {

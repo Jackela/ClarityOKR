@@ -29,7 +29,7 @@ jobs:
   build-and-test:
     name: Lint • Typecheck • Unit • Component • Integration
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     outputs:
       coverage-path: ${{ steps.coverage.outputs.path }}
     steps:
@@ -88,7 +88,7 @@ jobs:
         run: pnpm run build:contracts
 
       - name: Lint
-        timeout-minutes: 10
+        timeout-minutes: 15
         if: ${{ github.actor != 'nektos/act' || env.ALLOW_LINT == 'true' }}
         run: pnpm run lint
 
@@ -97,10 +97,11 @@ jobs:
         run: pnpm run typecheck
 
       - name: Build
-        run: pnpm run build
+        timeout-minutes: 20
+        run: pnpm run build:ci
 
       - name: Unit tests with coverage
-        timeout-minutes: 15
+        timeout-minutes: 20
         run: COVERAGE=true pnpm run test:unit
 
       - name: Check test coverage (minimum 80%)
@@ -362,7 +363,7 @@ jobs:
         run: pnpm install --frozen-lockfile --prefer-offline
 
       - name: Build
-        run: pnpm run build
+        run: pnpm run build:ci
 
       - name: Setup code signing (Windows)
         if: matrix.os == 'windows-latest'

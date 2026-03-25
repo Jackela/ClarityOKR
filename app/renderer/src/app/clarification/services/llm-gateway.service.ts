@@ -1,15 +1,11 @@
 import { Injectable } from '@angular/core';
 import { defer, Observable } from 'rxjs';
 import { finalize, tap } from 'rxjs/operators';
+import type { ClarificationContext, LastChoice } from '@clarityokr/contracts';
 
 import { TelemetryService } from '../../services/telemetry.service';
 import { IPC_CHANNELS } from '../../shared/ipc-channel.tokens';
 import type { ClarifyOkrApi } from '../../shared/window';
-
-type ClarificationContext = {
-  turns: Array<{ questionId: string; optionId: string; timestamp: string }>;
-};
-type LastChoice = { questionId: string; optionId: string };
 
 function bridgeOrThrow(): ClarifyOkrApi {
   const candidate = window.clarifyOkr;

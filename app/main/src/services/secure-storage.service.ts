@@ -8,7 +8,7 @@
  * derived from environment variables for test isolation.
  */
 
-import { pbkdf2Sync, randomBytes } from 'node:crypto';
+import { createHash, pbkdf2Sync, randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -281,11 +281,13 @@ function shouldUseFallbackKey(): boolean {
 /**
  * Gets a fallback encryption key for CI/E2E environments.
  * Derives a secure key from environment variables using PBKDF2.
+ * Uses deterministic salt derived from seed to ensure consistent key generation.
  * @returns A 256-bit encryption key derived from environment
  */
 function getFallbackEncryptionKey(): Buffer {
   const seed = process.env.E2E_FALLBACK_KEY_SEED || randomBytes(32).toString('hex');
-  const salt = randomBytes(16);
+  // Use deterministic salt derived from seed to ensure same key is always generated
+  const salt = createHash('sha256').update(seed).digest().subarray(0, 16);
   return pbkdf2Sync(seed, salt, 100000, 32, 'sha256');
 }
 

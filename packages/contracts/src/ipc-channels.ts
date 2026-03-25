@@ -75,3 +75,97 @@ export function validateChannel(channel: string): asserts channel is AllowedChan
 export function isAllowedChannel(channel: string): channel is AllowedChannel {
   return ALLOWED_CHANNELS.includes(channel as AllowedChannel);
 }
+
+// ============================================================================
+// IPC Payload Types for LLM Channels
+// ============================================================================
+
+import type {
+  ClarificationTurn,
+  ClarificationContext,
+  LastChoice,
+} from './llm-gateway.contract.js';
+
+export type { ClarificationTurn, ClarificationContext, LastChoice };
+
+/** New format for LLM_NEXT_QUESTION payload */
+export interface LlmNextQuestionPayloadNew {
+  sessionId: string;
+  currentQuestionId: string;
+  context: ClarificationContext;
+}
+
+/** Old format for LLM_NEXT_QUESTION payload (backward compatibility) */
+export interface LlmNextQuestionPayloadOld {
+  context: ClarificationContext;
+  lastChoice: LastChoice;
+}
+
+/** Union type for LLM_NEXT_QUESTION payload - supports both formats */
+export type LlmNextQuestionPayload = LlmNextQuestionPayloadNew | LlmNextQuestionPayloadOld;
+
+/** New format for LLM_GENERATE_DRAFT payload */
+export interface LlmGenerateDraftPayloadNew {
+  sessionId: string;
+}
+
+/** Old format for LLM_GENERATE_DRAFT payload (backward compatibility) */
+export interface LlmGenerateDraftPayloadOld {
+  context: ClarificationContext;
+}
+
+/** Union type for LLM_GENERATE_DRAFT payload - supports both formats */
+export type LlmGenerateDraftPayload = LlmGenerateDraftPayloadNew | LlmGenerateDraftPayloadOld;
+
+/**
+ * Type guard to check if payload is new format for LLM_NEXT_QUESTION
+ * @param payload - The payload to check
+ * @returns true if payload uses new format with sessionId and currentQuestionId
+ */
+export function isLlmNextQuestionPayloadNew(
+  payload: unknown,
+): payload is LlmNextQuestionPayloadNew {
+  return (
+    typeof payload === 'object' &&
+    payload !== null &&
+    'sessionId' in payload &&
+    typeof (payload as Record<string, unknown>).sessionId === 'string' &&
+    'currentQuestionId' in payload &&
+    typeof (payload as Record<string, unknown>).currentQuestionId === 'string'
+  );
+}
+
+/**
+ * Type guard to check if payload is old format for LLM_NEXT_QUESTION
+ * @param payload - The payload to check
+ * @returns true if payload uses old format with context and lastChoice
+ */
+export function isLlmNextQuestionPayloadOld(
+  payload: unknown,
+): payload is LlmNextQuestionPayloadOld {
+  return (
+    typeof payload === 'object' &&
+    payload !== null &&
+    'context' in payload &&
+    'lastChoice' in payload &&
+    typeof (payload as Record<string, unknown>).lastChoice === 'object' &&
+    (payload as Record<string, unknown>).lastChoice !== null &&
+    'questionId' in ((payload as Record<string, unknown>).lastChoice as Record<string, unknown>)
+  );
+}
+
+/**
+ * Type guard to check if payload is new format for LLM_GENERATE_DRAFT
+ * @param payload - The payload to check
+ * @returns true if payload uses new format with sessionId
+ */
+export function isLlmGenerateDraftPayloadNew(
+  payload: unknown,
+): payload is LlmGenerateDraftPayloadNew {
+  return (
+    typeof payload === 'object' &&
+    payload !== null &&
+    'sessionId' in payload &&
+    typeof (payload as Record<string, unknown>).sessionId === 'string'
+  );
+}
