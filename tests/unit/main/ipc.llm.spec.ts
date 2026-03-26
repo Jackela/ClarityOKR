@@ -121,19 +121,6 @@ describe('Main IPC LLM Handlers', () => {
       new OkrAgentService(),
       electStub,
     );
-
-    // Initialize session to avoid "No active session found" error
-    await sessionRepo.saveSession({
-      id: 's1',
-      initialIntent: 'test',
-      status: 'collecting',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      steps: [],
-      selectedOptionIds: [],
-      confidence: 0,
-      pendingQuestionId: null,
-    });
   });
 
   afterEach(() => {
@@ -155,8 +142,9 @@ describe('Main IPC LLM Handlers', () => {
   it('LLM_NEXT_QUESTION maps and broadcasts a ClarificationPrompt', async () => {
     const h = handlers['clarityokr:llm:next-question'];
     const result = await h(null, {
-      context: { turns: [] },
-      lastChoice: { questionId: 'q1', optionId: 'a' },
+      sessionId: 's1',
+      currentQuestionId: 'q1',
+      context: { turns: [{ questionId: 'q1', optionId: 'a', timestamp: Date.now().toString() }] },
     });
     expect(result).toHaveProperty('question.id', 'q2');
     const hasBroadcast = sent.some((m) => m.channel === 'clarityokr:clarification:prompt');

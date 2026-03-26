@@ -91,31 +91,23 @@ describe('Retry idempotence', () => {
       electStub,
     );
 
-    // Initialize session to avoid "No active session found" error
-    await sessionRepo.saveSession({
-      id: 's1',
-      initialIntent: 'test',
-      status: 'collecting',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      steps: [],
-      selectedOptionIds: [],
-      confidence: 0,
-      pendingQuestionId: null,
-    });
-
     const h = handlers['clarityokr:llm:next-question'];
 
     // First attempt fails
     await expect(
-      h(null, { context: { turns: [] }, lastChoice: { questionId: 'q1', optionId: 'a' } }),
+      h(null, {
+        sessionId: 's1',
+        currentQuestionId: 'q1',
+        context: { turns: [{ questionId: 'q1', optionId: 'a', timestamp: Date.now().toString() }] },
+      }),
     ).rejects.toThrow();
     expect(sessionRepo.state.session.steps.length).toBe(0);
 
     // Second attempt succeeds
     const res = await h(null, {
-      context: { turns: [] },
-      lastChoice: { questionId: 'q1', optionId: 'a' },
+      sessionId: 's1',
+      currentQuestionId: 'q1',
+      context: { turns: [{ questionId: 'q1', optionId: 'a', timestamp: Date.now().toString() }] },
     });
     expect(res).toHaveProperty('question.id', 'q2');
     expect(sessionRepo.state.session.steps.length).toBe(1);
