@@ -90,6 +90,20 @@ describe('Retry idempotence', () => {
       new OkrAgentService(),
       electStub,
     );
+
+    // Initialize session to avoid "No active session found" error
+    await sessionRepo.saveSession({
+      id: 's1',
+      initialIntent: 'test',
+      status: 'collecting',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      steps: [],
+      selectedOptionIds: [],
+      confidence: 0,
+      pendingQuestionId: null,
+    });
+
     const h = handlers['clarityokr:llm:next-question'];
 
     // First attempt fails

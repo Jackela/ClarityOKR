@@ -160,6 +160,7 @@ export class ClarificationStateMachine {
     this._state.isLoading = loading;
     if (loading) {
       this._state.workflowState = 'loading';
+      this._state.validationError = null;
       if (intent) {
         this._state.intent = intent;
       }

@@ -362,6 +362,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --prefer-offline
 
+      - name: Setup Windows build tools
+        if: matrix.os == 'windows-latest'
+        run: |
+          npm config set msvs_version 2022
+          npm config set python python3
+
       - name: Build
         run: pnpm run build:ci
 

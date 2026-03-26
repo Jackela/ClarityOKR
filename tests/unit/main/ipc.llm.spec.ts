@@ -73,7 +73,9 @@ import { OkrAgentService } from '@clarityokr/main/services/okr-agent.service';
 import { jest } from '@jest/globals';
 
 describe('Main IPC LLM Handlers', () => {
-  beforeAll(() => {
+  let sessionRepo: SessionRepositoryStub;
+
+  beforeAll(async () => {
     process.env.LLM_API_KEY = 'test-key';
     process.env.LLM_BASE_URL = 'https://llm.example.test';
     process.env.LLM_MODEL = 'gpt-4o-mini';
@@ -106,16 +108,32 @@ describe('Main IPC LLM Handlers', () => {
       },
     } as any);
 
+    // Create repository instance to initialize session
+    sessionRepo = new SessionRepositoryStub();
+
     // Instantiate controller to register handlers with stubbed electron
     // @ts-ignore - using stubs that satisfy API surface
     new ClarificationController(
-      new SessionRepositoryStub(),
+      sessionRepo,
       new OkrRepositoryStub(),
       new ActionLogWriterStub(),
       new StickyWindowManagerStub(),
       new OkrAgentService(),
       electStub,
     );
+
+    // Initialize session to avoid "No active session found" error
+    await sessionRepo.saveSession({
+      id: 's1',
+      initialIntent: 'test',
+      status: 'collecting',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      steps: [],
+      selectedOptionIds: [],
+      confidence: 0,
+      pendingQuestionId: null,
+    });
   });
 
   afterEach(() => {
