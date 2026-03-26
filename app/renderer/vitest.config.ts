@@ -12,12 +12,6 @@ export default defineConfig({
     include: ['src/**/*.test.ts', 'src/**/*.spec.ts'],
     exclude: ['node_modules', 'dist'],
     setupFiles: ['./src/test-setup.ts'],
-    pool: 'forks',
-    poolOptions: {
-      forks: {
-        singleFork: true,
-      },
-    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
