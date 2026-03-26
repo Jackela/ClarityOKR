@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import type { ComponentFixture } from '@angular/core/testing';
+import { vi, describe, it, expect } from 'vitest';
 
 import type { OkrStickyViewModel } from '../services/okr-projection.service';
 

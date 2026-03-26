@@ -1,5 +1,6 @@
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import type { ClarificationPrompt } from '@clarityokr/contracts';
+import { vi, describe, it, expect } from 'vitest';
 
 import { SyncClarificationState } from '../services/sync-clarification-state.service';
 import { ClarificationWizardComponent } from './clarification-wizard.component';
@@ -44,7 +45,7 @@ describe('ClarificationWizardComponent', () => {
       'button.option',
     ) as NodeListOf<HTMLButtonElement>;
     const buttons: HTMLButtonElement[] = Array.from(optionNodes);
-    const optionSelectedSpy = jasmine.createSpy('optionSelected');
+    const optionSelectedSpy = vi.fn();
     component.optionSelected.subscribe(optionSelectedSpy);
 
     buttons[0].click();
@@ -60,7 +61,7 @@ describe('ClarificationWizardComponent', () => {
     const generateButton = fixture.nativeElement.querySelector(
       'button.generate',
     ) as HTMLButtonElement | null;
-    expect(generateButton?.disabled).toBeTrue();
+    expect(generateButton?.disabled).toBe(true);
 
     state.setReady(true);
     fixture.detectChanges();
@@ -68,7 +69,7 @@ describe('ClarificationWizardComponent', () => {
     const updatedButton = fixture.nativeElement.querySelector(
       'button.generate',
     ) as HTMLButtonElement | null;
-    expect(updatedButton?.disabled).toBeFalse();
+    expect(updatedButton?.disabled).toBe(false);
   });
 
   it('emits generate event when generate button is clicked', () => {
@@ -76,7 +77,7 @@ describe('ClarificationWizardComponent', () => {
     state.setReady(true);
     fixture.detectChanges();
 
-    const generateSpy = jasmine.createSpy('generate');
+    const generateSpy = vi.fn();
     component.generate.subscribe(generateSpy);
 
     const generateButton = fixture.nativeElement.querySelector(
@@ -91,7 +92,7 @@ describe('ClarificationWizardComponent', () => {
     state.setError({ message: 'Test error', recoverable: true });
     fixture.detectChanges();
 
-    const retrySpy = jasmine.createSpy('retry');
+    const retrySpy = vi.fn();
     component.retry.subscribe(retrySpy);
 
     const retryButton = fixture.nativeElement.querySelector('button.retry') as HTMLButtonElement;

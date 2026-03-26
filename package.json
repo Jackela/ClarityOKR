@@ -26,7 +26,7 @@
     "dev": "pnpm --filter @clarityokr/desktop run dev",
     "test": "pnpm run test:unit && pnpm run test:integration && pnpm run test:component && pnpm run test:e2e",
     "test:unit": "pnpm --filter @clarityokr/tests-unit run test",
-    "test:component": "node scripts/run-component-tests.cjs",
+    "test:component": "pnpm --filter @clarityokr/renderer run test",
     "test:e2e": "pnpm --filter @clarityokr/tests-e2e run test",
     "test:e2e:ci": "pnpm --filter @clarityokr/tests-e2e run test:ci",
     "test:e2e:prepush": "pnpm --filter @clarityokr/tests-e2e run test:prepush",

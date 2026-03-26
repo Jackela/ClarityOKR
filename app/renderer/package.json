@@ -5,7 +5,7 @@
   "scripts": {
     "build": "ng build",
     "serve": "ng serve",
-    "test": "ng test",
+    "test": "vitest run",
     "lint": "eslint ./src --ext .ts,.html"
   },
   "dependencies": {
@@ -27,16 +27,12 @@
     "@ampproject/remapping": "^2.3.0",
     "@angular/cli": "17.3.12",
     "@angular/compiler-cli": "^17.3.0",
-    "@types/jasmine": "4.3.6",
     "@types/jest": "^29.5.12",
     "baseline-browser-mapping": "^2.10.0",
     "eslint": "^9.1.0",
-    "jasmine-core": "5.1.1",
-    "karma": "6.4.2",
-    "karma-chrome-launcher": "3.2.0",
-    "karma-coverage": "2.2.0",
-    "karma-jasmine": "5.1.0",
-    "karma-jasmine-html-reporter": "2.1.0",
-    "typescript": "~5.4.5"
+    "typescript": "~5.4.5",
+    "vitest": "^1.6.0",
+    "@vitest/coverage-v8": "^1.6.0",
+    "jsdom": "^24.1.0"
   }
 }
