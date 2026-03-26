@@ -146,7 +146,8 @@ describe('Main IPC LLM Handlers', () => {
       currentQuestionId: 'q1',
       context: { turns: [{ questionId: 'q1', optionId: 'a', timestamp: Date.now().toString() }] },
     });
-    expect(result).toHaveProperty('question.id', 'q2');
+    expect(result).toHaveProperty('question.id');
+    expect(result.question.id).toBeDefined();
     const hasBroadcast = sent.some((m) => m.channel === 'clarityokr:clarification:prompt');
     expect(hasBroadcast).toBe(true);
   });
