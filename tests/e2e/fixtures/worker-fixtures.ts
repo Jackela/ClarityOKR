@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-empty-object-type */
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-empty-object-type, @typescript-eslint/no-empty-pattern */
 import { test as base, expect, TestInfo } from '@playwright/test';
 
 // Re-export expect for convenience

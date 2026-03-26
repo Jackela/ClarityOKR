@@ -1,10 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import nock from 'nock';
 import fetch from 'node-fetch';
 
 beforeAll(() => {
   // Route global fetch through node-fetch so nock can intercept
-  // @ts-ignore
-  globalThis.fetch = fetch as any;
+  // @ts-expect-error - node-fetch and native fetch have different types
+  globalThis.fetch = fetch as unknown;
   nock.disableNetConnect();
   // Allow localhost for any internal runtime interactions if needed
   nock.enableNetConnect('127.0.0.1');
