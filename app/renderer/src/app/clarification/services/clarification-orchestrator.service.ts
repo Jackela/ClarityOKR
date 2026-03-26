@@ -1,5 +1,5 @@
-import { Injectable } from '@angular/core';
-import type { NgZone, OnDestroy } from '@angular/core';
+import { Injectable, NgZone } from '@angular/core';
+import type { OnDestroy } from '@angular/core';
 import {
   clarificationOptionSelectionSchema,
   clarificationPromptRequestSchema,
