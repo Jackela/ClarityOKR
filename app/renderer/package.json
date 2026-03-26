@@ -25,8 +25,8 @@
   },
   "devDependencies": {
     "@ampproject/remapping": "^2.3.0",
-    "@analogjs/vite-plugin-angular": "^1.0.0",
-    "@analogjs/vitest-angular": "^1.0.0",
+    "@analogjs/vite-plugin-angular": "^1.9.0",
+    "@analogjs/vitest-angular": "^1.9.0",
     "@angular/cli": "17.3.12",
     "@angular/compiler-cli": "^17.3.0",
     "@types/jest": "^29.5.12",
