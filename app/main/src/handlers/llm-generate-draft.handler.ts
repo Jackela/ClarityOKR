@@ -97,7 +97,7 @@ export class LlmGenerateDraftHandler {
     }
 
     const context = body.context ?? {
-      turns: session.steps.map((p) => ({
+      turns: session.steps.map((p: { id: string }) => ({
         questionId: p.id,
         optionId: 'unknown',
         timestamp: new Date().toISOString(),

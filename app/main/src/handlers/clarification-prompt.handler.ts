@@ -82,7 +82,7 @@ export class ClarificationPromptHandler {
       sequence: 0,
       question: q.text,
       context: 'LLM generated',
-      options: (q.options ?? []).map((o) => ({
+      options: (q.options ?? []).map((o: { id: string; label: string }) => ({
         id: o.id,
         label: o.label,
         description: undefined,

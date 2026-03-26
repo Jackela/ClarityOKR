@@ -264,8 +264,8 @@ export class AtomicPersistenceService {
     try {
       const entries = await fs.readdir(dir);
       const backups = entries
-        .filter((name) => pattern.test(name))
-        .map((name) => join(dir, name))
+        .filter((name: string) => pattern.test(name))
+        .map((name: string) => join(dir, name))
         .sort((a, b) => {
           // 按时间戳排序（最新的在后面）
           const timeA = a.match(/\.(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z)\.json$/)?.[1] || '';
@@ -361,8 +361,8 @@ export class AtomicPersistenceService {
     try {
       const entries = await fs.readdir(dir);
       const backups = entries
-        .filter((name) => pattern.test(name))
-        .map((name) => join(dir, name))
+        .filter((name: string) => pattern.test(name))
+        .map((name: string) => join(dir, name))
         .sort((a, b) => {
           // 按时间戳排序（最新的在后面）
           const timeA = a.match(/\.(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z)\.json$/)?.[1] || '';

@@ -348,6 +348,53 @@ jobs:
           npm install -g pnpm@${{ env.PNPM_VERSION }}
           pnpm --version
 
+      - name: Setup Windows build environment
+        if: matrix.os == 'windows-latest'
+        shell: powershell
+        run: |
+          # Configure npm for Windows build BEFORE installing dependencies
+          # This is critical for node-gyp to compile native modules
+          npm config set msvs_version 2022
+          npm config set python python3
+
+          # Also configure pnpm to use the same settings
+          pnpm config set msvs_version 2022
+          pnpm config set python python3
+
+          # Display configurations for debugging
+          Write-Host "=== Build Environment Configuration ==="
+          Write-Host "npm msvs_version: $(npm config get msvs_version)"
+          Write-Host "npm python: $(npm config get python)"
+          Write-Host "pnpm msvs_version: $(pnpm config get msvs_version)"
+          Write-Host "pnpm python: $(pnpm config get python)"
+
+          # Verify Visual Studio installation
+          $vsPaths = @(
+            "${env:ProgramFiles}\Microsoft Visual Studio\2022\Enterprise",
+            "${env:ProgramFiles}\Microsoft Visual Studio\2022\Professional",
+            "${env:ProgramFiles}\Microsoft Visual Studio\2022\Community",
+            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\Enterprise",
+            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\Professional",
+            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\Community"
+          )
+
+          $vsFound = $false
+          foreach ($vsPath in $vsPaths) {
+            if (Test-Path $vsPath) {
+              Write-Host "Visual Studio 2022 found at: $vsPath"
+              $vsFound = $true
+              break
+            }
+          }
+
+          if (-not $vsFound) {
+            Write-Host "::warning::Visual Studio 2022 not found in expected locations"
+          }
+
+          # Set environment variables for node-gyp
+          [Environment]::SetEnvironmentVariable('GYP_MSVS_VERSION', '2022', 'User')
+          Write-Host "GYP_MSVS_VERSION set to 2022"
+
       - name: Get pnpm store directory
         id: pnpm-cache
         run: |
@@ -364,11 +411,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --prefer-offline
 
-      - name: Setup Windows build tools
-        if: matrix.os == 'windows-latest'
-        run: |
-          npm config set msvs_version 2022
-          npm config set python python3
+      - name: Build contracts
+        run: pnpm run build:contracts
 
       - name: Build
         run: pnpm run build:ci

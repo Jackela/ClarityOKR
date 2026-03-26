@@ -67,7 +67,7 @@ export class ClarificationDraftHandler implements IClarificationDraftHandler {
 
     // 构建上下文
     const context = {
-      turns: session.steps.map((p) => ({
+      turns: session.steps.map((p: { id: string }) => ({
         questionId: p.id,
         optionId: 'unknown',
         timestamp: new Date().toISOString(),

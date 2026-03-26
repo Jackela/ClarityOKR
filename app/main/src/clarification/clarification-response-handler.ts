@@ -1,3 +1,5 @@
+import type { ClarificationPrompt } from '@clarityokr/contracts';
+
 import { Logger } from '../core/logger.js';
 import type { IClarificationResponseHandler } from './interfaces/response-handler.interface.js';
 import type { IClarificationSessionManager } from './interfaces/session-manager.interface.js';
@@ -73,13 +75,13 @@ export class ClarificationResponseHandler implements IClarificationResponseHandl
     optionId: string,
   ): void {
     // 验证 prompt 存在
-    const prompt = session.steps.find((s) => s.id === promptId);
+    const prompt = session.steps.find((s: ClarificationPrompt) => s.id === promptId);
     if (!prompt) {
       throw new InvalidSelectionError(`Prompt ${promptId} not found in session`);
     }
 
     // 验证 option 存在
-    const option = prompt.options.find((o) => o.id === optionId);
+    const option = prompt.options.find((o: { id: string }) => o.id === optionId);
     if (!option) {
       throw new InvalidSelectionError(`Option ${optionId} not found in prompt ${promptId}`);
     }
