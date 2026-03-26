@@ -92,13 +92,16 @@ async function logDiagnostics(
       const state = testMode.getCurrentState();
       const sessions: Array<[string, any]> = Array.from(state.sessions?.entries?.() || []);
 
-      const sessionData = sessions.map(([id, session]) => ({
-        id,
-        intent: session.initialIntent,
-        status: session.status,
-        confidence: session.confidence,
-        selectionCount: session.selections?.length || 0,
-      }));
+      const sessionData = sessions.map((entry: [string, any]) => {
+        const [id, session] = entry;
+        return {
+          id,
+          intent: session.initialIntent,
+          status: session.status,
+          confidence: session.confidence,
+          selectionCount: session.selections?.length || 0,
+        };
+      });
 
       return {
         testModeAvailable: true,
