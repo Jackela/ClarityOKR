@@ -18,7 +18,8 @@
     "build:ci": "pnpm run build:contracts & pnpm run build:main & wait && pnpm run build:renderer:ci",
     "build:contracts": "pnpm --filter @clarityokr/contracts run build",
     "build:renderer": "pnpm --filter @clarityokr/renderer run build",
-    "build:renderer:ci": "cd app/renderer && cross-env NODE_OPTIONS='--max-old-space-size=4096' pnpm exec ng build --watch=false --progress=false",
+    "build:renderer:ci": "cd app/renderer && pnpm exec ng build --watch=false --progress=false",
+    "build:electron": "echo 'No electron builder configured'",
     "build:main": "pnpm --filter @clarityokr/main run build",
     "build:electron": "echo 'No electron builder configured'",
     "clean": "pnpm --filter @clarityokr/contracts run clean 2>/dev/null || true && pnpm --filter @clarityokr/main run clean 2>/dev/null || true && rimraf app/renderer/dist",
@@ -57,7 +58,6 @@
     "karma-jasmine": "5.1.0",
     "karma-jasmine-html-reporter": "2.1.0",
     "prettier": "^3.2.5",
-    "cross-env": "^7.0.3",
     "rimraf": "^5.0.5",
     "typescript": "~5.4.5"
   },

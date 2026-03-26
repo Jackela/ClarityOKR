@@ -98,6 +98,8 @@ jobs:
 
       - name: Build
         timeout-minutes: 20
+        env:
+          NODE_OPTIONS: '--max-old-space-size=4096'
         run: pnpm run build:ci
 
       - name: Unit tests with coverage
