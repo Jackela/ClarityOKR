@@ -2,7 +2,7 @@
  * Wizard state service interface
  */
 
-import { Signal, WritableSignal } from '@angular/core';
+import type { Signal, WritableSignal } from '@angular/core';
 
 export interface ClarificationPrompt {
   id: string;

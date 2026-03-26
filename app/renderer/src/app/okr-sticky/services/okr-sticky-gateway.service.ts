@@ -1,11 +1,13 @@
-import { Injectable, OnDestroy } from '@angular/core';
+import { Injectable } from '@angular/core';
+import type { OnDestroy } from
 import {
   generateOKRRequestSchema,
   generateOKRResponseSchema,
   okrDocumentSchema,
 } from '@clarityokr/contracts';
 import type { GenerateOKRRequest, OKRDocument } from '@clarityokr/contracts';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { BehaviorSubject } from 'rxjs';
+import type { Observable } from
 import { map } from 'rxjs/operators';
 
 import { Logger } from '../../core/services/logger.service';

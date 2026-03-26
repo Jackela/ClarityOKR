@@ -13,7 +13,8 @@ import type {
   LlmGatewayObservable,
   NextQuestionResponse,
 } from '@clarityokr/contracts';
-import { defer, Observable } from 'rxjs';
+import { defer } from 'rxjs';
+import type { Observable } from
 import { finalize, tap } from 'rxjs/operators';
 
 import { TelemetryService } from '../../services/telemetry.service';

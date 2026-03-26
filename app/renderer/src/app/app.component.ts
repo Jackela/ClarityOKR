@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, NgZone, OnDestroy, computed } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed } from '@angular/core';
+import type { NgZone, OnDestroy } from
 import { ReactiveFormsModule, FormControl, Validators } from '@angular/forms';
 import type { ClarificationPrompt } from '@clarityokr/contracts';
 import { Subject } from 'rxjs';
