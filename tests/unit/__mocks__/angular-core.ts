@@ -3,38 +3,31 @@
 // Provides minimal implementations for Jest testing
 
 // Simple signal implementation
-function signal(initialValue) {
+export function signal(initialValue: unknown) {
   let value = initialValue;
   const sig = () => value;
-  sig.set = (newValue) => {
+  sig.set = (newValue: unknown) => {
     value = newValue;
   };
-  sig.update = (updater) => {
+  sig.update = (updater: (v: unknown) => unknown) => {
     value = updater(value);
   };
   return sig;
 }
 
 // Simple computed implementation
-function computed(fn) {
+export function computed(fn: () => unknown) {
   let cachedValue = fn();
   return () => cachedValue;
 }
 
 // Injectable decorator - just returns the target
-function Injectable(config) {
-  return (target) => target;
+export function Injectable(config?: unknown) {
+  return (target: unknown) => target;
 }
 
 // Effect - just executes once
-function effect(fn) {
+export function effect(fn: () => void) {
   fn();
   return { destroy: () => {} };
 }
-
-module.exports = {
-  Injectable,
-  signal,
-  computed,
-  effect,
-};
