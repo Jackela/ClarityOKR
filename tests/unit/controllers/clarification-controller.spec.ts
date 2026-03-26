@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/ban-types */
 import { jest } from '@jest/globals';
 import { ClarificationController } from '@clarityokr/main/windows/clarification-controller';
 import type { SessionRepository } from '@clarityokr/main/persistence/session-repository';

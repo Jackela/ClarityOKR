@@ -1,12 +1,12 @@
 import { Injectable } from '@angular/core';
-import type { NgZone, OnDestroy } from
+import type { NgZone, OnDestroy } from '@angular/core';
 import {
   clarificationOptionSelectionSchema,
   clarificationPromptRequestSchema,
   clarificationPromptResponseSchema,
 } from '@clarityokr/contracts';
 import { from, of, throwError } from 'rxjs';
-import type { Observable } from
+import type { Observable } from 'rxjs';
 import { catchError, map, tap } from 'rxjs/operators';
 
 import { Logger } from '../../core/services/logger.service';

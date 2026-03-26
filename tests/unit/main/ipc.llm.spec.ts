@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/ban-types */
 import { ClarificationController } from '@clarityokr/main/windows/clarification-controller';
 
 // Capture handlers and a stub webContents

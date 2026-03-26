@@ -14,7 +14,7 @@ import type {
   NextQuestionResponse,
 } from '@clarityokr/contracts';
 import { defer } from 'rxjs';
-import type { Observable } from
+import type { Observable } from 'rxjs';
 import { finalize, tap } from 'rxjs/operators';
 
 import { TelemetryService } from '../../services/telemetry.service';

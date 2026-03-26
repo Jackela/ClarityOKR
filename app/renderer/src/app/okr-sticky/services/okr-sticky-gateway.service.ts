@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import type { OnDestroy } from
+import type { OnDestroy } from '@angular/core';
 import {
   generateOKRRequestSchema,
   generateOKRResponseSchema,
@@ -7,7 +7,7 @@ import {
 } from '@clarityokr/contracts';
 import type { GenerateOKRRequest, OKRDocument } from '@clarityokr/contracts';
 import { BehaviorSubject } from 'rxjs';
-import type { Observable } from
+import type { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 
 import { Logger } from '../../core/services/logger.service';

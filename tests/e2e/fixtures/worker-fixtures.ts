@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-empty-object-type */
 import { test as base, expect, TestInfo } from '@playwright/test';
 
 // Re-export expect for convenience
@@ -33,7 +34,14 @@ interface MockServerFixture {
 async function cleanupViaTestMode(electronApp: ElectronApplication): Promise<void> {
   try {
     await electronApp.evaluate(async () => {
-      const testMode = (global as any).testMode;
+      const testMode = (
+        global as {
+          testMode?: {
+            getCurrentState: () => { sessions?: Map<unknown, unknown>; currentSessionId?: unknown };
+            mockResponses?: unknown;
+          };
+        }
+      ).testMode;
       if (!testMode) {
         console.warn('[E2E] testMode not available');
         return null;
@@ -86,14 +94,29 @@ async function logDiagnostics(
 ): Promise<void> {
   try {
     const diagnostics = await electronApp.evaluate(() => {
-      const testMode = (global as any).testMode;
+      const testMode = (
+        global as {
+          testMode?: {
+            getCurrentState: () => { sessions?: Map<unknown, unknown>; currentSessionId?: unknown };
+            mockResponses?: unknown;
+          };
+        }
+      ).testMode;
       if (!testMode) return { error: 'testMode not available' };
 
       const state = testMode.getCurrentState();
-      const sessions: Array<[string, any]> = Array.from(state.sessions?.entries?.() || []);
+      const sessions: Array<[string, unknown]> = Array.from(state.sessions?.entries?.() || []);
 
       const sessionData = sessions.map((entry: [string, any]) => {
-        const [id, session] = entry;
+        const [id, session] = entry as [
+          string,
+          {
+            initialIntent?: unknown;
+            status?: unknown;
+            confidence?: unknown;
+            selections?: unknown[];
+          },
+        ];
         return {
           id,
           intent: session.initialIntent,
@@ -158,7 +181,7 @@ export const workerTest = base.extend<TestFixtures, WorkerFixtures>({
   // Test ID fixture for tracing
   testId: [
     async ({}, use, testInfo) => {
-      const id = `${testInfo.workerIndex}-${testInfo.retry}-${Date.now()}`;
+      const id = `${testInfo.workerIndex.toString()}-${testInfo.retry.toString()}-${Date.now().toString()}`;
       await use(id);
     },
     { scope: 'test' as const },

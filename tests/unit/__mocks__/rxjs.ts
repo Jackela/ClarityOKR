@@ -1,3 +1,4 @@
+/* eslint-disable prefer-const */
 // Mock for rxjs
 // Provides minimal implementations for Jest testing
 

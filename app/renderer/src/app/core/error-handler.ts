@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import type { ErrorHandler } from
+import type { ErrorHandler } from '@angular/core';
 
 interface ErrorReport {
   message: string;

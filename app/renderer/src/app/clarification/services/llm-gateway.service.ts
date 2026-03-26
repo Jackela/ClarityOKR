@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { defer } from 'rxjs';
-import type { Observable } from
+import type { Observable } from 'rxjs';
 import { finalize, tap } from 'rxjs/operators';
 import type { ClarificationContext, LastChoice } from '@clarityokr/contracts';
 

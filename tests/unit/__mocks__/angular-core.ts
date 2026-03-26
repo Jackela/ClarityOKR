@@ -1,3 +1,4 @@
+/* eslint-disable prefer-const */
 // Mock for @angular/core
 // Provides minimal implementations for Jest testing
 

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/ban-types */
 import { ClarificationController } from '@clarityokr/main/windows/clarification-controller';
 import { OkrAgentService } from '@clarityokr/main/services/okr-agent.service';
 import { jest } from '@jest/globals';

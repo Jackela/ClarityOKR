@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { ElectronApplication, Page, Route, Request } from '@playwright/test';
 import type { MockResponseConfig } from '@clarityokr/contracts';
 
