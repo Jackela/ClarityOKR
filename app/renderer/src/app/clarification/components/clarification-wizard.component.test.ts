@@ -37,8 +37,23 @@ describe('ClarificationWizardComponent', () => {
     state.reset();
   });
 
-  it('renders prompt and emits selected option id on click', () => {
+  // Helper function to transition from idle -> loading -> prompting
+  function setupPromptingState(): void {
+    state.setLoading(true);
+    state.setLoading(false);
     state.setPrompt(buildPrompt());
+  }
+
+  // Helper function to transition to error state
+  function setupErrorState(message: string, recoverable: boolean): void {
+    state.setLoading(true);
+    state.setLoading(false);
+    state.setError({ message, recoverable });
+  }
+
+  it('renders prompt and emits selected option id on click', () => {
+    // Given: component in prompting state
+    setupPromptingState();
     fixture.detectChanges();
 
     const optionNodes = fixture.nativeElement.querySelectorAll(
@@ -48,13 +63,16 @@ describe('ClarificationWizardComponent', () => {
     const optionSelectedSpy = vi.fn();
     component.optionSelected.subscribe(optionSelectedSpy);
 
+    // When: user clicks first option
     buttons[0].click();
 
+    // Then: event should be emitted with option id
     expect(optionSelectedSpy).toHaveBeenCalledWith('opt-1');
   });
 
   it('disables generate button until ready flag is true', () => {
-    state.setPrompt(buildPrompt());
+    // Given: component in prompting state with generate not ready
+    setupPromptingState();
     state.setReady(false);
     fixture.detectChanges();
 
@@ -63,9 +81,11 @@ describe('ClarificationWizardComponent', () => {
     ) as HTMLButtonElement | null;
     expect(generateButton?.disabled).toBe(true);
 
+    // When: component becomes ready to generate
     state.setReady(true);
     fixture.detectChanges();
 
+    // Then: generate button should be enabled
     const updatedButton = fixture.nativeElement.querySelector(
       'button.generate',
     ) as HTMLButtonElement | null;
@@ -73,7 +93,8 @@ describe('ClarificationWizardComponent', () => {
   });
 
   it('emits generate event when generate button is clicked', () => {
-    state.setPrompt(buildPrompt());
+    // Given: component in ready state
+    setupPromptingState();
     state.setReady(true);
     fixture.detectChanges();
 
@@ -83,38 +104,49 @@ describe('ClarificationWizardComponent', () => {
     const generateButton = fixture.nativeElement.querySelector(
       'button.generate',
     ) as HTMLButtonElement;
+
+    // When: user clicks generate button
     generateButton.click();
 
+    // Then: generate event should be emitted
     expect(generateSpy).toHaveBeenCalled();
   });
 
   it('emits retry event when retry button is clicked in error state', () => {
-    state.setError({ message: 'Test error', recoverable: true });
+    // Given: component in error state
+    setupErrorState('Test error', true);
     fixture.detectChanges();
 
     const retrySpy = vi.fn();
     component.retry.subscribe(retrySpy);
 
     const retryButton = fixture.nativeElement.querySelector('button.retry') as HTMLButtonElement;
+
+    // When: user clicks retry button
     retryButton.click();
 
+    // Then: retry event should be emitted
     expect(retrySpy).toHaveBeenCalled();
   });
 
   it('displays error message when in error state', () => {
+    // Given: component in error state
     const errorMessage = 'Something went wrong';
-    state.setError({ message: errorMessage, recoverable: true });
+    setupErrorState(errorMessage, true);
     fixture.detectChanges();
 
+    // Then: error message should be displayed
     const errorElement = fixture.nativeElement.querySelector('[data-testid="error-message"]');
     expect(errorElement).toBeTruthy();
     expect(errorElement.textContent).toContain(errorMessage);
   });
 
   it('displays loading indicator when loading', () => {
+    // Given: component in loading state
     state.setLoading(true);
     fixture.detectChanges();
 
+    // Then: loading indicator should be displayed
     const loadingElement = fixture.nativeElement.querySelector(
       '[data-testid="clarification-loading"]',
     );
