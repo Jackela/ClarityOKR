@@ -8,7 +8,7 @@
 import './polyfills';
 
 import { bootstrapApplication } from '@angular/platform-browser';
-import type { ErrorHandler } from '@angular/core';
+import { ErrorHandler } from '@angular/core';
 
 import { AppComponent } from './app/app.component';
 import { IpcLlmGateway } from './app/clarification/services/ipc-llm-gateway.service';

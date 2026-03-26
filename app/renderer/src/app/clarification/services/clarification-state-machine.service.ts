@@ -2,6 +2,7 @@ import { Injectable, signal, computed } from '@angular/core';
 import type { ClarificationPrompt } from '@clarityokr/contracts';
 
 import { Logger } from '../../core/services/logger.service';
+import { environment } from '../../environments/environment';
 
 /**
  * 统一的状态类型
@@ -554,7 +555,7 @@ export class ClarificationStateMachine {
       const error = `Invalid state transition: ${oldState.workflowState} -> ${newState.workflowState}`;
       this.logger.error('[STATE-MACHINE]', error);
       // 在开发环境抛出错误，生产环境回退到旧状态
-      if (process.env.NODE_ENV === 'development') {
+      if (!environment.production) {
         throw new Error(error);
       }
       return oldState;

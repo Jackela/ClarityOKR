@@ -60,8 +60,7 @@ export type ButtonSize = 'sm' | 'md' | 'lg';
       }
 
       <!-- Content -->
-      <span class="btn__content" [class.btn__content--hidden]="loading"
-003e
+      <span class="btn__content" [class.btn__content--hidden]="loading">
         <ng-content></ng-content>
       </span>
 

@@ -25,7 +25,7 @@ import {
   forwardRef,
 } from '@angular/core';
 import { NG_VALUE_ACCESSOR, FormsModule } from '@angular/forms';
-import type { ControlValueAccessor } from '@angular/core';
+import type { ControlValueAccessor } from '@angular/forms';
 
 @Component({
   selector: 'clarityokr-input',
