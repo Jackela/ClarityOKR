@@ -61,7 +61,7 @@ jobs:
             ${{ runner.os }}-pnpm-store-
 
       - name: Install dependencies
-        run: pnpm install --prefer-offline
+        run: pnpm install --no-frozen-lockfile --prefer-offline
 
       - name: Run npm audit security scan
         timeout-minutes: 5
@@ -201,7 +201,7 @@ jobs:
             ${{ runner.os }}-pnpm-store-
 
       - name: Install dependencies
-        run: pnpm install --prefer-offline
+        run: pnpm install --no-frozen-lockfile --prefer-offline
 
       - name: Run npm audit security scan
         timeout-minutes: 5
@@ -409,7 +409,7 @@ jobs:
             ${{ runner.os }}-pnpm-store-
 
       - name: Install dependencies
-        run: pnpm install --prefer-offline
+        run: pnpm install --no-frozen-lockfile --prefer-offline
 
       - name: Build contracts
         run: pnpm run build:contracts
@@ -522,7 +522,7 @@ jobs:
           pnpm --version
 
       - name: Install dependencies
-        run: pnpm install --prefer-offline
+        run: pnpm install --no-frozen-lockfile --prefer-offline
 
       - name: Generate coverage report
         run: |
