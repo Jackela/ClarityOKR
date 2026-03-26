@@ -8,8 +8,59 @@ import type { OkrStickyViewModel } from '../services/okr-projection.service';
   standalone: true,
   imports: [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  templateUrl: './okr-sticky-note.component.html',
-  styleUrls: ['./okr-sticky-note.component.scss'],
+  template: `
+    <section class="sticky-note" *ngIf="okr as viewModel">
+      <header class="sticky-note__header">
+        <h1 data-testid="sticky-objective">{{ viewModel.objective }}</h1>
+        <div class="sticky-note__meta">
+          <span class="sticky-note__badge">
+            生成时间: {{ viewModel.generatedAt | date: 'medium' }}
+          </span>
+          <span *ngIf="viewModel.lastEditedAt" class="sticky-note__badge sticky-note__badge--edit">
+            最近编辑: {{ viewModel.lastEditedAt | date: 'medium' }}
+          </span>
+          <span
+            *ngIf="viewModel.hasManualEdits"
+            class="sticky-note__badge sticky-note__badge--edit"
+            data-testid="sticky-manual-edits"
+          >
+            含手动修改
+          </span>
+        </div>
+        <button
+          type="button"
+          class="sticky-note__action"
+          data-testid="sticky-add-kr"
+          (click)="addKr.emit()"
+        >
+          添加关键结果
+        </button>
+      </header>
+
+      <ol class="sticky-note__list">
+        <li
+          class="sticky-note__item"
+          *ngFor="let kr of viewModel.keyResults; trackBy: trackByKeyResultId"
+          data-testid="sticky-key-result"
+        >
+          <div class="sticky-note__item-text">{{ kr.statement }}</div>
+          <div class="sticky-note__item-badges">
+            <span *ngIf="kr.metricLabel" class="sticky-note__badge" data-testid="sticky-kr-badge">
+              {{ kr.metricLabel }}
+            </span>
+            <span
+              *ngIf="kr.ownerLabel"
+              class="sticky-note__badge sticky-note__badge--owner"
+              data-testid="sticky-kr-badge"
+            >
+              {{ kr.ownerLabel }}
+            </span>
+          </div>
+        </li>
+      </ol>
+    </section>
+  `,
+  styles: [],
 })
 export class OkrStickyNoteComponent {
   @Input() okr: OkrStickyViewModel | null = null;
