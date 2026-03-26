@@ -1,10 +1,10 @@
-import 'zone.js';
-import 'zone.js/testing';
-import { getTestBed } from '@angular/core/testing';
-import {
-  BrowserDynamicTestingModule,
-  platformBrowserDynamicTesting,
-} from '@angular/platform-browser-dynamic/testing';
+import '@angular/compiler';
+import '@analogjs/vitest-angular/setup-zone';
+import { setupTestBed } from '@analogjs/vitest-angular/setup-testbed';
 
-// Initialize Angular testing environment
-getTestBed().initTestEnvironment(BrowserDynamicTestingModule, platformBrowserDynamicTesting());
+setupTestBed({
+  zoneless: false,
+  teardown: {
+    destroyAfterEach: true,
+  },
+});

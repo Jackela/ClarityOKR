@@ -1,14 +1,23 @@
 import { defineConfig } from 'vitest/config';
+import angular from '@analogjs/vite-plugin-angular';
+import viteTsConfigPaths from 'vite-tsconfig-paths';
 import path from 'path';
 
 export default defineConfig({
+  plugins: [angular(), viteTsConfigPaths()],
   test: {
     name: '@clarityokr/renderer',
     globals: true,
     environment: 'jsdom',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'src/**/*.spec.ts'],
     exclude: ['node_modules', 'dist'],
     setupFiles: ['./src/test-setup.ts'],
+    pool: 'forks',
+    poolOptions: {
+      forks: {
+        singleFork: true,
+      },
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
