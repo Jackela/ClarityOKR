@@ -125,31 +125,6 @@ async function logDiagnostics(
         };
       });
         const [id, session] = entry as [
-          string,
-          {
-            initialIntent?: unknown;
-            status?: unknown;
-            confidence?: unknown;
-            selections?: unknown[];
-          },
-        ];
-        return {
-          id,
-          intent: session.initialIntent,
-          status: session.status,
-          confidence: session.confidence,
-          selectionCount: session.selections?.length || 0,
-        };
-      });
-
-      return {
-        testModeAvailable: true,
-        sessionCount: sessions.length,
-        currentSessionId: state.currentSessionId,
-        sessions: sessionData,
-        mockConfig: state.mockResponses,
-      };
-    });
 
     console.error(
       `[E2E] Diagnostics for ${testInfo.title} (testId: ${testId}):`,

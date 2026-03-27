@@ -359,28 +359,14 @@ test.describe('🔍 Comprehensive UI Review', () => {
 
     test('memory usage is reasonable', async ({ page }) => {
       const metrics = await page.evaluate(() => {
-        type MemoryInfo = {
+        interface MemoryInfo {
           usedJSHeapSize?: number;
           totalJSHeapSize?: number;
-        };
+        }
         const memory = (performance as { memory?: MemoryInfo }).memory;
         return {
           usedJSHeapSize: memory?.usedJSHeapSize ?? 0,
           totalJSHeapSize: memory?.totalJSHeapSize ?? 0,
-        type MemoryInfo = {
-          usedJSHeapSize?: number;
-          totalJSHeapSize?: number;
-        };
-        const memory = (performance as { memory?: MemoryInfo }).memory;
-        return {
-          usedJSHeapSize: memory?.usedJSHeapSize ?? 0,
-          totalJSHeapSize: memory?.totalJSHeapSize ?? 0,
-        };
-        return {
-          // @ts-ignore
-          usedJSHeapSize: performance.memory?.usedJSHeapSize || 0,
-          // @ts-ignore
-          totalJSHeapSize: performance.memory?.totalJSHeapSize || 0,
         };
       });
 

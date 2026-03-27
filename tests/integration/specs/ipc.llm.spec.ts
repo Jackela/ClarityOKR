@@ -37,22 +37,6 @@ const electStub = {
     fromId: (id: number) => { send: (channel: string, payload: unknown) => void };
   };
 };
-  ipcMain: {
-    handle: (channel: string, cb: Function) => {
-      handlers[channel] = cb;
-    },
-    on: (_channel: string, _cb: Function) => void 0,
-  },
-  webContents: {
-    getAllWebContents: () => [
-      {
-        send: (channel: string, payload: unknown) => {
-          sent.push({ channel, payload });
-        },
-      },
-    ],
-    fromId: (_id: number) => ({ send: (_ch: string, _payload: unknown) => void 0 }),
-  },
 } as any;
 
 // Minimal repository/service stubs for controller wiring
