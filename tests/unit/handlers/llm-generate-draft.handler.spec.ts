@@ -2,7 +2,7 @@ import { jest } from '@jest/globals';
 import type { SessionManager } from '@clarityokr/main/services/session-manager.service';
 import type { OkrRepository } from '@clarityokr/main/persistence/okr-repository';
 import type { OkrAgentService } from '@clarityokr/main/services/okr-agent.service';
-import { LlmGenerateDraftHandler } from '@clarityokr/main/handlers/llm-generate-draft.handler';
+import { LlmGenerateDraftHandler } from '@clarityokr/main/clarification/clarification-draft-handler';
 import type { ClarificationSession } from '@clarityokr/contracts';
 
 describe('LlmGenerateDraftHandler', () => {

@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-empty-object-type, no-empty-pattern */
+/* eslint-disable @typescript-eslint/no-empty-object-type, no-empty-pattern */
 import { test as base, expect, TestInfo } from '@playwright/test';
 
 // Re-export expect for convenience
@@ -19,7 +19,14 @@ let workerId: string | null = null;
 // Worker 级别的 Mock Server
 let workerMockServer: SimpleMockServer | null = null;
 
-// Mock Server 类型定义
+interface MockSessionData {
+  initialIntent?: unknown;
+  status?: unknown;
+  confidence?: unknown;
+  selections?: unknown[];
+}
+
+type SessionEntry = [string, MockSessionData];
 interface MockServerFixture {
   url: string;
   port: number;
@@ -107,7 +114,16 @@ async function logDiagnostics(
       const state = testMode.getCurrentState();
       const sessions: Array<[string, unknown]> = Array.from(state.sessions?.entries?.() || []);
 
-      const sessionData = sessions.map((entry: [string, any]) => {
+      const sessionData = sessions.map((entry: SessionEntry) => {
+        const [id, session] = entry;
+        return {
+          id,
+          intent: session.initialIntent,
+          status: session.status,
+          confidence: session.confidence,
+          selectionCount: session.selections?.length || 0,
+        };
+      });
         const [id, session] = entry as [
           string,
           {
@@ -168,7 +184,15 @@ type TestFixtures = {
   testId: string;
 };
 
-// Type assertion helper for fixtures
+type FixtureArgs = Record<string, unknown>;
+
+const workerFixture = <T>(
+  fn: (args: FixtureArgs, use: (value: T) => Promise<void>, testInfo: TestInfo) => Promise<void>,
+) => [fn, { scope: 'worker' as const }] as const;
+
+const testFixture = <T>(
+  fn: (args: FixtureArgs, use: (value: T) => Promise<void>, testInfo: TestInfo) => Promise<void>,
+) => [fn, { scope: 'test' as const }] as const;
 const workerFixture = <T>(
   fn: (args: any, use: (value: T) => Promise<void>, testInfo: TestInfo) => Promise<void>,
 ) => [fn, { scope: 'worker' as const }] as const;
@@ -267,7 +291,7 @@ export const workerTest = base.extend<TestFixtures, WorkerFixtures>({
       // 使用 testMode API 清理状态（更可靠）
       const testModeAvailable = await electronApp
         .evaluate(() => {
-          return !!(global as any).testMode?.resetState;
+        return !!(global as { testMode?: { resetState?: () => Promise<void> } }).testMode?.resetState;
         })
         .catch(() => false);
 

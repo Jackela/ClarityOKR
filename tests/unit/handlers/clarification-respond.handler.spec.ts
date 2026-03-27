@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals';
 import type { SessionManager } from '@clarityokr/main/services/session-manager.service';
-import { ClarificationRespondHandler } from '@clarityokr/main/handlers/clarification-respond.handler';
+import { ClarificationRespondHandler } from '@clarityokr/main/clarification/clarification-response-handler';
 import type { ClarificationSession } from '@clarityokr/contracts';
 
 describe('ClarificationRespondHandler', () => {

@@ -2,7 +2,7 @@ import { jest } from '@jest/globals';
 import type { SessionManager } from '@clarityokr/main/services/session-manager.service';
 import type { OkrRepository } from '@clarityokr/main/persistence/okr-repository';
 import type { StickyWindowManager } from '@clarityokr/main/windows/sticky-window-manager';
-import { OkrGenerateHandler } from '@clarityokr/main/handlers/okr-generate.handler';
+import { OkrGenerateHandler } from '@clarityokr/main/clarification/clarification-draft-handler';
 import type { ClarificationSession } from '@clarityokr/contracts';
 
 describe('OkrGenerateHandler', () => {
