@@ -124,7 +124,15 @@ async function logDiagnostics(
           selectionCount: session.selections?.length || 0,
         };
       });
-        const [id, session] = entry as [
+
+      return {
+        testModeAvailable: true,
+        sessionCount: sessions.length,
+        currentSessionId: state.currentSessionId,
+        sessions: sessionData,
+        mockConfig: state.mockResponses,
+      };
+    });
 
     console.error(
       `[E2E] Diagnostics for ${testInfo.title} (testId: ${testId}):`,
@@ -167,13 +175,6 @@ const workerFixture = <T>(
 
 const testFixture = <T>(
   fn: (args: FixtureArgs, use: (value: T) => Promise<void>, testInfo: TestInfo) => Promise<void>,
-) => [fn, { scope: 'test' as const }] as const;
-const workerFixture = <T>(
-  fn: (args: any, use: (value: T) => Promise<void>, testInfo: TestInfo) => Promise<void>,
-) => [fn, { scope: 'worker' as const }] as const;
-
-const testFixture = <T>(
-  fn: (args: any, use: (value: T) => Promise<void>, testInfo: TestInfo) => Promise<void>,
 ) => [fn, { scope: 'test' as const }] as const;
 
 export const workerTest = base.extend<TestFixtures, WorkerFixtures>({
@@ -242,8 +243,6 @@ export const workerTest = base.extend<TestFixtures, WorkerFixtures>({
               testMode?: { resetState?: () => Promise<void> };
             };
             return !!(global as TestModeGlobal).testMode;
-          .evaluate(() => {
-            return !!(global as any).testMode;
           })
           .catch(() => false);
         console.log(`[worker ${workerId}] TestMode API available: ${testModeAvailable}`);
