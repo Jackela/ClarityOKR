@@ -1,7 +1,10 @@
 import { defineConfig } from 'vitest/config';
+import angular from '@analogjs/vite-plugin-angular';
+import viteTsConfigPaths from 'vite-tsconfig-paths';
 import path from 'path';
 
 export default defineConfig({
+  plugins: [angular(), viteTsConfigPaths()],
   test: {
     name: '@clarityokr/renderer',
     globals: true,
