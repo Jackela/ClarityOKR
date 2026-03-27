@@ -61,7 +61,7 @@ jobs:
             ${{ runner.os }}-pnpm-store-
 
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile --prefer-offline
+        run: pnpm install --frozen-lockfile --prefer-offline
 
       - name: Run npm audit security scan
         timeout-minutes: 5
@@ -78,8 +78,8 @@ jobs:
             cat audit-report.json | jq '.advisories | to_entries[] | select(.value.severity == "critical") | {id: .value.id, title: .value.title, severity: .value.severity}' 2>/dev/null || true
             exit 1
           fi
-          if [ "$HIGH_VULNS" -gt 50 ]; then
-            echo "⚠️ Too many HIGH vulnerabilities found ($HIGH_VULNS > 50)! Failing build."
+          if [ "$HIGH_VULNS" -gt 0 ]; then
+            echo "⚠️ HIGH vulnerabilities found ($HIGH_VULNS > 0)! Failing build."
             exit 1
           fi
           echo "✅ Security scan passed"
@@ -123,7 +123,7 @@ jobs:
 
       - name: Integration tests
         timeout-minutes: 10
-        run: echo "Integration tests skipped - module resolution needs fix" || true
+        run: pnpm run test:integration
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
