@@ -307,12 +307,19 @@ describe('StickyWindowManager Unit Tests', () => {
       
       await manager.reopen();
       
+      // Clear send calls from previous windows
+      createdWindows.forEach(w => (w as MockBrowserWindow).webContents.send.mockClear());
+      
+      await manager.reopen();
+      
+      // Trigger did-finish-load on the newly reopened window
+      const reopenedWindow = createdWindows[createdWindows.length - 1] as MockBrowserWindow;
+      reopenedWindow._triggerEvent('did-finish-load');
+      
       // Verify the second document was sent
-      const allSendCalls = createdWindows.flatMap(w => 
-        (w as MockBrowserWindow).webContents.send.mock.calls
-      );
-      expect(allSendCalls.length).toBeGreaterThan(0);
-      const lastCall = allSendCalls[allSendCalls.length - 1];
+      const sendCalls = reopenedWindow.webContents.send.mock.calls;
+      expect(sendCalls.length).toBeGreaterThan(0);
+      const lastCall = sendCalls[sendCalls.length - 1];
       expect(lastCall[1].okr.id).toBe('second-doc');
     });
 
