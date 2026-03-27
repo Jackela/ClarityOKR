@@ -1,21 +1,24 @@
-import { Injectable, NgZone } from '@angular/core';
+import { Injectable } from '@angular/core';
+import type { OnDestroy , NgZone } from '@angular/core';
 import {
   clarificationOptionSelectionSchema,
   clarificationPromptRequestSchema,
   clarificationPromptResponseSchema,
 } from '@clarityokr/contracts';
-import { from, Observable, of, throwError } from 'rxjs';
+import { from, of, throwError } from 'rxjs';
+import type { Observable } from 'rxjs';
 import { catchError, map, tap } from 'rxjs/operators';
 
-import { Logger } from '../../core/services/logger.service';
+import type { Logger } from '../../core/services/logger.service';
 import { IPC_CHANNELS } from '../../shared/ipc-channel.tokens';
 import type { ClarifyOkrApi } from '../../shared/window';
 
-import { SyncClarificationState } from './sync-clarification-state.service';
+import type { SyncClarificationState } from './sync-clarification-state.service';
 
 @Injectable({ providedIn: 'root' })
-export class ClarificationOrchestratorService {
+export class ClarificationOrchestratorService implements OnDestroy {
   private isListenerRegistered = false;
+  private promptListenerUnsubscribe?: () => void;
 
   constructor(
     private readonly state: SyncClarificationState,
@@ -23,6 +26,15 @@ export class ClarificationOrchestratorService {
     private readonly logger: Logger,
   ) {
     this.registerPromptListener();
+  }
+
+  ngOnDestroy(): void {
+    if (this.promptListenerUnsubscribe) {
+      this.promptListenerUnsubscribe();
+      this.promptListenerUnsubscribe = undefined;
+      this.isListenerRegistered = false;
+      this.logger.debug('[ORCHESTRATOR] IPC listener cleaned up');
+    }
   }
 
   /**
@@ -160,22 +172,26 @@ export class ClarificationOrchestratorService {
       return;
     }
 
-    bridge.on(IPC_CHANNELS.CLARIFICATION_PROMPT, (_event, payload) => {
-      this.logger.debug('[ORCHESTRATOR] Received CLARIFICATION_PROMPT event', payload);
-      this.zone.run(() => {
-        const parsed = clarificationPromptResponseSchema.safeParse(payload);
-        if (!parsed.success) {
-          const message = parsed.error.message;
-          this.logger.debug('[ORCHESTRATOR] Parse error in prompt listener:', message);
-          this.state.setError({ message, recoverable: true });
-          return;
-        }
-        this.logger.debug('[ORCHESTRATOR] Setting prompt from listener:', parsed.data.prompt.id);
-        this.state.setPrompt(parsed.data.prompt);
-      });
-    });
+    this.promptListenerUnsubscribe = bridge.on(
+      IPC_CHANNELS.CLARIFICATION_PROMPT,
+      (_event, payload) => {
+        this.logger.debug('[ORCHESTRATOR] Received CLARIFICATION_PROMPT event', payload);
+        this.zone.run(() => {
+          const parsed = clarificationPromptResponseSchema.safeParse(payload);
+          if (!parsed.success) {
+            const message = parsed.error.message;
+            this.logger.debug('[ORCHESTRATOR] Parse error in prompt listener:', message);
+            this.state.setError({ message, recoverable: true });
+            return;
+          }
+          this.logger.debug('[ORCHESTRATOR] Setting prompt from listener:', parsed.data.prompt.id);
+          this.state.setPrompt(parsed.data.prompt);
+        });
+      },
+    );
 
     this.isListenerRegistered = true;
+    this.logger.debug('[ORCHESTRATOR] IPC listener registered');
   }
 
   private ensureBridge(): ClarifyOkrApi {

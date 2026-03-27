@@ -1,15 +1,15 @@
-const { defaultsESM } = require('ts-jest/presets');
-
+/** @type {import('ts-jest').JestConfigWithTsJest} */
 module.exports = {
-  ...defaultsESM,
   testEnvironment: 'node',
-  roots: ['<rootDir>/specs', '<rootDir>/../../app/main/src'],
+  roots: ['<rootDir>/specs'],
+  testMatch: ['**/*.spec.ts'],
   extensionsToTreatAsEsm: ['.ts'],
-  setupFilesAfterEnv: ['<rootDir>/setup.ts'],
+  // setupFilesAfterEnv: ['./setup.ts'],
+  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   testTimeout: 30000,
   transform: {
-    '^.+\\.(ts|tsx)$': [
-      'ts-jest',
+    '^.+\\.tsx?$': [
+      '/mnt/d/Code/ClarityOKR/tests/integration/ts-jest-transformer.cjs',
       {
         tsconfig: './tsconfig.test.json',
         useESM: true,
@@ -17,30 +17,11 @@ module.exports = {
       },
     ],
   },
-  transformIgnorePatterns: ['node_modules/(?!(@angular|@ngrx|opossum)/)'],
-
+  transformIgnorePatterns: ['node_modules/(?!(@angular|@ngrx|opossum|nock|node-fetch)/)'],
   moduleNameMapper: {
-    '^@clarityokr/(.*)$': '<rootDir>/../../packages/$1/dist/index.js',
-    '^../../../app/main/(.*)\\.js$': '<rootDir>/../../app/main/$1',
-    '^../../../app/renderer/(.*)\\.js$': '<rootDir>/../../app/renderer/$1',
+    '^@clarityokr/(.*)$': '<rootDir>/../../packages/$1/src/index.ts',
+    '^@clarityokr/main/(.*)$': '<rootDir>/../../app/main/src/$1',
     '^electron$': '<rootDir>/__mocks__/electron.ts',
   },
-  testPathIgnorePatterns: [
-    '/node_modules/',
-    '/circuit-breaker/',
-    '/llm-cache.integration',
-    '/encrypted-storage.integration',
-    '/clarification\\.repair',
-    '/clarification\\.error',
-    '/error-handling/',
-    '/llm/',
-    '/ipc\\.llm',
-    '/persistence/',
-    '/draft\\.success',
-    '/draft\\.incomplete',
-    '/clarification\\.success',
-    '/clarification\\.provider-errors',
-    '/clarification\\.timeout',
-    '/draft\\.errors',
-  ],
+  testPathIgnorePatterns: ['/node_modules/'],
 };

@@ -1,4 +1,5 @@
-import { test as base, _electron as electron, ElectronApplication, Page } from '@playwright/test';
+import type { ElectronApplication, Page } from '@playwright/test';
+import { test as base, _electron as electron } from '@playwright/test';
 import type { BrowserWindow } from 'electron';
 import { existsSync, promises as fs } from 'node:fs';
 import {
@@ -24,7 +25,7 @@ import { startXvfb, stopXvfb, isXvfbAvailable } from '../helpers/xvfb-config';
  * E2E test fixtures interface.
  * Defines all available fixtures for E2E tests.
  */
-type E2EFixtures = {
+interface E2EFixtures {
   /**
    * Mock server for controlling LLM API responses.
    * Uses a simple HTTP server to respond to requests from Electron main process.
@@ -66,7 +67,7 @@ type E2EFixtures = {
      */
     evaluate: ElectronApplication['evaluate'];
   };
-};
+}
 
 /**
  * Clean up persistence files between tests.
@@ -95,7 +96,7 @@ export async function cleanupPersistenceFiles(): Promise<void> {
 export const test = base.extend<E2EFixtures>({
   // Mock server fixture - uses global HTTP server for Electron compatibility
   mockServer: [
-    async ({}, use) => {
+    async (_fixtures, use) => {
       const port = process.env.MOCK_SERVER_PORT || '7777';
       const url = `http://127.0.0.1:${port}`;
 
@@ -106,7 +107,7 @@ export const test = base.extend<E2EFixtures>({
       if (!globalMockServer) {
         throw new Error(
           'globalMockServer is not initialized. ' +
-          'Make sure global-setup.ts is configured in playwright config and is exporting globalMockServer.'
+            'Make sure global-setup.ts is configured in playwright config and is exporting globalMockServer.',
         );
       }
 
@@ -178,7 +179,7 @@ export const test = base.extend<E2EFixtures>({
         env: {
           ...getElectronEnv(mockServer.url),
           ...ciConfig.env,
-        },
+        } as Record<string, string>,
       });
 
       const childProcess = app.process();
@@ -201,7 +202,9 @@ export const test = base.extend<E2EFixtures>({
             BrowserWindow.getAllWindows().forEach((w) => {
               try {
                 w.close();
-              } catch {}
+              } catch {
+                // ignore
+              }
             });
           })
           .catch(() => {});
@@ -236,11 +239,11 @@ export const test = base.extend<E2EFixtures>({
         window = await electronApp.waitForEvent('window', { timeout: 60_000 });
       } catch (error) {
         console.error('[mainWindow] Failed to wait for window event:', error);
-        
+
         // Try to get diagnostic information
         try {
           const windows = await electronApp.evaluate(({ BrowserWindow }) => {
-            return BrowserWindow.getAllWindows().map(w => ({
+            return BrowserWindow.getAllWindows().map((w) => ({
               id: w.id,
               isVisible: w.isVisible(),
               isDestroyed: w.isDestroyed(),
@@ -251,7 +254,7 @@ export const test = base.extend<E2EFixtures>({
         } catch (diagError) {
           console.error('[mainWindow] Failed to get window diagnostics:', diagError);
         }
-        
+
         throw error;
       }
 

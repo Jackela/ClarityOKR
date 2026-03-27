@@ -16,6 +16,9 @@ import type {
 export type MockNextQuestionResponse = z.infer<typeof nextQuestionResponseSchema>;
 export type MockOkrDraftResponse = z.infer<typeof okrDraftResponseSchema>;
 
+// Re-export explicit types for better TypeScript inference
+export type { OkrDraftResponse } from './validators/llm.schemas.js';
+
 /**
  * Mock response configuration for E2E tests
  * Used to configure the mock server's behavior

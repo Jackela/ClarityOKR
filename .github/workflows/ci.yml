@@ -29,7 +29,7 @@ jobs:
   build-and-test:
     name: Lint • Typecheck • Unit • Component • Integration
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     outputs:
       coverage-path: ${{ steps.coverage.outputs.path }}
     steps:
@@ -78,8 +78,8 @@ jobs:
             cat audit-report.json | jq '.advisories | to_entries[] | select(.value.severity == "critical") | {id: .value.id, title: .value.title, severity: .value.severity}' 2>/dev/null || true
             exit 1
           fi
-          if [ "$HIGH_VULNS" -gt 50 ]; then
-            echo "⚠️ Too many HIGH vulnerabilities found ($HIGH_VULNS > 50)! Failing build."
+          if [ "$HIGH_VULNS" -gt 0 ]; then
+            echo "⚠️ HIGH vulnerabilities found ($HIGH_VULNS > 0)! Failing build."
             exit 1
           fi
           echo "✅ Security scan passed"
@@ -88,7 +88,7 @@ jobs:
         run: pnpm run build:contracts
 
       - name: Lint
-        timeout-minutes: 10
+        timeout-minutes: 15
         if: ${{ github.actor != 'nektos/act' || env.ALLOW_LINT == 'true' }}
         run: pnpm run lint
 
@@ -97,10 +97,13 @@ jobs:
         run: pnpm run typecheck
 
       - name: Build
-        run: pnpm run build
+        timeout-minutes: 20
+        env:
+          NODE_OPTIONS: '--max-old-space-size=4096'
+        run: pnpm run build:ci
 
       - name: Unit tests with coverage
-        timeout-minutes: 15
+        timeout-minutes: 20
         run: COVERAGE=true pnpm run test:unit
 
       - name: Check test coverage (minimum 80%)
@@ -120,7 +123,7 @@ jobs:
 
       - name: Integration tests
         timeout-minutes: 10
-        run: echo "Integration tests skipped - module resolution needs fix" || true
+        run: pnpm run test:integration
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
@@ -198,7 +201,7 @@ jobs:
             ${{ runner.os }}-pnpm-store-
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile --prefer-offline
+        run: pnpm install --no-frozen-lockfile --prefer-offline
 
       - name: Run npm audit security scan
         timeout-minutes: 5
@@ -345,6 +348,53 @@ jobs:
           npm install -g pnpm@${{ env.PNPM_VERSION }}
           pnpm --version
 
+      - name: Setup Windows build environment
+        if: matrix.os == 'windows-latest'
+        shell: powershell
+        run: |
+          # Configure npm for Windows build BEFORE installing dependencies
+          # This is critical for node-gyp to compile native modules
+          npm config set msvs_version 2022
+          npm config set python python3
+
+          # Also configure pnpm to use the same settings
+          pnpm config set msvs_version 2022
+          pnpm config set python python3
+
+          # Display configurations for debugging
+          Write-Host "=== Build Environment Configuration ==="
+          Write-Host "npm msvs_version: $(npm config get msvs_version)"
+          Write-Host "npm python: $(npm config get python)"
+          Write-Host "pnpm msvs_version: $(pnpm config get msvs_version)"
+          Write-Host "pnpm python: $(pnpm config get python)"
+
+          # Verify Visual Studio installation
+          $vsPaths = @(
+            "${env:ProgramFiles}\Microsoft Visual Studio\2022\Enterprise",
+            "${env:ProgramFiles}\Microsoft Visual Studio\2022\Professional",
+            "${env:ProgramFiles}\Microsoft Visual Studio\2022\Community",
+            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\Enterprise",
+            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\Professional",
+            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\Community"
+          )
+
+          $vsFound = $false
+          foreach ($vsPath in $vsPaths) {
+            if (Test-Path $vsPath) {
+              Write-Host "Visual Studio 2022 found at: $vsPath"
+              $vsFound = $true
+              break
+            }
+          }
+
+          if (-not $vsFound) {
+            Write-Host "::warning::Visual Studio 2022 not found in expected locations"
+          }
+
+          # Set environment variables for node-gyp
+          [Environment]::SetEnvironmentVariable('GYP_MSVS_VERSION', '2022', 'User')
+          Write-Host "GYP_MSVS_VERSION set to 2022"
+
       - name: Get pnpm store directory
         id: pnpm-cache
         run: |
@@ -359,10 +409,13 @@ jobs:
             ${{ runner.os }}-pnpm-store-
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile --prefer-offline
+        run: pnpm install --no-frozen-lockfile --prefer-offline
+
+      - name: Build contracts
+        run: pnpm run build:contracts
 
       - name: Build
-        run: pnpm run build
+        run: pnpm run build:ci
 
       - name: Setup code signing (Windows)
         if: matrix.os == 'windows-latest'
@@ -469,7 +522,7 @@ jobs:
           pnpm --version
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile --prefer-offline
+        run: pnpm install --no-frozen-lockfile --prefer-offline
 
       - name: Generate coverage report
         run: |

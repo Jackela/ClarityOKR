@@ -1,4 +1,4 @@
-import { ElectronApplication, Page } from '@playwright/test';
+import type { ElectronApplication, Page } from '@playwright/test';
 import * as os from 'os';
 
 export interface DiagnosticsInfo {

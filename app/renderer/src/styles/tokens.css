@@ -1,120 +1,382 @@
-/*
+/**
  * Design Tokens - ClarityOKR Design System
- * ----------------------------------------
- * This file contains all design tokens used throughout the application.
- * Variables are organized by category: colors, spacing, typography, shadows, etc.
+ * 
+ * Semantic CSS custom properties for consistent theming.
+ * Organized hierarchically: base values → semantic aliases → component tokens.
  */
 
 :root {
-  /* ==================== Colors ==================== */
+  /* =====================================================
+   * 1. BASE COLORS
+   * Raw color values used throughout the design system
+   * ===================================================== */
 
-  /* Primary Brand Colors */
-  --color-primary: #2563eb;
-  --color-primary-hover: #1d4ed8;
-  --color-primary-light: rgba(37, 99, 235, 0.08);
-  --color-primary-light-hover: rgba(37, 99, 235, 0.12);
-  --color-primary-alpha-25: rgba(37, 99, 235, 0.25);
-  --color-primary-alpha-65: rgba(37, 99, 235, 0.65);
-  --color-primary-shadow: rgba(37, 99, 235, 0.2);
-  --color-primary-ring: rgba(37, 99, 235, 0.12);
+  /* Primary Blue Palette */
+  --color-blue-50: #eff6ff;
+  --color-blue-100: #dbeafe;
+  --color-blue-200: #bfdbfe;
+  --color-blue-300: #93c5fd;
+  --color-blue-400: #60a5fa;
+  --color-blue-500: #3b82f6;
+  --color-blue-600: #2563eb;
+  --color-blue-700: #1d4ed8;
+  --color-blue-800: #1e40af;
+  --color-blue-900: #1e3a8a;
 
-  /* Semantic Colors */
-  --color-error: #dc2626;
-  --color-error-hover: #b91c1c;
-  --color-error-light: rgba(239, 68, 68, 0.1);
-  --color-error-alpha-30: rgba(239, 68, 68, 0.3);
+  /* Purple/Violet Palette */
+  --color-purple-50: #f5f3ff;
+  --color-purple-100: #ede9fe;
+  --color-purple-400: #a78bfa;
+  --color-purple-500: #8b5cf6;
+  --color-purple-600: #7c3aed;
+  --color-purple-700: #6d28d9;
 
-  --color-success: #0f766e;
-  --color-success-light: rgba(79, 70, 229, 0.08);
-  --color-success-alpha-25: rgba(79, 70, 229, 0.25);
+  /* Accent Colors - Vibrant and Modern */
+  --color-cyan-400: #22d3ee;
+  --color-cyan-500: #06b6d4;
+  --color-orange-400: #fb923c;
+  --color-orange-500: #f97316;
+  --color-pink-400: #f472b6;
+  --color-pink-500: #ec4899;
+
+  /* Gray Scale */
+  --color-gray-50: #f8fafc;
+  --color-gray-100: #f1f5f9;
+  --color-gray-200: #e2e8f0;
+  --color-gray-300: #cbd5e1;
+  --color-gray-400: #94a3b8;
+  --color-gray-500: #64748b;
+  --color-gray-600: #475569;
+  --color-gray-700: #334155;
+  --color-gray-800: #1e293b;
+  --color-gray-900: #0f172a;
+
+  /* Status Colors */
+  --color-red-50: #fef2f2;
+  --color-red-400: #f87171;
+  --color-red-500: #ef4444;
+  --color-red-600: #dc2626;
+  --color-red-700: #b91c1c;
+
+  --color-green-50: #f0fdf4;
+  --color-green-400: #4ade80;
+  --color-green-500: #22c55e;
+  --color-green-600: #16a34a;
+  --color-green-700: #15803d;
+
+  --color-amber-50: #fffbeb;
+  --color-amber-400: #fbbf24;
+  --color-amber-500: #f59e0b;
+  --color-amber-600: #d97706;
+
+  /* =====================================================
+   * 2. SEMANTIC COLORS
+   * Purpose-based color aliases
+   * ===================================================== */
+
+  /* Brand Colors */
+  --color-brand-primary: var(--color-blue-600);
+  --color-brand-primary-hover: var(--color-blue-700);
+  --color-brand-primary-light: var(--color-blue-100);
+  --color-brand-primary-alpha: rgba(37, 99, 235, 0.1);
+  --color-brand-secondary: var(--color-purple-600);
+  --color-brand-secondary-hover: var(--color-purple-700);
 
   /* Background Colors */
-  --color-background: #f3f4ff;
-  --color-background-gradient-start: #f3f4ff;
-  --color-background-gradient-end: #ffffff;
+  --color-bg-default: #f3f4ff;
+  --color-bg-surface: #ffffff;
+  --color-bg-elevated: #ffffff;
+  --color-bg-overlay: rgba(15, 23, 42, 0.5);
 
-  /* Surface Colors */
-  --color-surface: #ffffff;
-  --color-surface-elevated: #ffffff;
+  /* Text Colors - WCAG AA Compliant (4.5:1 minimum) */
+  --color-text-primary: var(--color-gray-900);
+  --color-text-secondary: rgba(15, 23, 42, 0.75);
+  --color-text-tertiary: rgba(15, 23, 42, 0.6);
+  --color-text-disabled: rgba(15, 23, 42, 0.38);
+  --color-text-inverse: #ffffff;
+  --color-text-link: var(--color-blue-600);
+  --color-text-link-hover: var(--color-blue-700);
+  /* FIXED: 0.7 → 0.76 for 4.5:1 contrast ratio */
+  --color-text-placeholder: rgba(15, 23, 42, 0.76);
 
-  /* Text Colors */
-  --color-text: #0f172a;
-  --color-text-primary: #1d4ed8;
-  --color-text-muted: rgba(15, 23, 42, 0.75);
-  --color-text-muted-alt: rgba(30, 41, 59, 0.7);
-  --color-text-placeholder: rgba(15, 23, 42, 0.7);
+  /* =====================================================
+   * 3. FEEDBACK COLORS
+   * Status and feedback indicators
+   * ===================================================== */
 
-  /* Accent Colors */
-  --color-accent-purple: #4338ca;
-  --color-accent-purple-text: #4c1d95;
-  --color-accent-purple-light: rgba(76, 29, 149, 0.1);
+  /* Error - Red */
+  --color-error: var(--color-red-600);
+  --color-error-hover: var(--color-red-700);
+  --color-error-light: var(--color-red-50);
+  --color-error-alpha: rgba(239, 68, 68, 0.1);
+  --color-error-border: rgba(239, 68, 68, 0.3);
 
-  --color-neutral-badge: rgba(100, 116, 139, 0.12);
+  /* Success - Green (FIXED: was dark teal, now vibrant green) */
+  --color-success: var(--color-green-500);
+  --color-success-hover: var(--color-green-600);
+  --color-success-light: var(--color-green-50);
+  --color-success-alpha: rgba(34, 197, 94, 0.1);
+  --color-success-border: rgba(34, 197, 94, 0.3);
 
-  /* ==================== Spacing ==================== */
-  --space-xs: 0.25rem;
-  --space-sm: 0.5rem;
-  --space-md: 0.75rem;
-  --space-lg: 1rem;
-  --space-xl: 1.5rem;
-  --space-2xl: 1.75rem;
-  --space-3xl: 2rem;
-  --space-4xl: 2.5rem;
-  --space-5xl: 4rem;
+  /* Warning - Amber */
+  --color-warning: var(--color-amber-500);
+  --color-warning-hover: var(--color-amber-600);
+  --color-warning-light: var(--color-amber-50);
+  --color-warning-alpha: rgba(245, 158, 11, 0.1);
+  --color-warning-border: rgba(245, 158, 11, 0.3);
 
-  /* ==================== Typography ==================== */
-  --font-family:
-    'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
-  --font-family-base: system-ui, -apple-system, sans-serif;
+  /* Info - Blue */
+  --color-info: var(--color-blue-500);
+  --color-info-light: var(--color-blue-50);
+  --color-info-alpha: rgba(59, 130, 246, 0.1);
 
-  --font-size-xs: 0.75rem;
-  --font-size-sm: 0.875rem;
-  --font-size-md: 0.9rem;
-  --font-size-base: 1rem;
-  --font-size-lg: 1.125rem;
-  --font-size-xl: 1.25rem;
-  --font-size-2xl: 2rem;
+  /* =====================================================
+   * 4. SPACING SCALE
+   * Based on 8px grid (0.5rem = 8px)
+   * ===================================================== */
+  --space-0: 0;
+  --space-1: 0.25rem; /* 4px */
+  --space-2: 0.5rem; /* 8px */
+  --space-3: 0.75rem; /* 12px */
+  --space-4: 1rem; /* 16px */
+  --space-5: 1.25rem; /* 20px */
+  --space-6: 1.5rem; /* 24px */
+  --space-8: 2rem; /* 32px */
+  --space-10: 2.5rem; /* 40px */
+  --space-12: 3rem; /* 48px */
+  --space-16: 4rem; /* 64px */
+  --space-20: 5rem; /* 80px */
+  --space-24: 6rem; /* 96px */
 
+  /* Legacy aliases for backwards compatibility */
+  --space-xs: var(--space-1);
+  --space-sm: var(--space-2);
+  --space-md: var(--space-3);
+  --space-lg: var(--space-4);
+  --space-xl: var(--space-6);
+  --space-2xl: var(--space-8);
+  --space-3xl: var(--space-10);
+  --space-4xl: var(--space-12);
+  --space-5xl: var(--space-16);
+
+  /* =====================================================
+   * 5. TYPOGRAPHY
+   * Font stack and size scale
+   * ===================================================== */
+  --font-family-sans:
+    'Inter', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial,
+    sans-serif;
+  --font-family-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
+
+  /* Font Sizes */
+  --font-size-xs: 0.75rem; /* 12px */
+  --font-size-sm: 0.875rem; /* 14px */
+  --font-size-base: 1rem; /* 16px */
+  --font-size-lg: 1.125rem; /* 18px */
+  --font-size-xl: 1.25rem; /* 20px */
+  --font-size-2xl: 1.5rem; /* 24px */
+  --font-size-3xl: 1.875rem; /* 30px */
+  --font-size-4xl: 2.25rem; /* 36px */
+
+  /* Font Weights */
   --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
 
-  --line-height-normal: 1.4;
+  /* Line Heights */
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.625;
 
-  /* ==================== Border Radius ==================== */
-  --radius-sm: 0.5rem;
-  --radius-md: 0.75rem;
-  --radius-lg: 0.85rem;
-  --radius-xl: 1rem;
-  --radius-2xl: 1.25rem;
-  --radius-full: 999px;
+  /* Letter Spacing */
+  --letter-spacing-tight: -0.025em;
+  --letter-spacing-normal: 0;
+  --letter-spacing-wide: 0.025em;
 
-  /* ==================== Shadows ==================== */
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-sm: 0 4px 6px rgba(0, 0, 0, 0.1);
-  --shadow-md: 0 8px 16px rgba(37, 99, 235, 0.1);
-  --shadow-lg: 0 12px 24px rgba(37, 99, 235, 0.2);
-  --shadow-xl: 0 24px 48px rgba(15, 23, 42, 0.08);
-  --shadow-ring: 0 0 0 4px var(--color-primary-ring);
+  /* =====================================================
+   * 6. ELEVATION (Shadows)
+   * Layer hierarchy through shadows
+   * ===================================================== */
 
-  /* ==================== Transitions ==================== */
-  --transition-fast: 120ms ease;
-  --transition-normal: 150ms ease;
-  --transition-slow: 250ms ease;
+  /* Base Shadows */
+  --shadow-color: 15 23 42;
+  --shadow-sm: 0 1px 2px 0 rgb(var(--shadow-color) / 0.05);
+  --shadow-md:
+    0 4px 6px -1px rgb(var(--shadow-color) / 0.1), 0 2px 4px -2px rgb(var(--shadow-color) / 0.1);
+  --shadow-lg:
+    0 10px 15px -3px rgb(var(--shadow-color) / 0.1), 0 4px 6px -4px rgb(var(--shadow-color) / 0.1);
+  --shadow-xl:
+    0 20px 25px -5px rgb(var(--shadow-color) / 0.1), 0 8px 10px -6px rgb(var(--shadow-color) / 0.1);
 
-  /* ==================== Z-Index ==================== */
+  /* Brand-colored Shadows */
+  --shadow-brand-sm: 0 2px 8px rgba(37, 99, 235, 0.15);
+  --shadow-brand-md: 0 4px 16px rgba(37, 99, 235, 0.2);
+  --shadow-brand-lg: 0 8px 32px rgba(37, 99, 235, 0.25);
+
+  /* Glow Effects */
+  --shadow-glow-primary: 0 0 20px rgba(37, 99, 235, 0.4);
+  --shadow-glow-success: 0 0 20px rgba(34, 197, 94, 0.4);
+  --shadow-glow-error: 0 0 20px rgba(239, 68, 68, 0.4);
+
+  /* Focus Ring */
+  --shadow-focus-ring: 0 0 0 3px rgba(37, 99, 235, 0.3);
+  --shadow-focus-ring-error: 0 0 0 3px rgba(239, 68, 68, 0.3);
+
+  /* =====================================================
+   * 7. SHAPE (Border Radius)
+   * ===================================================== */
+  --radius-none: 0;
+  --radius-sm: 0.375rem; /* 6px */
+  --radius-md: 0.5rem; /* 8px */
+  --radius-lg: 0.75rem; /* 12px */
+  --radius-xl: 1rem; /* 16px */
+  --radius-2xl: 1.5rem; /* 24px */
+  --radius-3xl: 2rem; /* 32px */
+  --radius-full: 9999px;
+
+  /* Legacy aliases */
+  --radius-base: var(--radius-md);
+
+  /* =====================================================
+   * 8. MOTION
+   * Transitions and animations
+   * ===================================================== */
+  --duration-instant: 0ms;
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+  --duration-slower: 500ms;
+
+  --ease-linear: linear;
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+  /* Legacy aliases */
+  --transition-fast: var(--duration-fast) var(--ease-out);
+  --transition-normal: var(--duration-normal) var(--ease-out);
+  --transition-slow: var(--duration-slow) var(--ease-out);
+
+  /* =====================================================
+   * 9. Z-INDEX SCALE
+   * Layer management
+   * ===================================================== */
+  --z-base: 0;
   --z-dropdown: 100;
-  --z-modal: 200;
-  --z-tooltip: 300;
+  --z-sticky: 200;
+  --z-fixed: 300;
+  --z-modal-backdrop: 400;
+  --z-modal: 500;
+  --z-popover: 600;
+  --z-tooltip: 700;
+  --z-toast: 800;
+  --z-max: 9999;
 
-  /* ==================== Layout ==================== */
-  --max-width-content: 960px;
-  --container-padding: 1.125rem;
+  /* =====================================================
+   * 10. LAYOUT CONSTRAINTS
+   * ===================================================== */
+  --max-width-xs: 20rem; /* 320px */
+  --max-width-sm: 24rem; /* 384px */
+  --max-width-md: 28rem; /* 448px */
+  --max-width-lg: 32rem; /* 512px */
+  --max-width-xl: 36rem; /* 576px */
+  --max-width-2xl: 42rem; /* 672px */
+  --max-width-3xl: 48rem; /* 768px */
+  --max-width-4xl: 56rem; /* 896px */
+  --max-width-5xl: 64rem; /* 1024px */
+  --max-width-content: var(--max-width-4xl);
+  --container-padding: var(--space-4);
 
-  /* ==================== Breakpoints ==================== */
+  /* =====================================================
+   * 11. MODERN EFFECTS
+   * Glassmorphism and advanced effects
+   * ===================================================== */
+
+  /* Glassmorphism */
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-bg-dark: rgba(15, 23, 42, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.3);
+  --glass-border-dark: rgba(255, 255, 255, 0.1);
+  --glass-blur: blur(12px);
+  --glass-saturate: saturate(180%);
+
+  /* Gradient Backgrounds */
+  --gradient-primary: linear-gradient(
+    135deg,
+    var(--color-blue-500) 0%,
+    var(--color-purple-600) 100%
+  );
+  --gradient-success: linear-gradient(
+    135deg,
+    var(--color-green-400) 0%,
+    var(--color-green-600) 100%
+  );
+  --gradient-background: linear-gradient(
+    180deg,
+    var(--color-bg-default) 0%,
+    var(--color-bg-surface) 100%
+  );
+
+  /* Accent Gradients */
+  --gradient-cyan: linear-gradient(135deg, var(--color-cyan-400) 0%, var(--color-blue-500) 100%);
+  --gradient-orange: linear-gradient(
+    135deg,
+    var(--color-orange-400) 0%,
+    var(--color-orange-500) 100%
+  );
+  --gradient-pink: linear-gradient(135deg, var(--color-pink-400) 0%, var(--color-pink-500) 100%);
+
+  /* =====================================================
+   * DEPRECATED TOKENS
+   * Kept for backwards compatibility - DO NOT USE
+   * ===================================================== */
+  --color-primary-shadow: rgba(37, 99, 235, 0.2); /* Use --shadow-brand-md */
+  --color-primary-ring: rgba(37, 99, 235, 0.12); /* Use --shadow-focus-ring */
+  --color-primary-alpha-25: rgba(37, 99, 235, 0.25); /* Use --color-brand-primary-alpha */
+  --color-primary-alpha-65: rgba(37, 99, 235, 0.65); /* Legacy */
+  --color-success-alpha-25: rgba(34, 197, 94, 0.25); /* Use --color-success-border */
+  --color-neutral-badge: rgba(100, 116, 139, 0.12); /* Legacy */
+  --color-text-muted-alt: rgba(30, 41, 59, 0.7); /* Use --color-text-tertiary */
+
+  /* Legacy breakpoints (use CSS custom properties in media queries not supported) */
   --breakpoint-sm: 640px;
   --breakpoint-md: 768px;
   --breakpoint-lg: 1024px;
   --breakpoint-xl: 1280px;
+}
+
+/* =====================================================
+ * DARK MODE SUPPORT
+ * Uncomment when dark mode is implemented
+ * ===================================================== */
+/*
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg-default: #0f172a;
+    --color-bg-surface: #1e293b;
+    --color-bg-elevated: #334155;
+    
+    --color-text-primary: #f8fafc;
+    --color-text-secondary: rgba(248, 250, 252, 0.8);
+    --color-text-tertiary: rgba(248, 250, 252, 0.6);
+    
+    --glass-bg: rgba(15, 23, 42, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.1);
+  }
+}
+*/
+
+/* =====================================================
+ * REDUCED MOTION SUPPORT
+ * Respect user preferences for reduced motion
+ * ===================================================== */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration-normal: 0ms;
+    --duration-slow: 0ms;
+    --duration-slower: 0ms;
+  }
 }

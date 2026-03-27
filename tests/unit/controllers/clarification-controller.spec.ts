@@ -1,10 +1,11 @@
+/* eslint-disable @typescript-eslint/ban-types */
 import { jest } from '@jest/globals';
-import { ClarificationController } from '../../../app/main/src/windows/clarification-controller.js';
-import type { SessionRepository } from '../../../app/main/src/persistence/session-repository.js';
-import type { OkrRepository } from '../../../app/main/src/persistence/okr-repository.js';
-import type { ActionLogWriter } from '../../../app/main/src/persistence/action-log-writer.js';
-import type { StickyWindowManager } from '../../../app/main/src/windows/sticky-window-manager.js';
-import type { OkrAgentService } from '../../../app/main/src/services/okr-agent.service.js';
+import { ClarificationController } from '@clarityokr/main/windows/clarification-controller';
+import type { SessionRepository } from '@clarityokr/main/persistence/session-repository';
+import type { OkrRepository } from '@clarityokr/main/persistence/okr-repository';
+import type { ActionLogWriter } from '@clarityokr/main/persistence/action-log-writer';
+import type { StickyWindowManager } from '@clarityokr/main/windows/sticky-window-manager';
+import type { OkrAgentService } from '@clarityokr/main/services/okr-agent.service';
 import type { OKRDocument } from '@clarityokr/contracts';
 
 describe('ClarificationController', () => {

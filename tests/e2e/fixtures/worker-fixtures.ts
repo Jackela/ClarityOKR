@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-empty-object-type, no-empty-pattern */
 import { test as base, expect, TestInfo } from '@playwright/test';
 
 // Re-export expect for convenience
@@ -18,7 +19,14 @@ let workerId: string | null = null;
 // Worker 级别的 Mock Server
 let workerMockServer: SimpleMockServer | null = null;
 
-// Mock Server 类型定义
+interface MockSessionData {
+  initialIntent?: unknown;
+  status?: unknown;
+  confidence?: unknown;
+  selections?: unknown[];
+}
+
+type SessionEntry = [string, MockSessionData];
 interface MockServerFixture {
   url: string;
   port: number;
@@ -33,7 +41,14 @@ interface MockServerFixture {
 async function cleanupViaTestMode(electronApp: ElectronApplication): Promise<void> {
   try {
     await electronApp.evaluate(async () => {
-      const testMode = (global as any).testMode;
+      const testMode = (
+        global as {
+          testMode?: {
+            getCurrentState: () => { sessions?: Map<unknown, unknown>; currentSessionId?: unknown };
+            mockResponses?: unknown;
+          };
+        }
+      ).testMode;
       if (!testMode) {
         console.warn('[E2E] testMode not available');
         return null;
@@ -41,10 +56,13 @@ async function cleanupViaTestMode(electronApp: ElectronApplication): Promise<voi
 
       // 1. 重置状态
       console.log('[E2E] Using testMode.resetState()');
+      // @ts-expect-error - testMode has resetState in E2E environment
       await testMode.resetState();
 
       // 2. 等待异步操作完成
+      // @ts-expect-error - testMode has waitForAsyncOperations in E2E environment
       if (testMode.waitForAsyncOperations) {
+        // @ts-expect-error - waitForAsyncOperations exists in E2E
         await testMode.waitForAsyncOperations(5000);
       }
 
@@ -86,23 +104,35 @@ async function logDiagnostics(
 ): Promise<void> {
   try {
     const diagnostics = await electronApp.evaluate(() => {
-      const testMode = (global as any).testMode;
+      const testMode = (
+        global as {
+          testMode?: {
+            getCurrentState: () => { sessions?: Map<unknown, unknown>; currentSessionId?: unknown };
+            mockResponses?: unknown;
+          };
+        }
+      ).testMode;
       if (!testMode) return { error: 'testMode not available' };
 
       const state = testMode.getCurrentState();
-      const sessions = Array.from(state.sessions?.entries?.() || []);
+      const sessions: Array<[string, unknown]> = Array.from(state.sessions?.entries?.() || []) as Array<[string, unknown]>;
 
-      return {
-        testModeAvailable: true,
-        sessionCount: sessions.length,
-        currentSessionId: state.currentSessionId,
-        sessions: sessions.map(([id, session]: [string, any]) => ({
+      const sessionData = sessions.map((entry: SessionEntry) => {
+        const [id, session] = entry;
+        return {
           id,
           intent: session.initialIntent,
           status: session.status,
           confidence: session.confidence,
           selectionCount: session.selections?.length || 0,
-        })),
+        };
+      });
+
+      return {
+        testModeAvailable: true,
+        sessionCount: sessions.length,
+        currentSessionId: state.currentSessionId,
+        // @ts-expect-error - mockResponses available in E2E environment
         mockConfig: state.mockResponses,
       };
     });
@@ -128,19 +158,36 @@ async function logDiagnostics(
  * - Supports parallel workers in CI with dynamic port allocation
  * - Comprehensive diagnostics for failed tests
  */
-export const workerTest = base.extend<{
+// Worker-scoped fixtures type definition
+type WorkerFixtures = {
   mockServer: MockServerFixture;
   electronApp: ElectronApplication;
+};
+
+// Test-scoped fixtures type definition
+type TestFixtures = {
   mainWindow: Page;
   testId: string;
-}>({
+};
+
+type FixtureArgs = Record<string, unknown>;
+
+const workerFixture = <T>(
+  fn: (args: FixtureArgs, use: (value: T) => Promise<void>, testInfo: TestInfo) => Promise<void>,
+) => [fn, { scope: 'worker' as const }] as const;
+
+const testFixture = <T>(
+  fn: (args: FixtureArgs, use: (value: T) => Promise<void>, testInfo: TestInfo) => Promise<void>,
+) => [fn, { scope: 'test' as const }] as const;
+
+export const workerTest = base.extend<TestFixtures, WorkerFixtures>({
   // Test ID fixture for tracing
   testId: [
     async ({}, use, testInfo) => {
-      const id = `${testInfo.workerIndex}-${testInfo.retry}-${Date.now()}`;
+      const id = `${testInfo.workerIndex.toString()}-${testInfo.retry.toString()}-${Date.now().toString()}`;
       await use(id);
     },
-    { scope: 'test' },
+    { scope: 'test' as const },
   ],
 
   // Worker 级别：每个 worker 启动自己的 Mock Server
@@ -164,7 +211,7 @@ export const workerTest = base.extend<{
         getRequestLog: () => workerMockServer!.getRequestLog(),
       });
     },
-    { scope: 'worker' },
+    { scope: 'worker' as const },
   ],
 
   // Worker 级别：每个 worker 启动一次 Electron
@@ -195,7 +242,10 @@ export const workerTest = base.extend<{
         // 验证 testMode API 可用
         const testModeAvailable = await workerElectronApp
           .evaluate(() => {
-            return !!(global as any).testMode;
+            type TestModeGlobal = {
+              testMode?: { resetState?: () => Promise<void> };
+            };
+            return !!(global as TestModeGlobal).testMode;
           })
           .catch(() => false);
         console.log(`[worker ${workerId}] TestMode API available: ${testModeAvailable}`);
@@ -203,7 +253,7 @@ export const workerTest = base.extend<{
 
       await use(workerElectronApp!);
     },
-    { scope: 'worker' },
+    { scope: 'worker' as const },
   ],
 
   // Test 级别：每个测试使用相同的 Electron 但清理状态
@@ -223,7 +273,7 @@ export const workerTest = base.extend<{
       // 使用 testMode API 清理状态（更可靠）
       const testModeAvailable = await electronApp
         .evaluate(() => {
-          return !!(global as any).testMode?.resetState;
+        return !!(global as { testMode?: { resetState?: () => Promise<void> } }).testMode?.resetState;
         })
         .catch(() => false);
 

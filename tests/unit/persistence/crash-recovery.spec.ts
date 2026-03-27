@@ -1,20 +1,22 @@
 import {
   CrashRecoveryService,
   createCrashRecoveryService,
-} from '../../../app/main/src/persistence/crash-recovery.service.js';
-import { AtomicPersistenceService } from '../../../app/main/src/persistence/atomic-persistence.service.js';
+} from '@clarityokr/main/persistence/crash-recovery.service';
+import { AtomicPersistenceService } from '@clarityokr/main/persistence/atomic-persistence.service';
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 
+let crashTestIndex = 0;
 describe('CrashRecoveryService', () => {
   let service: CrashRecoveryService;
   let atomicService: AtomicPersistenceService;
   let tempDir: string;
 
   beforeEach(async () => {
+    crashTestIndex += 1;
     atomicService = new AtomicPersistenceService();
-    tempDir = join(tmpdir(), `crash-recovery-test-${Date.now()}`);
+    tempDir = join(tmpdir(), `crash-recovery-test-${crashTestIndex}-${Date.now()}`);
     await fs.mkdir(tempDir, { recursive: true });
     // 使用空的数据文件列表进行测试
     service = new CrashRecoveryService(tempDir, []);

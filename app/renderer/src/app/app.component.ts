@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, NgZone, OnDestroy, computed } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed } from '@angular/core';
+import { NgZone, type OnDestroy } from '@angular/core';
 import { ReactiveFormsModule, FormControl, Validators } from '@angular/forms';
 import type { ClarificationPrompt } from '@clarityokr/contracts';
 import { Subject } from 'rxjs';
@@ -14,18 +15,29 @@ import { OkrStickyGatewayService } from './okr-sticky/services/okr-sticky-gatewa
 
 // Type guards for safe type narrowing
 function hasQuestionProperty(obj: unknown): obj is { question: unknown } {
-  return (
-    typeof obj === 'object' &&
-    obj !== null &&
-    'question' in obj &&
-    (obj as { question?: unknown }).question !== undefined
-  );
+  if (typeof obj !== 'object' || obj === null) {
+    return false;
+  }
+  const record = obj as Record<string, unknown>;
+  return 'question' in record && record.question !== undefined;
 }
 
 interface DraftResponse {
   draft?: {
     objectives?: Array<{ title?: string }>;
   };
+}
+
+// Type guard for DraftResponse validation
+function isDraftResponse(obj: unknown): obj is DraftResponse {
+  if (typeof obj !== 'object' || obj === null) {
+    return false;
+  }
+  const record = obj as Record<string, unknown>;
+  if (record.draft === undefined || typeof record.draft !== 'object' || record.draft === null) {
+    return false;
+  }
+  return true;
 }
 
 @Component({
@@ -289,11 +301,12 @@ export class AppComponent implements OnDestroy {
       this.llmGateway.generateDraft({ turns }).subscribe({
         next: (response: unknown) => {
           this.zone.run(() => {
-            // Type-safe access to draft response
-            const payload = response as DraftResponse;
-            const first = payload?.draft?.objectives?.[0];
-            if (first && typeof first.title === 'string' && first.title) {
-              this.generatedSummary = first.title;
+            // Type-safe access to draft response using type guard
+            if (isDraftResponse(response)) {
+              const first = response.draft?.objectives?.[0];
+              if (first && typeof first.title === 'string' && first.title) {
+                this.generatedSummary = first.title;
+              }
             }
           });
         },

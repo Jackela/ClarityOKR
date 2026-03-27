@@ -75,7 +75,7 @@ export class LlmCacheService {
     if (entry) {
       this.stats.hits++;
       Logger.debug('[LlmCacheService] Cache hit', { key: key.substring(0, 20) });
-      return entry.data as T;
+      return entry.data as unknown as T;
     }
 
     this.stats.misses++;

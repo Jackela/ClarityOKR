@@ -60,9 +60,6 @@ export function getElectronLaunchOptions() {
 
   return {
     args: ci.args,
-    env: {
-      ...process.env,
-      ...ci.env,
-    },
+    env: ci.env,
   };
 }

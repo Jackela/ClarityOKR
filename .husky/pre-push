@@ -37,10 +37,10 @@ echo ""
 echo "[1/4] TypeScript Type Check"
 run_check "pnpm run typecheck" "TypeScript Type Check" 120
 
-# 2. ESLint on src files with cache (fast ~30s)
+# 2. ESLint on src files and tests with cache (fast ~30s)
 echo ""
-echo "[2/4] ESLint (src files)"
-run_check "./node_modules/.bin/eslint app/main/src app/renderer/src packages/contracts/src --max-warnings=0 --cache" "ESLint" 180
+echo "[2/4] ESLint (src files and tests)"
+run_check "./node_modules/.bin/eslint app/main/src app/renderer/src packages/contracts/src tests --max-warnings=0 --cache" "ESLint" 180
 
 # 3. Quick git status check
 echo ""

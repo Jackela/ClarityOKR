@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/ban-types */
 import nock from 'nock';
 import { jest } from '@jest/globals';
 
@@ -6,15 +7,15 @@ import { IPCChannels } from '../../../app/main/src/bootstrap/ipc-channels';
 import { OkrAgentService } from '../../../app/main/src/services/okr-agent.service';
 
 // Simple Electron stubs to capture handlers and observe broadcasts
-const handlers: Record<string, Function> = {};
+const handlers: Record<string, (event: unknown, ...args: unknown[]) => unknown> = {};
 const sent: Array<{ channel: string; payload: unknown }> = [];
 
 const electStub = {
   ipcMain: {
-    handle: (channel: string, cb: Function) => {
+    handle: (channel: string, cb: (event: unknown, ...args: unknown[]) => unknown) => {
       handlers[channel] = cb;
     },
-    on: (_channel: string, _cb: Function) => void 0,
+    on: (_channel: string, _cb: (event: unknown, ...args: unknown[]) => void) => void 0,
   },
   webContents: {
     getAllWebContents: () => [
@@ -26,7 +27,16 @@ const electStub = {
     ],
     fromId: (_id: number) => ({ send: (_ch: string, _payload: unknown) => void 0 }),
   },
-} as any;
+} as {
+  ipcMain: {
+    handle: (channel: string, cb: (event: unknown, ...args: unknown[]) => unknown) => void;
+    on: (channel: string, cb: (event: unknown, ...args: unknown[]) => void) => void;
+  };
+  webContents: {
+    getAllWebContents: () => Array<{ send: (channel: string, payload: unknown) => void }>;
+    fromId: (id: number) => { send: (channel: string, payload: unknown) => void };
+  };
+  };
 
 // Minimal repository/service stubs for controller wiring
 class SessionRepositoryStub {
@@ -46,11 +56,10 @@ class SessionRepositoryStub {
   async load() {
     return this.state;
   }
-  async saveSession(s: any) {
-    this.state.session = s;
+  async saveSession(s: unknown) {
+    this.state.session = s as typeof this.state.session;
   }
 }
-
 class OkrRepositoryStub {
   async loadLatest() {
     return null;
@@ -84,7 +93,7 @@ describe('Integration: IPC LLM handlers (main)', () => {
   });
 
   it('LLM_NEXT_QUESTION returns a valid question and does not leak secrets', async () => {
-    const scope = nock(process.env.LLM_BASE_URL!)
+    const scope = nock(process.env.LLM_BASE_URL ?? 'http://127.0.0.1:7777')
       .post('/v1/responses')
       .reply(200, {
         question: {
@@ -97,7 +106,7 @@ describe('Integration: IPC LLM handlers (main)', () => {
         },
       });
 
-    // @ts-ignore use stubs
+    // @ts-expect-error - using stubs that satisfy API surface, constructor expects full Electron type
     new ClarificationController(
       new SessionRepositoryStub(),
       new OkrRepositoryStub(),
@@ -114,12 +123,12 @@ describe('Integration: IPC LLM handlers (main)', () => {
     });
 
     expect(res).toHaveProperty('question.id', 'q-next');
-    expect(JSON.stringify(res)).not.toContain(process.env.LLM_API_KEY!);
+    expect(JSON.stringify(res)).not.toContain(process.env.LLM_API_KEY ?? '');
     expect(scope.isDone()).toBe(true);
   });
 
   it('LLM_GENERATE_DRAFT builds and broadcasts OKR response (no secret leakage)', async () => {
-    const scope = nock(process.env.LLM_BASE_URL!)
+    const scope = nock(process.env.LLM_BASE_URL ?? 'http://127.0.0.1:7777')
       .post('/v1/responses')
       .reply(200, {
         draft: {
@@ -152,9 +161,8 @@ describe('Integration: IPC LLM handlers (main)', () => {
       },
     ];
 
-    // @ts-ignore use stubs
+    // @ts-expect-error - using stubs that satisfy API surface, constructor expects full Electron type
     new ClarificationController(
-      sessionRepo,
       new OkrRepositoryStub(),
       new ActionLogWriterStub(),
       new StickyWindowManagerStub(),
@@ -166,7 +174,7 @@ describe('Integration: IPC LLM handlers (main)', () => {
     const res = await h(null, { sessionId: 's-integration', context: { turns: [] } });
 
     expect(res).toHaveProperty('okr.objective');
-    expect(JSON.stringify(res)).not.toContain(process.env.LLM_API_KEY!);
+    expect(JSON.stringify(res)).not.toContain(process.env.LLM_API_KEY ?? '');
     expect(scope.isDone()).toBe(true);
     // Verify broadcast occurred
     const broadcasted = sent.some((m) => m.channel === IPCChannels.OKR_GENERATE);

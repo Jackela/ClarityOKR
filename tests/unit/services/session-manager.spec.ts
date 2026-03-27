@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals';
-import { SessionManager } from '../../../app/main/src/services/session-manager.service.js';
-import type { SessionRepository } from '../../../app/main/src/persistence/session-repository.js';
+import { SessionManager } from '@clarityokr/main/services/session-manager.service';
+import type { SessionRepository } from '@clarityokr/main/persistence/session-repository';
 import type { ClarificationSession } from '@clarityokr/contracts';
 
 describe('SessionManager Unit Tests', () => {

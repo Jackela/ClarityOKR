@@ -35,11 +35,12 @@ interface ClarifyOkrApi {
    * Listen for messages from the main process
    * @param channel - The IPC channel name (must be in whitelist)
    * @param listener - Callback function for received messages
+   * @returns Unsubscribe function to remove the listener
    */
   on: (
     channel: AllowedChannel,
     listener: (event: IpcRendererEvent, payload: unknown) => void,
-  ) => void;
+  ) => () => void;
 }
 
 const api: ClarifyOkrApi = {
@@ -54,6 +55,10 @@ const api: ClarifyOkrApi = {
   on: (channel, listener) => {
     validateChannelInternal(channel);
     ipcRenderer.on(channel, listener);
+    // Return unsubscribe function
+    return () => {
+      ipcRenderer.removeListener(channel, listener);
+    };
   },
 };
 

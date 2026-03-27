@@ -3,18 +3,10 @@
   "compilerOptions": {
     "outDir": "./out-tsc/app",
     "types": [],
-    "module": "ES2020",
-    "moduleResolution": "Node"
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext"
   },
-  "files": [
-    "src/main.ts"
-  ],
-  "include": [
-    "src/**/*.ts",
-    "src/**/*.d.ts"
-  ],
-  "exclude": [
-    "src/**/*.spec.ts",
-    "src/test.ts"
-  ]
+  "files": ["src/main.ts"],
+  "include": ["src/**/*.ts", "src/**/*.d.ts"],
+  "exclude": ["src/**/*.spec.ts", "src/**/*.test.ts", "src/test.ts", "src/test-setup.ts"]
 }
