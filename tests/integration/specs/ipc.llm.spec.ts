@@ -36,8 +36,7 @@ const electStub = {
     getAllWebContents: () => Array<{ send: (channel: string, payload: unknown) => void }>;
     fromId: (id: number) => { send: (channel: string, payload: unknown) => void };
   };
-};
-} as any;
+  };
 
 // Minimal repository/service stubs for controller wiring
 class SessionRepositoryStub {
@@ -60,10 +59,7 @@ class SessionRepositoryStub {
   async saveSession(s: unknown) {
     this.state.session = s as typeof this.state.session;
   }
-    this.state.session = s;
-  }
 }
-
 class OkrRepositoryStub {
   async loadLatest() {
     return null;
@@ -111,7 +107,6 @@ describe('Integration: IPC LLM handlers (main)', () => {
       });
 
     // @ts-expect-error - using stubs that satisfy API surface, constructor expects full Electron type
-    new ClarificationController(
     new ClarificationController(
       new SessionRepositoryStub(),
       new OkrRepositoryStub(),
@@ -168,8 +163,6 @@ describe('Integration: IPC LLM handlers (main)', () => {
 
     // @ts-expect-error - using stubs that satisfy API surface, constructor expects full Electron type
     new ClarificationController(
-    new ClarificationController(
-      sessionRepo,
       new OkrRepositoryStub(),
       new ActionLogWriterStub(),
       new StickyWindowManagerStub(),
