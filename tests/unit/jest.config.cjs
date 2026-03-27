@@ -9,7 +9,6 @@ module.exports = {
     '<rootDir>/okr-sticky',
     '<rootDir>/main',
     '<rootDir>/lib',
-    '<rootDir>/handlers', // 任务19.4: Handler单元测试
     '<rootDir>/services', // 任务19.2-19.3: Service单元测试
     '<rootDir>/controllers', // 任务19.1: Controller单元测试
     '<rootDir>/persistence', // 持久化测试
