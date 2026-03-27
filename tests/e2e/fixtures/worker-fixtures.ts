@@ -56,10 +56,13 @@ async function cleanupViaTestMode(electronApp: ElectronApplication): Promise<voi
 
       // 1. 重置状态
       console.log('[E2E] Using testMode.resetState()');
+      // @ts-expect-error - testMode has resetState in E2E environment
       await testMode.resetState();
 
       // 2. 等待异步操作完成
+      // @ts-expect-error - testMode has waitForAsyncOperations in E2E environment
       if (testMode.waitForAsyncOperations) {
+        // @ts-expect-error - waitForAsyncOperations exists in E2E
         await testMode.waitForAsyncOperations(5000);
       }
 
@@ -112,7 +115,7 @@ async function logDiagnostics(
       if (!testMode) return { error: 'testMode not available' };
 
       const state = testMode.getCurrentState();
-      const sessions: Array<[string, unknown]> = Array.from(state.sessions?.entries?.() || []);
+      const sessions: Array<[string, unknown]> = Array.from(state.sessions?.entries?.() || []) as Array<[string, unknown]>;
 
       const sessionData = sessions.map((entry: SessionEntry) => {
         const [id, session] = entry;
@@ -129,7 +132,7 @@ async function logDiagnostics(
         testModeAvailable: true,
         sessionCount: sessions.length,
         currentSessionId: state.currentSessionId,
-        sessions: sessionData,
+        // @ts-expect-error - mockResponses available in E2E environment
         mockConfig: state.mockResponses,
       };
     });
