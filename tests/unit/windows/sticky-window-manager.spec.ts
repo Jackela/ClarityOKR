@@ -68,13 +68,13 @@ const createMockBrowserWindow = (): MockBrowserWindow => {
   return mockWindow;
 };
 
-// Mock electron module - must be before imports
+// Mock electron module
 jest.mock('electron', () => ({
   BrowserWindow: jest.fn().mockImplementation(() => createMockBrowserWindow()),
 }));
 
 // Mock logger to suppress output
-jest.mock('../../../../app/main/src/core/logger.js', () => ({
+jest.mock('@clarityokr/main/core/logger', () => ({
   Logger: {
     info: jest.fn(),
     error: jest.fn(),
@@ -83,14 +83,14 @@ jest.mock('../../../../app/main/src/core/logger.js', () => ({
 }));
 
 // Mock ipc-channels
-jest.mock('../../../../app/main/src/bootstrap/ipc-channels.js', () => ({
+jest.mock('@clarityokr/main/bootstrap/ipc-channels', () => ({
   IPCChannels: {
     OKR_GENERATE: 'okr:generate',
   },
 }));
 
 // Import after mocks
-import { StickyWindowManager } from '../../../../app/main/src/windows/sticky-window-manager.js';
+import { StickyWindowManager } from '@clarityokr/main/windows/sticky-window-manager';
 
 describe('StickyWindowManager Unit Tests', () => {
   let manager: StickyWindowManager;

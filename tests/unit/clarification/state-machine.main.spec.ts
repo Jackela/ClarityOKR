@@ -1,7 +1,7 @@
 import { jest } from '@jest/globals';
 import type { ClarificationSession, ClarificationStatus } from '@clarityokr/contracts';
-import { ClarificationStateMachine } from '@clarityokr/main/clarification/clarification-state-machine.js';
-import { StateTransitionError } from '@clarityokr/main/clarification/types.js';
+import { ClarificationStateMachine } from '@clarityokr/main/clarification/clarification-state-machine.ts';
+import { StateTransitionError } from '@clarityokr/main/clarification/types.ts';
 
 /**
  * Factory function to create a test ClarificationSession
