@@ -2,7 +2,8 @@ import { existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { _electron, ElectronApplication, Page } from '@playwright/test';
+import type { ElectronApplication, Page } from '@playwright/test';
+import { _electron } from '@playwright/test';
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT = path.resolve(currentDir, '../../../');

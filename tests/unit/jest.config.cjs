@@ -14,6 +14,7 @@ module.exports = {
     '<rootDir>/controllers', // 任务19.1: Controller单元测试
     '<rootDir>/persistence', // 持久化测试
     '<rootDir>/telemetry', // 遥测测试
+    '<rootDir>/windows', // Window management tests
   ],
   testPathIgnorePatterns: ['/node_modules/'],
   extensionsToTreatAsEsm: ['.ts'],

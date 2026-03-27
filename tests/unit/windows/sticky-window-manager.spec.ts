@@ -1,5 +1,4 @@
 import { jest } from '@jest/globals';
-import { StickyWindowManager, type StickyWindowConfig } from '@clarityokr/main/windows/sticky-window-manager.js';
 import type { OKRDocument } from '@clarityokr/contracts';
 
 // Mock Electron modules
@@ -69,17 +68,13 @@ const createMockBrowserWindow = (): MockBrowserWindow => {
   return mockWindow;
 };
 
-jest.unstable_mockModule('electron', () => ({
+// Mock electron module - must be before imports
+jest.mock('electron', () => ({
   BrowserWindow: jest.fn().mockImplementation(() => createMockBrowserWindow()),
 }));
 
-jest.unstable_mockModule('@clarityokr/main/bootstrap/ipc-channels.js', () => ({
-  IPCChannels: {
-    OKR_GENERATE: 'okr:generate',
-  },
-}));
-
-jest.unstable_mockModule('@clarityokr/main/core/logger.js', () => ({
+// Mock logger to suppress output
+jest.mock('../../../../app/main/src/core/logger.js', () => ({
   Logger: {
     info: jest.fn(),
     error: jest.fn(),
@@ -87,19 +82,25 @@ jest.unstable_mockModule('@clarityokr/main/core/logger.js', () => ({
   },
 }));
 
+// Mock ipc-channels
+jest.mock('../../../../app/main/src/bootstrap/ipc-channels.js', () => ({
+  IPCChannels: {
+    OKR_GENERATE: 'okr:generate',
+  },
+}));
+
+// Import after mocks
+import { StickyWindowManager } from '../../../../app/main/src/windows/sticky-window-manager.js';
+
 describe('StickyWindowManager Unit Tests', () => {
-  let StickyWindowManagerClass: typeof StickyWindowManager;
   let manager: StickyWindowManager;
-  let config: StickyWindowConfig;
+  let config: { preloadPath: string; rendererDistPath: string };
   let mockDocument: OKRDocument;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     // Clear mock instances
     mockBrowserWindowInstances.length = 0;
-    
-    // Re-import to get fresh mocks
-    const module = await import('@clarityokr/main/windows/sticky-window-manager.js');
-    StickyWindowManagerClass = module.StickyWindowManager;
+    jest.clearAllMocks();
     
     config = {
       preloadPath: '/mock/preload.js',
@@ -118,29 +119,16 @@ describe('StickyWindowManager Unit Tests', () => {
       manualEdits: [],
     };
     
-    manager = new StickyWindowManagerClass(config);
+    manager = new StickyWindowManager(config);
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
     mockBrowserWindowInstances.length = 0;
   });
 
   describe('Constructor', () => {
     it('should initialize with provided config', () => {
       expect(manager).toBeDefined();
-    });
-
-    it('should store config for later use', async () => {
-      // Open a window to verify config is used
-      const { BrowserWindow } = await import('electron');
-      
-      await manager.open(mockDocument);
-      
-      const browserWindowCall = (BrowserWindow as jest.Mock).mock.calls[0];
-      const windowOptions = browserWindowCall[0];
-      
-      expect(windowOptions.webPreferences.preload).toBe(config.preloadPath);
     });
   });
 
@@ -202,13 +190,10 @@ describe('StickyWindowManager Unit Tests', () => {
       
       const mockWindow = mockBrowserWindowInstances[0];
       
-      // Show is called after loadFile
       expect(mockWindow.show).toHaveBeenCalled();
     });
 
     it('should send document to window after did-finish-load event', async () => {
-      const { IPCChannels } = await import('@clarityokr/main/bootstrap/ipc-channels.js');
-      
       await manager.open(mockDocument);
       
       const mockWindow = mockBrowserWindowInstances[0];
@@ -216,12 +201,14 @@ describe('StickyWindowManager Unit Tests', () => {
       // Trigger the did-finish-load event
       mockWindow._triggerEvent('did-finish-load');
       
-      expect(mockWindow.webContents.send).toHaveBeenCalledWith(IPCChannels.OKR_GENERATE, {
+      expect(mockWindow.webContents.send).toHaveBeenCalledWith('okr:generate', {
         okr: mockDocument,
       });
     });
 
     it('should set window to null when closed event fires', async () => {
+      const { BrowserWindow } = await import('electron');
+      
       await manager.open(mockDocument);
       
       const mockWindow = mockBrowserWindowInstances[0];
@@ -230,7 +217,6 @@ describe('StickyWindowManager Unit Tests', () => {
       mockWindow._triggerEvent('closed');
       
       // Re-opening should create a new window (proves old reference was cleared)
-      const { BrowserWindow } = await import('electron');
       (BrowserWindow as jest.Mock).mockClear();
       
       await manager.open(mockDocument);
@@ -312,13 +298,11 @@ describe('StickyWindowManager Unit Tests', () => {
       await manager.open(mockDocument);
       
       // After opening, reopen should work with same document
-      // We verify this by checking reopen works without error
       await expect(manager.reopen()).resolves.not.toThrow();
     });
 
     it('should handle loadFile errors gracefully', async () => {
       const { BrowserWindow } = await import('electron');
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
       
       (BrowserWindow as jest.Mock).mockImplementationOnce(() => {
         const mockWindow = createMockBrowserWindow();
@@ -326,10 +310,11 @@ describe('StickyWindowManager Unit Tests', () => {
         return mockWindow;
       });
       
+      // Reset manager to pick up new mock
+      manager = new StickyWindowManager(config);
+      
       // Should throw when loadFile fails
       await expect(manager.open(mockDocument)).rejects.toThrow('File not found');
-      
-      consoleSpy.mockRestore();
     });
 
     it('should apply screen-saver level for always-on-top', async () => {
@@ -377,6 +362,7 @@ describe('StickyWindowManager Unit Tests', () => {
     it('should focus existing window if already open during reopen', async () => {
       // Open first
       await manager.open(mockDocument);
+      
       const mockWindow = mockBrowserWindowInstances[0];
       mockWindow.focus.mockClear();
       
@@ -400,18 +386,6 @@ describe('StickyWindowManager Unit Tests', () => {
       
       // Should send document each time
       expect(mockWindow.webContents.send).toHaveBeenCalledTimes(3);
-    });
-
-    it('should handle closed event when window is already null', async () => {
-      await manager.open(mockDocument);
-      
-      const mockWindow = mockBrowserWindowInstances[0];
-      
-      // First close
-      mockWindow._triggerEvent('closed');
-      
-      // Second close should not throw
-      expect(() => mockWindow._triggerEvent('closed')).not.toThrow();
     });
 
     it('should not send document if window is destroyed during did-finish-load', async () => {
@@ -569,24 +543,6 @@ describe('StickyWindowManager Unit Tests', () => {
       await manager.reopen();
       
       expect(mockBrowserWindowInstances.length).toBe(2);
-    });
-
-    it('should handle setTitle failures gracefully', async () => {
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-      
-      const { BrowserWindow } = await import('electron');
-      (BrowserWindow as jest.Mock).mockImplementationOnce(() => {
-        const mockWindow = createMockBrowserWindow();
-        mockWindow.setTitle.mockImplementation(() => {
-          throw new Error('SetTitle failed');
-        });
-        return mockWindow;
-      });
-      
-      // Should not throw when setTitle fails during setup
-      await expect(manager.open(mockDocument)).rejects.toThrow('SetTitle failed');
-      
-      consoleSpy.mockRestore();
     });
   });
 

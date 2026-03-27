@@ -263,6 +263,11 @@ export const workerTest = base.extend<TestFixtures, WorkerFixtures>({
         // 验证 testMode API 可用
         const testModeAvailable = await workerElectronApp
           .evaluate(() => {
+            type TestModeGlobal = {
+              testMode?: { resetState?: () => Promise<void> };
+            };
+            return !!(global as TestModeGlobal).testMode;
+          .evaluate(() => {
             return !!(global as any).testMode;
           })
           .catch(() => false);

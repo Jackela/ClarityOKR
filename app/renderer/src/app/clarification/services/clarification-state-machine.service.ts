@@ -1,7 +1,7 @@
 import { Injectable, signal, computed } from '@angular/core';
 import type { ClarificationPrompt } from '@clarityokr/contracts';
 
-import { Logger } from '../../core/services/logger.service';
+import type { Logger } from '../../core/services/logger.service';
 import { environment } from '../../../environments/environment';
 
 /**

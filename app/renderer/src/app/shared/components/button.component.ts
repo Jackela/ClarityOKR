@@ -8,10 +8,11 @@
  */
 
 import { CommonModule } from '@angular/common';
+import type {
+  ElementRef} from '@angular/core';
 import {
   ChangeDetectionStrategy,
   Component,
-  ElementRef,
   EventEmitter,
   HostListener,
   Input,

@@ -39,7 +39,7 @@ type QueueItem =
   | { type: 'nextQuestionError'; error: Error }
   | { type: 'draftError'; error: Error };
 
-function of(value: any) {
+function of<T>(value: T) {
   return new Observable((observer) => {
     observer.next(value);
     observer.complete();

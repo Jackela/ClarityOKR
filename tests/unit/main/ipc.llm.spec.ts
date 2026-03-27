@@ -2,12 +2,16 @@
 import { ClarificationController } from '@clarityokr/main/windows/clarification-controller';
 
 // Capture handlers and a stub webContents
-const handlers: Record<string, Function> = {};
+// Electron stub with typed handlers
+const handlers: Record<string, (event: unknown, ...args: unknown[]) => unknown> = {};
 const sent: Array<{ channel: string; payload: unknown }> = [];
 
 const electStub = {
   ipcMain: {
-    handle: (channel: string, cb: Function) => {
+    handle: (channel: string, cb: (event: unknown, ...args: unknown[]) => unknown) => {
+      handlers[channel] = cb;
+    },
+    on: (_channel: string, _cb: (event: unknown, ...args: unknown[]) => void) => void 0,
       handlers[channel] = cb;
     },
     on: (_channel: string, _cb: Function) => void 0,
@@ -22,6 +26,24 @@ const electStub = {
     ],
     fromId: (_id: number) => ({ send: (_ch: string, _payload: unknown) => void 0 }),
   },
+    getAllWebContents: () => [
+      {
+        send: (channel: string, payload: unknown) => {
+          sent.push({ channel, payload });
+        },
+      },
+    ],
+    fromId: (_id: number) => ({ send: (_ch: string, _payload: unknown) => void 0 }),
+  } as {
+  ipcMain: {
+    handle: (channel: string, cb: (event: unknown, ...args: unknown[]) => unknown) => void;
+    on: (channel: string, cb: (event: unknown, ...args: unknown[]) => void) => void;
+  };
+  webContents: {
+    getAllWebContents: () => Array<{ send: (channel: string, payload: unknown) => void }>;
+    fromId: (id: number) => { send: (channel: string, payload: unknown) => void };
+  };
+};
 } as any;
 
 // Minimal stubs for repositories and services
@@ -42,7 +64,9 @@ class SessionRepositoryStub {
   async load() {
     return this.state;
   }
-  async saveSession(session: any) {
+  async saveSession(session: unknown) {
+    this.state.session = session as typeof this.state.session;
+  }
     this.state.session = session;
   }
 }
@@ -51,19 +75,19 @@ class OkrRepositoryStub {
   async loadLatest() {
     return null;
   }
-  async save(_doc: any) {
+  async save(_doc: unknown) {
     return;
   }
 }
 
 class ActionLogWriterStub {
-  async append(_entry: any) {
+  async append(_entry: unknown) {
     return;
   }
 }
 
 class StickyWindowManagerStub {
-  async open(_doc: any) {
+  async open(_doc: unknown) {
     return;
   }
 }
@@ -90,7 +114,7 @@ describe('Main IPC LLM Handlers', () => {
           { id: 'b', label: 'B' },
         ],
       },
-    } as any);
+    } as { question: { id: string; text: string; options: Array<{ id: string; label: string }> } };
     // eslint-disable-next-line @typescript-eslint/unbound-method
     jest.spyOn(OkrAgentService.prototype, 'generateDraft').mockResolvedValue({
       draft: {
@@ -106,13 +130,13 @@ describe('Main IPC LLM Handlers', () => {
           },
         ],
       },
-    } as any);
+    } as { draft: { objectives: Array<{ id: string; title: string; keyResults: Array<{ id: string; statement: string; target: string | number; measurement: string }> }> } };
 
     // Create repository instance to initialize session
     sessionRepo = new SessionRepositoryStub();
 
     // Instantiate controller to register handlers with stubbed electron
-    // @ts-ignore - using stubs that satisfy API surface
+    // @ts-expect-error - using stubs that satisfy API surface, constructor expects full Electron type
     new ClarificationController(
       sessionRepo,
       new OkrRepositoryStub(),

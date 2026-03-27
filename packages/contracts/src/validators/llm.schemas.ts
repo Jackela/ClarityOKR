@@ -41,7 +41,7 @@ export const okrDraftResponseSchema = z.object({
 });
 
 // Explicit TypeScript types for better inference
-export type OkrDraftResponse = {
+export interface OkrDraftResponse {
   draft: {
     objectives: Array<{
       id: string;
@@ -57,4 +57,4 @@ export type OkrDraftResponse = {
     assumptions?: string[];
     notes?: string;
   };
-};
+}

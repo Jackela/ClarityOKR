@@ -35,14 +35,15 @@
  */
 
 import { CommonModule } from '@angular/common';
+import type {
+  ElementRef,
+  OnDestroy,
+  OnInit} from '@angular/core';
 import {
   ChangeDetectionStrategy,
   Component,
-  ElementRef,
   EventEmitter,
   Input,
-  OnDestroy,
-  OnInit,
   Output,
   ViewChild,
 } from '@angular/core';

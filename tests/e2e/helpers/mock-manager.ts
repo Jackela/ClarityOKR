@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+import type { ElectronApplication, Page, Route, Request } from '@playwright/test';
 import type { ElectronApplication, Page, Route, Request } from '@playwright/test';
 import type { MockResponseConfig } from '@clarityokr/contracts';
 
@@ -44,7 +44,7 @@ export class ElectronMockManager {
     }
   }
 
-  private async handleRequest(route: any, request: any): Promise<void> {
+  private async handleRequest(route: Route, request: Request): Promise<void> {
     this.callCounter++;
 
     const postData = request.postDataJSON();

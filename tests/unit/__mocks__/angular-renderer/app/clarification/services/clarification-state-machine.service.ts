@@ -4,7 +4,7 @@
 import { Injectable } from '@angular/core';
 import type { ClarificationPrompt } from '@clarityokr/contracts';
 
-import { Logger } from '../../core/services/logger.service';
+import type { Logger } from '../../core/services/logger.service';
 
 export type WorkflowState =
   | 'idle'

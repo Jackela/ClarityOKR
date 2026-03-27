@@ -1,5 +1,5 @@
-import { Injectable, NgZone } from '@angular/core';
-import type { OnDestroy } from '@angular/core';
+import { Injectable } from '@angular/core';
+import type { OnDestroy , NgZone } from '@angular/core';
 import {
   clarificationOptionSelectionSchema,
   clarificationPromptRequestSchema,
@@ -9,11 +9,11 @@ import { from, of, throwError } from 'rxjs';
 import type { Observable } from 'rxjs';
 import { catchError, map, tap } from 'rxjs/operators';
 
-import { Logger } from '../../core/services/logger.service';
+import type { Logger } from '../../core/services/logger.service';
 import { IPC_CHANNELS } from '../../shared/ipc-channel.tokens';
 import type { ClarifyOkrApi } from '../../shared/window';
 
-import { SyncClarificationState } from './sync-clarification-state.service';
+import type { SyncClarificationState } from './sync-clarification-state.service';
 
 @Injectable({ providedIn: 'root' })
 export class ClarificationOrchestratorService implements OnDestroy {

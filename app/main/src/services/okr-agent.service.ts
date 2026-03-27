@@ -31,15 +31,15 @@ import { LlmCircuitBreaker, type CircuitBreakerMetrics } from './llm-circuit-bre
  * Context object containing the history of clarification turns.
  * Tracks user selections through the wizard flow.
  */
-type ClarificationContext = {
+interface ClarificationContext {
   /** Array of question-answer pairs from the clarification session */
   turns: Array<{ questionId: string; optionId: string; timestamp: string }>;
-};
+}
 
 /**
  * Represents the user's most recent selection in the clarification flow.
  */
-type LastChoice = { questionId: string; optionId: string };
+interface LastChoice { questionId: string; optionId: string }
 
 /**
  * Performance metrics for monitoring the OKR agent service.

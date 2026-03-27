@@ -1,4 +1,5 @@
-import { test as base, _electron as electron, ElectronApplication, Page } from '@playwright/test';
+import type { ElectronApplication, Page } from '@playwright/test';
+import { test as base, _electron as electron } from '@playwright/test';
 import type { BrowserWindow } from 'electron';
 import { existsSync, promises as fs } from 'node:fs';
 import {
@@ -24,7 +25,7 @@ import { startXvfb, stopXvfb, isXvfbAvailable } from '../helpers/xvfb-config';
  * E2E test fixtures interface.
  * Defines all available fixtures for E2E tests.
  */
-type E2EFixtures = {
+interface E2EFixtures {
   /**
    * Mock server for controlling LLM API responses.
    * Uses a simple HTTP server to respond to requests from Electron main process.
@@ -66,7 +67,7 @@ type E2EFixtures = {
      */
     evaluate: ElectronApplication['evaluate'];
   };
-};
+}
 
 /**
  * Clean up persistence files between tests.

@@ -10,11 +10,12 @@ import { BehaviorSubject } from 'rxjs';
 import type { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 
-import { Logger } from '../../core/services/logger.service';
+import type { Logger } from '../../core/services/logger.service';
 import { IPC_CHANNELS } from '../../shared/ipc-channel.tokens';
 import type { ClarifyOkrApi } from '../../shared/window';
 
-import { OkrProjectionService, type OkrStickyViewModel } from './okr-projection.service';
+import type { OkrProjectionService} from './okr-projection.service';
+import { type OkrStickyViewModel } from './okr-projection.service';
 
 @Injectable({ providedIn: 'root' })
 export class OkrStickyGatewayService implements OnDestroy {

@@ -3,7 +3,8 @@
  * 用于 CI 环境中的虚拟显示
  */
 
-import { spawn, ChildProcess, execSync } from 'child_process';
+import type { ChildProcess} from 'child_process';
+import { spawn, execSync } from 'child_process';
 
 let xvfbProcess: ChildProcess | null = null;
 

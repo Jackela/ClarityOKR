@@ -20,7 +20,7 @@ import {
 
 import { ProgressIndicatorComponent } from '../../shared/components/progress-indicator.component';
 import { SkeletonComponent } from '../../shared/components/skeleton.component';
-import { SyncClarificationState } from '../services/sync-clarification-state.service';
+import type { SyncClarificationState } from '../services/sync-clarification-state.service';
 
 @Component({
   selector: 'clarityokr-clarification-wizard',

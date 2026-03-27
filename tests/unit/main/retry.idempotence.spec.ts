@@ -3,8 +3,28 @@ import { ClarificationController } from '@clarityokr/main/windows/clarification-
 import { OkrAgentService } from '@clarityokr/main/services/okr-agent.service';
 import { jest } from '@jest/globals';
 
-const handlers: Record<string, Function> = {};
+const handlers: Record<string, (event: unknown, ...args: unknown[]) => unknown> = {};
 const electStub = {
+  ipcMain: {
+    handle: (channel: string, cb: (event: unknown, ...args: unknown[]) => unknown) => {
+      handlers[channel] = cb;
+    },
+    on: (_: string, __: (event: unknown, ...args: unknown[]) => void) => void 0,
+  },
+  webContents: {
+    getAllWebContents: () => [],
+    fromId: (_: number) => ({ send: (_ch: string, _payload: unknown) => void 0 }),
+  },
+} as {
+  ipcMain: {
+    handle: (channel: string, cb: (event: unknown, ...args: unknown[]) => unknown) => void;
+    on: (channel: string, cb: (event: unknown, ...args: unknown[]) => void) => void;
+  };
+  webContents: {
+    getAllWebContents: () => Array<{ send: (channel: string, payload: unknown) => void }>;
+    fromId: (id: number) => { send: (channel: string, payload: unknown) => void };
+  };
+};
   ipcMain: {
     handle: (channel: string, cb: Function) => {
       handlers[channel] = cb;
@@ -31,7 +51,9 @@ class SessionRepositoryStub {
   async load() {
     return this.state;
   }
-  async saveSession(s: any) {
+  async saveSession(s: unknown) {
+    this.state.session = s as typeof this.state.session;
+  }
     this.state.session = s;
   }
 }
@@ -82,7 +104,8 @@ describe('Retry idempotence', () => {
         },
       });
 
-    // @ts-ignore use stubs
+    // @ts-expect-error - using stubs that satisfy API surface, constructor expects full Electron type
+    new ClarificationController(
     new ClarificationController(
       sessionRepo,
       new OkrRepositoryStub(),

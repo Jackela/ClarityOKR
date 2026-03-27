@@ -4,7 +4,7 @@ import type { Observable } from 'rxjs';
 import { finalize, tap } from 'rxjs/operators';
 import type { ClarificationContext, LastChoice } from '@clarityokr/contracts';
 
-import { TelemetryService } from '../../services/telemetry.service';
+import type { TelemetryService } from '../../services/telemetry.service';
 import { IPC_CHANNELS } from '../../shared/ipc-channel.tokens';
 import type { ClarifyOkrApi } from '../../shared/window';
 

@@ -1,11 +1,12 @@
 import { Injectable, inject } from '@angular/core';
 import type { ClarificationPrompt } from '@clarityokr/contracts';
 
-import { Logger } from '../../core/services/logger.service';
-import {
-  ClarificationStateMachine,
+import type { Logger } from '../../core/services/logger.service';
+import type {
   ErrorInfo,
-  WorkflowState,
+  WorkflowState} from './clarification-state-machine.service';
+import {
+  ClarificationStateMachine
 } from './clarification-state-machine.service';
 
 /**

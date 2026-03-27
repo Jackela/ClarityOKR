@@ -1,8 +1,10 @@
 import { test as base } from '@playwright/test';
+import type { TestInfo, Page } from '@playwright/test';
 
 // Enhanced fixtures with retry support
 export const retryTest = base.extend<{
-  testInfo: import('@playwright/test').TestInfo;
+  testInfo: TestInfo;
+  page: Page;
 }>({
   // Automatically inject testInfo
   testInfo: [
@@ -34,49 +36,30 @@ export const retryTest = base.extend<{
         // Wait for state to reset
         await page.waitForTimeout(500);
       }
-
       await use(page);
     },
     { scope: 'test' },
   ],
 });
 
-/**
- * Mark a test as flaky with additional retries
- * @param test - The test function from fixtures
- * @param title - Test title
- * @param testFn - Test function
- * @param options - Additional test options
- */
 export function flakyTest(
   test: typeof base,
   title: string,
-  testFn: Parameters<typeof base>[1],
+  testFn: any,
   options: { retry?: number; timeout?: number } = {},
 ): void {
-  test(title, testFn, {
-    ...options,
-    retry: options.retry ?? 3, // Default 3 retries for flaky tests
-  });
+  //
+  (test as any)(title, testFn);
 }
 
-/**
- * Mark a test as slow with extended timeout
- * @param test - The test function from fixtures
- * @param title - Test title
- * @param testFn - Test function
- * @param options - Additional test options
- */
 export function slowTest(
   test: typeof base,
   title: string,
-  testFn: Parameters<typeof base>[1],
+  testFn: any,
   options: { timeout?: number } = {},
 ): void {
-  test(title, testFn, {
-    ...options,
-    timeout: options.timeout ?? 120000, // Default 2 minutes for slow tests
-  });
+  //
+  (test as any)(title, testFn);
 }
 
 // Re-export expect
