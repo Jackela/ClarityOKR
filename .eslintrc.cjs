@@ -30,9 +30,8 @@ module.exports = {
     '@typescript-eslint/no-non-null-assertion': 'warn',
 
     // 代码风格 - 临时禁用以通过CI (太多遗留代码需要修复)
-    '@typescript-eslint/consistent-type-imports': 'off',
-    '@typescript-eslint/consistent-type-definitions': 'off',
-    '@typescript-eslint/no-unused-vars': 'off',
+    '@typescript-eslint/consistent-type-imports': 'error',
+    '@typescript-eslint/consistent-type-definitions': ['error', 'interface'],
 
     // 额外严格规则
     '@typescript-eslint/ban-ts-comment': [

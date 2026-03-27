@@ -39,7 +39,6 @@
     "@ampproject/remapping": "^2.3.0",
     "@angular-devkit/build-angular": "17.3.12",
     "@playwright/test": "^1.44.0",
-    "@types/jasmine": "4.3.6",
     "@types/node": "^20.12.7",
     "@typescript-eslint/eslint-plugin": "^7.8.0",
     "@typescript-eslint/parser": "^7.8.0",
@@ -48,18 +47,11 @@
     "eslint-import-resolver-typescript": "^4.4.4",
     "eslint-plugin-import": "^2.29.1",
     "get-port": "^7.0.0",
-    "jasmine-core": "5.1.1",
     "jest-environment-jsdom": "^29.7.0",
     "jest-preset-angular": "^14.2.1",
-    "karma": "6.4.2",
-    "karma-chrome-launcher": "3.2.0",
-    "karma-coverage": "2.2.0",
-    "karma-jasmine": "5.1.0",
-    "karma-jasmine-html-reporter": "2.1.0",
     "prettier": "^3.2.5",
     "rimraf": "^5.0.5",
     "typescript": "~5.4.5"
   },
-  "main": "app/main/dist/main.js",
-  "dependencies": {}
+  "main": "app/main/dist/main.js"
 }
