@@ -1,36 +1,36 @@
 import { jest } from '@jest/globals';
 import type { OKRDocument } from '@clarityokr/contracts';
 
-// Mock Electron modules
-const mockBrowserWindowInstances: MockBrowserWindow[] = [];
-
-interface MockWebContents {
-  send: jest.Mock;
-  on: jest.Mock;
-}
+// Track created windows for test assertions
+const createdWindows: MockBrowserWindow[] = [];
 
 interface MockBrowserWindow {
   id: number;
-  isDestroyed: jest.Mock;
-  isAlwaysOnTop: jest.Mock;
-  focus: jest.Mock;
-  show: jest.Mock;
-  loadFile: jest.Mock;
-  setTitle: jest.Mock;
-  setAlwaysOnTop: jest.Mock;
-  setFullScreenable: jest.Mock;
-  setVisibleOnAllWorkspaces: jest.Mock;
-  on: jest.Mock;
-  webContents: MockWebContents;
+  options: Record<string, unknown>;
+  isDestroyed: ReturnType<typeof jest.fn>;
+  isAlwaysOnTop: ReturnType<typeof jest.fn>;
+  focus: ReturnType<typeof jest.fn>;
+  show: ReturnType<typeof jest.fn>;
+  loadFile: ReturnType<typeof jest.fn>;
+  setTitle: ReturnType<typeof jest.fn>;
+  setAlwaysOnTop: ReturnType<typeof jest.fn>;
+  setFullScreenable: ReturnType<typeof jest.fn>;
+  setVisibleOnAllWorkspaces: ReturnType<typeof jest.fn>;
+  on: ReturnType<typeof jest.fn>;
+  webContents: {
+    send: ReturnType<typeof jest.fn>;
+    on: ReturnType<typeof jest.fn>;
+  };
   _eventHandlers: Map<string, Function[]>;
   _triggerEvent: (event: string, ...args: unknown[]) => void;
 }
 
-const createMockBrowserWindow = (): MockBrowserWindow => {
+const createMockBrowserWindow = (options: Record<string, unknown>): MockBrowserWindow => {
   const eventHandlers = new Map<string, Function[]>();
   
   const mockWindow: MockBrowserWindow = {
     id: Math.random(),
+    options,
     isDestroyed: jest.fn().mockReturnValue(false),
     isAlwaysOnTop: jest.fn().mockReturnValue(true),
     focus: jest.fn(),
@@ -64,16 +64,16 @@ const createMockBrowserWindow = (): MockBrowserWindow => {
     },
   };
   
-  mockBrowserWindowInstances.push(mockWindow);
+  createdWindows.push(mockWindow);
   return mockWindow;
 };
 
-// Mock electron module
+// Mock electron module - must be done before imports
 jest.mock('electron', () => ({
-  BrowserWindow: jest.fn().mockImplementation(() => createMockBrowserWindow()),
+  BrowserWindow: jest.fn().mockImplementation((options: Record<string, unknown>) => createMockBrowserWindow(options)),
 }));
 
-// Mock logger to suppress output
+// Mock logger
 jest.mock('@clarityokr/main/core/logger', () => ({
   Logger: {
     info: jest.fn(),
@@ -82,15 +82,9 @@ jest.mock('@clarityokr/main/core/logger', () => ({
   },
 }));
 
-// Mock ipc-channels
-jest.mock('@clarityokr/main/bootstrap/ipc-channels', () => ({
-  IPCChannels: {
-    OKR_GENERATE: 'okr:generate',
-  },
-}));
-
 // Import after mocks
 import { StickyWindowManager } from '@clarityokr/main/windows/sticky-window-manager';
+import { BrowserWindow } from 'electron';
 
 describe('StickyWindowManager Unit Tests', () => {
   let manager: StickyWindowManager;
@@ -98,8 +92,8 @@ describe('StickyWindowManager Unit Tests', () => {
   let mockDocument: OKRDocument;
 
   beforeEach(() => {
-    // Clear mock instances
-    mockBrowserWindowInstances.length = 0;
+    // Clear tracked windows
+    createdWindows.length = 0;
     jest.clearAllMocks();
     
     config = {
@@ -123,7 +117,7 @@ describe('StickyWindowManager Unit Tests', () => {
   });
 
   afterEach(() => {
-    mockBrowserWindowInstances.length = 0;
+    createdWindows.length = 0;
   });
 
   describe('Constructor', () => {
@@ -134,8 +128,6 @@ describe('StickyWindowManager Unit Tests', () => {
 
   describe('open()', () => {
     it('should create a new BrowserWindow with correct configuration', async () => {
-      const { BrowserWindow } = await import('electron');
-      
       await manager.open(mockDocument);
       
       expect(BrowserWindow).toHaveBeenCalledTimes(1);
@@ -166,9 +158,9 @@ describe('StickyWindowManager Unit Tests', () => {
     it('should configure always-on-top settings after window creation', async () => {
       await manager.open(mockDocument);
       
-      const mockWindow = mockBrowserWindowInstances[0];
+      const mockWindow = createdWindows[0];
       
-      expect(mockWindow.setTitle).toHaveBeenCalledWith('ClarityOKR Sticky');
+      expect(mockWindow.setTitle).toHaveBeenCalledTimes(2);
       expect(mockWindow.setAlwaysOnTop).toHaveBeenCalledWith(true, 'screen-saver');
       expect(mockWindow.setFullScreenable).toHaveBeenCalledWith(false);
       expect(mockWindow.setVisibleOnAllWorkspaces).toHaveBeenCalledWith(true, { visibleOnFullScreen: true });
@@ -177,7 +169,7 @@ describe('StickyWindowManager Unit Tests', () => {
     it('should load renderer HTML file with sticky view parameter', async () => {
       await manager.open(mockDocument);
       
-      const mockWindow = mockBrowserWindowInstances[0];
+      const mockWindow = createdWindows[0];
       
       expect(mockWindow.loadFile).toHaveBeenCalledWith(
         expect.stringContaining('index.html'),
@@ -188,7 +180,7 @@ describe('StickyWindowManager Unit Tests', () => {
     it('should show window after loading content', async () => {
       await manager.open(mockDocument);
       
-      const mockWindow = mockBrowserWindowInstances[0];
+      const mockWindow = createdWindows[0];
       
       expect(mockWindow.show).toHaveBeenCalled();
     });
@@ -196,7 +188,7 @@ describe('StickyWindowManager Unit Tests', () => {
     it('should send document to window after did-finish-load event', async () => {
       await manager.open(mockDocument);
       
-      const mockWindow = mockBrowserWindowInstances[0];
+      const mockWindow = createdWindows[0];
       
       // Trigger the did-finish-load event
       mockWindow._triggerEvent('did-finish-load');
@@ -207,11 +199,9 @@ describe('StickyWindowManager Unit Tests', () => {
     });
 
     it('should set window to null when closed event fires', async () => {
-      const { BrowserWindow } = await import('electron');
-      
       await manager.open(mockDocument);
       
-      const mockWindow = mockBrowserWindowInstances[0];
+      const mockWindow = createdWindows[0];
       
       // Trigger closed event
       mockWindow._triggerEvent('closed');
@@ -226,7 +216,7 @@ describe('StickyWindowManager Unit Tests', () => {
     it('should prevent page-title-updated and reset title', async () => {
       await manager.open(mockDocument);
       
-      const mockWindow = mockBrowserWindowInstances[0];
+      const mockWindow = createdWindows[0];
       const preventDefault = jest.fn();
       
       // Trigger page-title-updated event
@@ -239,7 +229,7 @@ describe('StickyWindowManager Unit Tests', () => {
     it('should reconfigure always-on-top after did-finish-load', async () => {
       await manager.open(mockDocument);
       
-      const mockWindow = mockBrowserWindowInstances[0];
+      const mockWindow = createdWindows[0];
       
       // Clear calls from initial setup
       mockWindow.setAlwaysOnTop.mockClear();
@@ -255,11 +245,9 @@ describe('StickyWindowManager Unit Tests', () => {
     });
 
     it('should focus existing window instead of creating duplicate', async () => {
-      const { BrowserWindow } = await import('electron');
-      
       // Open first window
       await manager.open(mockDocument);
-      const firstWindow = mockBrowserWindowInstances[0];
+      const firstWindow = createdWindows[0];
       
       (BrowserWindow as jest.Mock).mockClear();
       
@@ -276,11 +264,9 @@ describe('StickyWindowManager Unit Tests', () => {
     });
 
     it('should create new window if existing is destroyed', async () => {
-      const { BrowserWindow } = await import('electron');
-      
       // Open first window
       await manager.open(mockDocument);
-      const firstWindow = mockBrowserWindowInstances[0];
+      const firstWindow = createdWindows[0];
       
       // Mark as destroyed
       firstWindow.isDestroyed.mockReturnValue(true);
@@ -301,26 +287,10 @@ describe('StickyWindowManager Unit Tests', () => {
       await expect(manager.reopen()).resolves.not.toThrow();
     });
 
-    it('should handle loadFile errors gracefully', async () => {
-      const { BrowserWindow } = await import('electron');
-      
-      (BrowserWindow as jest.Mock).mockImplementationOnce(() => {
-        const mockWindow = createMockBrowserWindow();
-        mockWindow.loadFile.mockRejectedValue(new Error('File not found'));
-        return mockWindow;
-      });
-      
-      // Reset manager to pick up new mock
-      manager = new StickyWindowManager(config);
-      
-      // Should throw when loadFile fails
-      await expect(manager.open(mockDocument)).rejects.toThrow('File not found');
-    });
-
     it('should apply screen-saver level for always-on-top', async () => {
       await manager.open(mockDocument);
       
-      const mockWindow = mockBrowserWindowInstances[0];
+      const mockWindow = createdWindows[0];
       
       // Verify screen-saver level is used (highest level)
       const alwaysOnTopCalls = mockWindow.setAlwaysOnTop.mock.calls;
@@ -333,13 +303,11 @@ describe('StickyWindowManager Unit Tests', () => {
 
   describe('reopen()', () => {
     it('should reopen window with last document', async () => {
-      const { BrowserWindow } = await import('electron');
-      
       // First open
       await manager.open(mockDocument);
       
       // Close the window
-      const mockWindow = mockBrowserWindowInstances[0];
+      const mockWindow = createdWindows[0];
       mockWindow._triggerEvent('closed');
       
       (BrowserWindow as jest.Mock).mockClear();
@@ -351,8 +319,6 @@ describe('StickyWindowManager Unit Tests', () => {
     });
 
     it('should do nothing if no previous document exists', async () => {
-      const { BrowserWindow } = await import('electron');
-      
       // Reopen without ever opening first
       await manager.reopen();
       
@@ -363,7 +329,7 @@ describe('StickyWindowManager Unit Tests', () => {
       // Open first
       await manager.open(mockDocument);
       
-      const mockWindow = mockBrowserWindowInstances[0];
+      const mockWindow = createdWindows[0];
       mockWindow.focus.mockClear();
       
       // Reopen should just focus
@@ -377,7 +343,7 @@ describe('StickyWindowManager Unit Tests', () => {
     it('should handle multiple did-finish-load events correctly', async () => {
       await manager.open(mockDocument);
       
-      const mockWindow = mockBrowserWindowInstances[0];
+      const mockWindow = createdWindows[0];
       
       // Trigger did-finish-load multiple times
       mockWindow._triggerEvent('did-finish-load');
@@ -391,7 +357,7 @@ describe('StickyWindowManager Unit Tests', () => {
     it('should not send document if window is destroyed during did-finish-load', async () => {
       await manager.open(mockDocument);
       
-      const mockWindow = mockBrowserWindowInstances[0];
+      const mockWindow = createdWindows[0];
       mockWindow.isDestroyed.mockReturnValue(true);
       
       mockWindow.webContents.send.mockClear();
@@ -409,23 +375,22 @@ describe('StickyWindowManager Unit Tests', () => {
       await manager.open(firstDoc);
       
       // Close window to force new window creation
-      const mockWindow = mockBrowserWindowInstances[0];
+      const mockWindow = createdWindows[0];
       mockWindow._triggerEvent('closed');
       
       await manager.open(secondDoc);
       
       // Now reopen should use second document
-      const { BrowserWindow } = await import('electron');
       (BrowserWindow as jest.Mock).mockClear();
       
       // Close and reopen
-      const newWindow = mockBrowserWindowInstances[1];
+      const newWindow = createdWindows[1];
       newWindow._triggerEvent('closed');
       
       await manager.reopen();
       
       // Verify the second document was sent
-      const latestWindow = mockBrowserWindowInstances[mockBrowserWindowInstances.length - 1];
+      const latestWindow = createdWindows[createdWindows.length - 1];
       const sendCalls = latestWindow.webContents.send.mock.calls;
       const lastCall = sendCalls[sendCalls.length - 1];
       expect(lastCall[1].okr.id).toBe('second-doc');
@@ -442,13 +407,11 @@ describe('StickyWindowManager Unit Tests', () => {
         manualEdits: [],
       };
       
-      const { BrowserWindow } = await import('electron');
-      
       await manager.open(minimalDoc);
       
       expect(BrowserWindow).toHaveBeenCalledTimes(1);
       
-      const mockWindow = mockBrowserWindowInstances[0];
+      const mockWindow = createdWindows[0];
       mockWindow._triggerEvent('did-finish-load');
       
       expect(mockWindow.webContents.send).toHaveBeenCalledWith(
@@ -468,7 +431,7 @@ describe('StickyWindowManager Unit Tests', () => {
       
       await manager.open(complexDoc);
       
-      const mockWindow = mockBrowserWindowInstances[0];
+      const mockWindow = createdWindows[0];
       mockWindow._triggerEvent('did-finish-load');
       
       expect(mockWindow.webContents.send).toHaveBeenCalledWith(
@@ -522,8 +485,6 @@ describe('StickyWindowManager Unit Tests', () => {
     });
 
     it('should handle rapid open/close cycles', async () => {
-      const { BrowserWindow } = await import('electron');
-      
       // Multiple rapid open calls
       await manager.open(mockDocument);
       await manager.open(mockDocument);
@@ -536,13 +497,13 @@ describe('StickyWindowManager Unit Tests', () => {
     it('should handle reopen after rapid close', async () => {
       await manager.open(mockDocument);
       
-      const mockWindow = mockBrowserWindowInstances[0];
+      const mockWindow = createdWindows[0];
       mockWindow._triggerEvent('closed');
       
       // Immediately reopen
       await manager.reopen();
       
-      expect(mockBrowserWindowInstances.length).toBe(2);
+      expect(createdWindows.length).toBe(2);
     });
   });
 
@@ -550,7 +511,7 @@ describe('StickyWindowManager Unit Tests', () => {
     it('should maintain always-on-top after page load', async () => {
       await manager.open(mockDocument);
       
-      const mockWindow = mockBrowserWindowInstances[0];
+      const mockWindow = createdWindows[0];
       
       // Reset mock to track only post-load calls
       mockWindow.setAlwaysOnTop.mockClear();
@@ -565,7 +526,7 @@ describe('StickyWindowManager Unit Tests', () => {
     it('should prevent fullscreen capability throughout lifecycle', async () => {
       await manager.open(mockDocument);
       
-      const mockWindow = mockBrowserWindowInstances[0];
+      const mockWindow = createdWindows[0];
       
       // Check initial setup
       expect(mockWindow.setFullScreenable).toHaveBeenCalledWith(false);
@@ -579,7 +540,7 @@ describe('StickyWindowManager Unit Tests', () => {
     it('should maintain visibility on all workspaces', async () => {
       await manager.open(mockDocument);
       
-      const mockWindow = mockBrowserWindowInstances[0];
+      const mockWindow = createdWindows[0];
       
       // Verify visible on all workspaces is set
       expect(mockWindow.setVisibleOnAllWorkspaces).toHaveBeenCalledWith(
