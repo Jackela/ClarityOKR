@@ -1,6 +1,5 @@
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import type { ClarificationPrompt } from '@clarityokr/contracts';
-import { vi, describe, it, expect } from 'vitest';
 
 import { SyncClarificationState } from '../services/sync-clarification-state.service';
 import { ClarificationWizardComponent } from './clarification-wizard.component';
@@ -57,10 +56,12 @@ describe('ClarificationWizardComponent', () => {
     fixture.detectChanges();
 
     const optionNodes = fixture.nativeElement.querySelectorAll(
-      'button.option',
+      '[data-testid="clarification-option"]',
     ) as NodeListOf<HTMLButtonElement>;
     const buttons: HTMLButtonElement[] = Array.from(optionNodes);
-    const optionSelectedSpy = vi.fn();
+    expect(buttons.length).toBeGreaterThan(0);
+    
+    const optionSelectedSpy = jest.fn();
     component.optionSelected.subscribe(optionSelectedSpy);
 
     // When: user clicks first option
@@ -70,41 +71,43 @@ describe('ClarificationWizardComponent', () => {
     expect(optionSelectedSpy).toHaveBeenCalledWith('opt-1');
   });
 
-  it('disables generate button until ready flag is true', () => {
-    // Given: component in prompting state with generate not ready
+  it('disables generate button until selection is made', () => {
+    // Given: component in prompting state with no selection (not ready)
     setupPromptingState();
-    state.setReady(false);
     fixture.detectChanges();
 
     const generateButton = fixture.nativeElement.querySelector(
-      'button.generate',
+      '[data-testid="clarification-generate"]',
     ) as HTMLButtonElement | null;
+    expect(generateButton).toBeTruthy();
     expect(generateButton?.disabled).toBe(true);
 
-    // When: component becomes ready to generate
-    state.setReady(true);
+    // When: user makes a selection (which makes component ready to generate)
+    state.recordSelection('prompt-1', 'opt-1');
     fixture.detectChanges();
 
     // Then: generate button should be enabled
     const updatedButton = fixture.nativeElement.querySelector(
-      'button.generate',
+      '[data-testid="clarification-generate"]',
     ) as HTMLButtonElement | null;
     expect(updatedButton?.disabled).toBe(false);
   });
 
   it('emits generate event when generate button is clicked', () => {
-    // Given: component in ready state
+    // Given: component in ready state (after selection)
     setupPromptingState();
-    state.setReady(true);
+    state.recordSelection('prompt-1', 'opt-1');
     fixture.detectChanges();
 
-    const generateSpy = vi.fn();
+    const generateSpy = jest.fn();
     component.generate.subscribe(generateSpy);
 
     const generateButton = fixture.nativeElement.querySelector(
-      'button.generate',
+      '[data-testid="clarification-generate"]',
     ) as HTMLButtonElement;
 
+    expect(generateButton).toBeTruthy();
+    
     // When: user clicks generate button
     generateButton.click();
 
@@ -117,10 +120,11 @@ describe('ClarificationWizardComponent', () => {
     setupErrorState('Test error', true);
     fixture.detectChanges();
 
-    const retrySpy = vi.fn();
+    const retrySpy = jest.fn();
     component.retry.subscribe(retrySpy);
 
-    const retryButton = fixture.nativeElement.querySelector('button.retry') as HTMLButtonElement;
+    const retryButton = fixture.nativeElement.querySelector('[data-testid="retry-button"]') as HTMLButtonElement;
+    expect(retryButton).toBeTruthy();
 
     // When: user clicks retry button
     retryButton.click();
@@ -141,15 +145,14 @@ describe('ClarificationWizardComponent', () => {
     expect(errorElement.textContent).toContain(errorMessage);
   });
 
-  it('displays loading indicator when loading', () => {
+  it('displays loading state when loading', () => {
     // Given: component in loading state
     state.setLoading(true);
     fixture.detectChanges();
 
-    // Then: loading indicator should be displayed
-    const loadingElement = fixture.nativeElement.querySelector(
-      '[data-testid="clarification-loading"]',
-    );
-    expect(loadingElement).toBeTruthy();
+    // Then: loading state should be displayed (skeleton or loading indicator)
+    // The component shows skeleton components during loading
+    const skeletonElement = fixture.nativeElement.querySelector('clarityokr-skeleton');
+    expect(skeletonElement).toBeTruthy();
   });
 });
