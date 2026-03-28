@@ -1,4 +1,9 @@
-<section class="sticky-note" *ngIf="okr as viewModel">
+<section
+  class="sticky-note"
+  role="main"
+  aria-label="OKR 便签"
+  *ngIf="okr as viewModel"
+>
   <header class="sticky-note__header">
     <h1 data-testid="sticky-objective">{{ viewModel.objective }}</h1>
     <div class="sticky-note__meta">
@@ -19,16 +24,31 @@
         含手动修改
       </span>
     </div>
-    <button type="button" class="sticky-note__action" data-testid="sticky-add-kr" (click)="addKr.emit()">
+    <button
+      type="button"
+      class="sticky-note__action"
+      data-testid="sticky-add-kr"
+      aria-label="添加关键结果"
+      (click)="addKr.emit()"
+      (keydown.enter)="addKr.emit()"
+      (keydown.space)="addKr.emit()"
+    >
       添加关键结果
     </button>
   </header>
 
-  <ol class="sticky-note__list">
+  <ol
+    class="sticky-note__list"
+    role="list"
+    aria-label="关键结果列表"
+  >
     <li
       class="sticky-note__item"
+      role="listitem"
       *ngFor="let kr of viewModel.keyResults; trackBy: trackByKeyResultId"
       data-testid="sticky-key-result"
+      tabindex="0"
+      [attr.aria-label]="kr.statement"
     >
       <div class="sticky-note__item-text">{{ kr.statement }}</div>
       <div class="sticky-note__item-badges">

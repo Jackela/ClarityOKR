@@ -1,4 +1,14 @@
-import { Injectable } from '@angular/core';
+/**
+ * LLM Gateway Service - Communicates with LLM via IPC
+ *
+ * This service provides an Observable-based interface for interacting
+ * with the LLM service in the main process. It handles:
+ * - Fetching next clarification questions
+ * - Generating OKR drafts from context
+ * - Telemetry tracking for performance monitoring
+ *
+ * Uses Electron IPC channels to communicate with the main process.
+ */
 import { defer } from 'rxjs';
 import type { Observable } from 'rxjs';
 import { finalize, tap } from 'rxjs/operators';
@@ -15,10 +25,20 @@ function bridgeOrThrow(): ClarifyOkrApi {
 }
 
 @Injectable({ providedIn: 'root' })
+/**
+ * Service for LLM communication via IPC bridge
+ */
 export class LlmGatewayService {
   constructor(private readonly telemetry: TelemetryService) {}
 
   getNextQuestion(context: ClarificationContext, lastChoice: LastChoice): Observable<unknown> {
+/**
+ * Gets the next clarification question based on current context.
+ *
+ * @param context - Current clarification context with previous turns
+ * @param lastChoice - The last option selected by the user
+ * @returns Observable emitting the next question response
+ */
     const bridge = bridgeOrThrow();
     const started = performance.now();
     return defer(() => bridge.invoke(IPC_CHANNELS.LLM_NEXT_QUESTION, { context, lastChoice })).pipe(
@@ -28,6 +48,12 @@ export class LlmGatewayService {
   }
 
   generateDraft(context: ClarificationContext): Observable<unknown> {
+/**
+ * Generates an OKR draft from the current clarification context.
+ *
+ * @param context - Current clarification context with all turns
+ * @returns Observable emitting the draft response
+ */
     const bridge = bridgeOrThrow();
     const started = performance.now();
     return defer(() => bridge.invoke(IPC_CHANNELS.LLM_GENERATE_DRAFT, { context })).pipe(

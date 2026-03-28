@@ -22,6 +22,7 @@ module.exports = {
     '^@clarityokr/(.*)$': '<rootDir>/../../packages/$1/src/index.ts',
     '^@clarityokr/main/(.*)$': '<rootDir>/../../app/main/src/$1',
     '^electron$': '<rootDir>/__mocks__/electron.ts',
+    '^(\\.{1,2}/.*)\\.js$': '$1',
   },
   testPathIgnorePatterns: ['/node_modules/'],
 };

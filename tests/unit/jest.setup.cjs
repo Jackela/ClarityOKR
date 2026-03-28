@@ -34,3 +34,7 @@ global.ng = {
 
 // Set test environment
 process.env.NODE_ENV = 'test';
+
+// Provide require() for ESM context (needed for T035 edit-mode store tests)
+const { createRequire } = require('module');
+global.require = createRequire(__filename);

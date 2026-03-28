@@ -9,11 +9,11 @@ module.exports = {
     '<rootDir>/okr-sticky',
     '<rootDir>/main',
     '<rootDir>/lib',
-    '<rootDir>/services', // 任务19.2-19.3: Service单元测试
-    '<rootDir>/controllers', // 任务19.1: Controller单元测试
-    '<rootDir>/persistence', // 持久化测试
-    '<rootDir>/telemetry', // 遥测测试
-    '<rootDir>/windows', // Window management tests
+    '<rootDir>/services',
+    '<rootDir>/controllers',
+    '<rootDir>/persistence',
+    '<rootDir>/telemetry',
+    '<rootDir>/windows',
   ],
   testPathIgnorePatterns: ['/node_modules/'],
   extensionsToTreatAsEsm: ['.ts'],
@@ -32,13 +32,14 @@ module.exports = {
     '^(\\.{1,2}/.*)\\.js$': '$1',
     '^@clarityokr/contracts$': '<rootDir>/../../packages/contracts/src/index.ts',
     '^@clarityokr/main/(.*)$': '<rootDir>/../../app/main/src/$1',
+    '^@clarityokr/renderer/app/okr-sticky/stores/edit-mode.store$':
+      '<rootDir>/__mocks__/angular-renderer/app/okr-sticky/stores/edit-mode.store.cjs',
     '^@clarityokr/renderer/(.*)$': '<rootDir>/__mocks__/angular-renderer/$1',
     '^@angular/core$': '<rootDir>/__mocks__/angular-core.ts',
     '^rxjs$': '<rootDir>/__mocks__/rxjs.ts',
     '^electron$': '<rootDir>/__mocks__/electron.ts',
     '^.*secure-storage.service\\.js$': '<rootDir>/__mocks__/secure-storage.service.ts',
   },
-  // 任务19.8: 配置覆盖率报告
   collectCoverageFrom: [
     '../../app/main/src/**/*.ts',
     '../../app/renderer/src/**/*.ts',
@@ -57,6 +58,5 @@ module.exports = {
       statements: 80,
     },
   },
-  // 收集覆盖率时包含所有源文件
   collectCoverage: process.env.COVERAGE === 'true',
 };

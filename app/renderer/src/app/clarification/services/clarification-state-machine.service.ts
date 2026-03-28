@@ -5,6 +5,15 @@ import type { Logger } from '../../core/services/logger.service';
 import { environment } from '../../../environments/environment';
 
 /**
+ * Unified workflow state types
+ * - idle: Initial/idle state
+ * - loading: Loading data
+ * - prompting: Showing clarification prompt
+ * - ready: Ready to generate OKRs
+ * - generating: Generating OKR
+ * - completed: Process completed
+ * - error: Error state
+ */
  * 统一的状态类型
  */
 export type WorkflowState =
@@ -16,7 +25,7 @@ export type WorkflowState =
   | 'completed' // 已完成
   | 'error'; // 错误状态
 
-/**
+/** State transition actions dispatched to the state machine */
  * 状态转换动作
  */
 export type StateAction =
@@ -33,7 +42,7 @@ export type StateAction =
   | { type: 'SET_INTENT'; payload: { intent: string } }
   | { type: 'RESET' };
 
-/**
+/** Error information with message and recoverability flag */
  * 错误信息
  */
 export interface ErrorInfo {
@@ -41,7 +50,7 @@ export interface ErrorInfo {
   recoverable: boolean;
 }
 
-/**
+/** Complete clarification state structure */
  * 状态结构
  */
 export interface ClarificationState {
@@ -57,7 +66,7 @@ export interface ClarificationState {
   history: ClarificationPrompt[];
 }
 
-/**
+/** Initial state factory */
  * 初始状态
  */
 const INITIAL_STATE: ClarificationState = {
@@ -73,7 +82,7 @@ const INITIAL_STATE: ClarificationState = {
   history: [],
 };
 
-/**
+/** State transition rules defining valid transitions from each state */
  * 状态转换规则
  */
 const VALID_TRANSITIONS: Record<WorkflowState, readonly WorkflowState[]> = {
@@ -87,6 +96,27 @@ const VALID_TRANSITIONS: Record<WorkflowState, readonly WorkflowState[]> = {
 };
 
 /**
+ * ClarificationStateMachine - Unified state machine for clarification workflow
+ *
+ * Architecture: StateMachine as single source of truth, Signals as derived views
+ * - All state transitions via dispatch(action)
+ * - Reducer ensures state consistency
+ * - Computed signals provide derived state
+ *
+ * @example
+ * ```typescript
+ * // Use in component
+ * constructor(private stateMachine: ClarificationStateMachine) {}
+ *
+ * // Read derived state
+ * const prompt = this.stateMachine.currentPrompt();
+ * const isReady = this.stateMachine.isReadyToGenerate();
+ *
+ * // Trigger state transitions
+ * this.stateMachine.start('Improve team efficiency');
+ * this.stateMachine.recordSelection('prompt-1', 'option-a');
+ * ```
+ */
  * ClarificationStateMachine - 统一的状态机
  *
  * 架构: StateMachine作为单一数据源，Signals作为派生视图
@@ -115,65 +145,76 @@ export class ClarificationStateMachine {
 
   // === 派生的只读 Signals ===
 
-  /** 当前工作流状态 */
+  /** Current workflow state */
   readonly workflowState = computed(() => this._state().workflowState);
 
-  /** 当前澄清提示 */
+  /** Current clarification prompt */
   readonly currentPrompt = computed(() => this._state().currentPrompt);
 
-  /** 是否加载中 */
+  /** Whether data is loading */
   readonly isLoading = computed(() => this._state().isLoading);
 
-  /** 错误信息 */
+  /** Error information if any */
   readonly error = computed(() => this._state().error);
 
-  /** 是否准备好生成OKR */
+  /** Whether ready to generate OKR */
   readonly isReadyToGenerate = computed(() => this._state().isReadyToGenerate);
 
-  /** 用户选择记录 */
+  /** User selection records */
   readonly selections = computed(() => this._state().selections);
 
-  /** 会话ID */
+  /** Active session ID */
   readonly sessionId = computed(() => this._state().sessionId);
 
-  /** 验证错误信息 */
+  /** Validation error message */
   readonly validationError = computed(() => this._state().validationError);
 
-  /** 用户意图 */
+  /** User intent */
   readonly intent = computed(() => this._state().intent);
 
-  /** 历史记录 */
+  /** History of prompts shown */
   readonly history = computed(() => this._state().history);
 
   // === 计算属性 Signals ===
 
-  /** 是否有错误 */
+  /** Whether there is an error */
   readonly hasError = computed(() => this._state().error !== null);
 
-  /** 选择数量 */
+  /** Number of selections made */
   readonly selectionCount = computed(() => Object.keys(this._state().selections).length);
 
-  /** 是否有提示 */
+  /** Whether a prompt is currently shown */
   readonly hasPrompt = computed(() => this._state().currentPrompt !== null);
 
-  /** 错误消息文本 */
+  /** Error message text or null */
   readonly errorMessage = computed(() => this._state().error?.message ?? null);
 
-  /** 当前选择 */
+  /** Current selection for the active prompt */
   readonly currentSelection = computed(() => {
     const prompt = this._state().currentPrompt;
     if (!prompt) return null;
     return this._state().selections[prompt.id] ?? null;
   });
 
-  /** 已选择的选项ID列表 */
+  /** List of selected option IDs */
   readonly selectedOptionIds = computed(() => Object.values(this._state().selections));
 
   constructor(private readonly logger: Logger) {
     this.logger.debug('[STATE-MACHINE] Initialized');
   }
 
-  // === 状态转换方法 (业务逻辑层) ===
+  // === State transition methods (business logic layer) ===
+
+  /**
+   * Starts a new clarification workflow.
+   * Triggers: START action -> loading state
+   *
+   * @param intent - User's initial goal/intent description
+   *
+   * @example
+   * stateMachine.start('Improve team efficiency');
+   * // State: idle -> loading
+   */
 
   /**
    * 开始新的澄清流程
@@ -191,6 +232,19 @@ export class ClarificationStateMachine {
   }
 
   /**
+   * Sets the current clarification prompt.
+   * Triggers: SET_PROMPT action -> prompting state
+   *
+   * @param prompt - The clarification prompt to display
+   *
+   * @example
+   * stateMachine.setPrompt({
+   *   id: 'prompt-1',
+   *   question: 'Select your goal type',
+   *   options: [...]
+   * });
+   * // State: loading -> prompting
+   */
    * 设置当前澄清提示
    * 触发: SET_PROMPT action -> prompting 状态
    *
@@ -210,6 +264,11 @@ export class ClarificationStateMachine {
   }
 
   /**
+   * Sets the loading state.
+   *
+   * @param loading - Whether data is loading
+   * @param intent - Optional intent (set only when starting load)
+   */
    * 设置加载状态
    *
    * @param loading - 是否加载中
@@ -224,7 +283,18 @@ export class ClarificationStateMachine {
   }
 
   /**
-   * 设置错误状态
+   * Sets error state.
+   * Triggers: SET_ERROR action -> error state
+   *
+   * @param error - Error message string or object
+   *
+   * @example
+   * stateMachine.setError('Network connection failed');
+   * // State: * -> error
+   *
+   * stateMachine.setError({ message: 'Validation failed', recoverable: false });
+   * // State: * -> error, non-recoverable
+   */
    * 触发: SET_ERROR action -> error 状态
    *
    * @param error - 错误信息字符串或对象
@@ -243,6 +313,10 @@ export class ClarificationStateMachine {
   }
 
   /**
+   * Clears error state.
+   * Triggers: CLEAR_ERROR action
+   * Automatically returns to previous valid state or idle
+   */
    * 清除错误状态
    * 触发: CLEAR_ERROR action
    * 自动回到上一个有效状态或 idle
@@ -253,6 +327,17 @@ export class ClarificationStateMachine {
   }
 
   /**
+   * Records user selection.
+   * Triggers: RECORD_SELECTION action
+   * Automatically checks if ready to generate (at least 1 selection)
+   *
+   * @param promptId - The prompt ID
+   * @param optionId - The selected option ID
+   *
+   * @example
+   * stateMachine.recordSelection('prompt-1', 'option-a');
+   * // If at least 1 selection: prompting -> ready
+   */
    * 记录用户选择
    * 触发: RECORD_SELECTION action
    * 自动检查是否准备好生成(至少1个选择)
@@ -270,6 +355,9 @@ export class ClarificationStateMachine {
   }
 
   /**
+   * Sets the session ID.
+   * @param sessionId - The session ID or null
+   */
    * 设置会话ID
    * @param sessionId - 会话ID或null
    */
@@ -279,6 +367,9 @@ export class ClarificationStateMachine {
   }
 
   /**
+   * Sets validation error.
+   * @param message - Error message or null
+   */
    * 设置验证错误
    * @param message - 错误消息或null
    */
@@ -288,6 +379,9 @@ export class ClarificationStateMachine {
   }
 
   /**
+   * Sets user intent.
+   * @param intent - User intent
+   */
    * 设置意图
    * @param intent - 用户意图
    */
@@ -297,6 +391,9 @@ export class ClarificationStateMachine {
   }
 
   /**
+   * Sets state to generating.
+   * Triggers: SET_GENERATING action -> generating state
+   */
    * 设置为生成中状态
    * 触发: SET_GENERATING action -> generating 状态
    */
@@ -306,6 +403,11 @@ export class ClarificationStateMachine {
   }
 
   /**
+   * Sets state to completed.
+   * Triggers: SET_COMPLETED action -> completed state
+   *
+   * @param okr - Optional OKR result
+   */
    * 设置为完成状态
    * 触发: SET_COMPLETED action -> completed 状态
    *
@@ -317,6 +419,9 @@ export class ClarificationStateMachine {
   }
 
   /**
+   * Resets all state.
+   * Triggers: RESET action -> back to initial state
+   */
    * 重置所有状态
    * 触发: RESET action -> 回到 initial state
    */
@@ -325,9 +430,13 @@ export class ClarificationStateMachine {
     this.dispatch({ type: 'RESET' });
   }
 
-  // === 兼容层 (旧API兼容) ===
+  // === Compatibility layer (old API compatibility) ===
 
   /**
+   * Records selection (old API compatibility).
+   * @deprecated Use recordSelection(promptId, optionId)
+   */
+
    * 记录选择(兼容旧API)
    * @deprecated 使用 recordSelection(promptId, optionId)
    */
@@ -341,7 +450,9 @@ export class ClarificationStateMachine {
   }
 
   /**
-   * 报告错误(兼容旧API)
+   * Reports error (old API compatibility).
+   * @deprecated Use setError(error)
+   */
    * @deprecated 使用 setError(error)
    */
   reportError(error: string | ErrorInfo | null): void {
@@ -349,14 +460,15 @@ export class ClarificationStateMachine {
   }
 
   /**
-   * 设置就绪状态(兼容旧API)
+   * Sets ready state (old API compatibility).
+   * @deprecated Ready state is now automatically calculated, this method has no effect
+   */
    * @deprecated 就绪状态现在自动计算，此方法不再生效
    */
   setReady(_ready: boolean): void {
     this.logger.warn('[STATE-MACHINE] setReady is deprecated, readiness determined automatically');
   }
 
-  /**
    * 标记就绪(兼容旧API)
    * @deprecated 使用 recordSelection 自动触发就绪状态
    */
@@ -364,9 +476,13 @@ export class ClarificationStateMachine {
     this.logger.warn('[STATE-MACHINE] markReady is deprecated, use recordSelection instead');
   }
 
-  // === 辅助方法 ===
+  // === Helper methods ===
 
   /**
+   * Gets selection for a specific prompt.
+   * @param promptId - The prompt ID
+   * @returns Selected option ID or null
+   */
    * 获取特定提示的选择
    * @param promptId - 提示ID
    * @returns 选择的选项ID或null
@@ -376,6 +492,10 @@ export class ClarificationStateMachine {
   }
 
   /**
+   * Checks if there is a selection for a specific prompt.
+   * @param promptId - The prompt ID
+   * @returns Whether a selection exists
+   */
    * 检查是否有特定提示的选择
    * @param promptId - 提示ID
    * @returns 是否已选择
@@ -385,6 +505,10 @@ export class ClarificationStateMachine {
   }
 
   /**
+   * Checks if can transition from current state to target state.
+   * @param targetState - The target state
+   * @returns Whether transition is allowed
+   */
    * 检查是否可以从当前状态转换到目标状态
    * @param targetState - 目标状态
    * @returns 是否允许转换
@@ -395,6 +519,9 @@ export class ClarificationStateMachine {
   }
 
   /**
+   * Gets current state snapshot (for debugging/testing).
+   * @returns Complete state object
+   */
    * 获取当前状态快照(用于调试/测试)
    * @returns 完整状态对象
    */
@@ -402,10 +529,20 @@ export class ClarificationStateMachine {
     return { ...this._state() };
   }
 
-  // === 私有方法: Reducer ===
+  // === Private methods: Reducer ===
 
   /**
-   * Reducer - 纯函数，处理所有状态转换
+   * Reducer - Pure function, handles all state transitions
+   *
+   * Core rules:
+   * 1. Validate if state transition is valid
+   * 2. Calculate new state based on action
+   * 3. Auto-calculate derived values (like isReadyToGenerate)
+   *
+   * @param state - Current state
+   * @param action - Action to execute
+   * @returns New state
+   */
    *
    * 核心规则:
    * 1. 验证状态转换是否合法
@@ -484,7 +621,7 @@ export class ClarificationStateMachine {
         const newSelections = { ...state.selections, [promptId]: optionId };
         const selectionCount = Object.keys(newSelections).length;
 
-        // 自动计算就绪状态: 至少1个选择即为ready
+        // Auto-calculate ready state: at least 1 selection means ready
         const isReadyToGenerate = selectionCount >= 1;
         const newWorkflowState = isReadyToGenerate ? 'ready' : state.workflowState;
 
@@ -537,6 +674,11 @@ export class ClarificationStateMachine {
   }
 
   /**
+   * Validates state transition.
+   * @param oldState - Old state
+   * @param newState - New state
+   * @returns New state (throws error if transition invalid)
+   */
    * 验证状态转换
    * @param oldState - 旧状态
    * @param newState - 新状态
@@ -554,7 +696,7 @@ export class ClarificationStateMachine {
     if (!allowedTransitions.includes(newState.workflowState)) {
       const error = `Invalid state transition: ${oldState.workflowState} -> ${newState.workflowState}`;
       this.logger.error('[STATE-MACHINE]', error);
-      // 在开发环境抛出错误，生产环境回退到旧状态
+      // Throw error in development, fall back to old state in production
       if (!environment.production) {
         throw new Error(error);
       }
@@ -569,6 +711,9 @@ export class ClarificationStateMachine {
   }
 
   /**
+   * Dispatches action.
+   * @param action - Action to execute
+   */
    * 分发动作
    * @param action - 要执行的动作
    */

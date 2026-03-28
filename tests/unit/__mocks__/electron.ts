@@ -21,12 +21,12 @@ export interface MockBrowserWindow {
     send: ReturnType<typeof jest.fn>;
     on: ReturnType<typeof jest.fn>;
   };
-  _eventHandlers: Map<string, Function[]>;
+  _eventHandlers: Map<string, ((...args: unknown[]) => void)[]>;
   _triggerEvent: (event: string, ...args: unknown[]) => void;
 }
 
 const createMockBrowserWindow = (options: Record<string, unknown>): MockBrowserWindow => {
-  const eventHandlers = new Map<string, Function[]>();
+  const eventHandlers = new Map<string, ((...args: unknown[]) => void)[]>();
   
   const mockWindow: MockBrowserWindow = {
     id: Math.random(),
@@ -40,7 +40,7 @@ const createMockBrowserWindow = (options: Record<string, unknown>): MockBrowserW
     setAlwaysOnTop: jest.fn(),
     setFullScreenable: jest.fn(),
     setVisibleOnAllWorkspaces: jest.fn(),
-    on: jest.fn().mockImplementation((event: string, handler: Function) => {
+    on: jest.fn().mockImplementation((event: string, handler: (...args: unknown[]) => void) => {
       if (!eventHandlers.has(event)) {
         eventHandlers.set(event, []);
       }
@@ -49,7 +49,7 @@ const createMockBrowserWindow = (options: Record<string, unknown>): MockBrowserW
     }),
     webContents: {
       send: jest.fn(),
-      on: jest.fn().mockImplementation((event: string, handler: Function) => {
+      on: jest.fn().mockImplementation((event: string, handler: (...args: unknown[]) => void) => {
         if (!eventHandlers.has(event)) {
           eventHandlers.set(event, []);
         }

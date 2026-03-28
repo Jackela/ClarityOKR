@@ -1,4 +1,14 @@
-import type { ClarificationSession } from '@clarityokr/contracts';
+/**
+ * SessionManager - Session lifecycle management (legacy service)
+ *
+ * Responsibilities:
+ * - Creates and manages clarification sessions
+ * - Retrieves sessions from memory cache or persistent storage
+ * - Saves session state to both memory and database
+ * - Provides test mode APIs for session manipulation
+ *
+ * @deprecated Use ClarificationSessionManager from clarification/ module instead
+ */
 
 import { Logger } from '../core/logger.js';
 import type { SessionRepository } from '../persistence/session-repository.js';
@@ -14,6 +24,11 @@ export class SessionManager {
   constructor(private readonly sessionRepository: SessionRepository) {}
 
   /**
+   * Gets a session by ID, checking memory cache first then persistent storage.
+   *
+   * @param sessionId - The session identifier to retrieve
+   * @returns Promise resolving to the session or null if not found
+   */
    * 从内存缓存或持久化存储中获取会话
    */
   async getSession(sessionId: string): Promise<ClarificationSession | null> {
@@ -35,6 +50,12 @@ export class SessionManager {
   }
 
   /**
+   * Creates a new clarification session.
+   *
+   * @param sessionId - Unique identifier for the session
+   * @param initialIntent - The user's initial goal description
+   * @returns The newly created clarification session
+   */
    * 创建新会话
    */
   createSession(sessionId: string, initialIntent: string): ClarificationSession {
@@ -55,6 +76,11 @@ export class SessionManager {
   }
 
   /**
+   * Saves a session to both memory cache and persistent storage.
+   *
+   * @param session - The session to save
+   * @returns Promise that resolves when saved
+   */
    * 保存会话到内存和持久化存储
    */
   async saveSession(session: ClarificationSession): Promise<void> {
@@ -69,6 +95,13 @@ export class SessionManager {
   }
 
   /**
+   * Updates session with a new prompt step.
+   *
+   * @param session - The session to update
+   * @param promptId - ID of the prompt being added
+   * @param _sequence - Sequence number of the step (unused)
+   * @returns Promise that resolves when updated
+   */
    * 更新会话步骤
    */
   async addStep(session: ClarificationSession, promptId: string, _sequence: number): Promise<void> {
@@ -78,6 +111,12 @@ export class SessionManager {
   }
 
   /**
+   * Records a user option selection in the session.
+   *
+   * @param session - The session to update
+   * @param optionId - ID of the selected option
+   * @returns Promise that resolves when recorded
+   */
    * 记录选项选择
    */
   async recordSelection(session: ClarificationSession, optionId: string): Promise<void> {
@@ -88,6 +127,11 @@ export class SessionManager {
   }
 
   /**
+   * Marks a session as completed.
+   *
+   * @param session - The session to complete
+   * @returns Promise that resolves when completed
+   */
    * 完成会话
    */
   async completeSession(session: ClarificationSession): Promise<void> {
@@ -99,6 +143,10 @@ export class SessionManager {
   }
 
   /**
+   * Loads a session from persistent storage into memory cache.
+   *
+   * @returns Promise resolving to the loaded session or null
+   */
    * 从持久化存储加载会话到内存
    */
   async loadFromPersistence(): Promise<ClarificationSession | null> {
@@ -115,6 +163,10 @@ export class SessionManager {
   // ==================== TestMode API Support ====================
 
   /**
+   * Clears all in-memory sessions (used for testing).
+   */
+
+  /**
    * 重置所有会话状态（用于测试模式）
    */
   resetSessions(): void {
@@ -125,6 +177,10 @@ export class SessionManager {
   }
 
   /**
+   * Gets all active sessions as a Map (used for testing).
+   *
+   * @returns Map of session IDs to session objects
+   */
    * 获取所有会话（用于测试模式）
    */
   getAllSessions(): Map<string, ClarificationSession> {
@@ -132,6 +188,10 @@ export class SessionManager {
   }
 
   /**
+   * Gets the currently active session ID (used for testing).
+   *
+   * @returns Current session ID or null
+   */
    * 获取当前活动会话ID（用于测试模式）
    */
   getCurrentSessionId(): string | null {
@@ -139,6 +199,11 @@ export class SessionManager {
   }
 
   /**
+   * Manually sets a session (used for testing).
+   *
+   * @param sessionId - The session ID
+   * @param session - The session object to set
+   */
    * 直接设置会话（用于测试模式）
    */
   setSession(sessionId: string, session: ClarificationSession): void {
@@ -148,6 +213,10 @@ export class SessionManager {
   }
 
   /**
+   * Gets the count of active in-memory sessions (used for testing).
+   *
+   * @returns Number of sessions
+   */
    * 获取会话数量（用于测试模式）
    */
   getSessionCount(): number {
@@ -155,6 +224,11 @@ export class SessionManager {
   }
 
   /**
+   * Gets a session for testing (returns undefined instead of null).
+   *
+   * @param sessionId - The session ID to retrieve
+   * @returns Promise resolving to the session or undefined
+   */
    * 获取会话（用于测试模式，返回undefined而非null）
    */
   async getSessionForTest(sessionId: string): Promise<ClarificationSession | undefined> {

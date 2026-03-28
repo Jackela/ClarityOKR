@@ -1,15 +1,23 @@
-import { createHash } from 'node:crypto';
+/**
+ * LLM Cache Service - LRU caching for LLM API responses
+ *
+ * Provides in-memory caching of LLM responses to reduce API costs
+ * and improve response times. Uses LRU (Least Recently Used) eviction
+ * policy with configurable size limits and TTL.
+ *
+ * This is a singleton service accessed via getInstance().
+ */
 
 import { LRUCache } from 'lru-cache';
 
 import { Logger } from '../core/logger.js';
 
-interface CacheEntry {
+/** Cache entry storing response data with timestamp */
   data: unknown;
   timestamp: number;
 }
 
-export interface CacheStats {
+/** Statistics for cache performance monitoring */
   hits: number;
   misses: number;
   size: number;
@@ -17,7 +25,7 @@ export interface CacheStats {
   hitRate: number;
 }
 
-export class LlmCacheService {
+/** Service for caching LLM API responses with LRU eviction */
   private static instance: LlmCacheService;
   private readonly cache: LRUCache<string, CacheEntry>;
   private readonly stats = {
@@ -48,7 +56,12 @@ export class LlmCacheService {
     });
   }
 
-  static getInstance(): LlmCacheService {
+  /**
+   * Gets the singleton instance of LlmCacheService.
+   * Creates the instance on first call.
+   *
+   * @returns The LlmCacheService singleton instance
+   */
     if (!LlmCacheService.instance) {
       LlmCacheService.instance = new LlmCacheService();
     }
@@ -56,6 +69,14 @@ export class LlmCacheService {
   }
 
   /**
+   * Generates a cache key from intent, context, and model parameters.
+   * Uses SHA-256 hash for consistent and collision-resistant keys.
+   *
+   * @param intent - The intent/type of request (e.g., 'next-question')
+   * @param context - The context object for the request
+   * @param model - The LLM model identifier
+   * @returns A unique cache key string
+   */
    * Generates a cache key from intent, context, and model parameters
    * Uses SHA-256 hash for consistent and collision-resistant keys
    */
@@ -67,6 +88,12 @@ export class LlmCacheService {
   }
 
   /**
+   * Gets cached response if available and not expired.
+   *
+   * @param key - The cache key
+   * @returns The cached data or undefined if not found/expired
+   * @template T - The expected type of cached data
+   */
    * Gets cached response if available and not expired
    */
   get<T>(key: string): T | undefined {
@@ -84,6 +111,11 @@ export class LlmCacheService {
   }
 
   /**
+   * Stores response in cache with the given key.
+   *
+   * @param key - The cache key
+   * @param data - The data to cache
+   */
    * Stores response in cache with generated key
    */
   set(key: string, data: unknown): void {
@@ -97,6 +129,11 @@ export class LlmCacheService {
   }
 
   /**
+   * Checks if a key exists in cache.
+   *
+   * @param key - The cache key to check
+   * @returns True if key exists in cache
+   */
    * Check if a key exists in cache
    */
   has(key: string): boolean {
@@ -104,6 +141,8 @@ export class LlmCacheService {
   }
 
   /**
+   * Clears all cached entries and resets statistics.
+   */
    * Clears all cached entries
    */
   clear(): void {
@@ -114,6 +153,10 @@ export class LlmCacheService {
   }
 
   /**
+   * Gets current cache statistics including hit rate.
+   *
+   * @returns CacheStats with hits, misses, size, and hit rate
+   */
    * Gets current cache statistics
    */
   getStats(): CacheStats {
@@ -130,6 +173,8 @@ export class LlmCacheService {
   }
 
   /**
+   * Resets hit/miss statistics (useful for testing).
+   */
    * Resets statistics (useful for testing)
    */
   resetStats(): void {
@@ -139,6 +184,8 @@ export class LlmCacheService {
   }
 
   /**
+   * Gets the number of items currently in cache.
+   */
    * Gets the number of items in cache
    */
   get size(): number {

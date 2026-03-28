@@ -1,23 +1,377 @@
-# Clarify-to-OKR Contract Overview
+# Clarify-to-OKR Documentation
 
-This module defines the shared interfaces used by the Clarify-to-OKR desktop flow. All consumers (Electron main process, Angular renderer, and agent orchestration services) must import types from `@clarityokr/contracts` to remain aligned with the SSOT constitution rule.
+This document describes the complete Clarify-to-OKR flow, including the clarification wizard and US3 Editable OKR Control features.
+
+## Overview
+
+The Clarify-to-OKR flow converts fuzzy user intent into actionable Objectives and Key Results through:
+
+1. **Clarification Phase** — Guided Q&A to refine ambiguous statements
+2. **Generation Phase** — LLM-powered OKR creation
+3. **Edit Mode** — Manual refinement and regeneration (US3)
+4. **Export Phase** — Clipboard export for external use
 
 ## Entities
 
-- `ClarificationSession` — Captures the question-answer history, status, and confidence metrics.
-- `ClarificationPrompt` & `ClarificationOption` — Represent agent-issued questions with mutually exclusive options.
-- `OKRDocument` — Tracks the Objective, Key Results, manual edits, and regeneration policy.
-- `UserActionLogEntry` — Records user-triggered operations such as generate, regenerate, edit, and copy.
+- `ClarificationSession` — Captures the question-answer history, status, and confidence metrics
+- `ClarificationPrompt` & `ClarificationOption` — Represent agent-issued questions with mutually exclusive options
+- `OKRDocument` — Tracks the Objective, Key Results, manual edits, and regeneration policy
+- `UserActionLogEntry` — Records user-triggered operations such as generate, regenerate, edit, and copy
 
-## Operations
+---
 
-- `GenerateOKRRequest` → `GenerateOKRResponse`
-- `RegenerateOKRRequest` → `RegenerateOKRResponse`
-- `PersistClarificationRequest`
-- `ClipboardExportRequest` → `ClipboardExportResult`
+## Edit Mode
 
-All timestamps are ISO-8601 formatted strings. Confidence values are normalized between 0 and 1.
+Edit Mode allows users to manually refine generated OKRs before finalizing them. This addresses real-world scenarios where LLM output needs human adjustment for accuracy and context.
+
+### Features
+
+**Inline Editing**
+
+- Click any Objective or Key Result text to enter edit mode
+- Real-time validation prevents empty values
+- Changes are tracked separately from the original generation
+
+**Visual Indicators**
+
+- Edited fields show a subtle highlight
+- A badge indicates "Modified" status
+- Original value available via tooltip
+
+**Edit Persistence**
+
+- Manual edits survive regeneration when using `append` strategy
+- Edit history stored in `manualEdits` array with timestamps
+
+### Activation Flow
+
+```
+Generated OKR Display
+        ↓
+   User clicks text
+        ↓
+   Inline editor appears
+        ↓
+   User types changes
+        ↓
+   Save or Cancel
+        ↓
+   Record in manualEdits log
+```
+
+---
+
+## Regenerate
+
+The Regenerate feature allows users to request fresh OKR suggestions based on the same clarification session, with control over how manual edits are handled.
+
+### API
+
+**Request: `RegenerateOKRRequest`**
+
+```typescript
+interface RegenerateOKRRequest {
+  sessionId: string; // Reference to clarification session
+  strategy: 'overwrite' | 'append';
+  preserveManualEdits: boolean;
+  contextHints?: string[]; // Optional guidance for LLM
+}
+```
+
+**Response: `RegenerateOKRResponse`**
+
+```typescript
+interface RegenerateOKRResponse {
+  okrDocument: OKRDocument;
+  generationId: string;
+  affectedEdits: ManualEdit[]; // Which manual edits were applied
+}
+```
+
+### Strategies
+
+| Strategy    | Behavior                        | Use Case                      |
+| ----------- | ------------------------------- | ----------------------------- |
+| `overwrite` | Completely replace previous OKR | User wants fresh suggestions  |
+| `append`    | Add new OKR as alternative      | User wants to compare options |
+
+### Preserve Manual Edits
+
+When `preserveManualEdits: true`:
+
+1. **Before Regeneration**: Capture current manual edit state
+2. **During Regeneration**: LLM receives hints about user preferences from previous edits
+3. **After Regeneration**: Re-apply compatible manual edits to new content
+
+```typescript
+// Example: Preserving edits across regeneration
+const request: RegenerateOKRRequest = {
+  sessionId: 'sess_abc123',
+  strategy: 'overwrite',
+  preserveManualEdits: true,
+  contextHints: ['Focus on metrics that are weekly measurable'],
+};
+```
+
+---
+
+## Clipboard Export
+
+Export OKRs to clipboard in multiple formats for easy sharing and integration with external tools.
+
+### API
+
+**Request: `ClipboardExportRequest`**
+
+```typescript
+interface ClipboardExportRequest {
+  okrDocumentId: string;
+  format: 'markdown' | 'plain' | 'json';
+  includeMetadata?: boolean; // Include generation timestamp, version
+}
+```
+
+**Response: `ClipboardExportResult`**
+
+```typescript
+interface ClipboardExportResult {
+  success: boolean;
+  format: string;
+  content: string;
+  charCount: number;
+  copiedAt: string; // ISO-8601 timestamp
+}
+```
+
+### Markdown Format
+
+Default format optimized for Notion, Confluence, and GitHub.
+
+```markdown
+# Objective
+
+Improve team productivity by 25% in Q3
+
+## Key Results
+
+1. Reduce average ticket resolution time from 5 days to 3 days
+2. Increase sprint velocity from 35 to 45 story points
+3. Achieve 90% test coverage across all critical paths
+4. Deploy to production at least twice per week
+
+---
+
+_Generated by ClarityOKR on 2026-03-27_
+_Last edited: 2026-03-27 14:32:00_
+```
+
+### Plain Text Format
+
+Simple format for email and messaging apps.
+
+```
+Objective: Improve team productivity by 25% in Q3
+
+Key Results:
+• Reduce average ticket resolution time from 5 days to 3 days
+• Increase sprint velocity from 35 to 45 story points
+• Achieve 90% test coverage across all critical paths
+• Deploy to production at least twice per week
+```
+
+### JSON Format
+
+Machine-readable format for integrations.
+
+```json
+{
+  "objective": "Improve team productivity by 25% in Q3",
+  "keyResults": [
+    {
+      "id": "kr_001",
+      "description": "Reduce average ticket resolution time from 5 days to 3 days",
+      "target": "3 days",
+      "baseline": "5 days"
+    }
+  ],
+  "generatedAt": "2026-03-27T10:00:00Z",
+  "manualEdits": []
+}
+```
+
+---
+
+## Data Model
+
+Updated data model for US3 including manual edits tracking.
+
+### OKRDocument
+
+```typescript
+interface OKRDocument {
+  id: string;
+  sessionId: string;
+
+  // Core content
+  objective: string;
+  keyResults: KeyResult[];
+
+  // Versioning and generation
+  generationId: string;
+  generationTimestamp: string;
+  version: number;
+
+  // US3: Manual edits tracking
+  manualEdits: ManualEdit[];
+
+  // Metadata
+  status: 'draft' | 'finalized' | 'archived';
+  tags?: string[];
+}
+
+interface KeyResult {
+  id: string;
+  description: string;
+  target?: string;
+  baseline?: string;
+  confidence?: number; // 0-1, LLM confidence
+}
+
+interface ManualEdit {
+  id: string;
+  field: 'objective' | `kr_${number}`;
+  previousValue: string;
+  newValue: string;
+  editedAt: string;
+  generationVersion: number;
+}
+```
+
+### UserActionLogEntry
+
+```typescript
+interface UserActionLogEntry {
+  id: string;
+  timestamp: string;
+  action: 'generate' | 'regenerate' | 'edit' | 'copy' | 'export';
+
+  // Context
+  sessionId?: string;
+  okrDocumentId?: string;
+
+  // Action details
+  details: {
+    strategy?: 'overwrite' | 'append';
+    format?: 'markdown' | 'plain' | 'json';
+    fieldEdited?: string;
+    charCount?: number;
+  };
+}
+```
+
+---
+
+## Usage Examples
+
+### Example 1: Basic Edit and Export
+
+```typescript
+// User generates OKR
+const generated = await generateOKR(sessionId);
+
+// User edits the objective
+await editOKR(generated.id, {
+  field: 'objective',
+  newValue: 'Improve code quality and reduce technical debt in Q3',
+});
+
+// User exports to clipboard
+const result = await exportToClipboard({
+  okrDocumentId: generated.id,
+  format: 'markdown',
+});
+
+console.log(`Copied ${result.charCount} characters to clipboard`);
+```
+
+### Example 2: Regenerate with Preserved Edits
+
+```typescript
+// Initial generation
+const okr = await generateOKR(sessionId);
+
+// User makes edits
+await editOKR(okr.id, { field: 'objective', newValue: 'Faster feature delivery' });
+await editOKR(okr.id, { field: 'kr_0', newValue: 'Reduce PR review time to 24 hours' });
+
+// User regenerates, preserving manual edits
+const regenerated = await regenerateOKR({
+  sessionId,
+  strategy: 'overwrite',
+  preserveManualEdits: true,
+});
+
+// Manual edits are re-applied to new generation
+```
+
+### Example 3: Multiple Export Formats
+
+```typescript
+const okrId = 'okr_xyz789';
+
+// Export for Slack
+const plain = await exportToClipboard({ okrDocumentId: okrId, format: 'plain' });
+
+// Export for Confluence
+const markdown = await exportToClipboard({ okrDocumentId: okrId, format: 'markdown' });
+
+// Export for internal API
+const json = await exportToClipboard({
+  okrDocumentId: okrId,
+  format: 'json',
+  includeMetadata: true,
+});
+```
+
+---
+
+## Operations Summary
+
+| Operation              | Input                         | Output                  | Description                                |
+| ---------------------- | ----------------------------- | ----------------------- | ------------------------------------------ |
+| `GenerateOKR`          | `GenerateOKRRequest`          | `GenerateOKRResponse`   | Initial OKR creation from clarified intent |
+| `RegenerateOKR`        | `RegenerateOKRRequest`        | `RegenerateOKRResponse` | Fresh OKR with optional edit preservation  |
+| `EditOKR`              | `EditOKRRequest`              | `EditOKRResponse`       | Record manual edit to OKR document         |
+| `ExportToClipboard`    | `ClipboardExportRequest`      | `ClipboardExportResult` | Copy OKR in specified format               |
+| `PersistClarification` | `PersistClarificationRequest` | void                    | Save session state                         |
+
+---
 
 ## Validation Expectations
 
-Zod validators mirror these interfaces in `packages/contracts/src/validators/clarify-to-okr.validator.ts` (to be implemented). Consumers must run validation for fail-fast guarantees before processing payloads.
+All payloads must pass Zod validation before processing:
+
+```typescript
+import {
+  RegenerateOKRRequestSchema,
+  ClipboardExportRequestSchema,
+  ManualEditSchema,
+} from '@clarityokr/contracts';
+
+// Validate before processing
+const result = RegenerateOKRRequestSchema.safeParse(request);
+if (!result.success) {
+  throw new ValidationError(result.error);
+}
+```
+
+All timestamps are ISO-8601 formatted strings. Confidence values are normalized between 0 and 1.
+
+---
+
+## Version History
+
+| Version | Date       | Changes                                      |
+| ------- | ---------- | -------------------------------------------- |
+| 1.0     | 2026-03-20 | Initial clarification flow                   |
+| 1.1     | 2026-03-27 | US3: Edit Mode, Regenerate, Clipboard Export |

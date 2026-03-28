@@ -1,4 +1,15 @@
-import {
+/**
+ * ClarificationPromptHandler - Processes user intent inputs
+ * 
+ * Responsibilities:
+ * - Validates user intent input (minimum 3 characters)
+ * - Creates or retrieves clarification sessions
+ * - Generates initial clarification prompts via LLM
+ * - Fetches next questions based on user context
+ * 
+ * This handler coordinates between the session manager, state machine,
+ * and LLM service to provide a seamless clarification experience.
+ */
   clarificationPromptRequestSchema,
   clarificationPromptResponseSchema,
   llmQuestionSchema,
@@ -30,6 +41,14 @@ export class ClarificationPromptHandler implements IClarificationPromptHandler {
   ) {}
 
   /**
+   * Handles user intent input and generates the first clarification prompt.
+   * 
+   * @param sessionId - The unique session identifier
+   * @param intent - The user's initial intent description
+   * @returns Promise resolving to the generated clarification prompt
+   * @throws {ValidationError} If intent is too short
+   * @throws {LLMError} If LLM service fails or returns invalid response
+   */
    * 处理用户意图输入
    */
   async handlePrompt(sessionId: string, intent: string): Promise<ClarificationPrompt> {
@@ -112,6 +131,11 @@ export class ClarificationPromptHandler implements IClarificationPromptHandler {
   }
 
   /**
+   * Validates user intent meets minimum requirements.
+   * 
+   * @param intent - The intent string to validate
+   * @returns True if intent is at least 3 characters
+   */
    * 验证用户意图
    */
   validateIntent(intent: string): boolean {
@@ -119,6 +143,15 @@ export class ClarificationPromptHandler implements IClarificationPromptHandler {
   }
 
   /**
+   * Gets the next clarification question based on current context.
+   * 
+   * @param sessionId - The active session identifier
+   * @param currentQuestionId - ID of the question being answered
+   * @param context - Current clarification context with turn history
+   * @returns Promise resolving to the next clarification prompt
+   * @throws {ValidationError} If session not found
+   * @throws {LLMError} If LLM service fails or returns invalid response
+   */
    * 获取下一个问题
    */
   async getNextQuestion(

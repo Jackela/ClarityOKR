@@ -1,4 +1,16 @@
-import type { ClarificationSession } from '@clarityokr/contracts';
+/**
+ * ClarificationSessionManager - Session Lifecycle Management
+ *
+ * Responsibilities:
+ * - Creates new clarification sessions with unique IDs
+ * - Retrieves sessions from memory cache or persistent storage
+ * - Saves session state to persistent storage
+ * - Manages session status transitions (collecting -> ready -> completed)
+ * - Provides test mode APIs for session manipulation
+ *
+ * Sessions are cached in memory for performance and persisted to SQLite
+ * for durability across application restarts.
+ */
 
 import { Logger } from '../core/logger.js';
 import type { SessionRepository } from '../persistence/session-repository.js';
@@ -20,6 +32,12 @@ export class ClarificationSessionManager implements IClarificationSessionManager
   ) {}
 
   /**
+   * Creates a new clarification session.
+   *
+   * @param sessionId - Unique identifier for the session
+   * @param initialIntent - The user's initial goal description
+   * @returns The newly created clarification session
+   */
    * 创建新会话
    */
   createSession(sessionId: string, initialIntent: string): ClarificationSession {
@@ -44,6 +62,11 @@ export class ClarificationSessionManager implements IClarificationSessionManager
   }
 
   /**
+   * Gets a session by ID, checking memory cache first then persistent storage.
+   *
+   * @param sessionId - The session identifier to retrieve
+   * @returns Promise resolving to the session or null if not found
+   */
    * 获取会话（优先从内存，其次从持久化存储）
    */
   async getSession(sessionId: string): Promise<ClarificationSession | null> {
@@ -66,6 +89,13 @@ export class ClarificationSessionManager implements IClarificationSessionManager
   }
 
   /**
+   * Ends a session by marking it as completed.
+   *
+   * @param sessionId - The session to end
+   * @returns Promise that resolves when session is ended
+   * @throws {SessionNotFoundError} If session does not exist
+   * @throws {StateTransitionError} If state transition is invalid
+   */
    * 结束会话
    */
   async endSession(sessionId: string): Promise<void> {
@@ -91,6 +121,8 @@ export class ClarificationSessionManager implements IClarificationSessionManager
   }
 
   /**
+   * Clears all in-memory sessions (used for testing).
+   */
    * 清理所有会话
    */
   cleanupSessions(): void {
@@ -101,6 +133,10 @@ export class ClarificationSessionManager implements IClarificationSessionManager
   }
 
   /**
+   * Gets all active sessions as a Map.
+   *
+   * @returns Map of session IDs to session objects
+   */
    * 获取所有会话
    */
   getAllSessions(): Map<string, ClarificationSession> {
@@ -108,6 +144,10 @@ export class ClarificationSessionManager implements IClarificationSessionManager
   }
 
   /**
+   * Gets the currently active session ID.
+   *
+   * @returns Current session ID or null if no active session
+   */
    * 获取当前会话ID
    */
   getCurrentSessionId(): string | null {
@@ -115,6 +155,10 @@ export class ClarificationSessionManager implements IClarificationSessionManager
   }
 
   /**
+   * Gets the count of active in-memory sessions.
+   *
+   * @returns Number of active sessions
+   */
    * 获取会话数量
    */
   getSessionCount(): number {
@@ -122,6 +166,11 @@ export class ClarificationSessionManager implements IClarificationSessionManager
   }
 
   /**
+   * Saves a session to persistent storage and updates cache.
+   *
+   * @param session - The session to save
+   * @returns Promise that resolves when saved
+   */
    * 保存会话到持久化存储
    */
   async saveSession(session: ClarificationSession): Promise<void> {
@@ -132,6 +181,11 @@ export class ClarificationSessionManager implements IClarificationSessionManager
   }
 
   /**
+   * Manually sets a session (used for testing).
+   *
+   * @param sessionId - The session ID
+   * @param session - The session object to set
+   */
    * 直接设置会话（用于测试模式）
    */
   setSession(sessionId: string, session: ClarificationSession): void {
@@ -141,6 +195,10 @@ export class ClarificationSessionManager implements IClarificationSessionManager
   }
 
   /**
+   * Loads a session from persistent storage into memory.
+   *
+   * @returns Promise resolving to the loaded session or null
+   */
    * 从持久化存储加载会话
    */
   async loadFromPersistence(): Promise<ClarificationSession | null> {

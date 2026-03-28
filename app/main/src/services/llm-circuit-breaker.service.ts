@@ -2,9 +2,14 @@ import CircuitBreaker from 'opossum';
 
 import { Logger } from '../core/logger.js';
 
-export type CircuitState = 'CLOSED' | 'OPEN' | 'HALF_OPEN';
+/**
+ * Circuit breaker states
+ * - CLOSED: Normal operation, requests pass through
+ * - OPEN: Circuit is open, requests fail fast
+ * - HALF_OPEN: Testing if service has recovered
+ */
 
-export interface CircuitBreakerOptions {
+/** Configuration options for the circuit breaker */
   failureThreshold?: number;
   resetTimeoutMs?: number;
   timeout?: number;
@@ -13,7 +18,7 @@ export interface CircuitBreakerOptions {
   rollingCountBuckets?: number;
 }
 
-export interface CircuitBreakerMetrics {
+/** Performance metrics for the circuit breaker */
   state: CircuitState;
   failures: number;
   successes: number;
@@ -23,7 +28,16 @@ export interface CircuitBreakerMetrics {
   fireRate: number;
 }
 
-// Type definition for CircuitBreaker instance
+/**
+ * LLM Circuit Breaker - Fault tolerance for LLM API calls
+ *
+ * Wraps LLM API calls with circuit breaker pattern to prevent
+ * cascading failures when the LLM service is unavailable.
+ *
+ * When failure threshold is exceeded, the circuit opens and
+ * subsequent calls fail fast without hitting the API.
+ * After reset timeout, circuit enters half-open state to test recovery.
+ */
 interface CircuitBreakerInstance {
   opened: boolean;
   halfOpen: boolean;
@@ -86,6 +100,13 @@ export class LlmCircuitBreaker {
   }
 
   /**
+   * Executes the wrapped action with circuit breaker protection.
+   *
+   * @param args - Arguments to pass to the wrapped function
+   * @returns Promise resolving to the result of the action
+   * @throws Error if circuit is open or action fails
+   * @template T - Expected return type
+   */
    * Execute the wrapped action with circuit breaker protection
    */
   async fire<T>(...args: unknown[]): Promise<T> {
@@ -94,6 +115,10 @@ export class LlmCircuitBreaker {
   }
 
   /**
+   * Gets the current circuit state.
+   *
+   * @returns Current state: 'CLOSED', 'OPEN', or 'HALF_OPEN'
+   */
    * Get current circuit state
    */
   getState(): CircuitState {
@@ -101,6 +126,10 @@ export class LlmCircuitBreaker {
   }
 
   /**
+   * Checks if the circuit is currently open.
+   *
+   * @returns True if circuit is open
+   */
    * Check if circuit is open
    */
   isOpen(): boolean {
@@ -108,6 +137,10 @@ export class LlmCircuitBreaker {
   }
 
   /**
+   * Checks if the circuit is currently closed.
+   *
+   * @returns True if circuit is closed
+   */
    * Check if circuit is closed
    */
   isClosed(): boolean {
@@ -115,6 +148,9 @@ export class LlmCircuitBreaker {
   }
 
   /**
+   * Manually opens the circuit.
+   * Useful for testing or emergency shutdown.
+   */
    * Manually open the circuit
    */
   open(): void {
@@ -122,6 +158,9 @@ export class LlmCircuitBreaker {
   }
 
   /**
+   * Manually closes the circuit.
+   * Resets the circuit to normal operation.
+   */
    * Manually close the circuit
    */
   close(): void {
@@ -129,6 +168,10 @@ export class LlmCircuitBreaker {
   }
 
   /**
+   * Gets circuit breaker metrics and statistics.
+   *
+   * @returns Metrics including state, failures, successes, and fire rate
+   */
    * Get circuit breaker metrics
    */
   getMetrics(): CircuitBreakerMetrics {
@@ -147,6 +190,10 @@ export class LlmCircuitBreaker {
   }
 
   /**
+   * Gets the underlying CircuitBreaker instance for advanced use.
+   *
+   * @returns The underlying circuit breaker instance
+   */
    * Get the underlying CircuitBreaker instance (for advanced use)
    */
   getBreaker(): CircuitBreakerInstance {
@@ -154,6 +201,10 @@ export class LlmCircuitBreaker {
   }
 
   /**
+   * Sets a fallback function to be called when circuit is open.
+   *
+   * @param fallbackFunction - Function to call as fallback
+   */
    * Set a fallback function to be called when circuit is open
    */
   fallback<T>(fallbackFunction: (...args: unknown[]) => T | Promise<T>): void {

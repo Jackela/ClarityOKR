@@ -94,6 +94,58 @@ export class OkrStickyGatewayService implements OnDestroy {
     await bridge.invoke(IPC_CHANNELS.STICKY_REOPEN, undefined);
   }
 
+  /**
+   * Export OKR to clipboard
+   *
+   * Sends the current OKR document to the main process for clipboard export.
+   * The main process formats it as markdown and copies to system clipboard.
+   *
+   * @param sessionId - The clarification session ID for action logging
+   * @returns Promise resolving to true if export succeeded, false if failed
+   *
+   * @example
+   * const success = await gateway.exportToClipboard('session-123');
+   * if (success) {
+   *   console.log('OKR copied to clipboard');
+   * }
+   */
+  async exportToClipboard(sessionId: string): Promise<boolean> {
+    const bridge = this.ensureBridge();
+    const currentViewModel = this.viewModelSubject.getValue();
+
+    if (!currentViewModel) {
+      this.logger.error('[renderer] Cannot export: no OKR document available');
+      return false;
+    }
+
+    // Convert view model back to OKR document format
+    const okrDocument = {
+      id: currentViewModel.id,
+      objective: currentViewModel.objective,
+      keyResults: currentViewModel.keyResults.map(kr => ({
+        id: kr.id,
+        statement: kr.statement,
+        successMetric: kr.metricLabel,
+        owner: kr.ownerLabel,
+      })),
+      sourceSessionId: sessionId,
+      generatedAt: currentViewModel.generatedAt.toISOString(),
+    };
+
+    this.logger.info('[renderer] exporting OKR to clipboard', { sessionId, okrId: okrDocument.id });
+
+    try {
+      const result = await bridge.invoke(IPC_CHANNELS.CLIPBOARD_EXPORT, {
+        okr: okrDocument,
+        sessionId,
+      });
+      return result === true;
+    } catch (error) {
+      this.logger.error('[renderer] Failed to export OKR to clipboard', error);
+      return false;
+    }
+  }
+
   private registerListeners(): void {
     const bridge = this.bridgeOrUndefined();
     if (!bridge) {
