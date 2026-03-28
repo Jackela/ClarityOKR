@@ -21,6 +21,7 @@
 
 import { Pipe, type PipeTransform } from '@angular/core';
 import type { InterpolationParams } from '../services/i18n.service';
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { I18nService } from '../services/i18n.service.js';
 
 /**

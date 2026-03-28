@@ -3,8 +3,8 @@
  *
  * Provides error boundary components and services for the Angular renderer.
  */
-
-import type { NgZone} from '@angular/core';
+/* eslint-disable @typescript-eslint/consistent-type-imports */
+import { type NgZone } from '@angular/core';
 import { Component, ErrorHandler, Injectable, Input, Optional } from '@angular/core';
 import {
   ClarityOkrError,
@@ -14,7 +14,7 @@ import {
   isClarityOkrError,
 } from '@clarityokr/contracts';
 
-import type { Logger } from './services/logger.service.js';
+import { Logger } from './services/logger.service.js';
 
 /**
  * Error context for renderer operations

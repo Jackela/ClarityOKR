@@ -4,7 +4,7 @@
  * Provides centralized error handling, logging, and recovery strategies
  * for the Electron main process.
  */
-
+/* eslint-disable @typescript-eslint/consistent-type-imports */
 import {
   ClarityOkrError,
   getErrorSeverity,

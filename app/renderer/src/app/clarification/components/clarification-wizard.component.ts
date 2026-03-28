@@ -20,6 +20,7 @@ import {
 
 import { ProgressIndicatorComponent } from '../../shared/components/progress-indicator.component';
 import { SkeletonComponent } from '../../shared/components/skeleton.component';
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { SyncClarificationState } from '../services/sync-clarification-state.service';
 
 @Component({
