@@ -23,16 +23,9 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
-import { ButtonComponent } from '@shared/components/button.component';
-import { InputComponent } from '@shared/components/input.component';
-import { TranslatePipe } from '@shared/pipes/translate.pipe.js';
-import type { DraftKeyResult, ValidationError } from '../state/edit-mode.store.js';
-
-
-
-
-
-
+import { ButtonComponent, InputComponent } from '@shared/components';
+import { TranslatePipe } from '@shared/pipes/translate.pipe';
+import type { DraftKeyResult, ValidationError } from '../state/edit-mode.store';
 
 @Component({
   selector: 'clarityokr-okr-edit-mode',
@@ -48,10 +41,6 @@ import type { DraftKeyResult, ValidationError } from '../state/edit-mode.store.j
             id="objective-input"
             [(ngModel)]="draftObjectiveProxy"
             [placeholder]="'okr.sticky.editMode.objectivePlaceholder' | translate"
-          <clarityokr-input
-            id="objective-input"
-            [(ngModel)]="draftObjectiveProxy"
-            [placeholder]="'Enter objective...'"
             [invalid]="hasObjectiveError()"
             [errorMessage]="getObjectiveError()"
             testId="objective-input"
@@ -79,22 +68,6 @@ import type { DraftKeyResult, ValidationError } from '../state/edit-mode.store.j
           >
             {{ 'common.cancel' | translate }}
           </clarityokr-button>
-            variant="primary"
-            size="sm"
-            [disabled]="!canSave"
-            testId="save-button"
-            (onClick)="save.emit()"
-          >
-            保存
-          </clarityokr-button>
-          <clarityokr-button
-            variant="ghost"
-            size="sm"
-            testId="cancel-button"
-            (onClick)="cancel.emit()"
-          >
-            取消
-          </clarityokr-button>
         </div>
       </header>
 
@@ -104,10 +77,6 @@ import type { DraftKeyResult, ValidationError } from '../state/edit-mode.store.j
           <clarityokr-input
             [(ngModel)]="kr.statement"
             [placeholder]="'okr.sticky.editMode.keyResultPlaceholder' | translate"
-        <div class="okr-edit-mode__kr-item" *ngFor="let kr of draftKeyResults; let i = index">
-          <clarityokr-input
-            [(ngModel)]="kr.statement"
-            [placeholder]="'Enter key result...'"
             [invalid]="hasKrError(kr.id)"
             [errorMessage]="getKrError(kr.id)"
             [testId]="'kr-input-' + i"

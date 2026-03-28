@@ -13,7 +13,7 @@ import {
   isClarityOkrError,
 } from '@clarityokr/contracts';
 
-import { LoggerService } from './services/logger.service.js';
+import { Logger } from './services/logger.service.js';
 
 /**
  * Error context for renderer operations
@@ -88,7 +88,7 @@ export class ErrorBoundaryService {
   private readonly handledErrors = new Set<string>();
 
   constructor(
-    private logger: LoggerService,
+    private logger: Logger,
     private ngZone: NgZone,
   ) {
     this.config = {
@@ -412,7 +412,7 @@ export class ErrorBoundaryComponent {
 export class EnhancedGlobalErrorHandler extends ErrorHandler {
   constructor(
     private errorService: ErrorBoundaryService,
-    @Optional() private logger?: LoggerService,
+    @Optional() private logger?: Logger,
   ) {
     super();
   }

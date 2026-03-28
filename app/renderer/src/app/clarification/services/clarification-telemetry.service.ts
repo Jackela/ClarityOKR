@@ -1,8 +1,7 @@
 import { Injectable, OnDestroy, inject, signal } from '@angular/core';
-
 import type { Logger } from '@core/services/logger.service';
 import { TelemetryService } from '@services/telemetry.service';
-import type { ClarificationPrompt } from './clarification-state-machine.service';
+import type { ClarificationPrompt } from '@clarityokr/contracts';
 import { ClarificationStateMachine } from './clarification-state-machine.service';
 
 /**
@@ -24,7 +23,7 @@ export interface TelemetryEvent {
   type: TelemetryEventType;
   timestamp: number;
   sessionId: string | null;
-  payload: Record<string, unknown>;
+  payload: object;
 }
 
 /**
@@ -445,7 +444,7 @@ export class ClarificationTelemetryService implements OnDestroy {
   /**
    * 创建并队列事件
    */
-  private trackEvent(type: TelemetryEventType, payload: Record<string, unknown>): void {
+  private trackEvent(type: TelemetryEventType, payload: object): void {
     const event: TelemetryEvent = {
       id: this.generateEventId(),
       type,

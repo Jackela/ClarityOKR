@@ -1,25 +1,7 @@
 import type { ClarificationPrompt, WorkflowState } from '@clarityokr/contracts';
 
-/** Error information with message and recoverability flag */
-
-/**
- * Unified workflow state types
- * - idle: Initial/idle state
- * - loading: Loading data
- * - prompting: Showing clarification prompt
- * - ready: Ready to generate OKRs
- * - generating: Generating OKR
- * - completed: Process completed
- * - error: Error state
- */
-export type WorkflowState =
-  | 'idle' // 初始/空闲状态
-  | 'loading' // 加载中
-  | 'prompting' // 显示澄清提示
-  | 'ready' // 已准备好生成
-  | 'generating' // 生成OKR中
-  | 'completed' // 已完成
-  | 'error'; // 错误状态
+// Re-export WorkflowState for consumers
+export type { WorkflowState } from '@clarityokr/contracts';
 
 /** Error information with message and recoverability flag */
 export interface ErrorInfo {
