@@ -94,8 +94,6 @@ export class LlmCircuitBreaker {
 
     this.breaker.on('fallback', (result) => {
       Logger.debug('[LlmCircuitBreaker] Circuit breaker fallback executed', { result });
-    });
-
     Logger.info('[LlmCircuitBreaker] Circuit breaker initialized', breakerOptions);
   }
 
@@ -107,8 +105,6 @@ export class LlmCircuitBreaker {
    * @throws Error if circuit is open or action fails
    * @template T - Expected return type
    */
-   * Execute the wrapped action with circuit breaker protection
-   */
   async fire<T>(...args: unknown[]): Promise<T> {
     const result = await this.breaker.fire(...args);
     return result as unknown as T;
@@ -116,10 +112,6 @@ export class LlmCircuitBreaker {
 
   /**
    * Gets the current circuit state.
-   *
-   * @returns Current state: 'CLOSED', 'OPEN', or 'HALF_OPEN'
-   */
-   * Get current circuit state
    */
   getState(): CircuitState {
     return this.breaker.opened ? 'OPEN' : this.breaker.halfOpen ? 'HALF_OPEN' : 'CLOSED';
@@ -130,38 +122,22 @@ export class LlmCircuitBreaker {
    *
    * @returns True if circuit is open
    */
-   * Check if circuit is open
-   */
   isOpen(): boolean {
     return this.breaker.opened;
-  }
-
   /**
    * Checks if the circuit is currently closed.
    *
    * @returns True if circuit is closed
    */
-   * Check if circuit is closed
-   */
-  isClosed(): boolean {
-    return !this.breaker.opened && !this.breaker.halfOpen;
   }
 
   /**
-   * Manually opens the circuit.
-   * Useful for testing or emergency shutdown.
-   */
-   * Manually open the circuit
    */
   open(): void {
     this.breaker.open();
   }
 
-  /**
-   * Manually closes the circuit.
    * Resets the circuit to normal operation.
-   */
-   * Manually close the circuit
    */
   close(): void {
     this.breaker.close();
@@ -172,11 +148,7 @@ export class LlmCircuitBreaker {
    *
    * @returns Metrics including state, failures, successes, and fire rate
    */
-   * Get circuit breaker metrics
-   */
   getMetrics(): CircuitBreakerMetrics {
-    const stats = this.breaker.stats;
-    const total = stats.failures + stats.successes + stats.rejects;
 
     return {
       state: this.getState(),
@@ -186,15 +158,11 @@ export class LlmCircuitBreaker {
       opens: stats.opens,
       halfOpens: stats.halfOpens ?? 0,
       fireRate: total > 0 ? stats.successes / total : 0,
-    };
-  }
 
   /**
    * Gets the underlying CircuitBreaker instance for advanced use.
    *
    * @returns The underlying circuit breaker instance
-   */
-   * Get the underlying CircuitBreaker instance (for advanced use)
    */
   getBreaker(): CircuitBreakerInstance {
     return this.breaker;
@@ -204,8 +172,6 @@ export class LlmCircuitBreaker {
    * Sets a fallback function to be called when circuit is open.
    *
    * @param fallbackFunction - Function to call as fallback
-   */
-   * Set a fallback function to be called when circuit is open
    */
   fallback<T>(fallbackFunction: (...args: unknown[]) => T | Promise<T>): void {
     this.breaker.fallback(fallbackFunction);

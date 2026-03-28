@@ -94,8 +94,6 @@ import { Logger } from '../core/logger.js';
    * @returns The cached data or undefined if not found/expired
    * @template T - The expected type of cached data
    */
-   * Gets cached response if available and not expired
-   */
   get<T>(key: string): T | undefined {
     const entry = this.cache.get(key);
 
@@ -116,8 +114,6 @@ import { Logger } from '../core/logger.js';
    * @param key - The cache key
    * @param data - The data to cache
    */
-   * Stores response in cache with generated key
-   */
   set(key: string, data: unknown): void {
     const entry: CacheEntry = {
       data,
@@ -134,8 +130,6 @@ import { Logger } from '../core/logger.js';
    * @param key - The cache key to check
    * @returns True if key exists in cache
    */
-   * Check if a key exists in cache
-   */
   has(key: string): boolean {
     return this.cache.has(key);
   }
@@ -143,21 +137,15 @@ import { Logger } from '../core/logger.js';
   /**
    * Clears all cached entries and resets statistics.
    */
-   * Clears all cached entries
-   */
   clear(): void {
     this.cache.clear();
     this.stats.hits = 0;
-    this.stats.misses = 0;
-    Logger.info('[LlmCacheService] Cache cleared');
   }
 
   /**
    * Gets current cache statistics including hit rate.
    *
    * @returns CacheStats with hits, misses, size, and hit rate
-   */
-   * Gets current cache statistics
    */
   getStats(): CacheStats {
     const total = this.stats.hits + this.stats.misses;
@@ -175,8 +163,6 @@ import { Logger } from '../core/logger.js';
   /**
    * Resets hit/miss statistics (useful for testing).
    */
-   * Resets statistics (useful for testing)
-   */
   resetStats(): void {
     this.stats.hits = 0;
     this.stats.misses = 0;
@@ -185,8 +171,6 @@ import { Logger } from '../core/logger.js';
 
   /**
    * Gets the number of items currently in cache.
-   */
-   * Gets the number of items in cache
    */
   get size(): number {
     return this.cache.size;

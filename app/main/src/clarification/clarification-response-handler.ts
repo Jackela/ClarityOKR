@@ -35,8 +35,8 @@ export class ClarificationResponseHandler implements IClarificationResponseHandl
    * @throws {InvalidSelectionError} If parameters are missing or invalid
    * @throws {SessionNotFoundError} If session does not exist
    */
-   * 处理用户响应
-   */
+
+
   async handleResponse(sessionId: string, promptId: string, optionId: string): Promise<void> {
     // 验证参数
     if (!sessionId || !promptId || !optionId) {
@@ -74,8 +74,8 @@ export class ClarificationResponseHandler implements IClarificationResponseHandl
    * @param optionId - ID of the selected option
    * @returns Promise that resolves when selection is saved
    */
-   * 记录用户选择
-   */
+
+
   async recordSelection(session: ClarificationSession, optionId: string): Promise<void> {
     session.selectedOptionIds = [...session.selectedOptionIds, optionId];
     session.pendingQuestionId = null;
@@ -97,8 +97,8 @@ export class ClarificationResponseHandler implements IClarificationResponseHandl
    * @param optionId - ID of the selected option
    * @throws {InvalidSelectionError} If prompt or option not found
    */
-   * 验证选择
-   */
+
+
   private validateSelection(
     session: ClarificationSession,
     promptId: string,

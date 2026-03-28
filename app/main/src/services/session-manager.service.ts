@@ -229,8 +229,8 @@ export class SessionManager {
    * @param sessionId - The session ID to retrieve
    * @returns Promise resolving to the session or undefined
    */
-   * 获取会话（用于测试模式，返回undefined而非null）
-   */
+
+
   async getSessionForTest(sessionId: string): Promise<ClarificationSession | undefined> {
     const session = await this.getSession(sessionId);
     return session ?? undefined;

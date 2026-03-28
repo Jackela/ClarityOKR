@@ -10,7 +10,7 @@
  * This handler coordinates between the session manager, state machine,
  * and LLM service to provide a seamless clarification experience.
  */
-  clarificationPromptRequestSchema,
+  import {
   clarificationPromptResponseSchema,
   llmQuestionSchema,
   type ClarificationPrompt,
@@ -49,8 +49,8 @@ export class ClarificationPromptHandler implements IClarificationPromptHandler {
    * @throws {ValidationError} If intent is too short
    * @throws {LLMError} If LLM service fails or returns invalid response
    */
-   * 处理用户意图输入
-   */
+
+
   async handlePrompt(sessionId: string, intent: string): Promise<ClarificationPrompt> {
     // 验证输入
     if (!this.validateIntent(intent)) {
@@ -136,8 +136,8 @@ export class ClarificationPromptHandler implements IClarificationPromptHandler {
    * @param intent - The intent string to validate
    * @returns True if intent is at least 3 characters
    */
-   * 验证用户意图
-   */
+
+
   validateIntent(intent: string): boolean {
     return Boolean(intent && intent.trim().length >= 3);
   }
@@ -152,8 +152,8 @@ export class ClarificationPromptHandler implements IClarificationPromptHandler {
    * @throws {ValidationError} If session not found
    * @throws {LLMError} If LLM service fails or returns invalid response
    */
-   * 获取下一个问题
-   */
+
+
   async getNextQuestion(
     sessionId: string,
     currentQuestionId: string,

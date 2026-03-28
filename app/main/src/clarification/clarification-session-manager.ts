@@ -20,9 +20,9 @@ import { SessionNotFoundError, StateTransitionError } from './types.js';
 
 /**
  * ClarificationSessionManager - 会话生命周期管理
- * 职责：统一管理会话的创建、获取、保存和重置
  */
 export class ClarificationSessionManager implements IClarificationSessionManager {
+
   private readonly sessions = new Map<string, ClarificationSession>();
   private currentSessionId: string | null = null;
 
@@ -38,8 +38,8 @@ export class ClarificationSessionManager implements IClarificationSessionManager
    * @param initialIntent - The user's initial goal description
    * @returns The newly created clarification session
    */
-   * 创建新会话
-   */
+
+
   createSession(sessionId: string, initialIntent: string): ClarificationSession {
     const now = new Date().toISOString();
     const session: ClarificationSession = {
@@ -67,8 +67,8 @@ export class ClarificationSessionManager implements IClarificationSessionManager
    * @param sessionId - The session identifier to retrieve
    * @returns Promise resolving to the session or null if not found
    */
-   * 获取会话（优先从内存，其次从持久化存储）
-   */
+
+
   async getSession(sessionId: string): Promise<ClarificationSession | null> {
     // 先尝试内存缓存
     let session = this.sessions.get(sessionId);
@@ -96,8 +96,8 @@ export class ClarificationSessionManager implements IClarificationSessionManager
    * @throws {SessionNotFoundError} If session does not exist
    * @throws {StateTransitionError} If state transition is invalid
    */
-   * 结束会话
-   */
+
+
   async endSession(sessionId: string): Promise<void> {
     const session = await this.getSession(sessionId);
     if (!session) {
@@ -123,8 +123,8 @@ export class ClarificationSessionManager implements IClarificationSessionManager
   /**
    * Clears all in-memory sessions (used for testing).
    */
-   * 清理所有会话
-   */
+
+
   cleanupSessions(): void {
     const count = this.sessions.size;
     this.sessions.clear();
@@ -137,8 +137,8 @@ export class ClarificationSessionManager implements IClarificationSessionManager
    *
    * @returns Map of session IDs to session objects
    */
-   * 获取所有会话
-   */
+
+
   getAllSessions(): Map<string, ClarificationSession> {
     return new Map(this.sessions);
   }
@@ -147,8 +147,6 @@ export class ClarificationSessionManager implements IClarificationSessionManager
    * Gets the currently active session ID.
    *
    * @returns Current session ID or null if no active session
-   */
-   * 获取当前会话ID
    */
   getCurrentSessionId(): string | null {
     return this.currentSessionId;
@@ -159,8 +157,8 @@ export class ClarificationSessionManager implements IClarificationSessionManager
    *
    * @returns Number of active sessions
    */
-   * 获取会话数量
-   */
+
+
   getSessionCount(): number {
     return this.sessions.size;
   }
@@ -171,8 +169,8 @@ export class ClarificationSessionManager implements IClarificationSessionManager
    * @param session - The session to save
    * @returns Promise that resolves when saved
    */
-   * 保存会话到持久化存储
-   */
+
+
   async saveSession(session: ClarificationSession): Promise<void> {
     this.sessions.set(session.id, session);
     this.currentSessionId = session.id;

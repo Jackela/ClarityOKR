@@ -11,6 +11,7 @@
  * the application's standard OKR document format for storage and display.
  */
 
+import { randomUUID } from 'node:crypto';
 import type { OKRDocument } from '@clarityokr/contracts';
 import { z } from 'zod';
 
@@ -66,8 +67,8 @@ export class ClarificationDraftHandler implements IClarificationDraftHandler {
    * @throws {LLMError} If LLM service fails
    * @throws {DraftValidationError} If LLM response is invalid
    */
-   * 生成OKR草案
-   */
+
+
   async generateDraft(sessionId: string): Promise<OkrDraftResponse> {
     if (!sessionId) {
       throw new ValidationError('Session ID is required');
@@ -164,8 +165,8 @@ export class ClarificationDraftHandler implements IClarificationDraftHandler {
    * @param draft - The draft object to validate
    * @returns True if draft passes validation
    */
-   * 验证草案
-   */
+
+
   validateDraft(draft: unknown): boolean {
     const result = draftPayloadSchema.safeParse(draft);
     return result.success;
