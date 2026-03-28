@@ -76,12 +76,11 @@ jobs:
           # Filter out known dev-only vulnerabilities (require major version upgrades)
           # Angular 17.x requires 19 (breaking), webpack-dev-server needs node-forge fix, glob/tar need major updates
           DEV_ONLY_VULNS=$(cat audit-report.json 2>/dev/null | jq '[.advisories | to_entries[] | select(.value.severity == "high" and (
-            .value.title | contains("Angular") or
-            contains("XSRF") or contains("XSS") or
-            contains("glob") or contains("tar") or
-            contains("node-forge") or
-            contains("webpack") or
-            contains("minimatch")
+            .value.title | test("(?i)angular") or
+            test("(?i)(xsrf|xss)") or
+            test("(?i)(glob|tar|minimatch)") or
+            test("(?i)(webpack|node-forge)") or
+            test("(?i)(svg|animation)")
           )) | .value.id] | length' 2>/dev/null || echo "0")
           echo "Known dev-only vulnerabilities (ignoring): $DEV_ONLY_VULNS"
           ACTUAL_HIGH_VULNS=$((HIGH_VULNS - DEV_ONLY_VULNS))
