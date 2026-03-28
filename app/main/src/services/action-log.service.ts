@@ -8,6 +8,9 @@
  */
 
 import type { UserActionLogEntry, UserActionType } from '@clarityokr/contracts';
+import { randomUUID } from 'node:crypto';
+
+import { Logger } from '../core/logger.js';
 
 import { Logger } from '../core/logger.js';
 import type { ActionLogWriter } from '../persistence/action-log-writer.js';
@@ -32,7 +35,7 @@ export class ActionLogService {
     sessionId: string,
     okrId: string | null,
     payloadSummary: string,
-  ): Promise<void> {
+  async logAction(
     const action: UserActionLogEntry = {
       id: randomUUID(),
       occurredAt: new Date().toISOString(),

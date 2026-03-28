@@ -184,8 +184,6 @@ export class ClarificationSessionManager implements IClarificationSessionManager
    * @param sessionId - The session ID
    * @param session - The session object to set
    */
-   * 直接设置会话（用于测试模式）
-   */
   setSession(sessionId: string, session: ClarificationSession): void {
     this.sessions.set(sessionId, session);
     this.currentSessionId = sessionId;
@@ -196,8 +194,6 @@ export class ClarificationSessionManager implements IClarificationSessionManager
    * Loads a session from persistent storage into memory.
    *
    * @returns Promise resolving to the loaded session or null
-   */
-   * 从持久化存储加载会话
    */
   async loadFromPersistence(): Promise<ClarificationSession | null> {
     const persisted = await this.sessionRepository.load();

@@ -11,6 +11,12 @@
  */
 
 import { Logger } from '../core/logger.js';
+import type { ClarificationSession } from '@clarityokr/contracts';
+import type { SessionRepository } from '../persistence/session-repository.js';
+
+import type { ClarificationSession } from '@clarityokr/contracts';
+import type { SessionRepository } from '../persistence/session-repository.js';
+import type { SessionRepository } from '../persistence/session-repository.js';
 import type { SessionRepository } from '../persistence/session-repository.js';
 
 /**
@@ -28,8 +34,6 @@ export class SessionManager {
    *
    * @param sessionId - The session identifier to retrieve
    * @returns Promise resolving to the session or null if not found
-   */
-   * 从内存缓存或持久化存储中获取会话
    */
   async getSession(sessionId: string): Promise<ClarificationSession | null> {
     // 先尝试内存缓存
@@ -56,8 +60,6 @@ export class SessionManager {
    * @param initialIntent - The user's initial goal description
    * @returns The newly created clarification session
    */
-   * 创建新会话
-   */
   createSession(sessionId: string, initialIntent: string): ClarificationSession {
     const now = new Date().toISOString();
     const session: ClarificationSession = {
@@ -81,8 +83,6 @@ export class SessionManager {
    * @param session - The session to save
    * @returns Promise that resolves when saved
    */
-   * 保存会话到内存和持久化存储
-   */
   async saveSession(session: ClarificationSession): Promise<void> {
     // 更新内存缓存
     this.sessions.set(session.id, session);
@@ -102,8 +102,6 @@ export class SessionManager {
    * @param _sequence - Sequence number of the step (unused)
    * @returns Promise that resolves when updated
    */
-   * 更新会话步骤
-   */
   async addStep(session: ClarificationSession, promptId: string, _sequence: number): Promise<void> {
     session.pendingQuestionId = promptId;
     session.updatedAt = new Date().toISOString();
@@ -116,8 +114,6 @@ export class SessionManager {
    * @param session - The session to update
    * @param optionId - ID of the selected option
    * @returns Promise that resolves when recorded
-   */
-   * 记录选项选择
    */
   async recordSelection(session: ClarificationSession, optionId: string): Promise<void> {
     session.selectedOptionIds = [...session.selectedOptionIds, optionId];
@@ -132,8 +128,6 @@ export class SessionManager {
    * @param session - The session to complete
    * @returns Promise that resolves when completed
    */
-   * 完成会话
-   */
   async completeSession(session: ClarificationSession): Promise<void> {
     session.status = 'completed';
     session.updatedAt = new Date().toISOString();
@@ -146,8 +140,6 @@ export class SessionManager {
    * Loads a session from persistent storage into memory cache.
    *
    * @returns Promise resolving to the loaded session or null
-   */
-   * 从持久化存储加载会话到内存
    */
   async loadFromPersistence(): Promise<ClarificationSession | null> {
     const persisted = await this.sessionRepository.load();
@@ -181,8 +173,6 @@ export class SessionManager {
    *
    * @returns Map of session IDs to session objects
    */
-   * 获取所有会话（用于测试模式）
-   */
   getAllSessions(): Map<string, ClarificationSession> {
     return new Map(this.sessions);
   }
@@ -191,8 +181,6 @@ export class SessionManager {
    * Gets the currently active session ID (used for testing).
    *
    * @returns Current session ID or null
-   */
-   * 获取当前活动会话ID（用于测试模式）
    */
   getCurrentSessionId(): string | null {
     return this.currentSessionId;
@@ -204,8 +192,6 @@ export class SessionManager {
    * @param sessionId - The session ID
    * @param session - The session object to set
    */
-   * 直接设置会话（用于测试模式）
-   */
   setSession(sessionId: string, session: ClarificationSession): void {
     this.sessions.set(sessionId, session);
     this.currentSessionId = sessionId;
@@ -216,8 +202,6 @@ export class SessionManager {
    * Gets the count of active in-memory sessions (used for testing).
    *
    * @returns Number of sessions
-   */
-   * 获取会话数量（用于测试模式）
    */
   getSessionCount(): number {
     return this.sessions.size;
