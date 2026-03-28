@@ -1,16 +1,6 @@
-/**
- * ActionLogService - User action logging service
- *
- * Responsibilities:
- * - Records user actions for analytics and debugging
- * - Persists action logs via ActionLogWriter
- * - Handles error serialization for logging unexpected errors
- */
-
-import type { UserActionLogEntry, UserActionType } from '@clarityokr/contracts';
 import { randomUUID } from 'node:crypto';
 
-import { Logger } from '../core/logger.js';
+import type { UserActionLogEntry, UserActionType } from '@clarityokr/contracts';
 
 import { Logger } from '../core/logger.js';
 import type { ActionLogWriter } from '../persistence/action-log-writer.js';
@@ -22,20 +12,12 @@ import type { ActionLogWriter } from '../persistence/action-log-writer.js';
 export class ActionLogService {
   constructor(private readonly actionLogWriter: ActionLogWriter) {}
 
-  /**
-   * Logs a user action with metadata.
-   *
-   * @param actionType - Type of action performed (generate, regenerate, edit, copy)
-   * @param sessionId - The related clarification session ID
-   * @param okrId - The related OKR document ID, or null if not applicable
-   * @param payloadSummary - Brief summary of the action payload
-   * @returns Promise that resolves when log is persisted
-   */
+  async logAction(
     actionType: UserActionType,
     sessionId: string,
     okrId: string | null,
     payloadSummary: string,
-  async logAction(
+  ): Promise<void> {
     const action: UserActionLogEntry = {
       id: randomUUID(),
       occurredAt: new Date().toISOString(),
@@ -48,12 +30,7 @@ export class ActionLogService {
     await this.actionLogWriter.append(action);
   }
 
-  /**
-   * Logs an unexpected error with proper serialization.
-   *
-   * @param message - Error message describing the context
-   * @param error - The error object or value to log
-   */
+  logUnexpectedError(message: string, error: unknown): void {
     if (error instanceof Error) {
       Logger.error(message, error);
       return;

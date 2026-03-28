@@ -1,23 +1,15 @@
-/**
- * LLM Cache Service - LRU caching for LLM API responses
- *
- * Provides in-memory caching of LLM responses to reduce API costs
- * and improve response times. Uses LRU (Least Recently Used) eviction
- * policy with configurable size limits and TTL.
- *
- * This is a singleton service accessed via getInstance().
- */
+import { createHash } from 'node:crypto';
 
 import { LRUCache } from 'lru-cache';
 
 import { Logger } from '../core/logger.js';
 
-/** Cache entry storing response data with timestamp */
+interface CacheEntry {
   data: unknown;
   timestamp: number;
 }
 
-/** Statistics for cache performance monitoring */
+export interface CacheStats {
   hits: number;
   misses: number;
   size: number;
@@ -25,7 +17,7 @@ import { Logger } from '../core/logger.js';
   hitRate: number;
 }
 
-/** Service for caching LLM API responses with LRU eviction */
+export class LlmCacheService {
   private static instance: LlmCacheService;
   private readonly cache: LRUCache<string, CacheEntry>;
   private readonly stats = {
@@ -56,12 +48,7 @@ import { Logger } from '../core/logger.js';
     });
   }
 
-  /**
-   * Gets the singleton instance of LlmCacheService.
-   * Creates the instance on first call.
-   *
-   * @returns The LlmCacheService singleton instance
-   */
+  static getInstance(): LlmCacheService {
     if (!LlmCacheService.instance) {
       LlmCacheService.instance = new LlmCacheService();
     }
@@ -69,14 +56,6 @@ import { Logger } from '../core/logger.js';
   }
 
   /**
-   * Generates a cache key from intent, context, and model parameters.
-   * Uses SHA-256 hash for consistent and collision-resistant keys.
-   *
-   * @param intent - The intent/type of request (e.g., 'next-question')
-   * @param context - The context object for the request
-   * @param model - The LLM model identifier
-   * @returns A unique cache key string
-   */
    * Generates a cache key from intent, context, and model parameters
    * Uses SHA-256 hash for consistent and collision-resistant keys
    */
@@ -88,11 +67,7 @@ import { Logger } from '../core/logger.js';
   }
 
   /**
-   * Gets cached response if available and not expired.
-   *
-   * @param key - The cache key
-   * @returns The cached data or undefined if not found/expired
-   * @template T - The expected type of cached data
+   * Gets cached response if available and not expired
    */
   get<T>(key: string): T | undefined {
     const entry = this.cache.get(key);
@@ -109,10 +84,7 @@ import { Logger } from '../core/logger.js';
   }
 
   /**
-   * Stores response in cache with the given key.
-   *
-   * @param key - The cache key
-   * @param data - The data to cache
+   * Stores response in cache with generated key
    */
   set(key: string, data: unknown): void {
     const entry: CacheEntry = {
@@ -125,27 +97,24 @@ import { Logger } from '../core/logger.js';
   }
 
   /**
-   * Checks if a key exists in cache.
-   *
-   * @param key - The cache key to check
-   * @returns True if key exists in cache
+   * Check if a key exists in cache
    */
   has(key: string): boolean {
     return this.cache.has(key);
   }
 
   /**
-   * Clears all cached entries and resets statistics.
+   * Clears all cached entries
    */
   clear(): void {
     this.cache.clear();
     this.stats.hits = 0;
+    this.stats.misses = 0;
+    Logger.info('[LlmCacheService] Cache cleared');
   }
 
   /**
-   * Gets current cache statistics including hit rate.
-   *
-   * @returns CacheStats with hits, misses, size, and hit rate
+   * Gets current cache statistics
    */
   getStats(): CacheStats {
     const total = this.stats.hits + this.stats.misses;
@@ -161,7 +130,7 @@ import { Logger } from '../core/logger.js';
   }
 
   /**
-   * Resets hit/miss statistics (useful for testing).
+   * Resets statistics (useful for testing)
    */
   resetStats(): void {
     this.stats.hits = 0;
@@ -170,7 +139,7 @@ import { Logger } from '../core/logger.js';
   }
 
   /**
-   * Gets the number of items currently in cache.
+   * Gets the number of items in cache
    */
   get size(): number {
     return this.cache.size;

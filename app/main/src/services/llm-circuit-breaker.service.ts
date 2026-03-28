@@ -2,14 +2,9 @@ import CircuitBreaker from 'opossum';
 
 import { Logger } from '../core/logger.js';
 
-/**
- * Circuit breaker states
- * - CLOSED: Normal operation, requests pass through
- * - OPEN: Circuit is open, requests fail fast
- * - HALF_OPEN: Testing if service has recovered
- */
+export type CircuitState = 'CLOSED' | 'OPEN' | 'HALF_OPEN';
 
-/** Configuration options for the circuit breaker */
+export interface CircuitBreakerOptions {
   failureThreshold?: number;
   resetTimeoutMs?: number;
   timeout?: number;
@@ -18,7 +13,7 @@ import { Logger } from '../core/logger.js';
   rollingCountBuckets?: number;
 }
 
-/** Performance metrics for the circuit breaker */
+export interface CircuitBreakerMetrics {
   state: CircuitState;
   failures: number;
   successes: number;
@@ -28,16 +23,7 @@ import { Logger } from '../core/logger.js';
   fireRate: number;
 }
 
-/**
- * LLM Circuit Breaker - Fault tolerance for LLM API calls
- *
- * Wraps LLM API calls with circuit breaker pattern to prevent
- * cascading failures when the LLM service is unavailable.
- *
- * When failure threshold is exceeded, the circuit opens and
- * subsequent calls fail fast without hitting the API.
- * After reset timeout, circuit enters half-open state to test recovery.
- */
+// Type definition for CircuitBreaker instance
 interface CircuitBreakerInstance {
   opened: boolean;
   halfOpen: boolean;
@@ -94,16 +80,13 @@ export class LlmCircuitBreaker {
 
     this.breaker.on('fallback', (result) => {
       Logger.debug('[LlmCircuitBreaker] Circuit breaker fallback executed', { result });
+    });
+
     Logger.info('[LlmCircuitBreaker] Circuit breaker initialized', breakerOptions);
   }
 
   /**
-   * Executes the wrapped action with circuit breaker protection.
-   *
-   * @param args - Arguments to pass to the wrapped function
-   * @returns Promise resolving to the result of the action
-   * @throws Error if circuit is open or action fails
-   * @template T - Expected return type
+   * Execute the wrapped action with circuit breaker protection
    */
   async fire<T>(...args: unknown[]): Promise<T> {
     const result = await this.breaker.fire(...args);
@@ -111,44 +94,46 @@ export class LlmCircuitBreaker {
   }
 
   /**
-   * Gets the current circuit state.
+   * Get current circuit state
    */
   getState(): CircuitState {
     return this.breaker.opened ? 'OPEN' : this.breaker.halfOpen ? 'HALF_OPEN' : 'CLOSED';
   }
 
   /**
-   * Checks if the circuit is currently open.
-   *
-   * @returns True if circuit is open
+   * Check if circuit is open
    */
   isOpen(): boolean {
     return this.breaker.opened;
-  /**
-   * Checks if the circuit is currently closed.
-   *
-   * @returns True if circuit is closed
-   */
   }
 
   /**
+   * Check if circuit is closed
+   */
+  isClosed(): boolean {
+    return !this.breaker.opened && !this.breaker.halfOpen;
+  }
+
+  /**
+   * Manually open the circuit
    */
   open(): void {
     this.breaker.open();
   }
 
-   * Resets the circuit to normal operation.
+  /**
+   * Manually close the circuit
    */
   close(): void {
     this.breaker.close();
   }
 
   /**
-   * Gets circuit breaker metrics and statistics.
-   *
-   * @returns Metrics including state, failures, successes, and fire rate
+   * Get circuit breaker metrics
    */
   getMetrics(): CircuitBreakerMetrics {
+    const stats = this.breaker.stats;
+    const total = stats.failures + stats.successes + stats.rejects;
 
     return {
       state: this.getState(),
@@ -158,20 +143,18 @@ export class LlmCircuitBreaker {
       opens: stats.opens,
       halfOpens: stats.halfOpens ?? 0,
       fireRate: total > 0 ? stats.successes / total : 0,
+    };
+  }
 
   /**
-   * Gets the underlying CircuitBreaker instance for advanced use.
-   *
-   * @returns The underlying circuit breaker instance
+   * Get the underlying CircuitBreaker instance (for advanced use)
    */
   getBreaker(): CircuitBreakerInstance {
     return this.breaker;
   }
 
   /**
-   * Sets a fallback function to be called when circuit is open.
-   *
-   * @param fallbackFunction - Function to call as fallback
+   * Set a fallback function to be called when circuit is open
    */
   fallback<T>(fallbackFunction: (...args: unknown[]) => T | Promise<T>): void {
     this.breaker.fallback(fallbackFunction);

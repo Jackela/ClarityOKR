@@ -1,6 +1,14 @@
 {
   "active_plan": "/mnt/d/Code/ClarityOKR/.sisyphus/plans/ci-fix-complete.md",
   "started_at": "2026-03-28T03:00:00.000Z",
-  "session_ids": ["ses_2d1bb2108ffeoNet5yl0gKlNun"],
-  "plan_name": "ci-fix-complete"
+  "session_ids": [
+    "ses_2d1bb2108ffeoNet5yl0gKlNun",
+    "ses_2cd821a9cffe80ZHLCNFeCATK4",
+    "ses_2cd822821ffeXVDvXBd4flPTU7",
+    "ses_2cd823b87ffe0gicTOFun9FWt0",
+    "ses_2cd7ea0f6ffev0dSm6TfH2NgPI",
+    "ses_2cd7ecb81ffeUjeechukLHd7qH"
+  ],
+  "plan_name": "ci-fix-complete",
+  "task_sessions": {}
 }
