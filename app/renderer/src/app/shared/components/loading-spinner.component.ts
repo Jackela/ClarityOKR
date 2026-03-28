@@ -6,10 +6,6 @@
  */
 
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, Input, inject } from '@angular/core';
-import { I18nService } from '../services/i18n.service.js';
-import { ChangeDetectionStrategy, Component, Input, inject } from '@angular/core';
-import { I18nService } from '../services/i18n.service.js';
 import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 
 /**
@@ -33,7 +29,7 @@ export type SpinnerSize = 'sm' | 'md' | 'lg';
       role="status"
       aria-live="polite"
       [attr.aria-busy]="true"
-      [attr.aria-label]="ariaLabel || i18n.translate('loading.ariaLabel')"
+      [attr.aria-label]="ariaLabel || 'Loading'"
     >
       <div
         class="spinner"
@@ -176,12 +172,5 @@ export class LoadingSpinnerComponent {
    * Accessible label for screen readers
    * Defaults to 'Loading' if not provided
    */
-  /**
-   * Accessible label for screen readers
-   * Defaults to translated 'Loading' if not provided
-   */
   @Input() ariaLabel?: string;
-
-  /** I18n service for translations */
-  protected readonly i18n = inject(I18nService);
 }

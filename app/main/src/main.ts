@@ -47,11 +47,15 @@ const rendererDistPath = path.resolve(currentDir, '../../renderer/dist');
 const sessionRepository = new SessionRepository();
 const okrRepository = new OkrRepository();
 const actionLogWriter = new ActionLogWriter();
+const okrAgentService = new OkrAgentService();
 const stickyWindowManager = new StickyWindowManager({
   preloadPath,
   rendererDistPath,
+  okrRepository,
+  actionLogWriter,
+  okrAgentService,
+  sessionRepository,
 });
-const okrAgentService = new OkrAgentService();
 
 let mainWindow: ElectronBrowserWindow | null = null;
 

@@ -1,5 +1,3 @@
-import type { WorkflowState } from '@clarityokr/contracts';
-
 /**
  * Common type definitions shared across components
  */
@@ -20,7 +18,6 @@ export type SpinnerSize = Size;
 export type SkeletonType = 'text' | 'card' | 'circle' | 'options' | 'custom';
 
 /** Workflow states for clarification process */
-export { type WorkflowState };
 export type WorkflowState =
   | 'idle'
   | 'loading'

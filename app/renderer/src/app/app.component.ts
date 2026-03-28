@@ -1,18 +1,17 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { type OnDestroy } from '@angular/core';
+import { NgZone, type OnDestroy } from '@angular/core';
 import { ReactiveFormsModule, FormControl, Validators } from '@angular/forms';
 import type { ClarificationPrompt } from '@clarityokr/contracts';
 import { Subject } from 'rxjs';
 
 import { ClarificationWizardComponent } from './clarification/components/clarification-wizard.component';
-import type { ClarificationOrchestratorService } from './clarification/services/clarification-orchestrator.service';
-import type { IpcLlmGateway } from './clarification/services/ipc-llm-gateway.service';
-import type { SyncClarificationState } from './clarification/services/sync-clarification-state.service';
-import type { Logger } from './core/services/logger.service';
+import { ClarificationOrchestratorService } from './clarification/services/clarification-orchestrator.service';
+import { IpcLlmGateway } from './clarification/services/ipc-llm-gateway.service';
+import { SyncClarificationState } from './clarification/services/sync-clarification-state.service';
+import { Logger } from './core/services/logger.service';
 import { OkrStickyNoteComponent } from './okr-sticky/components/okr-sticky-note.component';
-import type { OkrStickyGatewayService } from './okr-sticky/services/okr-sticky-gateway.service';
+import { OkrStickyGatewayService } from './okr-sticky/services/okr-sticky-gateway.service';
 
 // Type guards for safe type narrowing
 function hasQuestionProperty(obj: unknown): obj is { question: unknown } {
@@ -136,13 +135,9 @@ export class AppComponent implements OnDestroy {
 
   readonly showWizard = computed(() => this.getShowWizard());
 
-  // Signal from observable for reactive sticky note detection
-  private readonly gatewayHasSticky$ = toSignal(this.stickyGateway.hasStickyNote$, { initialValue: false });
-
   readonly hasStickyNote = computed((): boolean => {
-    // Show sticky note reopen button when there's an OKR available
-    // either from current generation or from persisted state
-    return !!this.generatedSummary || this.gatewayHasSticky$();
+    // Show sticky note reopen button when OKR has been generated
+    return !!this.generatedSummary;
   });
 
   private getStickyViewModel() {

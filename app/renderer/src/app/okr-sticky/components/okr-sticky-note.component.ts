@@ -5,30 +5,27 @@
  * compact, sticky-note style format. It serves as the main visualization
  * for the OKR clarification workflow output.
  *
- * This is a **container component** that orchestrates presentational components:
- * - {@link OkrHeaderComponent}: Displays title and metadata
- * - {@link OkrActionsComponent}: Action buttons (edit, add key result)
- * - {@link OkrViewModeComponent}: Read-only key results display
- * - {@link OkrEditModeComponent}: Editable form with validation
- *
  * Key Responsibilities:
- * - Manage container layout and styling
- * - Coordinate edit mode state via EditModeStore
- * - Transform between view model and edit model formats
- * - Emit events for parent component actions
+ * - Display OKR objective and key results in a readable format
+ * - Show metadata including generation time and edit status
+ * - Visual indicators for manual edits and metrics
+ * - Emit events for user interactions (add key result)
  *
  * Features:
- * - Dual mode: view mode vs edit mode
  * - Responsive layout using CSS Grid and Flexbox
  * - Change detection optimization with OnPush strategy
- * - Validation and character counters in edit mode
+ * - Date pipe formatting for timestamps
+ * - Conditional rendering for optional metadata
+ *
+ * Dependencies:
+ * - Angular CommonModule: Common directives (NgIf, NgFor, DatePipe)
+ * - OkrStickyViewModel: Type definition for component input data
  *
  * @usage
  * ```html
  * <clarityokr-sticky-note
  *   [okr]="okrViewModel"
- *   (addKr)="onAddKeyResult()"
- *   (saveEdits)="onSaveEdits($event)">
+ *   (addKr)="onAddKeyResult()">
  * </clarityokr-sticky-note>
  * ```
  *
@@ -39,7 +36,7 @@
  *   keyResults: [
  *     { id: 'kr1', statement: 'Reduce deployment time by 50%', metricLabel: 'Time', ownerLabel: 'DevOps' }
  *   ],
- *   generatedAt: new Date().toISOString(),
+ *   generatedAt: new Date(),
  *   hasManualEdits: true
  * };
  * ```
@@ -47,96 +44,85 @@
  * @module okr-sticky/components/okr-sticky-note
  */
 import { CommonModule } from '@angular/common';
-import {
-  ChangeDetectionStrategy,
-  Component,
-  EventEmitter,
-  inject,
-  Input,
-  Output,
-} from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 
-import { ButtonComponent } from '@shared/components/button.component';
-import { InputComponent } from '@shared/components/input.component';
-import { EditModeStore } from '../state/edit-mode.store.js';
-import type { OkrStickyViewModel } from './types.js';
-import { OkrActionsComponent } from './okr-actions.component.js';
-import { OkrEditModeComponent } from './okr-edit-mode.component.js';
-import { OkrHeaderComponent } from './okr-header.component.js';
-import { OkrViewModeComponent } from './okr-view-mode.component.js';
+import type { OkrStickyViewModel } from '../services/okr-projection.service';
 
 /**
- * Save edits event payload
+ * Component that renders an OKR as a sticky note card.
+ *
+ * This standalone component displays the objective, key results, and metadata
+ * in a compact visual format suitable for an always-on-top window. It uses
+ * OnPush change detection for performance and emits events for user actions.
+ *
+ * @usageNotes
+ * The component expects an OkrStickyViewModel input. If the input is null,
+ * the component renders nothing (using *ngIf).
+ *
+ * Key features:
+ * - Displays objective as the main header
+ * - Lists key results with metrics and owner badges
+ * - Shows generation timestamp and edit status
+ * - Emits addKr event when the user wants to add a new key result
  */
-export interface SaveEditsEvent {
-  objective: string;
-  keyResults: Array<{
-    id: string;
-    statement: string;
-    successMetric?: string;
-    owner?: string;
-  }>;
-}
-
 @Component({
   selector: 'clarityokr-sticky-note',
   standalone: true,
-  imports: [
-    CommonModule,
-    FormsModule,
-    ButtonComponent,
-    InputComponent,
-    OkrHeaderComponent,
-    OkrActionsComponent,
-    OkrViewModeComponent,
-    OkrEditModeComponent,
-  ],
+  imports: [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="sticky-note" *ngIf="okr as viewModel">
-      <!-- View Mode -->
-      <ng-container *ngIf="!editStore.isEditing()">
-        <clarityokr-okr-header
-          [objective]="viewModel.objective"
-          [generatedAt]="viewModel.generatedAt"
-          [lastEditedAt]="viewModel.lastEditedAt"
-          [hasManualEdits]="viewModel.hasManualEdits"
-        ></clarityokr-okr-header>
+      <header class="sticky-note__header">
+        <h1 data-testid="sticky-objective">{{ viewModel.objective }}</h1>
+        <div class="sticky-note__meta">
+          <span class="sticky-note__badge">
+            Generated: {{ viewModel.generatedAt | date: 'medium' }}
+          </span>
+          <span *ngIf="viewModel.lastEditedAt" class="sticky-note__badge sticky-note__badge--edit">
+            Last edited: {{ viewModel.lastEditedAt | date: 'medium' }}
+          </span>
+          <span
+            *ngIf="viewModel.hasManualEdits"
+            class="sticky-note__badge sticky-note__badge--edit"
+            data-testid="sticky-manual-edits"
+          >
+            Contains manual edits
+          </span>
+        </div>
+        <button
+          type="button"
+          class="sticky-note__action"
+          data-testid="sticky-add-kr"
+          (click)="addKr.emit()"
+        >
+          Add Key Result
+        </button>
+      </header>
 
-        <clarityokr-okr-actions
-          (edit)="enterEditMode()"
-          (addKr)="addKr.emit()"
-        ></clarityokr-okr-actions>
-
-        <clarityokr-okr-view-mode [keyResults]="viewModel.keyResults"></clarityokr-okr-view-mode>
-      </ng-container>
-
-      <!-- Edit Mode -->
-      <ng-container *ngIf="editStore.isEditing()">
-        <clarityokr-okr-edit-mode
-          [draftObjective]="editStore.draftObjective()"
-          [draftKeyResults]="editStore.draftKeyResults()"
-          [errors]="editStore.errors()"
-          [canSave]="canSave()"
-          (objectiveChange)="editStore.updateObjective($event)"
-          (save)="onSaveEdits()"
-          (cancel)="cancelEdit()"
-        ></clarityokr-okr-edit-mode>
-      </ng-container>
+      <ol class="sticky-note__list">
+        <li
+          class="sticky-note__item"
+          *ngFor="let kr of viewModel.keyResults; trackBy: trackByKeyResultId"
+          data-testid="sticky-key-result"
+        >
+          <div class="sticky-note__item-text">{{ kr.statement }}</div>
+          <div class="sticky-note__item-badges">
+            <span *ngIf="kr.metricLabel" class="sticky-note__badge" data-testid="sticky-kr-badge">
+              {{ kr.metricLabel }}
+            </span>
+            <span
+              *ngIf="kr.ownerLabel"
+              class="sticky-note__badge sticky-note__badge--owner"
+              data-testid="sticky-kr-badge"
+            >
+              {{ kr.ownerLabel }}
+            </span>
+          </div>
+        </li>
+      </ol>
     </section>
   `,
-  styles: [
-    `
-      :host {
-        display: block;
-      }
-
-      .sticky-note {
-        padding: var(--space-lg);
-      }
-    `,
-  ],
+  styles: [],
 })
 export class OkrStickyNoteComponent {
   /**
@@ -156,58 +142,14 @@ export class OkrStickyNoteComponent {
   @Output() addKr = new EventEmitter<void>();
 
   /**
-   * Event emitted when the user saves edits.
+   * TrackBy function for key results to optimize rendering performance.
    *
-   * Contains the updated objective and key results.
+   * Angular uses this to identify which items have changed in the list,
+   * minimizing DOM manipulations when the key results array updates.
+   *
+   * @param _index - The index of the item in the array (unused)
+   * @param item - The key result item
+   * @returns The unique identifier for the key result
    */
-  @Output() saveEdits = new EventEmitter<SaveEditsEvent>();
-
-  /**
-   * Edit mode store for managing edit state
-   */
-  readonly editStore = inject(EditModeStore);
-
-  /**
-   * Enter edit mode with current OKR values
-   */
-  enterEditMode(): void {
-    if (this.okr) {
-      this.editStore.enterEditMode(
-        this.okr.objective,
-        this.okr.keyResults.map((kr) => ({
-          id: kr.id,
-          statement: kr.statement,
-          successMetric: kr.metricLabel ?? undefined,
-          owner: kr.ownerLabel ?? undefined,
-        })),
-      );
-    }
-  }
-
-  /**
-   * Save edits and emit event
-   */
-  onSaveEdits(): void {
-    if (this.canSave()) {
-      const result = this.editStore.saveEdits();
-      this.saveEdits.emit({
-        objective: result.objective,
-        keyResults: result.keyResults,
-      });
-    }
-  }
-
-  /**
-   * Cancel edit mode
-   */
-  cancelEdit(): void {
-    this.editStore.cancelEdits();
-  }
-
-  /**
-   * Check if edits can be saved
-   */
-  canSave(): boolean {
-    return this.editStore.isValid() && this.editStore.isDirty();
-  }
+  readonly trackByKeyResultId = (_: number, item: { id: string }) => item.id;
 }

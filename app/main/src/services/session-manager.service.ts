@@ -14,11 +14,6 @@ import { Logger } from '../core/logger.js';
 import type { ClarificationSession } from '@clarityokr/contracts';
 import type { SessionRepository } from '../persistence/session-repository.js';
 
-import type { ClarificationSession } from '@clarityokr/contracts';
-import type { SessionRepository } from '../persistence/session-repository.js';
-import type { SessionRepository } from '../persistence/session-repository.js';
-import type { SessionRepository } from '../persistence/session-repository.js';
-
 /**
  * SessionManager - 会话生命周期管理
  * 职责：统一管理会话的创建、获取、保存和重置

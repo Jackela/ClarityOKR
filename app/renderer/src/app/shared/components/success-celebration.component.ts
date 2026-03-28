@@ -47,19 +47,6 @@ import {
   Output,
   ViewChild,
 } from '@angular/core';
-import { TranslatePipe } from '../pipes/translate.pipe.js';
-import type {
-  ElementRef,
-  OnDestroy,
-  OnInit} from '@angular/core';
-import {
-  ChangeDetectionStrategy,
-  Component,
-  EventEmitter,
-  Input,
-  Output,
-  ViewChild,
-} from '@angular/core';
 
 export interface ConfettiPiece {
   id: number;
@@ -77,7 +64,7 @@ export interface ConfettiPiece {
 @Component({
   selector: 'clarityokr-success-celebration',
   standalone: true,
-  imports: [CommonModule, TranslatePipe],
+  imports: [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <article
@@ -155,10 +142,6 @@ export interface ConfettiPiece {
           aria-label="Dismiss success message"
         >
           @if (autoDismiss) {
-            <span>{{ 'success.dismissWithTime' | translate:{ seconds: remainingTime / 1000 } }}</span>
-          } @else {
-            <span>{{ 'success.dismiss' | translate }}</span>
-          }
             <span>Dismiss ({{ remainingTime / 1000 }}s)</span>
           } @else {
             <span>Dismiss</span>

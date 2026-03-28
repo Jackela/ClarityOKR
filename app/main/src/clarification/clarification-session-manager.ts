@@ -13,6 +13,7 @@
  */
 
 import { Logger } from '../core/logger.js';
+import type { ClarificationSession } from '@clarityokr/contracts';
 import type { SessionRepository } from '../persistence/session-repository.js';
 import type { IClarificationSessionManager } from './interfaces/session-manager.interface.js';
 import type { IClarificationStateMachine } from './interfaces/state-machine.interface.js';

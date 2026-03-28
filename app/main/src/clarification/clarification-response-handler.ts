@@ -9,6 +9,7 @@
  */
 
 import { Logger } from '../core/logger.js';
+import type { ClarificationPrompt } from '@clarityokr/contracts';
 import type { IClarificationResponseHandler } from './interfaces/response-handler.interface.js';
 import type { IClarificationSessionManager } from './interfaces/session-manager.interface.js';
 import type { IClarificationStateMachine } from './interfaces/state-machine.interface.js';

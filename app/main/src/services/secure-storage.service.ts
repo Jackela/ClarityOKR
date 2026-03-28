@@ -15,7 +15,6 @@
 // Re-export all public APIs for backward compatibility
 export {
   SecureStorageError,
-  SecureLlmConfig,
   isSafeStorageAvailable,
   FallbackKeyProvider,
   MasterKeyManager,
@@ -28,5 +27,4 @@ export {
   setFallbackConfig,
   getActiveLlmConfig,
 } from './secure-storage/index.js';
-
 export type { SecureLlmConfig } from './secure-storage/index.js';

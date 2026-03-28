@@ -1,16 +1,4 @@
-/**
- * ClarificationOrchestratorService - Coordinates the clarification workflow
- *
- * This service orchestrates the interaction between the renderer and main process
- * via IPC channels. It manages state updates, validation, and error handling
- * for the OKR clarification workflow.
- *
- * Responsibilities:
- * - Initiates clarification by requesting prompts from main process
- * - Records user selections and forwards them to main process
- * - Listens for incoming prompts from main process
- * - Manages loading states and error handling
- */
+import { Injectable } from '@angular/core';
 import type { OnDestroy , NgZone } from '@angular/core';
 import {
   clarificationOptionSelectionSchema,
@@ -21,9 +9,9 @@ import { from, of, throwError } from 'rxjs';
 import type { Observable } from 'rxjs';
 import { catchError, map, tap } from 'rxjs/operators';
 
-import type { Logger } from '@core/services/logger.service';
-import { IPC_CHANNELS } from '@shared/ipc-channel.tokens';
-import type { ClarifyOkrApi } from '@shared/window';
+import type { Logger } from '../../core/services/logger.service';
+import { IPC_CHANNELS } from '../../shared/ipc-channel.tokens';
+import type { ClarifyOkrApi } from '../../shared/window';
 
 import type { SyncClarificationState } from './sync-clarification-state.service';
 
@@ -50,24 +38,6 @@ export class ClarificationOrchestratorService implements OnDestroy {
   }
 
   /**
-   * Starts the clarification workflow and requests the first prompt.
-   *
-   * Validates session ID and intent, sets loading state, then calls Electron IPC
-   * channel to request the LLM to return the first clarification prompt.
-   * Updates state to prompting on success.
-   *
-   * @param sessionId - Unique identifier for the session
-   * @param intent - User's initial goal/intent description
-   * @returns Observable that completes after setting the prompt, throws on error
-   * @throws When validation fails or IPC call fails
-   *
-   * @example
-   * orchestrator.requestPrompt('session-123', 'Improve team efficiency')
-   *   .subscribe({
-   *     next: () => console.log('First prompt loaded'),
-   *     error: (err) => console.error('Request failed:', err)
-   *   });
-   */
    * 开始澄清流程并请求第一个提示
    *
    * 验证会话ID和意图，设置加载状态，然后调用 Electron IPC 通道
@@ -124,22 +94,6 @@ export class ClarificationOrchestratorService implements OnDestroy {
   }
 
   /**
-   * Handles user selection of a clarification prompt option.
-   *
-   * Updates state synchronously to record user selection, then sends selection
-   * to main process via IPC channel. Main process will determine the next prompt
-   * or generate OKR based on the selection.
-   *
-   * @param sessionId - Unique identifier for the current session
-   * @param promptId - Unique identifier for the current prompt
-   * @param optionId - ID of the option selected by user
-   * @returns Observable that completes when selection is sent
-   * @throws When validation fails
-   *
-   * @example
-   * orchestrator.recordSelection('session-123', 'prompt-1', 'option-a')
-   *   .subscribe(() => console.log('Selection recorded'));
-   */
    * 处理用户对澄清提示选项的选择
    *
    * 同步更新状态记录用户选择，然后通过 IPC 通道发送选择到主进程
@@ -172,27 +126,12 @@ export class ClarificationOrchestratorService implements OnDestroy {
     return of(void 0);
   }
 
-  /**
-   * Marks the workflow as ready (legacy method).
-   * @param ready - Whether the workflow is ready
-   * @deprecated Use state machine signals instead
+  markReady(ready: boolean): void {
     this.logger.debug('[ORCHESTRATOR] markReady:', ready);
     this.state.setReady(ready);
   }
 
   /**
-   * Requests the next clarification question.
-   *
-   * Wraps loading state management and error handling to prevent components
-   * from directly manipulating the store. Currently a temporary implementation.
-   *
-   * @param _questionId - ID of the current question (reserved parameter)
-   * @param _optionId - ID of the option selected by user (reserved parameter)
-   * @returns Observable that completes with null (placeholder implementation)
-   *
-   * @example
-   * orchestrator.requestNextQuestion('q-1', 'opt-a').subscribe();
-   */
    * 请求下一个澄清问题
    *
    * 封装加载状态管理和错误处理，防止组件直接操作 store
@@ -215,8 +154,6 @@ export class ClarificationOrchestratorService implements OnDestroy {
   }
 
   /**
-   * Clears error state.
-   */
    * Clear error state
    */
   clearError(): void {
