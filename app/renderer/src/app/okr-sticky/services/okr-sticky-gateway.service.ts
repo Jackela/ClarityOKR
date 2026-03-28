@@ -10,9 +10,9 @@ import { BehaviorSubject } from 'rxjs';
 import type { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 
-import type { Logger } from '../../core/services/logger.service';
-import { IPC_CHANNELS } from '../../shared/ipc-channel.tokens';
-import type { ClarifyOkrApi } from '../../shared/window';
+import type { Logger } from '@core/services/logger.service';
+import { IPC_CHANNELS } from '@shared/ipc-channel.tokens';
+import type { ClarifyOkrApi } from '@shared/window';
 
 import type { OkrProjectionService} from './okr-projection.service';
 import { type OkrStickyViewModel } from './okr-projection.service';

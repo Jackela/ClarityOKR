@@ -1,7 +1,7 @@
 import { Injectable, OnDestroy, inject, signal } from '@angular/core';
 
-import type { Logger } from '../../core/services/logger.service';
-import { TelemetryService } from '../../services/telemetry.service';
+import type { Logger } from '@core/services/logger.service';
+import { TelemetryService } from '@services/telemetry.service';
 import type { ClarificationPrompt } from './clarification-state-machine.service';
 import { ClarificationStateMachine } from './clarification-state-machine.service';
 

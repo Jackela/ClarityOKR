@@ -14,9 +14,9 @@ import type { Observable } from 'rxjs';
 import { finalize, tap } from 'rxjs/operators';
 import type { ClarificationContext, LastChoice } from '@clarityokr/contracts';
 
-import type { TelemetryService } from '../../services/telemetry.service';
-import { IPC_CHANNELS } from '../../shared/ipc-channel.tokens';
-import type { ClarifyOkrApi } from '../../shared/window';
+import type { TelemetryService } from '@services/telemetry.service';
+import { IPC_CHANNELS } from '@shared/ipc-channel.tokens';
+import type { ClarifyOkrApi } from '@shared/window';
 
 function bridgeOrThrow(): ClarifyOkrApi {
   const candidate = window.clarifyOkr;

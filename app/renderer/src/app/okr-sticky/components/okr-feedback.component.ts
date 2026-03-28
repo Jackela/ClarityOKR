@@ -25,7 +25,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { TranslatePipe } from '../../shared/pipes/translate.pipe.js';
+import { TranslatePipe } from '@shared/pipes/translate.pipe.js';
 
 /** Feedback rating type */
 export type FeedbackRating = 'positive' | 'negative' | null;

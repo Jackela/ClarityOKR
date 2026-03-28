@@ -3,6 +3,7 @@
  */
 
 import type { Signal, WritableSignal } from '@angular/core';
+import type { WorkflowState } from '@clarityokr/contracts';
 
 export interface ClarificationPrompt {
   id: string;
@@ -15,14 +16,6 @@ export interface ClarificationPrompt {
   }>;
 }
 
-export type WorkflowState =
-  | 'idle'
-  | 'loading'
-  | 'prompting'
-  | 'ready'
-  | 'generating'
-  | 'completed'
-  | 'error';
 
 export interface ErrorInfo {
   message: string;

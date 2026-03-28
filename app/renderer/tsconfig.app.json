@@ -1,12 +1,21 @@
 {
-  "extends": "./tsconfig.json",
-  "compilerOptions": {
-    "outDir": "./out-tsc/app",
-    "types": [],
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext"
+"extends": "./tsconfig.json",
+"compilerOptions": {
+"outDir": "./out-tsc/app",
+"types": [],
+"module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "paths": {
+      "@core/*": ["src/app/core/*"],
+      "@services/*": ["src/app/services/*"],
+      "@shared/*": ["src/app/shared/*"],
+      "@env/*": ["src/environments/*"],
+      "@clarification/*": ["src/app/clarification/*"],
+      "@okr-sticky/*": ["src/app/okr-sticky/*"]
   },
-  "files": ["src/main.ts"],
-  "include": ["src/**/*.ts", "src/**/*.d.ts"],
-  "exclude": ["src/**/*.spec.ts", "src/**/*.test.ts", "src/test.ts", "src/test-setup.ts"]
+    "baseUrl": "."
+  },
+"files": ["src/main.ts"],
+"include": ["src/**/*.ts", "src/**/*.d.ts"],
+"exclude": ["src/**/*.spec.ts", "src/**/*.test.ts", "src/test.ts", "src/test-setup.ts"]
 }

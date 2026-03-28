@@ -23,9 +23,9 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
-import { ButtonComponent } from '../../shared/components/button.component';
-import { InputComponent } from '../../shared/components/input.component';
-import { TranslatePipe } from '../../shared/pipes/translate.pipe.js';
+import { ButtonComponent } from '@shared/components/button.component';
+import { InputComponent } from '@shared/components/input.component';
+import { TranslatePipe } from '@shared/pipes/translate.pipe.js';
 import type { DraftKeyResult, ValidationError } from '../state/edit-mode.store.js';
 
 

@@ -21,9 +21,9 @@ import { from, of, throwError } from 'rxjs';
 import type { Observable } from 'rxjs';
 import { catchError, map, tap } from 'rxjs/operators';
 
-import type { Logger } from '../../core/services/logger.service';
-import { IPC_CHANNELS } from '../../shared/ipc-channel.tokens';
-import type { ClarifyOkrApi } from '../../shared/window';
+import type { Logger } from '@core/services/logger.service';
+import { IPC_CHANNELS } from '@shared/ipc-channel.tokens';
+import type { ClarifyOkrApi } from '@shared/window';
 
 import type { SyncClarificationState } from './sync-clarification-state.service';
 

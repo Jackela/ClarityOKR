@@ -57,8 +57,8 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
-import { ButtonComponent } from '../../shared/components/button.component';
-import { InputComponent } from '../../shared/components/input.component';
+import { ButtonComponent } from '@shared/components/button.component';
+import { InputComponent } from '@shared/components/input.component';
 import { EditModeStore } from '../state/edit-mode.store.js';
 import type { OkrStickyViewModel } from './types.js';
 import { OkrActionsComponent } from './okr-actions.component.js';

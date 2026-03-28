@@ -18,11 +18,11 @@ import {
   Output,
 } from '@angular/core';
 
-import { ProgressIndicatorComponent } from '../../shared/components/progress-indicator.component';
-import { SkeletonComponent } from '../../shared/components/skeleton.component';
-import { TranslatePipe } from '../../shared/pipes/translate.pipe.js';
+import { ProgressIndicatorComponent } from '@shared/components/progress-indicator.component';
+import { SkeletonComponent } from '@shared/components/skeleton.component';
+import { TranslatePipe } from '@shared/pipes/translate.pipe.js';
 import type { SyncClarificationState } from '../services/sync-clarification-state.service';
-import { SkeletonComponent } from '../../shared/components/skeleton.component';
+import { SkeletonComponent } from '@shared/components/skeleton.component';
 import type { SyncClarificationState } from '../services/sync-clarification-state.service';
 
 @Component({

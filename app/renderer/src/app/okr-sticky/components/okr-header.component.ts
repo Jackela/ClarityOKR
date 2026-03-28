@@ -18,7 +18,7 @@
  */
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
-import { TranslatePipe } from '../../shared/pipes/translate.pipe.js';
+import { TranslatePipe } from '@shared/pipes/translate.pipe.js';
 import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 
 @Component({

@@ -10,7 +10,7 @@ import {
   RetryExhaustedError,
   CircuitBreakerError,
   isClarityOkrError,
-} from './errors.js';
+} from './errors/index.js';
 
 export type BackoffStrategy = 'fixed' | 'exponential' | 'linear' | 'decorrelated-jitter';
 
