@@ -8,7 +8,7 @@
   },
   "dependencies": {
     "jest": "^29.7.0",
-    "ts-jest": "^29.1.1"
+    "ts-jest": "^29.4.6"
   },
   "devDependencies": {
     "cross-env": "^7.0.3",
