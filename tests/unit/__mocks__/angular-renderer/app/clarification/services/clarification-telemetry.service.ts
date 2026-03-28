@@ -1,7 +1,7 @@
 import { Injectable, signal } from '@angular/core';
 import type { Logger } from '../../core/services/logger.service';
-import { TelemetryService } from '../../services/telemetry.service';
-import { ClarificationStateMachine } from './clarification-state-machine.service';
+import type { TelemetryService } from '../../services/telemetry.service';
+import type { ClarificationStateMachine } from './clarification-state-machine.service';
 
 export type TelemetryEventType =
   | 'step_view'

@@ -2,7 +2,7 @@ import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 
 import { safeStorage } from 'electron';
 
-import { decrypt, encrypt } from '../encryption.service.js';
+import { decrypt, encrypt, type EncryptedData } from '../encryption.service.js';
 import { SecureStorageError } from './secure-storage-error.js';
 import type { SecureLlmConfig } from './secure-llm-config.js';
 import { ensureConfigDir, getConfigFilePath } from './secure-storage-config.js';
@@ -80,7 +80,7 @@ export class LlmConfigStore {
         const fallbackKey = this.fallbackProvider.getFallbackEncryptionKey();
         const fileContent = readFileSync(configFilePath, 'utf8');
         const envelope = JSON.parse(fileContent) as {
-          data: import('../encryption.service.js').EncryptedData;
+          data: EncryptedData;
         };
         const configJson = decrypt(envelope.data, fallbackKey);
         return JSON.parse(configJson) as SecureLlmConfig;

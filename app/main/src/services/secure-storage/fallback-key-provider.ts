@@ -3,13 +3,14 @@ import { createHash, pbkdf2Sync, randomBytes } from 'node:crypto';
 import { safeStorage } from 'electron';
 
 import { SecureStorageError } from './secure-storage-error.js';
+import type { SecureLlmConfig } from './secure-llm-config.js';
 
 /**
  * Provides fallback encryption keys for CI/E2E environments where safeStorage
  * is unavailable. Derives keys from environment variables using PBKDF2.
  */
 export class FallbackKeyProvider {
-  private fallbackConfig: import('./secure-llm-config.js').SecureLlmConfig | null = null;
+  private fallbackConfig: SecureLlmConfig | null = null;
 
   /**
    * Checks if we should use a fallback encryption key instead of safeStorage.
@@ -50,7 +51,7 @@ export class FallbackKeyProvider {
    *
    * @param config - The fallback configuration to use
    */
-  setFallbackConfig(config: import('./secure-llm-config.js').SecureLlmConfig): void {
+  setFallbackConfig(config: SecureLlmConfig): void {
     this.fallbackConfig = config;
   }
 
@@ -59,7 +60,7 @@ export class FallbackKeyProvider {
    *
    * @returns The fallback configuration or null
    */
-  getFallbackConfig(): import('./secure-llm-config.js').SecureLlmConfig | null {
+  getFallbackConfig(): SecureLlmConfig | null {
     return this.fallbackConfig;
   }
 

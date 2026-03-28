@@ -1,4 +1,5 @@
 import type { ClarityOkrError, ErrorCode } from '@clarityokr/contracts';
+import { isClarityOkrError } from '@clarityokr/contracts';
 
 /**
  * Error boundary context for tracking where errors occurred
@@ -41,8 +42,6 @@ export interface ErrorBoundaryConfig {
  * Normalize any error to ClarityOkrError
  */
 export function normalizeError(error: unknown, context: ErrorBoundaryContext): ClarityOkrError {
-  const { isClarityOkrError, ClarityOkrError } = require('@clarityokr/contracts');
-
   if (isClarityOkrError(error)) {
     return error as ClarityOkrError;
   }

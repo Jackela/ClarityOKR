@@ -1,7 +1,7 @@
 import { clipboard } from 'electron';
 import type { OKRDocument } from '@clarityokr/contracts';
 import { Logger } from '../core/logger.js';
-
+import type { IActionLogWriter } from '../persistence/action-log-writer.js';
 /**
  * Interface for exporting OKR documents to clipboard.
  * @usage
@@ -36,7 +36,7 @@ export interface ClipboardExporter {
  */
 export class ClipboardExporterService implements ClipboardExporter {
   constructor(
-    private readonly actionLogWriter?: import('../persistence/action-log-writer.js').IActionLogWriter,
+    private readonly actionLogWriter?: IActionLogWriter,
   ) {}
 
   /**

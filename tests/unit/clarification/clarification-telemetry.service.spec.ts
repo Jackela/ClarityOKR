@@ -7,12 +7,12 @@ import { TelemetryService } from '@clarityokr/renderer/app/services/telemetry.se
 import { ClarificationStateMachine } from '@clarityokr/renderer/app/clarification/services/clarification-state-machine.service';
 
 // Define mock types
-type LocalStorageMock = {
+interface LocalStorageMock {
   getItem: ReturnType<typeof jest.fn>;
   setItem: ReturnType<typeof jest.fn>;
   removeItem: ReturnType<typeof jest.fn>;
   clear: () => void;
-};
+}
 
 // Create mock factory functions
 function createLocalStorageMock(): LocalStorageMock {

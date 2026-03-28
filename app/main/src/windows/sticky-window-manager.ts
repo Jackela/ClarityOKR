@@ -8,17 +8,20 @@ import { ClipboardExporterService } from './clipboard-exporter.js';
 
 import { IPCChannels } from '../bootstrap/ipc-channels.js';
 import { Logger } from '../core/logger.js';
-
+import type { OKRRepository } from '../persistence/okr-repository.types.js';
+import type { IActionLogWriter } from '../persistence/action-log-writer.js';
+import type { OkrAgentService } from '../services/okr-agent.service.js';
+import type { SessionRepository } from '../persistence/session-repository.js';
 /**
  * Configuration for sticky window manager
  */
 export interface StickyWindowConfig {
   preloadPath: string;
   rendererDistPath: string;
-  okrRepository: import('../persistence/okr-repository.js').OKRRepository;
-  actionLogWriter: import('../persistence/action-log-writer.js').IActionLogWriter;
-  okrAgentService: import('../services/okr-agent.service.js').OkrAgentService;
-  sessionRepository: import('../persistence/session-repository.js').SessionRepository;
+  okrRepository: OKRRepository;
+  actionLogWriter: IActionLogWriter;
+  okrAgentService: OkrAgentService;
+  sessionRepository: SessionRepository;
 }
 
 /**

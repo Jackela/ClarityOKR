@@ -4,7 +4,8 @@
  * Provides error boundary components and services for the Angular renderer.
  */
 
-import { Component, ErrorHandler, Injectable, Input, NgZone, Optional } from '@angular/core';
+import type { NgZone} from '@angular/core';
+import { Component, ErrorHandler, Injectable, Input, Optional } from '@angular/core';
 import {
   ClarityOkrError,
   getErrorSeverity,
@@ -13,7 +14,7 @@ import {
   isClarityOkrError,
 } from '@clarityokr/contracts';
 
-import { Logger } from './services/logger.service.js';
+import type { Logger } from './services/logger.service.js';
 
 /**
  * Error context for renderer operations

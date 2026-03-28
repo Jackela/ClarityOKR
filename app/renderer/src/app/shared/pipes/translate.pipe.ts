@@ -21,7 +21,7 @@
 
 import { Pipe, type PipeTransform } from '@angular/core';
 import type { InterpolationParams } from '../services/i18n.service';
-import { I18nService } from '../services/i18n.service.js';
+import type { I18nService } from '../services/i18n.service.js';
 
 /**
  * Pipe for translating message keys in templates.

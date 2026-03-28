@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import type { UserActionLogEntry, UserActionType } from '@clarityokr/contracts';
 
 import { Logger } from '../core/logger.js';
-import { DatabaseService } from './database.service.js';
+import type { DatabaseService } from './database.service.js';
 import { ensureDataDir, readEncryptedJson, writeEncryptedJson } from './encrypted-persistence.js';
 
 /** Maximum length for payload summary to prevent oversized log entries */

@@ -1,17 +1,18 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed } from '@angular/core';
-import { NgZone, type OnDestroy } from '@angular/core';
+import type { NgZone} from '@angular/core';
+import { type OnDestroy } from '@angular/core';
 import { ReactiveFormsModule, FormControl, Validators } from '@angular/forms';
 import type { ClarificationPrompt } from '@clarityokr/contracts';
 import { Subject } from 'rxjs';
 
 import { ClarificationWizardComponent } from './clarification/components/clarification-wizard.component';
-import { ClarificationOrchestratorService } from './clarification/services/clarification-orchestrator.service';
-import { IpcLlmGateway } from './clarification/services/ipc-llm-gateway.service';
-import { SyncClarificationState } from './clarification/services/sync-clarification-state.service';
-import { Logger } from './core/services/logger.service';
+import type { ClarificationOrchestratorService } from './clarification/services/clarification-orchestrator.service';
+import type { IpcLlmGateway } from './clarification/services/ipc-llm-gateway.service';
+import type { SyncClarificationState } from './clarification/services/sync-clarification-state.service';
+import type { Logger } from './core/services/logger.service';
 import { OkrStickyNoteComponent } from './okr-sticky/components/okr-sticky-note.component';
-import { OkrStickyGatewayService } from './okr-sticky/services/okr-sticky-gateway.service';
+import type { OkrStickyGatewayService } from './okr-sticky/services/okr-sticky-gateway.service';
 
 // Type guards for safe type narrowing
 function hasQuestionProperty(obj: unknown): obj is { question: unknown } {

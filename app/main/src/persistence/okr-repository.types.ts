@@ -1,3 +1,5 @@
+import type { OKRDocument, ManualEditRecord } from '@clarityokr/contracts';
+
 /**
  * Database row structure for okr_documents table
  */
@@ -16,11 +18,9 @@ export interface DatabaseRow {
  * Repository interface for OKR document persistence operations
  */
 export interface OKRRepository {
-  save(okr: import('@clarityokr/contracts').OKRDocument): Promise<void>;
-  findById(okrId: string): Promise<import('@clarityokr/contracts').OKRDocument | null>;
-  findBySessionId(sessionId: string): Promise<import('@clarityokr/contracts').OKRDocument[]>;
-  getLatestForSession(
-    sessionId: string,
-  ): Promise<import('@clarityokr/contracts').OKRDocument | null>;
-  recordEdit(okrId: string, edit: import('@clarityokr/contracts').ManualEditRecord): Promise<void>;
+  save(okr: OKRDocument): Promise<void>;
+  findById(okrId: string): Promise<OKRDocument | null>;
+  findBySessionId(sessionId: string): Promise<OKRDocument[]>;
+  getLatestForSession(sessionId: string): Promise<OKRDocument | null>;
+  recordEdit(okrId: string, edit: ManualEditRecord): Promise<void>;
 }

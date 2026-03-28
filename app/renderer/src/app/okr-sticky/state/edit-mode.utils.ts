@@ -1,3 +1,4 @@
+import type { KeyResult } from '@clarityokr/contracts';
 import type { EditModeState, DraftKeyResult, ValidationError } from './edit-mode.types.js';
 import { VALIDATION_LIMITS, VALIDATION_MESSAGES } from './edit-mode.types.js';
 
@@ -5,7 +6,7 @@ import { VALIDATION_LIMITS, VALIDATION_MESSAGES } from './edit-mode.types.js';
  * Create draft key results from original key results
  */
 export function createDraftKeyResults(
-  keyResults: import('@clarityokr/contracts').KeyResult[],
+  keyResults: KeyResult[],
 ): DraftKeyResult[] {
   return keyResults.map((kr) => ({
     id: kr.id,
