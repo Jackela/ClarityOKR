@@ -7,16 +7,9 @@ import type { ClarificationPrompt, WorkflowState } from '@clarityokr/contracts';
 import type { Logger } from '../../core/services/logger.service';
 
 export interface ErrorInfo {
-
-export type WorkflowState =
-  | 'idle'
-  | 'loading'
-  | 'prompting'
-  | 'ready'
-  | 'generating'
-  | 'completed'
-  | 'error';
-
+  message: string;
+  recoverable: boolean;
+}
 export interface ErrorInfo {
   message: string;
   recoverable: boolean;

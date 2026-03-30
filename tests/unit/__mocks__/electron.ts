@@ -10,6 +10,7 @@ export interface MockBrowserWindow {
   isDestroyed: ReturnType<typeof jest.fn>;
   isAlwaysOnTop: ReturnType<typeof jest.fn>;
   focus: ReturnType<typeof jest.fn>;
+  hide: ReturnType<typeof jest.fn>;
   show: ReturnType<typeof jest.fn>;
   loadFile: ReturnType<typeof jest.fn>;
   setTitle: ReturnType<typeof jest.fn>;
@@ -27,13 +28,14 @@ export interface MockBrowserWindow {
 
 const createMockBrowserWindow = (options: Record<string, unknown>): MockBrowserWindow => {
   const eventHandlers = new Map<string, ((...args: unknown[]) => void)[]>();
-  
+
   const mockWindow: MockBrowserWindow = {
     id: Math.random(),
     options,
     isDestroyed: jest.fn().mockReturnValue(false),
     isAlwaysOnTop: jest.fn().mockReturnValue(true),
     focus: jest.fn(),
+    hide: jest.fn(),
     show: jest.fn(),
     loadFile: jest.fn().mockResolvedValue(undefined),
     setTitle: jest.fn(),
@@ -60,15 +62,36 @@ const createMockBrowserWindow = (options: Record<string, unknown>): MockBrowserW
     _eventHandlers: eventHandlers,
     _triggerEvent: (event: string, ...args: unknown[]) => {
       const handlers = eventHandlers.get(event) || [];
-      handlers.forEach(handler => handler(...args));
+      handlers.forEach((handler) => handler(...args));
     },
   };
-  
+
   createdWindows.push(mockWindow);
   return mockWindow;
 };
 
-export const BrowserWindow = jest.fn().mockImplementation((options: Record<string, unknown>) => createMockBrowserWindow(options));
+export const BrowserWindow = jest
+  .fn()
+  .mockImplementation((options: Record<string, unknown>) => createMockBrowserWindow(options));
+
+export const clipboard = {
+  writeText: jest.fn().mockResolvedValue(undefined),
+  readText: jest.fn().mockResolvedValue(''),
+};
+
+export const ipcMain = {
+  handle: jest.fn().mockResolvedValue(undefined),
+  on: jest.fn(),
+  removeHandler: jest.fn(),
+};
+
+export const ipcRenderer = {
+  send: jest.fn(),
+  invoke: jest.fn().mockResolvedValue(undefined),
+  on: jest.fn(),
+  removeListener: jest.fn(),
+  removeAllListeners: jest.fn(),
+};
 
 export const safeStorage = {
   isEncryptionAvailable: () => true,
@@ -76,4 +99,4 @@ export const safeStorage = {
   decryptString: (buffer: Buffer) => buffer.toString(),
 };
 
-export default { BrowserWindow, safeStorage };
+export default { BrowserWindow, clipboard, ipcMain, ipcRenderer, safeStorage };

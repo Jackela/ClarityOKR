@@ -5,13 +5,12 @@
  */
 
 export { GlobalErrorHandler } from './error-handler.js';
-export {
-  ErrorBoundaryService,
-  ErrorBoundaryComponent,
-  EnhancedGlobalErrorHandler,
-} from './error-boundary.service.js';
+export { ErrorBoundaryService } from './error-boundary.service.js';
+export { ErrorBoundaryComponent } from './error-boundary.component.js';
+export { EnhancedGlobalErrorHandler } from './error-boundary.handler.js';
 export type {
   RendererErrorContext,
   RendererErrorConfig,
   RendererErrorHandler,
-} from './error-boundary.service.js';
+  ErrorReport,
+} from './error-boundary.types.js';

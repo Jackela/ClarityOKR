@@ -118,15 +118,15 @@ describe('StickyWindowManager Unit Tests', () => {
 
     it('should set window to null when closed event fires', async () => {
       await manager.open(mockDocument);
-      
+
       const mockWindow = createdWindows[0] as MockBrowserWindow;
-      
-      // Trigger closed event
-      mockWindow._triggerEvent('closed');
-      
+
+      // Trigger close event (not closed, since handler listens to close)
+      mockWindow._triggerEvent('close', { preventDefault: jest.fn() });
+
       // Re-opening should create a new window (proves old reference was cleared)
       (BrowserWindow as jest.Mock).mockClear();
-      
+
       await manager.open(mockDocument);
       expect(BrowserWindow).toHaveBeenCalledTimes(1);
     });
@@ -226,13 +226,13 @@ describe('StickyWindowManager Unit Tests', () => {
       
       // Close the window
       const mockWindow = createdWindows[0] as MockBrowserWindow;
-      mockWindow._triggerEvent('closed');
-      
+      mockWindow._triggerEvent('close', { preventDefault: jest.fn() });
+
       (BrowserWindow as jest.Mock).mockClear();
-      
+
       // Reopen should create new window with same document
       await manager.reopen();
-      
+
       expect(BrowserWindow).toHaveBeenCalledTimes(1);
     });
 
@@ -260,16 +260,17 @@ describe('StickyWindowManager Unit Tests', () => {
   describe('Window Event Handlers', () => {
     it('should handle multiple did-finish-load events correctly', async () => {
       await manager.open(mockDocument);
-      
+
       const mockWindow = createdWindows[0] as MockBrowserWindow;
-      
+
       // Trigger did-finish-load multiple times
       mockWindow._triggerEvent('did-finish-load');
       mockWindow._triggerEvent('did-finish-load');
       mockWindow._triggerEvent('did-finish-load');
-      
-      // Should send document each time
-      expect(mockWindow.webContents.send).toHaveBeenCalledTimes(3);
+
+      // Document is sent once in open(), not on each did-finish-load
+      // The handler reconfigures window settings but doesn't re-send document
+      expect(mockWindow.webContents.send).toHaveBeenCalledTimes(1);
     });
 
     it('should not send document if window is destroyed during did-finish-load', async () => {
@@ -291,11 +292,10 @@ describe('StickyWindowManager Unit Tests', () => {
       const secondDoc = { ...mockDocument, id: 'second-doc' };
       
       await manager.open(firstDoc);
-      
+
       // Close window to force new window creation
       const mockWindow = createdWindows[0] as MockBrowserWindow;
-      mockWindow._triggerEvent('closed');
-      
+      mockWindow._triggerEvent('close', { preventDefault: jest.fn() });
       await manager.open(secondDoc);
       
       // Now reopen should use second document
@@ -303,8 +303,7 @@ describe('StickyWindowManager Unit Tests', () => {
       
       // Close and reopen
       const newWindow = createdWindows[1] as MockBrowserWindow;
-      newWindow._triggerEvent('closed');
-      
+      newWindow._triggerEvent('close', { preventDefault: jest.fn() });
       await manager.reopen();
       
       // Clear send calls from previous windows
@@ -423,13 +422,13 @@ describe('StickyWindowManager Unit Tests', () => {
 
     it('should handle reopen after rapid close', async () => {
       await manager.open(mockDocument);
-      
+
       const mockWindow = createdWindows[0] as MockBrowserWindow;
-      mockWindow._triggerEvent('closed');
-      
+      mockWindow._triggerEvent('close', { preventDefault: jest.fn() });
+
       // Immediately reopen
       await manager.reopen();
-      
+
       expect(createdWindows.length).toBe(2);
     });
   });

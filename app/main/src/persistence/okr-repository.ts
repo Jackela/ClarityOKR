@@ -1,55 +1,10 @@
-import type {
-  KeyResult,
-  ManualEditRecord,
-  OKRDocument,
-  RegenerationPolicy,
-} from '@clarityokr/contracts';
+import type { ManualEditRecord, OKRDocument } from '@clarityokr/contracts';
 
 import { Logger } from '../core/logger.js';
-import { randomUUID } from 'crypto';
 
+import type { DatabaseRow, OKRRepository } from './okr-repository.types.js';
+import { detectChanges, OKR_QUERIES, rowToDocument } from './okr-repository.utils.js';
 import { DatabaseService } from './database.service.js';
-
-/**
- * Repository interface for OKR document persistence operations
- */
-export interface OKRRepository {
-  /**
-   * Save an OKR document to the database
-   * @param okr - The OKR document to save
-   * @returns Promise that resolves when saved
-   */
-  save(okr: OKRDocument): Promise<void>;
-
-  /**
-   * Find an OKR document by its ID
-   * @param okrId - The OKR document ID
-   * @returns Promise resolving to the document or null if not found
-   */
-  findById(okrId: string): Promise<OKRDocument | null>;
-
-  /**
-   * Find all OKR documents associated with a session
-   * @param sessionId - The source session ID
-   * @returns Promise resolving to array of OKR documents
-   */
-  findBySessionId(sessionId: string): Promise<OKRDocument[]>;
-
-  /**
-   * Get the most recently generated OKR for a session
-   * @param sessionId - The source session ID
-   * @returns Promise resolving to the latest document or null
-   */
-  getLatestForSession(sessionId: string): Promise<OKRDocument | null>;
-
-  /**
-   * Record a manual edit for an OKR document
-   * @param okrId - The OKR document ID
-   * @param edit - The manual edit record to add
-   * @returns Promise that resolves when recorded
-   */
-  recordEdit(okrId: string, edit: ManualEditRecord): Promise<void>;
-}
 
 /**
  * SQLite-based implementation of OKRRepository
@@ -69,21 +24,7 @@ export class OKRRepositorySqlite implements OKRRepository {
    */
   private ensureTableExists(): void {
     const database = this.db.getDb();
-
-    database.exec(`
-      CREATE TABLE IF NOT EXISTS okr_documents (
-        id TEXT PRIMARY KEY,
-        objective TEXT NOT NULL,
-        key_results TEXT NOT NULL,
-        source_session_id TEXT NOT NULL,
-        generated_at TEXT NOT NULL,
-        last_edited_at TEXT,
-        regeneration_policy TEXT DEFAULT 'overwrite',
-        manual_edits TEXT DEFAULT '[]',
-        FOREIGN KEY (source_session_id) REFERENCES clarification_sessions(id)
-      );
-    `);
-
+    database.exec(OKR_QUERIES.ensureTable);
     Logger.debug('[OKRRepository] Table okr_documents ensured');
   }
 
@@ -94,14 +35,12 @@ export class OKRRepositorySqlite implements OKRRepository {
    */
   async save(okr: OKRDocument): Promise<void> {
     try {
-      const database = this.db.getDb();
-
       // Check if this is an update or insert
       const existing = await this.findById(okr.id);
 
       if (existing) {
         // Detect changes and record edit history
-        const edits = this.detectChanges(existing, okr);
+        const edits = detectChanges(existing, okr);
         if (edits.length > 0) {
           // Append new edits to existing manualEdits
           okr.manualEdits = [...existing.manualEdits, ...edits];
@@ -113,11 +52,8 @@ export class OKRRepositorySqlite implements OKRRepository {
         }
       }
 
-      const stmt = database.prepare(`
-        INSERT OR REPLACE INTO okr_documents
-        (id, objective, key_results, source_session_id, generated_at, last_edited_at, regeneration_policy, manual_edits)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `);
+      const database = this.db.getDb();
+      const stmt = database.prepare(OKR_QUERIES.save);
 
       stmt.run(
         okr.id,
@@ -146,21 +82,13 @@ export class OKRRepositorySqlite implements OKRRepository {
   async findById(okrId: string): Promise<OKRDocument | null> {
     try {
       const database = this.db.getDb();
-      const row = database
-        .prepare(
-          `
-        SELECT id, objective, key_results, source_session_id,
-               generated_at, last_edited_at, regeneration_policy, manual_edits
-        FROM okr_documents WHERE id = ?
-      `,
-        )
-        .get(okrId) as DatabaseRow | undefined;
+      const row = database.prepare(OKR_QUERIES.findById).get(okrId) as DatabaseRow | undefined;
 
       if (!row) {
         return null;
       }
 
-      return this.rowToDocument(row);
+      return rowToDocument(row);
     } catch (error) {
       Logger.error('[OKRRepository] Failed to find OKR by ID:', error);
       throw new Error(
@@ -176,19 +104,9 @@ export class OKRRepositorySqlite implements OKRRepository {
   async findBySessionId(sessionId: string): Promise<OKRDocument[]> {
     try {
       const database = this.db.getDb();
-      const rows = database
-        .prepare(
-          `
-        SELECT id, objective, key_results, source_session_id,
-               generated_at, last_edited_at, regeneration_policy, manual_edits
-        FROM okr_documents
-        WHERE source_session_id = ?
-        ORDER BY generated_at DESC
-      `,
-        )
-        .all(sessionId) as DatabaseRow[];
+      const rows = database.prepare(OKR_QUERIES.findBySessionId).all(sessionId) as DatabaseRow[];
 
-      return rows.map((row) => this.rowToDocument(row));
+      return rows.map(rowToDocument);
     } catch (error) {
       Logger.error('[OKRRepository] Failed to find OKRs by session ID:', error);
       throw new Error(
@@ -204,24 +122,15 @@ export class OKRRepositorySqlite implements OKRRepository {
   async getLatestForSession(sessionId: string): Promise<OKRDocument | null> {
     try {
       const database = this.db.getDb();
-      const row = database
-        .prepare(
-          `
-        SELECT id, objective, key_results, source_session_id,
-               generated_at, last_edited_at, regeneration_policy, manual_edits
-        FROM okr_documents
-        WHERE source_session_id = ?
-        ORDER BY generated_at DESC
-        LIMIT 1
-      `,
-        )
-        .get(sessionId) as DatabaseRow | undefined;
+      const row = database.prepare(OKR_QUERIES.getLatestForSession).get(sessionId) as
+        | DatabaseRow
+        | undefined;
 
       if (!row) {
         return null;
       }
 
-      return this.rowToDocument(row);
+      return rowToDocument(row);
     } catch (error) {
       Logger.error('[OKRRepository] Failed to get latest OKR:', error);
       throw new Error(
@@ -229,6 +138,7 @@ export class OKRRepositorySqlite implements OKRRepository {
       );
     }
   }
+
   /**
    * Load the latest OKR document across all sessions (backward compatibility)
    * @returns Promise resolving to the latest document or null
@@ -236,23 +146,13 @@ export class OKRRepositorySqlite implements OKRRepository {
   async loadLatest(): Promise<OKRDocument | null> {
     try {
       const database = this.db.getDb();
-      const row = database
-        .prepare(
-          `
-        SELECT id, objective, key_results, source_session_id,
-               generated_at, last_edited_at, regeneration_policy, manual_edits
-        FROM okr_documents
-        ORDER BY generated_at DESC
-        LIMIT 1
-      `,
-        )
-        .get() as DatabaseRow | undefined;
+      const row = database.prepare(OKR_QUERIES.loadLatest).get() as DatabaseRow | undefined;
 
       if (!row) {
         return null;
       }
 
-      return this.rowToDocument(row);
+      return rowToDocument(row);
     } catch (error) {
       Logger.error('[OKRRepository] Failed to load latest OKR:', error);
       throw new Error(
@@ -261,30 +161,9 @@ export class OKRRepositorySqlite implements OKRRepository {
     }
   }
 
-
-  /**
-   * Convert a database row to OKRDocument
-   * Handles JSON parsing for complex fields
-   */
-  private rowToDocument(row: DatabaseRow): OKRDocument {
-    return {
-      id: row.id,
-      objective: row.objective,
-      keyResults: JSON.parse(row.key_results) as KeyResult[],
-      sourceSessionId: row.source_session_id,
-      generatedAt: row.generated_at,
-      lastEditedAt: row.last_edited_at,
-      regenerationPolicy: row.regeneration_policy as RegenerationPolicy,
-      manualEdits: JSON.parse(row.manual_edits) as ManualEditRecord[],
-    };
-  }
-
   /**
    * Record a manual edit for an OKR document
    * Appends the edit to the manualEdits array and updates lastEditedAt
-   * @param okrId - The OKR document ID
-   * @param edit - The manual edit record to add
-   * @returns Promise that resolves when recorded
    */
   async recordEdit(okrId: string, edit: ManualEditRecord): Promise<void> {
     try {
@@ -297,13 +176,9 @@ export class OKRRepositorySqlite implements OKRRepository {
       const updatedEdits = [...existing.manualEdits, edit];
       const lastEditedAt = new Date().toISOString();
 
-      const stmt = database.prepare(`
-        UPDATE okr_documents
-        SET manual_edits = ?, last_edited_at = ?
-        WHERE id = ?
-      `);
-
-      stmt.run(JSON.stringify(updatedEdits), lastEditedAt, okrId);
+      database
+        .prepare(OKR_QUERIES.recordEdit)
+        .run(JSON.stringify(updatedEdits), lastEditedAt, okrId);
 
       Logger.debug('[OKRRepository] Recorded edit for OKR:', okrId, 'Edit ID:', edit.id);
     } catch (error) {
@@ -315,91 +190,11 @@ export class OKRRepositorySqlite implements OKRRepository {
   }
 
   /**
-   * Detect changes between existing and new OKR documents
-   * Compares objective and keyResults to generate edit records
-   * @param existing - The existing OKR document
-   * @param updated - The updated OKR document
-   * @returns Array of manual edit records for detected changes
-   */
-  private detectChanges(existing: OKRDocument, updated: OKRDocument): ManualEditRecord[] {
-    const edits: ManualEditRecord[] = [];
-    const timestamp = new Date().toISOString();
-
-    // Detect objective changes
-    if (existing.objective !== updated.objective) {
-      edits.push({
-        id: randomUUID(),
-        fieldPath: 'objective',
-        previousValue: existing.objective,
-        newValue: updated.objective,
-        editedAt: timestamp,
-      });
-    }
-
-    // Detect key results changes
-    const existingKRs = new Map(existing.keyResults.map(kr => [kr.id, kr]));
-    const updatedKRs = new Map(updated.keyResults.map(kr => [kr.id, kr]));
-
-    // Check for modified or added key results
-    for (const [id, updatedKR] of updatedKRs) {
-      const existingKR = existingKRs.get(id);
-      if (!existingKR) {
-        // New key result added
-        edits.push({
-          id: randomUUID(),
-          fieldPath: `keyResults[${updated.keyResults.findIndex(kr => kr.id === id)}]`,
-          previousValue: '',
-          newValue: JSON.stringify(updatedKR),
-          editedAt: timestamp,
-        });
-      } else if (JSON.stringify(existingKR) !== JSON.stringify(updatedKR)) {
-        // Key result modified
-        edits.push({
-          id: randomUUID(),
-          fieldPath: `keyResults[${updated.keyResults.findIndex(kr => kr.id === id)}]`,
-          previousValue: JSON.stringify(existingKR),
-          newValue: JSON.stringify(updatedKR),
-          editedAt: timestamp,
-        });
-      }
-    }
-
-    // Check for removed key results
-    for (const [id, existingKR] of existingKRs) {
-      if (!updatedKRs.has(id)) {
-        edits.push({
-          id: randomUUID(),
-          fieldPath: 'keyResults',
-          previousValue: JSON.stringify(existingKR),
-          newValue: '',
-          editedAt: timestamp,
-        });
-      }
-    }
-
-    return edits;
-  }
-
-  /**
    * Close the database connection
    */
   close(): void {
     this.db.close();
   }
-}
-
-/**
- * Database row structure for okr_documents table
- */
-interface DatabaseRow {
-  id: string;
-  objective: string;
-  key_results: string;
-  source_session_id: string;
-  generated_at: string;
-  last_edited_at: string | null;
-  regeneration_policy: string;
-  manual_edits: string;
 }
 
 /**

@@ -2,16 +2,12 @@ import type { Database } from 'better-sqlite3';
 import BetterSqlite3 from 'better-sqlite3';
 import { join } from 'node:path';
 
-import type {
-  ClarificationPrompt,
-  ClarificationSession,
-  KeyResult,
-  ManualEditRecord,
-  OKRDocument,
-  UserActionLogEntry,
-} from '@clarityokr/contracts';
+import type { ClarificationSession, OKRDocument, UserActionLogEntry } from '@clarityokr/contracts';
 
 import { Logger } from '../core/logger.js';
+import type { SessionRow, OKRRow, ActionLogRow } from './database.queries.js';
+import { SQL_QUERIES, parseSessionRow, parseOKRRow, parseActionLogRow } from './database.queries.js';
+
 
 export interface DatabaseOptions {
   dataDir?: string;
@@ -121,11 +117,7 @@ export class DatabaseService {
    */
   saveSession(session: ClarificationSession): void {
     const db = this.getDb();
-    const stmt = db.prepare(`
-      INSERT OR REPLACE INTO sessions 
-      (id, initial_intent, status, created_at, updated_at, steps, selected_option_ids, confidence, pending_question_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+    const stmt = db.prepare(SQL_QUERIES.saveSession);
 
     stmt.run(
       session.id,
@@ -147,41 +139,11 @@ export class DatabaseService {
    */
   getSession(id: string): ClarificationSession | null {
     const db = this.getDb();
-    const row = db
-      .prepare(
-        `
-      SELECT id, initial_intent, status, created_at, updated_at, 
-             steps, selected_option_ids, confidence, pending_question_id
-      FROM sessions WHERE id = ?
-    `,
-      )
-      .get(id) as
-      | {
-          id: string;
-          initial_intent: string;
-          status: string;
-          created_at: string;
-          updated_at: string;
-          steps: string;
-          selected_option_ids: string;
-          confidence: number;
-          pending_question_id: string | null;
-        }
-      | undefined;
+    const row = db.prepare(SQL_QUERIES.getSession).get(id) as SessionRow | undefined;
 
     if (!row) return null;
 
-    return {
-      id: row.id,
-      initialIntent: row.initial_intent,
-      status: row.status as ClarificationSession['status'],
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-      steps: JSON.parse(row.steps) as ClarificationPrompt[],
-      selectedOptionIds: JSON.parse(row.selected_option_ids) as string[],
-      confidence: row.confidence,
-      pendingQuestionId: row.pending_question_id,
-    };
+    return parseSessionRow(row);
   }
 
   /**
@@ -189,37 +151,9 @@ export class DatabaseService {
    */
   getAllSessions(): ClarificationSession[] {
     const db = this.getDb();
-    const rows = db
-      .prepare(
-        `
-      SELECT id, initial_intent, status, created_at, updated_at, 
-             steps, selected_option_ids, confidence, pending_question_id
-      FROM sessions ORDER BY created_at DESC
-    `,
-      )
-      .all() as {
-      id: string;
-      initial_intent: string;
-      status: string;
-      created_at: string;
-      updated_at: string;
-      steps: string;
-      selected_option_ids: string;
-      confidence: number;
-      pending_question_id: string | null;
-    }[];
+    const rows = db.prepare(SQL_QUERIES.getAllSessions).all() as SessionRow[];
 
-    return rows.map((row) => ({
-      id: row.id,
-      initialIntent: row.initial_intent,
-      status: row.status as ClarificationSession['status'],
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-      steps: JSON.parse(row.steps) as ClarificationPrompt[],
-      selectedOptionIds: JSON.parse(row.selected_option_ids) as string[],
-      confidence: row.confidence,
-      pendingQuestionId: row.pending_question_id,
-    }));
+    return rows.map(parseSessionRow);
   }
 
   /**
@@ -227,7 +161,7 @@ export class DatabaseService {
    */
   deleteSession(id: string): void {
     const db = this.getDb();
-    db.prepare('DELETE FROM sessions WHERE id = ?').run(id);
+    db.prepare(SQL_QUERIES.deleteSession).run(id);
     Logger.debug('[DatabaseService] Session deleted:', id);
   }
 
@@ -236,11 +170,7 @@ export class DatabaseService {
    */
   saveOKR(okr: OKRDocument): void {
     const db = this.getDb();
-    const stmt = db.prepare(`
-      INSERT OR REPLACE INTO okr_documents 
-      (id, objective, key_results, source_session_id, generated_at, last_edited_at, regeneration_policy, manual_edits)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+    const stmt = db.prepare(SQL_QUERIES.saveOKR);
 
     stmt.run(
       okr.id,
@@ -261,39 +191,11 @@ export class DatabaseService {
    */
   getOKR(id: string): OKRDocument | null {
     const db = this.getDb();
-    const row = db
-      .prepare(
-        `
-      SELECT id, objective, key_results, source_session_id, 
-             generated_at, last_edited_at, regeneration_policy, manual_edits
-      FROM okr_documents WHERE id = ?
-    `,
-      )
-      .get(id) as
-      | {
-          id: string;
-          objective: string;
-          key_results: string;
-          source_session_id: string;
-          generated_at: string;
-          last_edited_at: string | null;
-          regeneration_policy: string;
-          manual_edits: string;
-        }
-      | undefined;
+    const row = db.prepare(SQL_QUERIES.getOKR).get(id) as OKRRow | undefined;
 
     if (!row) return null;
 
-    return {
-      id: row.id,
-      objective: row.objective,
-      keyResults: JSON.parse(row.key_results) as KeyResult[],
-      sourceSessionId: row.source_session_id,
-      generatedAt: row.generated_at,
-      lastEditedAt: row.last_edited_at,
-      regenerationPolicy: row.regeneration_policy as OKRDocument['regenerationPolicy'],
-      manualEdits: JSON.parse(row.manual_edits) as ManualEditRecord[],
-    };
+    return parseOKRRow(row);
   }
 
   /**
@@ -301,39 +203,11 @@ export class DatabaseService {
    */
   getOKRBySessionId(sessionId: string): OKRDocument | null {
     const db = this.getDb();
-    const row = db
-      .prepare(
-        `
-      SELECT id, objective, key_results, source_session_id, 
-             generated_at, last_edited_at, regeneration_policy, manual_edits
-      FROM okr_documents WHERE source_session_id = ?
-    `,
-      )
-      .get(sessionId) as
-      | {
-          id: string;
-          objective: string;
-          key_results: string;
-          source_session_id: string;
-          generated_at: string;
-          last_edited_at: string | null;
-          regeneration_policy: string;
-          manual_edits: string;
-        }
-      | undefined;
+    const row = db.prepare(SQL_QUERIES.getOKRBySessionId).get(sessionId) as OKRRow | undefined;
 
     if (!row) return null;
 
-    return {
-      id: row.id,
-      objective: row.objective,
-      keyResults: JSON.parse(row.key_results) as KeyResult[],
-      sourceSessionId: row.source_session_id,
-      generatedAt: row.generated_at,
-      lastEditedAt: row.last_edited_at,
-      regenerationPolicy: row.regeneration_policy as OKRDocument['regenerationPolicy'],
-      manualEdits: JSON.parse(row.manual_edits) as ManualEditRecord[],
-    };
+    return parseOKRRow(row);
   }
 
   /**
@@ -341,11 +215,7 @@ export class DatabaseService {
    */
   saveActionLog(entry: UserActionLogEntry): void {
     const db = this.getDb();
-    const stmt = db.prepare(`
-      INSERT OR REPLACE INTO action_logs 
-      (id, action_type, session_id, okr_id, payload_summary, occurred_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `);
+    const stmt = db.prepare(SQL_QUERIES.saveActionLog);
 
     stmt.run(
       entry.id,
@@ -364,30 +234,9 @@ export class DatabaseService {
    */
   getActionLogs(sessionId: string): UserActionLogEntry[] {
     const db = this.getDb();
-    const rows = db
-      .prepare(
-        `
-      SELECT id, action_type, session_id, okr_id, payload_summary, occurred_at
-      FROM action_logs WHERE session_id = ? ORDER BY occurred_at ASC
-    `,
-      )
-      .all(sessionId) as {
-      id: string;
-      action_type: string;
-      session_id: string;
-      okr_id: string | null;
-      payload_summary: string;
-      occurred_at: string;
-    }[];
+    const rows = db.prepare(SQL_QUERIES.getActionLogs).all(sessionId) as ActionLogRow[];
 
-    return rows.map((row) => ({
-      id: row.id,
-      actionType: row.action_type as UserActionLogEntry['actionType'],
-      sessionId: row.session_id,
-      okrId: row.okr_id,
-      payloadSummary: row.payload_summary,
-      occurredAt: row.occurred_at,
-    }));
+    return rows.map(parseActionLogRow);
   }
 
   /**
@@ -395,12 +244,7 @@ export class DatabaseService {
    */
   recordMigration(version: string, source?: string): void {
     const db = this.getDb();
-    db.prepare(
-      `
-      INSERT INTO migrations (version, migrated_at, source)
-      VALUES (?, ?, ?)
-    `,
-    ).run(version, new Date().toISOString(), source ?? null);
+    db.prepare(SQL_QUERIES.recordMigration).run(version, new Date().toISOString(), source ?? null);
 
     Logger.info('[DatabaseService] Migration recorded:', version);
   }
@@ -410,7 +254,7 @@ export class DatabaseService {
    */
   hasMigration(version: string): boolean {
     const db = this.getDb();
-    const row = db.prepare('SELECT id FROM migrations WHERE version = ?').get(version);
+    const row = db.prepare(SQL_QUERIES.hasMigration).get(version);
     return !!row;
   }
 

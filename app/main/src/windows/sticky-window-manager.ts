@@ -86,6 +86,8 @@ export class StickyWindowManager {
       if (this.window && !this.window.isDestroyed()) {
         event.preventDefault();
         this.window.hide();
+        // Clear reference so next open() creates new window
+        this.window = null;
         Logger.info('[main] sticky window hidden on close');
       }
     });
@@ -128,6 +130,8 @@ export class StickyWindowManager {
   hideStickyWindow(): void {
     if (this.window && !this.window.isDestroyed()) {
       this.window.hide();
+        // Clear reference so next open() creates new window
+        this.window = null;
       Logger.info('[main] sticky window hidden');
     }
   }
@@ -136,14 +140,15 @@ export class StickyWindowManager {
    * Reopens the sticky window with the last displayed document.
    * Stub implementation for T033.
    */
-  async reopenStickyWindow(): Promise<void> {
-    if (!this.lastDocument) {
-      Logger.info('[main] no last document to reopen sticky window');
-      return;
-    }
-    Logger.info('[main] reopening sticky window');
-    await this.createStickyWindow(this.lastDocument.id);
+async reopenStickyWindow(): Promise<void> {
+  if (!this.lastDocument) {
+    Logger.info('[main] no last document to reopen sticky window');
+    return;
   }
+  Logger.info('[main] reopening sticky window');
+  await this.createStickyWindow(this.lastDocument.id);
+  this.sendDocument(this.lastDocument);
+}
 
   /**
    * Opens the sticky window with a document (legacy method).
