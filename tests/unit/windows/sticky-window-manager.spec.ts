@@ -117,19 +117,29 @@ describe('StickyWindowManager Unit Tests', () => {
       });
     });
 
-    it('should set window to null when closed event fires', async () => {
+    it('should hide window on close instead of destroying', async () => {
       await manager.open(mockDocument);
 
       const mockWindow = createdWindows[0] as MockBrowserWindow;
 
-      // Trigger close event (not closed, since handler listens to close)
-      mockWindow._triggerEvent('close', { preventDefault: jest.fn() });
+      // Trigger close event - should hide instead of destroy
+      const preventDefault = jest.fn();
+      mockWindow._triggerEvent('close', { preventDefault });
 
-      // Re-opening should create a new window (proves old reference was cleared)
+      // Verify preventDefault was called (to prevent actual close)
+      expect(preventDefault).toHaveBeenCalled();
+      // Verify window was hidden
+      expect(mockWindow.hide).toHaveBeenCalled();
+
+      // Re-opening should show existing window, not create new one
       (BrowserWindow as jest.Mock).mockClear();
+      mockWindow.show.mockClear();
 
       await manager.open(mockDocument);
-      expect(BrowserWindow).toHaveBeenCalledTimes(1);
+      // No new window created
+      expect(BrowserWindow).toHaveBeenCalledTimes(0);
+      // Existing window was shown
+      expect(mockWindow.show).toHaveBeenCalled();
     });
 
     it('should prevent page-title-updated and reset title', async () => {
@@ -225,16 +235,19 @@ describe('StickyWindowManager Unit Tests', () => {
       // First open
       await manager.open(mockDocument);
       
-      // Close the window
+      // Close the window (hides it)
       const mockWindow = createdWindows[0] as MockBrowserWindow;
       mockWindow._triggerEvent('close', { preventDefault: jest.fn() });
 
       (BrowserWindow as jest.Mock).mockClear();
+      mockWindow.show.mockClear();
 
-      // Reopen should create new window with same document
+      // Reopen should show existing hidden window, not create new one
       await manager.reopen();
 
-      expect(BrowserWindow).toHaveBeenCalledTimes(1);
+      // No new window created, existing window was shown
+      expect(BrowserWindow).toHaveBeenCalledTimes(0);
+      expect(mockWindow.show).toHaveBeenCalled();
     });
 
     it('should do nothing if no previous document exists', async () => {
@@ -289,6 +302,39 @@ describe('StickyWindowManager Unit Tests', () => {
 
   describe('Document Management', () => {
     it('should update lastDocument when opening new document', async () => {
+      const firstDoc = { ...mockDocument, id: 'first-doc' };
+      const secondDoc = { ...mockDocument, id: 'second-doc' };
+      
+      await manager.open(firstDoc);
+      const mockWindow = createdWindows[0] as MockBrowserWindow;
+
+      // Clear send calls from first open
+      mockWindow.webContents.send.mockClear();
+
+      // Open second document - same window, new document
+      await manager.open(secondDoc);
+      
+      // Verify second document was sent to existing window
+      expect(mockWindow.webContents.send).toHaveBeenCalledWith(
+        'clarityokr:okr:generate',
+        { okr: secondDoc }
+      );
+      
+      // Close (hide) and reopen
+      mockWindow._triggerEvent('close', { preventDefault: jest.fn() });
+      mockWindow.webContents.send.mockClear();
+      
+      await manager.reopen();
+      
+      // Trigger did-finish-load
+      mockWindow._triggerEvent('did-finish-load');
+      
+      // Verify the second document was sent on reopen
+      const sendCalls = mockWindow.webContents.send.mock.calls;
+      expect(sendCalls.length).toBeGreaterThan(0);
+      const lastCall = sendCalls[sendCalls.length - 1];
+      expect(lastCall[1].okr.id).toBe('second-doc');
+    });
       const firstDoc = { ...mockDocument, id: 'first-doc' };
       const secondDoc = { ...mockDocument, id: 'second-doc' };
       
@@ -427,11 +473,13 @@ describe('StickyWindowManager Unit Tests', () => {
       const mockWindow = createdWindows[0] as MockBrowserWindow;
       mockWindow._triggerEvent('close', { preventDefault: jest.fn() });
 
-      // Immediately reopen
+      // Immediately reopen - should show existing window, not create new one
       await manager.reopen();
 
-      expect(createdWindows.length).toBe(2);
-    });
+      // Should still only have one window (reused)
+      expect(createdWindows.length).toBe(1);
+      // Window was shown
+      expect(mockWindow.show).toHaveBeenCalled();
   });
 
   describe('Window State Consistency', () => {
