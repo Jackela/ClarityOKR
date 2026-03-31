@@ -22,6 +22,9 @@ module.exports = {
     '^@clarityokr/(.*)$': '<rootDir>/../../packages/$1/src/index.ts',
     '^@clarityokr/main/(.*)$': '<rootDir>/../../app/main/src/$1',
     '^electron$': '<rootDir>/__mocks__/electron.ts',
+    // Map .js imports from app/main/src to .ts files
+    '^(.*)/app/main/src/(.*)\\.js$': '<rootDir>/../../app/main/src/$2.ts',
+    // Handle relative .js imports from test specs (strip .js extension for ts-jest)
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
   testPathIgnorePatterns: ['/node_modules/'],
