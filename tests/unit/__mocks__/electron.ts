@@ -8,6 +8,7 @@ export interface MockBrowserWindow {
   id: number;
   options: Record<string, unknown>;
   isDestroyed: ReturnType<typeof jest.fn>;
+  isVisible: ReturnType<typeof jest.fn>;
   isAlwaysOnTop: ReturnType<typeof jest.fn>;
   focus: ReturnType<typeof jest.fn>;
   hide: ReturnType<typeof jest.fn>;
@@ -28,15 +29,21 @@ export interface MockBrowserWindow {
 
 const createMockBrowserWindow = (options: Record<string, unknown>): MockBrowserWindow => {
   const eventHandlers = new Map<string, ((...args: unknown[]) => void)[]>();
+  let visible = true;
 
   const mockWindow: MockBrowserWindow = {
     id: Math.random(),
     options,
     isDestroyed: jest.fn().mockReturnValue(false),
+    isVisible: jest.fn().mockImplementation(() => visible),
     isAlwaysOnTop: jest.fn().mockReturnValue(true),
     focus: jest.fn(),
-    hide: jest.fn(),
-    show: jest.fn(),
+    hide: jest.fn().mockImplementation(() => {
+      visible = false;
+    }),
+    show: jest.fn().mockImplementation(() => {
+      visible = true;
+    }),
     loadFile: jest.fn().mockResolvedValue(undefined),
     setTitle: jest.fn(),
     setAlwaysOnTop: jest.fn(),
