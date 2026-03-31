@@ -4,12 +4,10 @@ module.exports = {
   roots: ['<rootDir>/specs'],
   testMatch: ['**/*.spec.ts'],
   extensionsToTreatAsEsm: ['.ts'],
-  setupFilesAfterEnv: ['./setup.cjs'],
-  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   testTimeout: 30000,
   transform: {
     '^.+\\.tsx?$': [
-      '<rootDir>/ts-jest-transformer.cjs',
+      'ts-jest',
       {
         tsconfig: './tsconfig.test.json',
         useESM: true,
@@ -22,12 +20,8 @@ module.exports = {
     '^@clarityokr/(.*)$': '<rootDir>/../../packages/$1/src/index.ts',
     '^@clarityokr/main/(.*)$': '<rootDir>/../../app/main/src/$1',
     '^electron$': '<rootDir>/__mocks__/electron.ts',
-    // Map .js imports from app/main/src to .ts files
-    '^(.*)/app/main/src/(.*)\\.js$': '<rootDir>/../../app/main/src/$2.ts',
-    // Handle imports without extension (add .ts) - match paths ending with a filename (no dots in last segment)
-    '^(.*?)/app/main/src/(.*[^/\\.])$': '<rootDir>/../../app/main/src/$2.ts',
-    // Handle relative .js imports from test specs (strip .js extension for ts-jest)
-    '^(\\.{1,2}/.*)\\.js$': '$1',
+    // Map .js imports from app/main/src to .ts files - handle the specific path pattern
+    '^(.*)app/main/src/(.*)\\.js$': '<rootDir>/../../app/main/src/$2.ts',
   },
   testPathIgnorePatterns: ['/node_modules/'],
 };

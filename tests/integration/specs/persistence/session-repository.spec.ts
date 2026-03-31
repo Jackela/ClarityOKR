@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SessionRepository } from '../../../../app/main/src/persistence/session-repository';
+import { SessionRepository } from '../../../../app/main/src/persistence/session-repository.js';
 
 describe('SessionRepository Integration', () => {
   let testDir: string;

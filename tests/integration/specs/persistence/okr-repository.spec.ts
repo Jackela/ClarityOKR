@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { OkrRepository } from '../../../../app/main/src/persistence/okr-repository';
+import { OkrRepository } from '../../../../app/main/src/persistence/okr-repository.js';
 import type { OKRDocument } from '../../../../packages/contracts/src/clarify-to-okr.contract';
 
 describe('OkrRepository Integration', () => {

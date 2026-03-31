@@ -1,8 +1,8 @@
 import { mkdtempSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SessionRepository } from '../../../../app/main/src/persistence/session-repository';
-import { OkrRepository } from '../../../../app/main/src/persistence/okr-repository';
+import { SessionRepository } from '../../../../app/main/src/persistence/session-repository.js';
+import { OkrRepository } from '../../../../app/main/src/persistence/okr-repository.js';
 
 describe('Integration: Session persistence across restart', () => {
   let testDir: string;

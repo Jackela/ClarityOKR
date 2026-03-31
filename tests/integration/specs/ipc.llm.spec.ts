@@ -2,9 +2,9 @@
 import nock from 'nock';
 import { jest } from '@jest/globals';
 
-import { ClarificationController } from '../../../app/main/src/windows/clarification-controller';
-import { IPCChannels } from '../../../app/main/src/bootstrap/ipc-channels';
-import { OkrAgentService } from '../../../app/main/src/services/okr-agent.service';
+import { ClarificationController } from '../../../app/main/src/windows/clarification-controller.js';
+import { IPCChannels } from '../../../app/main/src/bootstrap/ipc-channels.js';
+import { OkrAgentService } from '../../../app/main/src/services/okr-agent.service.js';
 
 // Simple Electron stubs to capture handlers and observe broadcasts
 const handlers: Record<string, (event: unknown, ...args: unknown[]) => unknown> = {};
