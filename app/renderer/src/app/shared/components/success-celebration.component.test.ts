@@ -44,20 +44,21 @@ describe('SuccessCelebrationComponent', () => {
 
   it('should render checkmark icon', () => {
     fixture.detectChanges();
-    const icon = fixture.debugElement.query(By.css('.celebration-icon'));
-    expect(icon).toBeTruthy();
+    const checkmark = fixture.debugElement.query(By.css('.checkmark'));
+    expect(checkmark).toBeTruthy();
   });
 
   it('should trigger animation on show', () => {
-    component.show = false;
     fixture.detectChanges();
-
-    expect(component.isAnimating).toBe(false);
-
-    component.show = true;
+    
+    // Component starts not dismissing
+    expect(component.isDismissing).toBe(false);
+    
+    // Trigger dismiss
+    component.dismiss();
     fixture.detectChanges();
-
-    expect(component.isAnimating).toBe(true);
+    
+    expect(component.isDismissing).toBe(true);
   });
 
   it('should emit dismissed event when dismiss button clicked', () => {
@@ -66,42 +67,63 @@ describe('SuccessCelebrationComponent', () => {
     fixture.detectChanges();
 
     const dismissButton = fixture.debugElement.query(By.css('.dismiss-button'));
-    if (dismissButton) {
-      dismissButton.triggerEventHandler('click', {});
-      expect(closeSpy).toHaveBeenCalled();
-    }
+    expect(dismissButton).toBeTruthy();
+    dismissButton.triggerEventHandler('click', {});
+    expect(closeSpy).toHaveBeenCalled();
   });
 
-  it('should auto-hide after duration when autoHide is true', (done) => {
+  it('should auto-dismiss after duration when autoDismiss is true', (done) => {
     jest.useFakeTimers();
-    component.autoHide = true;
+    component.autoDismiss = true;
     component.duration = 1000;
-    component.show = true;
+    
+    const dismissedSpy = jest.fn();
+    component.dismissed.subscribe(dismissedSpy);
+    
+    // Re-initialize to start timer with new values
+    component.ngOnInit();
     fixture.detectChanges();
 
-    expect(component.show).toBe(true);
+    expect(dismissedSpy).not.toHaveBeenCalled();
 
-    jest.advanceTimersByTime(1000);
+    jest.advanceTimersByTime(1300); // Duration + animation time
 
-    expect(component.show).toBe(false);
+    expect(dismissedSpy).toHaveBeenCalled();
     jest.useRealTimers();
     done();
   });
 
-  it('should not auto-hide when autoHide is false', () => {
+  it('should not auto-dismiss when autoDismiss is false', () => {
     jest.useFakeTimers();
-    component.autoHide = false;
+    component.autoDismiss = false;
     component.duration = 1000;
-    component.show = true;
+    
+    const dismissedSpy = jest.fn();
+    component.dismissed.subscribe(dismissedSpy);
+    
+    // Re-initialize to check autoDismiss behavior
+    component.ngOnInit();
     fixture.detectChanges();
 
     jest.advanceTimersByTime(2000);
 
-    expect(component.show).toBe(true);
+    expect(dismissedSpy).not.toHaveBeenCalled();
     jest.useRealTimers();
   });
 
   it('should apply celebration--dismissing class when dismissing', () => {
+    fixture.detectChanges();
+    
+    // Initially not dismissing
+    expect(component.isDismissing).toBe(false);
+    
+    // Trigger dismiss
+    component.dismiss();
+    fixture.detectChanges();
+
+    const container = fixture.debugElement.query(By.css('.celebration-container'));
+    expect(container.nativeElement.classList.contains('celebration--dismissing')).toBe(true);
+  });
     component.show = true;
     component.isDismissing = true;
     fixture.detectChanges();

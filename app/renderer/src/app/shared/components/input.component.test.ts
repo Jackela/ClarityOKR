@@ -77,7 +77,8 @@ describe('InputComponent', () => {
     const onChangeSpy = jest.fn();
     component.registerOnChange(onChangeSpy);
 
-    component.value = 'test value';
+    // Simulate input event
+    component.onInput({ target: { value: 'test value' } } as unknown as Event);
 
     expect(onChangeSpy).toHaveBeenCalledWith('test value');
   });

@@ -41,7 +41,7 @@ describe('CardComponent', () => {
 
   it('should transclude content', () => {
     const testContent = 'Test card content';
-    fixture.nativeElement.textContent = testContent;
+    fixture.nativeElement.innerHTML = testContent;
     fixture.detectChanges();
 
     const card = fixture.debugElement.query(By.css('.card'));

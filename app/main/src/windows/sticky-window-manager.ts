@@ -16,12 +16,13 @@ import type { SessionRepository } from '../persistence/session-repository.js';
  * Configuration for sticky window manager
  */
 export interface StickyWindowConfig {
-  preloadPath: string;
-  rendererDistPath: string;
-  okrRepository: OKRRepository;
-  actionLogWriter: IActionLogWriter;
-  okrAgentService: OkrAgentService;
+preloadPath: string;
+rendererDistPath: string;
+okrRepository: OKRRepository;
+actionLogWriter: IActionLogWriter;
+okrAgentService: OkrAgentService;
   sessionRepository: SessionRepository;
+  isQuitting: () => boolean;
 }
 
 /**
@@ -81,13 +82,17 @@ export class StickyWindowManager {
     await this.window.loadFile(indexFile, { search: 'view=sticky' });
     Logger.info('[main] sticky window content loaded');
 
-    // Handle close event to hide instead of destroy
+    // Handle close event to hide instead of destroy (unless app is quitting)
     this.window.on('close', (event) => {
       if (this.window && !this.window.isDestroyed()) {
+        // If app is quitting, allow window to close normally
+        if (this.config.isQuitting()) {
+          return;
+        }
+        // Otherwise, prevent close and just hide the window
         event.preventDefault();
         this.window.hide();
-        // Clear reference so next open() creates new window
-        this.window = null;
+        // Keep reference so we can show it again via showStickyWindow()
         Logger.info('[main] sticky window hidden on close');
       }
     });
@@ -113,28 +118,26 @@ export class StickyWindowManager {
     return this.window;
   }
 
-  /**
-   * Shows the sticky window if it exists.
-   */
-  showStickyWindow(): void {
-    if (this.window && !this.window.isDestroyed()) {
-      this.window.show();
-      this.window.focus();
-      Logger.info('[main] sticky window shown');
-    }
-  }
+  SK|  /**
+   QP|   * Shows the sticky window if it exists.
+   NW|   */
+  ST|  showStickyWindow(): void {
+    HW|    if (this.window && !this.window.isDestroyed()) {
+      HH|      this.window.show();
+      VX|      this.window.focus();
+      PS|      Logger.info('[main] sticky window shown');
+    RZ|    }
+  ZH|  }
 
-  /**
-   * Hides the sticky window without destroying it.
-   */
-  hideStickyWindow(): void {
-    if (this.window && !this.window.isDestroyed()) {
-      this.window.hide();
-        // Clear reference so next open() creates new window
-        this.window = null;
-      Logger.info('[main] sticky window hidden');
-    }
-  }
+  ZW|  /**
+WH|   * Hides the sticky window without destroying it.
+QN|   */
+NZ|  hideStickyWindow(): void {
+HW|    if (this.window && !this.window.isDestroyed()) {
+KB|      this.window.hide();
+PB|      Logger.info('[main] sticky window hidden');
+BB|    }
+TQ|  }
 
   /**
    * Reopens the sticky window with the last displayed document.

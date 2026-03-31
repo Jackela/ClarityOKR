@@ -1,14 +1,13 @@
 import { Injectable, inject } from '@angular/core';
 import type { ClarificationPrompt } from '@clarityokr/contracts';
 
-import type { Logger } from '../../core/services/logger.service';
+import { Logger } from '../../core/services/logger.service';
 import type {
   ErrorInfo,
   WorkflowState} from './clarification-state-machine.service';
 import {
   ClarificationStateMachine
 } from './clarification-state-machine.service';
-
 /**
  * SyncClarificationState - 状态机适配器服务
  *
@@ -84,7 +83,17 @@ export class SyncClarificationState {
   /** 已选择的选项ID列表 */
   readonly selectedOptionIds = this.stateMachine.selectedOptionIds;
 
-  constructor(private readonly logger: Logger) {
+  private readonly logger = inject(Logger);
+
+  constructor() {
+    this.logger.debug('[SYNC-STATE] Adapter initialized (delegates to StateMachine)');
+  }
+
+  // === 同步方法 (委托给 StateMachine) ===
+
+  constructor() {
+    this.logger.debug('[SYNC-STATE] Adapter initialized (delegates to StateMachine)');
+  }
     this.logger.debug('[SYNC-STATE] Adapter initialized (delegates to StateMachine)');
   }
 

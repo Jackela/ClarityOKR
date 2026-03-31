@@ -1,0 +1,12 @@
+---
+active: true
+iteration: 1
+completion_promise: "DONE"
+initial_completion_promise: "DONE"
+started_at: "2026-03-31T08:41:31.368Z"
+session_id: "ses_2d1bb2108ffeoNet5yl0gKlNun"
+ultrawork: true
+strategy: "continue"
+message_count_at_start: 2898
+---
+"

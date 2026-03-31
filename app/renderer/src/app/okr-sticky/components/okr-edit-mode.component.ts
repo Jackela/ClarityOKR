@@ -75,7 +75,8 @@ import type { DraftKeyResult, ValidationError } from '../state/edit-mode.store';
         <label>{{ 'okr.sticky.editMode.keyResultsLabel' | translate }}</label>
         <div class="okr-edit-mode__kr-item" *ngFor="let kr of draftKeyResults; let i = index">
           <clarityokr-input
-            [(ngModel)]="kr.statement"
+            [ngModel]="kr.statement"
+            (ngModelChange)="keyResultChange.emit({ id: kr.id, statement: $event })"
             [placeholder]="'okr.sticky.editMode.keyResultPlaceholder' | translate"
             [invalid]="hasKrError(kr.id)"
             [errorMessage]="getKrError(kr.id)"
@@ -184,6 +185,9 @@ export class OkrEditModeComponent {
   /** Event emitted when the draft objective changes */
   @Output() objectiveChange = new EventEmitter<string>();
 
+  /** Event emitted when a key result statement changes */
+  @Output() keyResultChange = new EventEmitter<{ id: string; statement: string }>();
+
   /** Event emitted when the user clicks save */
   @Output() save = new EventEmitter<void>();
 
@@ -197,6 +201,21 @@ export class OkrEditModeComponent {
 
   set draftObjectiveProxy(value: string) {
     this.objectiveChange.emit(value);
+  }
+
+  /**
+   * Creates a proxy getter/setter for a key result statement
+   * This ensures changes are routed through the store via keyResultChange event
+   */
+  krStatementProxy(kr: DraftKeyResult): { get value(): string; set value(val: string) } {
+    return {
+      get value(): string {
+        return kr.statement;
+      },
+      set value(val: string) {
+        this.keyResultChange.emit({ id: kr.id, statement: val });
+      },
+    };
   }
 
   /**
