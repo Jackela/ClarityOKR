@@ -49,6 +49,9 @@ export class StickyWindowManager {
     Logger.info('[main] creating sticky window', { okrId });
 
     if (this.window && !this.window.isDestroyed()) {
+      if (!this.window.isVisible()) {
+        this.window.show();
+      }
       this.window.focus();
       return this.window;
     }
