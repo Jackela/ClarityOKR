@@ -447,6 +447,8 @@ describe('StickyWindowManager Unit Tests', () => {
       expect(createdWindows.length).toBe(1);
       // Window was shown
       expect(mockWindow.show).toHaveBeenCalled();
+    });
+    });
   });
 
   describe('Window State Consistency', () => {
