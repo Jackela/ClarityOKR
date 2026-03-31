@@ -6,7 +6,7 @@ import type { MockBrowserWindow } from '../__mocks__/electron.js';
 
 describe('StickyWindowManager Unit Tests', () => {
   let manager: StickyWindowManager;
-  let config: { preloadPath: string; rendererDistPath: string };
+  let config: { preloadPath: string; rendererDistPath: string; isQuitting?: () => boolean };
   let mockDocument: OKRDocument;
 
   beforeEach(() => {
@@ -15,6 +15,10 @@ describe('StickyWindowManager Unit Tests', () => {
     jest.clearAllMocks();
     
     config = {
+      preloadPath: '/mock/preload.js',
+      rendererDistPath: '/mock/renderer/dist',
+      isQuitting: () => false,
+    };
       preloadPath: '/mock/preload.js',
       rendererDistPath: '/mock/renderer/dist',
     };
