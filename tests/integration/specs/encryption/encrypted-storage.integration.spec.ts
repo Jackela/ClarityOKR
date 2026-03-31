@@ -3,7 +3,7 @@
  * 任务20.3: 加密存储集成测试
  */
 
-import { EncryptedStorageService } from '../../../app/main/src/services/encrypted-storage.service.js';
+import { EncryptedStorageService } from '../../../../app/main/src/services/encrypted-storage.service.js';
 
 describe('EncryptedStorageService Integration', () => {
   let storage: EncryptedStorageService;

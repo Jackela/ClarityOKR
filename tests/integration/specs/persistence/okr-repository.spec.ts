@@ -27,6 +27,7 @@ describe('OkrRepository Integration', () => {
       ],
       sourceSessionId: 'session-1',
       generatedAt: new Date().toISOString(),
+      lastEditedAt: null,
       regenerationPolicy: 'overwrite',
       manualEdits: [],
     };
@@ -52,6 +53,7 @@ describe('OkrRepository Integration', () => {
       keyResults: [],
       sourceSessionId: 'session-1',
       generatedAt: new Date().toISOString(),
+      lastEditedAt: null,
       regenerationPolicy: 'overwrite',
       manualEdits: [],
     };
@@ -62,6 +64,7 @@ describe('OkrRepository Integration', () => {
       keyResults: [],
       sourceSessionId: 'session-1',
       generatedAt: new Date().toISOString(),
+      lastEditedAt: null,
       regenerationPolicy: 'overwrite',
       manualEdits: [],
     };

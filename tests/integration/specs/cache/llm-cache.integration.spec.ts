@@ -4,7 +4,7 @@
  */
 
 import Database from 'better-sqlite3';
-import { LlmCacheService } from '../../../app/main/src/services/llm-cache.service.js';
+import { LlmCacheService } from '../../../../app/main/src/services/llm-cache.service.js';
 
 describe('LlmCacheService Integration', () => {
   let db: Database.Database;

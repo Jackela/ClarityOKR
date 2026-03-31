@@ -1,4 +1,4 @@
-import { LlmCircuitBreaker } from '../../../app/main/src/services/llm-circuit-breaker.service.js';
+import { LlmCircuitBreaker } from '../../../../app/main/src/services/llm-circuit-breaker.service.js';
 
 describe('CircuitBreakerService Integration', () => {
   let breaker: LlmCircuitBreaker;
