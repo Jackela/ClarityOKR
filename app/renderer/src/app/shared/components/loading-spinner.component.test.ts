@@ -21,35 +21,35 @@ describe('LoadingSpinnerComponent', () => {
 
   it('should render spinner element', () => {
     fixture.detectChanges();
-    const spinner = fixture.debugElement.query(By.css('.loading-spinner'));
+    const spinner = fixture.debugElement.query(By.css('.spinner-container'));
     expect(spinner).toBeTruthy();
   });
 
   it('should render with default medium size', () => {
     fixture.detectChanges();
-    const spinner = fixture.debugElement.query(By.css('.loading-spinner'));
-    expect(spinner.nativeElement.classList.contains('spinner-md')).toBe(true);
+    const spinner = fixture.debugElement.query(By.css('.spinner'));
+    expect(spinner.nativeElement.classList.contains('spinner--md')).toBe(true);
   });
 
   it('should apply size class correctly', () => {
     component.size = 'lg';
     fixture.detectChanges();
-    const spinner = fixture.debugElement.query(By.css('.loading-spinner'));
-    expect(spinner.nativeElement.classList.contains('spinner-lg')).toBe(true);
+    const spinner = fixture.debugElement.query(By.css('.spinner'));
+    expect(spinner.nativeElement.classList.contains('spinner--lg')).toBe(true);
   });
 
   it('should display message when provided', () => {
     component.message = 'Loading data...';
     fixture.detectChanges();
 
-    const messageElement = fixture.debugElement.query(By.css('.spinner-message'));
+    const messageElement = fixture.debugElement.query(By.css('.spinner__message'));
     expect(messageElement).toBeTruthy();
     expect(messageElement.nativeElement.textContent).toBe('Loading data...');
   });
 
   it('should have aria-live attribute for accessibility', () => {
     fixture.detectChanges();
-    const spinner = fixture.debugElement.query(By.css('.loading-spinner'));
+    const spinner = fixture.debugElement.query(By.css('.spinner-container'));
     expect(spinner.nativeElement.getAttribute('aria-live')).toBe('polite');
   });
 
@@ -60,8 +60,8 @@ describe('LoadingSpinnerComponent', () => {
       it(`should render ${size} size correctly`, () => {
         component.size = size;
         fixture.detectChanges();
-        const spinner = fixture.debugElement.query(By.css('.loading-spinner'));
-        expect(spinner.nativeElement.classList.contains(`spinner-${size}`)).toBe(true);
+        const spinner = fixture.debugElement.query(By.css('.spinner'));
+        expect(spinner.nativeElement.classList.contains(`spinner--${size}`)).toBe(true);
       });
     });
   });

@@ -60,14 +60,14 @@ describe('SuccessCelebrationComponent', () => {
     expect(component.isAnimating).toBe(true);
   });
 
-  it('should emit onClose event when close button clicked', () => {
+  it('should emit dismissed event when dismiss button clicked', () => {
     const closeSpy = jest.fn();
-    component.onClose.subscribe(closeSpy);
+    component.dismissed.subscribe(closeSpy);
     fixture.detectChanges();
 
-    const closeButton = fixture.debugElement.query(By.css('.close-button'));
-    if (closeButton) {
-      closeButton.triggerEventHandler('click', {});
+    const dismissButton = fixture.debugElement.query(By.css('.dismiss-button'));
+    if (dismissButton) {
+      dismissButton.triggerEventHandler('click', {});
       expect(closeSpy).toHaveBeenCalled();
     }
   });
@@ -101,12 +101,12 @@ describe('SuccessCelebrationComponent', () => {
     jest.useRealTimers();
   });
 
-  it('should apply animation class when animating', () => {
+  it('should apply celebration--dismissing class when dismissing', () => {
     component.show = true;
-    component.isAnimating = true;
+    component.isDismissing = true;
     fixture.detectChanges();
 
     const container = fixture.debugElement.query(By.css('.celebration-container'));
-    expect(container.nativeElement.classList.contains('animating')).toBe(true);
+    expect(container.nativeElement.classList.contains('celebration--dismissing')).toBe(true);
   });
 });

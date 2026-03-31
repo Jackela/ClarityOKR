@@ -22,21 +22,21 @@ describe('CardComponent', () => {
   it('should render with default elevated variant', () => {
     fixture.detectChanges();
     const card = fixture.debugElement.query(By.css('.card'));
-    expect(card.nativeElement.classList.contains('card-elevated')).toBe(true);
+    expect(card.nativeElement.classList.contains('card--elevated')).toBe(true);
   });
 
   it('should apply variant class correctly', () => {
     component.variant = 'outlined';
     fixture.detectChanges();
     const card = fixture.debugElement.query(By.css('.card'));
-    expect(card.nativeElement.classList.contains('card-outlined')).toBe(true);
+    expect(card.nativeElement.classList.contains('card--outlined')).toBe(true);
   });
 
   it('should apply padding class correctly', () => {
     component.padding = 'sm';
     fixture.detectChanges();
     const card = fixture.debugElement.query(By.css('.card'));
-    expect(card.nativeElement.classList.contains('p-sm')).toBe(true);
+    expect(card.nativeElement.classList.contains('card--padding-sm')).toBe(true);
   });
 
   it('should transclude content', () => {
@@ -60,7 +60,7 @@ describe('CardComponent', () => {
         component.variant = variant;
         fixture.detectChanges();
         const card = fixture.debugElement.query(By.css('.card'));
-        expect(card.nativeElement.classList.contains(`card-${variant}`)).toBe(true);
+        expect(card.nativeElement.classList.contains(`card--${variant}`)).toBe(true);
       });
     });
   });
@@ -73,7 +73,7 @@ describe('CardComponent', () => {
         component.padding = padding;
         fixture.detectChanges();
         const card = fixture.debugElement.query(By.css('.card'));
-        expect(card.nativeElement.classList.contains(`p-${padding}`)).toBe(true);
+        expect(card.nativeElement.classList.contains(`card--padding-${padding}`)).toBe(true);
       });
     });
   });

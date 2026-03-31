@@ -44,7 +44,7 @@ describe('InputComponent', () => {
     component.invalid = true;
     fixture.detectChanges();
     const input = fixture.debugElement.query(By.css('input'));
-    expect(input.nativeElement.classList.contains('input-invalid')).toBe(true);
+    expect(input.nativeElement.classList.contains('input--invalid')).toBe(true);
   });
 
   it('should display error message when provided', () => {
