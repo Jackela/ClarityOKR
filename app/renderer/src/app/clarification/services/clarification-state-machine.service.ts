@@ -1,7 +1,8 @@
 import { Injectable, signal, computed } from '@angular/core';
 import type { ClarificationPrompt } from '@clarityokr/contracts';
 
-import type { Logger } from '../../core/services/logger.service';
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { Logger } from '../../core/services/logger.service';
 import { environment } from '../../../environments/environment';
 
 /**

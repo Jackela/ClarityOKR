@@ -428,12 +428,6 @@ export class ButtonComponent {
     // Emit click event
     this.onClick.emit(event);
   }
-    // Create ripple
-    this.createRipple(event);
-
-    // Emit click event
-    this.onClick.emit(event);
-  }
 
   /**
    * Create ripple animation at click position

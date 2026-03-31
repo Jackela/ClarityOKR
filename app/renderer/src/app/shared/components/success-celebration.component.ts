@@ -38,9 +38,12 @@ import { CommonModule } from '@angular/common';
 import type {
   ElementRef,
   OnDestroy,
-  OnInit} from '@angular/core';
+  OnInit,
+} from '@angular/core';
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import {
   ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   EventEmitter,
   Input,
@@ -488,6 +491,8 @@ export class SuccessCelebrationComponent implements OnInit, OnDestroy {
   private dismissTimer?: ReturnType<typeof setTimeout>;
   private progressInterval?: ReturnType<typeof setInterval>;
 
+  constructor(private readonly cdr: ChangeDetectorRef) {}
+
   private readonly confettiColors = [
     '#10b981', // success green
     '#3b82f6', // primary blue
@@ -569,6 +574,7 @@ export class SuccessCelebrationComponent implements OnInit, OnDestroy {
     if (this.isDismissing) return;
 
     this.isDismissing = true;
+    this.cdr.markForCheck();
     this.clearTimers();
 
     // Wait for animation to complete

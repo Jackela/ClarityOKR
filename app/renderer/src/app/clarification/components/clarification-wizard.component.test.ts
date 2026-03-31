@@ -1,6 +1,8 @@
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import type { ClarificationPrompt } from '@clarityokr/contracts';
 
+import { Logger } from '../../core/services/logger.service';
+import { ClarificationStateMachine } from '../services/clarification-state-machine.service';
 import { SyncClarificationState } from '../services/sync-clarification-state.service';
 import { ClarificationWizardComponent } from './clarification-wizard.component';
 
@@ -25,7 +27,11 @@ describe('ClarificationWizardComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [ClarificationWizardComponent],
-      providers: [SyncClarificationState],
+      providers: [
+        ClarificationStateMachine,
+        SyncClarificationState,
+        { provide: Logger, useValue: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() } },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(ClarificationWizardComponent);

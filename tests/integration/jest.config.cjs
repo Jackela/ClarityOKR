@@ -4,12 +4,12 @@ module.exports = {
   roots: ['<rootDir>/specs'],
   testMatch: ['**/*.spec.ts'],
   extensionsToTreatAsEsm: ['.ts'],
-  // setupFilesAfterEnv: ['./setup.ts'],
+  setupFilesAfterEnv: ['./setup.cjs'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   testTimeout: 30000,
   transform: {
     '^.+\\.tsx?$': [
-      '/mnt/d/Code/ClarityOKR/tests/integration/ts-jest-transformer.cjs',
+      '<rootDir>/ts-jest-transformer.cjs',
       {
         tsconfig: './tsconfig.test.json',
         useESM: true,

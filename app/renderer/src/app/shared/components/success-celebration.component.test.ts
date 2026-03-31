@@ -62,6 +62,7 @@ describe('SuccessCelebrationComponent', () => {
   });
 
   it('should emit dismissed event when dismiss button clicked', () => {
+    jest.useFakeTimers();
     const closeSpy = jest.fn();
     component.dismissed.subscribe(closeSpy);
     fixture.detectChanges();
@@ -69,7 +70,12 @@ describe('SuccessCelebrationComponent', () => {
     const dismissButton = fixture.debugElement.query(By.css('.dismiss-button'));
     expect(dismissButton).toBeTruthy();
     dismissButton.triggerEventHandler('click', {});
+    
+    // Fast-forward past the animation delay
+    jest.advanceTimersByTime(400);
+    
     expect(closeSpy).toHaveBeenCalled();
+    jest.useRealTimers();
   });
 
   it('should auto-dismiss after duration when autoDismiss is true', (done) => {
