@@ -1,27 +1,16 @@
-/** @type {import('ts-jest').JestConfigWithTsJest} */
+const { defaultsESM } = require('ts-jest/presets');
+
 module.exports = {
+  ...defaultsESM,
   testEnvironment: 'node',
   roots: ['<rootDir>/specs'],
-  testMatch: ['**/*.spec.ts'],
+  testPathIgnorePatterns: ['/node_modules/'],
   extensionsToTreatAsEsm: ['.ts'],
-  testTimeout: 30000,
-  transform: {
-    '^.+\\.tsx?$': [
-      'ts-jest',
-      {
-        tsconfig: './tsconfig.test.json',
-        useESM: true,
-        diagnostics: { ignoreCodes: ['TS151001'] },
-      },
-    ],
-  },
-  transformIgnorePatterns: ['node_modules/(?!(@angular|@ngrx|opossum|nock|node-fetch)/)'],
   moduleNameMapper: {
-    '^@clarityokr/(.*)$': '<rootDir>/../../packages/$1/src/index.ts',
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^@clarityokr/contracts$': '<rootDir>/../../packages/contracts/src/index.ts',
     '^@clarityokr/main/(.*)$': '<rootDir>/../../app/main/src/$1',
     '^electron$': '<rootDir>/__mocks__/electron.ts',
-    // Map .js imports from app/main/src to .ts files - handle the specific path pattern
-    '^(.*)app/main/src/(.*)\\.js$': '<rootDir>/../../app/main/src/$2.ts',
   },
-  testPathIgnorePatterns: ['/node_modules/'],
+  testTimeout: 60000,
 };
