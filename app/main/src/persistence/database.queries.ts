@@ -1,4 +1,4 @@
-import type {
+import type { Database } from 'better-sqlite3';
 import type {
   ClarificationPrompt,
   ClarificationSession,

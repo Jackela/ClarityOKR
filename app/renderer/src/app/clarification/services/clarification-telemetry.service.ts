@@ -2,10 +2,6 @@ import type { OnDestroy} from '@angular/core';
 import { Injectable, inject, signal } from '@angular/core';
 import type { Logger } from '@core/services/logger.service';
 import { TelemetryService } from '@services/telemetry.service';
-import { ClarificationStateMachine } from './clarification-state-machine.service';
-import { Injectable, inject, signal } from '@angular/core';
-import type { Logger } from '@core/services/logger.service';
-import { TelemetryService } from '@services/telemetry.service';
 import type { ClarificationPrompt } from '@clarityokr/contracts';
 import { ClarificationStateMachine } from './clarification-state-machine.service';
 

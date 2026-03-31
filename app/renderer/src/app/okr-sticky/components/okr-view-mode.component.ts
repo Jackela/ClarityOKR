@@ -17,7 +17,7 @@
  * @module okr-sticky/components/okr-view-mode
  */
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, Input, Output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 
 import type { KeyResultViewModel } from './types.js';
 

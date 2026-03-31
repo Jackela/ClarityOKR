@@ -2,9 +2,6 @@ import { environment } from '../../../environments/environment.js';
 import type {
   ClarificationState,
   StateAction,
-} from './clarification-state-machine.types.js';
-  ClarificationState,
-  StateAction,
   WorkflowState,
 } from './clarification-state-machine.types.js';
 import { INITIAL_STATE, VALID_TRANSITIONS } from './clarification-state-machine.config.js';

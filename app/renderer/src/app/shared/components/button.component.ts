@@ -14,15 +14,6 @@ import {
   ChangeDetectionStrategy,
   Component,
   EventEmitter,
-  Input,
-  Output,
-  ViewChild,
-import type {
-  ElementRef} from '@angular/core';
-import {
-  ChangeDetectionStrategy,
-  Component,
-  EventEmitter,
   HostListener,
   Input,
   Output,
