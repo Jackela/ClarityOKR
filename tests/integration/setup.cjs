@@ -1,12 +1,20 @@
-/* eslint-disable @typescript-eslint/no-var-requires */
 /**
  * Jest setup file for integration tests
  * This file runs before each test file
  */
-const nock = require('nock');
-const fetch = require('node-fetch');
 
-beforeAll(() => {
+// Use dynamic import for ESM-only modules
+let nock;
+let fetch;
+
+beforeAll(async () => {
+  // Dynamic import for ESM-only modules
+  const nockModule = await import('nock');
+  nock = nockModule.default || nockModule;
+
+  const fetchModule = await import('node-fetch');
+  fetch = fetchModule.default || fetchModule;
+
   // Route global fetch through node-fetch so nock can intercept
   // @ts-expect-error - node-fetch and native fetch have different types
   globalThis.fetch = fetch;
@@ -22,9 +30,9 @@ beforeAll(() => {
 });
 
 afterEach(() => {
-  nock.cleanAll();
+  nock?.cleanAll();
 });
 
 afterAll(() => {
-  nock.enableNetConnect();
+  nock?.enableNetConnect();
 });
