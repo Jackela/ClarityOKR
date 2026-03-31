@@ -1,5 +1,5 @@
 import type { Logger } from '@core/services/logger.service';
-import type { ClarificationState, StateAction, ErrorInfo } from './state-types.js';
+import type { ClarificationState, StateAction } from './state-types.js';
 import { INITIAL_STATE } from './state-types.js';
 import type { StateValidator } from './state-validator.js';
 

@@ -2,6 +2,10 @@ import { createHash, pbkdf2Sync, randomBytes } from 'node:crypto';
 
 import { safeStorage } from 'electron';
 
+import type { SecureLlmConfig } from './secure-llm-config.js';
+
+import { safeStorage } from 'electron';
+
 import { SecureStorageError } from './secure-storage-error.js';
 import type { SecureLlmConfig } from './secure-llm-config.js';
 

@@ -24,6 +24,8 @@ export class ClarificationPersistenceHandler implements IClarificationPersistenc
    */
   async persistSession(session: ClarificationSession): Promise<void> {
     try {
+      const _data: PersistedSessionData = {
+    try {
       const data: PersistedSessionData = {
         session,
         version: CURRENT_VERSION,

@@ -1,5 +1,7 @@
 import type {
   ClarificationState,
+} from './clarification-state-machine.types.js';
+  ClarificationState,
   WorkflowState,
   ErrorInfo,
 } from './clarification-state-machine.types.js';

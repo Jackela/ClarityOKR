@@ -1,5 +1,7 @@
 import {
   ClarityOkrError,
+} from './errors/index.js';
+  ClarityOkrError,
   RetryExhaustedError,
   CircuitBreakerError,
   isClarityOkrError,
