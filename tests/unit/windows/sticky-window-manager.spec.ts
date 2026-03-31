@@ -335,39 +335,6 @@ describe('StickyWindowManager Unit Tests', () => {
       const lastCall = sendCalls[sendCalls.length - 1];
       expect(lastCall[1].okr.id).toBe('second-doc');
     });
-      const firstDoc = { ...mockDocument, id: 'first-doc' };
-      const secondDoc = { ...mockDocument, id: 'second-doc' };
-      
-      await manager.open(firstDoc);
-
-      // Close window to force new window creation
-      const mockWindow = createdWindows[0] as MockBrowserWindow;
-      mockWindow._triggerEvent('close', { preventDefault: jest.fn() });
-      await manager.open(secondDoc);
-      
-      // Now reopen should use second document
-      (BrowserWindow as jest.Mock).mockClear();
-      
-      // Close and reopen
-      const newWindow = createdWindows[1] as MockBrowserWindow;
-      newWindow._triggerEvent('close', { preventDefault: jest.fn() });
-      await manager.reopen();
-      
-      // Clear send calls from previous windows
-      createdWindows.forEach(w => (w as MockBrowserWindow).webContents.send.mockClear());
-      
-      await manager.reopen();
-      
-      // Trigger did-finish-load on the newly reopened window
-      const reopenedWindow = createdWindows[createdWindows.length - 1] as MockBrowserWindow;
-      reopenedWindow._triggerEvent('did-finish-load');
-      
-      // Verify the second document was sent
-      const sendCalls = reopenedWindow.webContents.send.mock.calls;
-      expect(sendCalls.length).toBeGreaterThan(0);
-      const lastCall = sendCalls[sendCalls.length - 1];
-      expect(lastCall[1].okr.id).toBe('second-doc');
-    });
 
     it('should handle document with minimal fields', async () => {
       const minimalDoc: OKRDocument = {
