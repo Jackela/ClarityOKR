@@ -25,20 +25,20 @@ export type CardPadding = 'sm' | 'md' | 'lg' | 'xl';
   standalone: true,
   imports: [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
-template: `
-<div
+  template: `
+    <div
       class="card"
       [class.card--default]="variant === 'default'"
-[class.card--elevated]="variant === 'elevated'"
-[class.card--outlined]="variant === 'outlined'"
-[class.card--padding-sm]="padding === 'sm'"
-[class.card--padding-md]="padding === 'md'"
-[class.card--padding-lg]="padding === 'lg'"
-[class.card--padding-xl]="padding === 'xl'"
->
-<ng-content></ng-content>
-</div>
-`,
+      [class.card--elevated]="variant === 'elevated'"
+      [class.card--outlined]="variant === 'outlined'"
+      [class.card--padding-sm]="padding === 'sm'"
+      [class.card--padding-md]="padding === 'md'"
+      [class.card--padding-lg]="padding === 'lg'"
+      [class.card--padding-xl]="padding === 'xl'"
+    >
+      <ng-content></ng-content>
+    </div>
+  `,
   styles: [
     `
       :host {

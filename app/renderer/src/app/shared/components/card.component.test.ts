@@ -1,6 +1,22 @@
-import { TestBed, type ComponentFixture } from '@angular/core/testing';
+import { Component, type ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { CardComponent } from './card.component';
+
+// Test host component for content projection testing
+@Component({
+  standalone: true,
+  imports: [CardComponent],
+  template: `
+    <clarityokr-card>
+      <h3>{{ title }}</h3>
+      <p>{{ content }}</p>
+    </clarityokr-card>
+  `,
+})
+class TestHostComponent {
+  title = 'Test Title';
+  content = 'Test card content';
+}
 
 describe('CardComponent', () => {
   let fixture: ComponentFixture<CardComponent>;
@@ -40,12 +56,12 @@ describe('CardComponent', () => {
   });
 
   it('should transclude content', () => {
-    const testContent = 'Test card content';
-    fixture.nativeElement.innerHTML = testContent;
-    fixture.detectChanges();
+    const hostFixture = TestBed.createComponent(TestHostComponent);
+    hostFixture.detectChanges();
 
-    const card = fixture.debugElement.query(By.css('.card'));
-    expect(card.nativeElement.textContent).toContain(testContent);
+    const card = hostFixture.debugElement.query(By.css('.card'));
+    expect(card.nativeElement.textContent).toContain('Test Title');
+    expect(card.nativeElement.textContent).toContain('Test card content');
   });
 
   describe('variants', () => {

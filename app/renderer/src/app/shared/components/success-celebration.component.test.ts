@@ -50,14 +50,14 @@ describe('SuccessCelebrationComponent', () => {
 
   it('should trigger animation on show', () => {
     fixture.detectChanges();
-    
+
     // Component starts not dismissing
     expect(component.isDismissing).toBe(false);
-    
+
     // Trigger dismiss
     component.dismiss();
     fixture.detectChanges();
-    
+
     expect(component.isDismissing).toBe(true);
   });
 
@@ -76,10 +76,10 @@ describe('SuccessCelebrationComponent', () => {
     jest.useFakeTimers();
     component.autoDismiss = true;
     component.duration = 1000;
-    
+
     const dismissedSpy = jest.fn();
     component.dismissed.subscribe(dismissedSpy);
-    
+
     // Re-initialize to start timer with new values
     component.ngOnInit();
     fixture.detectChanges();
@@ -97,10 +97,10 @@ describe('SuccessCelebrationComponent', () => {
     jest.useFakeTimers();
     component.autoDismiss = false;
     component.duration = 1000;
-    
+
     const dismissedSpy = jest.fn();
     component.dismissed.subscribe(dismissedSpy);
-    
+
     // Re-initialize to check autoDismiss behavior
     component.ngOnInit();
     fixture.detectChanges();
@@ -113,19 +113,12 @@ describe('SuccessCelebrationComponent', () => {
 
   it('should apply celebration--dismissing class when dismissing', () => {
     fixture.detectChanges();
-    
+
     // Initially not dismissing
     expect(component.isDismissing).toBe(false);
-    
+
     // Trigger dismiss
     component.dismiss();
-    fixture.detectChanges();
-
-    const container = fixture.debugElement.query(By.css('.celebration-container'));
-    expect(container.nativeElement.classList.contains('celebration--dismissing')).toBe(true);
-  });
-    component.show = true;
-    component.isDismissing = true;
     fixture.detectChanges();
 
     const container = fixture.debugElement.query(By.css('.celebration-container'));

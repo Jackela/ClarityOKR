@@ -12,15 +12,16 @@ import type { OKRRepository } from '../persistence/okr-repository.types.js';
 import type { IActionLogWriter } from '../persistence/action-log-writer.js';
 import type { OkrAgentService } from '../services/okr-agent.service.js';
 import type { SessionRepository } from '../persistence/session-repository.js';
+
 /**
  * Configuration for sticky window manager
  */
 export interface StickyWindowConfig {
-preloadPath: string;
-rendererDistPath: string;
-okrRepository: OKRRepository;
-actionLogWriter: IActionLogWriter;
-okrAgentService: OkrAgentService;
+  preloadPath: string;
+  rendererDistPath: string;
+  okrRepository: OKRRepository;
+  actionLogWriter: IActionLogWriter;
+  okrAgentService: OkrAgentService;
   sessionRepository: SessionRepository;
   isQuitting: () => boolean;
 }
@@ -118,40 +119,40 @@ export class StickyWindowManager {
     return this.window;
   }
 
-  SK|  /**
-   QP|   * Shows the sticky window if it exists.
-   NW|   */
-  ST|  showStickyWindow(): void {
-    HW|    if (this.window && !this.window.isDestroyed()) {
-      HH|      this.window.show();
-      VX|      this.window.focus();
-      PS|      Logger.info('[main] sticky window shown');
-    RZ|    }
-  ZH|  }
+  /**
+   * Shows the sticky window if it exists.
+   */
+  showStickyWindow(): void {
+    if (this.window && !this.window.isDestroyed()) {
+      this.window.show();
+      this.window.focus();
+      Logger.info('[main] sticky window shown');
+    }
+  }
 
-  ZW|  /**
-WH|   * Hides the sticky window without destroying it.
-QN|   */
-NZ|  hideStickyWindow(): void {
-HW|    if (this.window && !this.window.isDestroyed()) {
-KB|      this.window.hide();
-PB|      Logger.info('[main] sticky window hidden');
-BB|    }
-TQ|  }
+  /**
+   * Hides the sticky window without destroying it.
+   */
+  hideStickyWindow(): void {
+    if (this.window && !this.window.isDestroyed()) {
+      this.window.hide();
+      Logger.info('[main] sticky window hidden');
+    }
+  }
 
   /**
    * Reopens the sticky window with the last displayed document.
    * Stub implementation for T033.
    */
-async reopenStickyWindow(): Promise<void> {
-  if (!this.lastDocument) {
-    Logger.info('[main] no last document to reopen sticky window');
-    return;
+  async reopenStickyWindow(): Promise<void> {
+    if (!this.lastDocument) {
+      Logger.info('[main] no last document to reopen sticky window');
+      return;
+    }
+    Logger.info('[main] reopening sticky window');
+    await this.createStickyWindow(this.lastDocument.id);
+    this.sendDocument(this.lastDocument);
   }
-  Logger.info('[main] reopening sticky window');
-  await this.createStickyWindow(this.lastDocument.id);
-  this.sendDocument(this.lastDocument);
-}
 
   /**
    * Opens the sticky window with a document (legacy method).
