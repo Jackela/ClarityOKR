@@ -1,6 +1,7 @@
 import nock from 'nock';
 
 // Import the main process service for integration testing
+import { OkrAgentService } from '../../../../app/main/src/services/okr-agent.service.js';
 import { OkrAgentService } from '../../../app/main/src/services/okr-agent.service.js';
 
 describe('Integration: Error handling scenarios', () => {

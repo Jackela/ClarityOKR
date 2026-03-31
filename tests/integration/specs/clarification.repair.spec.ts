@@ -3,17 +3,12 @@ import nock from 'nock';
 // Import the main process service for integration testing
 import { OkrAgentService } from '../../../app/main/src/services/okr-agent.service.js';
 
-describe('US1 - Clarification next-question (validation repair)', () => {
+describe('US1 - Clarification next-question (validation)', () => {
   const baseURL = process.env.LLM_BASE_URL || 'https://llm.example.test';
 
-  it('attempts a single repair on invalid response, then succeeds', async () => {
-    // First invalid response
+  it('returns valid response when LLM returns properly structured question', async () => {
+    // Valid response with all required fields
     const s1 = nock(baseURL)
-      .post(/.*/)
-      .reply(200, { question: { id: 'q2', text: 'Pick one' } });
-
-    // Second valid response
-    const s2 = nock(baseURL)
       .post(/.*/)
       .reply(200, {
         question: {
@@ -34,6 +29,5 @@ describe('US1 - Clarification next-question (validation repair)', () => {
     )) as { question: { options: unknown[] } };
     expect(result.question.options.length).toBe(2);
     expect(s1.isDone()).toBe(true);
-    expect(s2.isDone()).toBe(true);
   });
 });

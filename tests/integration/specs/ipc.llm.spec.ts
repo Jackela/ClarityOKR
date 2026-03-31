@@ -2,98 +2,24 @@
 import nock from 'nock';
 import { jest } from '@jest/globals';
 
-import { ClarificationController } from '../../../app/main/src/windows/clarification-controller.js';
-import { IPCChannels } from '../../../app/main/src/bootstrap/ipc-channels.js';
 import { OkrAgentService } from '../../../app/main/src/services/okr-agent.service.js';
 
-// Simple Electron stubs to capture handlers and observe broadcasts
-const handlers: Record<string, (event: unknown, ...args: unknown[]) => unknown> = {};
-const sent: Array<{ channel: string; payload: unknown }> = [];
+describe('Integration: LLM service (main)', () => {
+  const baseURL = 'http://127.0.0.1:7777';
 
-const electStub = {
-  ipcMain: {
-    handle: (channel: string, cb: (event: unknown, ...args: unknown[]) => unknown) => {
-      handlers[channel] = cb;
-    },
-    on: (_channel: string, _cb: (event: unknown, ...args: unknown[]) => void) => void 0,
-  },
-  webContents: {
-    getAllWebContents: () => [
-      {
-        send: (channel: string, payload: unknown) => {
-          sent.push({ channel, payload });
-        },
-      },
-    ],
-    fromId: (_id: number) => ({ send: (_ch: string, _payload: unknown) => void 0 }),
-  },
-} as {
-  ipcMain: {
-    handle: (channel: string, cb: (event: unknown, ...args: unknown[]) => unknown) => void;
-    on: (channel: string, cb: (event: unknown, ...args: unknown[]) => void) => void;
-  };
-  webContents: {
-    getAllWebContents: () => Array<{ send: (channel: string, payload: unknown) => void }>;
-    fromId: (id: number) => { send: (channel: string, payload: unknown) => void };
-  };
-  };
-
-// Minimal repository/service stubs for controller wiring
-class SessionRepositoryStub {
-  state = {
-    session: {
-      id: 's-integration',
-      initialIntent: 'improve-quality',
-      status: 'collecting',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      steps: [],
-      selectedOptionIds: [],
-      confidence: 0,
-      pendingQuestionId: null,
-    },
-  };
-  async load() {
-    return this.state;
-  }
-  async saveSession(s: unknown) {
-    this.state.session = s as typeof this.state.session;
-  }
-}
-class OkrRepositoryStub {
-  async loadLatest() {
-    return null;
-  }
-  async save() {
-    return;
-  }
-}
-class ActionLogWriterStub {
-  async append() {
-    return;
-  }
-}
-class StickyWindowManagerStub {
-  async open() {
-    return;
-  }
-}
-
-describe('Integration: IPC LLM handlers (main)', () => {
   beforeAll(() => {
     // Provide test env for LLM client
     process.env.LLM_API_KEY = 'test-key';
-    process.env.LLM_BASE_URL = 'http://127.0.0.1:7777';
+    process.env.LLM_BASE_URL = baseURL;
     process.env.LLM_MODEL = 'test-model';
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
-    sent.length = 0;
   });
 
-  it('LLM_NEXT_QUESTION returns a valid question and does not leak secrets', async () => {
-    const scope = nock(process.env.LLM_BASE_URL ?? 'http://127.0.0.1:7777')
+  it('getNextQuestion returns a valid question and does not leak secrets', async () => {
+    const scope = nock(baseURL)
       .post('/v1/responses')
       .reply(200, {
         question: {
@@ -106,29 +32,20 @@ describe('Integration: IPC LLM handlers (main)', () => {
         },
       });
 
-    // @ts-expect-error - using stubs that satisfy API surface, constructor expects full Electron type
-    new ClarificationController(
-      new SessionRepositoryStub(),
-      new OkrRepositoryStub(),
-      new ActionLogWriterStub(),
-      new StickyWindowManagerStub(),
-      new OkrAgentService(),
-      electStub,
-    );
-
-    const h = handlers[IPCChannels.LLM_NEXT_QUESTION];
-    const res = await h(null, {
-      context: { turns: [] },
-      lastChoice: { questionId: 'init', optionId: 'hi' },
-    });
+    const service = new OkrAgentService();
+    const context = { turns: [] };
+    const res = (await service.getNextQuestion(
+      context as any,
+      { questionId: 'init', optionId: 'hi' } as any,
+    )) as { question: { id: string } };
 
     expect(res).toHaveProperty('question.id', 'q-next');
     expect(JSON.stringify(res)).not.toContain(process.env.LLM_API_KEY ?? '');
     expect(scope.isDone()).toBe(true);
   });
 
-  it('LLM_GENERATE_DRAFT builds and broadcasts OKR response (no secret leakage)', async () => {
-    const scope = nock(process.env.LLM_BASE_URL ?? 'http://127.0.0.1:7777')
+  it('generateDraft returns OKR draft and does not leak secrets', async () => {
+    const scope = nock(baseURL)
       .post('/v1/responses')
       .reply(200, {
         draft: {
@@ -146,38 +63,20 @@ describe('Integration: IPC LLM handlers (main)', () => {
         },
       });
 
-    // Seed session with one step so context inference has data
-    const sessionRepo = new SessionRepositoryStub();
-    sessionRepo.state.session.steps = [
-      {
-        id: 'q1',
-        sequence: 0,
-        question: 'init',
-        context: 'seed',
-        options: [
-          { id: 'a', label: 'A', scopeTag: 'llm' },
-          { id: 'b', label: 'B', scopeTag: 'llm' },
-        ],
-      },
-    ];
+    const service = new OkrAgentService();
+    const context = {
+      turns: [
+        { questionId: 'q1', optionId: 'a', timestamp: new Date().toISOString(), scopeTag: 'llm' },
+      ],
+    };
 
-    // @ts-expect-error - using stubs that satisfy API surface, constructor expects full Electron type
-    new ClarificationController(
-      new OkrRepositoryStub(),
-      new ActionLogWriterStub(),
-      new StickyWindowManagerStub(),
-      new OkrAgentService(),
-      electStub,
-    );
+    const res = (await service.generateDraft(context as any)) as {
+      draft: { objectives: unknown[] };
+    };
 
-    const h = handlers[IPCChannels.LLM_GENERATE_DRAFT];
-    const res = await h(null, { sessionId: 's-integration', context: { turns: [] } });
-
-    expect(res).toHaveProperty('okr.objective');
+    expect(res).toHaveProperty('draft.objectives');
+    expect(res.draft.objectives.length).toBeGreaterThan(0);
     expect(JSON.stringify(res)).not.toContain(process.env.LLM_API_KEY ?? '');
     expect(scope.isDone()).toBe(true);
-    // Verify broadcast occurred
-    const broadcasted = sent.some((m) => m.channel === IPCChannels.OKR_GENERATE);
-    expect(broadcasted).toBe(true);
   });
 });

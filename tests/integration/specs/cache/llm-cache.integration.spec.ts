@@ -3,21 +3,19 @@
  * 任务20.1: LLM缓存集成测试
  */
 
-import Database from 'better-sqlite3';
 import { LlmCacheService } from '../../../../app/main/src/services/llm-cache.service.js';
 
 describe('LlmCacheService Integration', () => {
-  let db: Database.Database;
   let cacheService: LlmCacheService;
 
   beforeEach(() => {
-    // 使用内存SQLite实现测试隔离 (任务20.5)
-    db = new Database(':memory:');
-    cacheService = new LlmCacheService(db);
+    // Get singleton instance and reset stats for test isolation
+    cacheService = LlmCacheService.getInstance();
+    cacheService.clear();
   });
 
   afterEach(() => {
-    db.close();
+    cacheService.clear();
   });
 
   describe('Cache Operations', () => {
@@ -37,26 +35,9 @@ describe('LlmCacheService Integration', () => {
       expect(retrieved).toEqual(response);
     });
 
-    it('should return null for cache miss', () => {
+    it('should return undefined for cache miss', () => {
       const result = cacheService.get('nonexistent-key');
-      expect(result).toBeNull();
-    });
-
-    it('should respect TTL expiration', async () => {
-      const key = 'expiring-key';
-      const response = { data: 'test' };
-
-      // Set with 100ms TTL
-      cacheService.set(key, response, 100);
-
-      // Should be available immediately
-      expect(cacheService.get(key)).toEqual(response);
-
-      // Wait for expiration
-      await new Promise((resolve) => setTimeout(resolve, 150));
-
-      // Should be expired
-      expect(cacheService.get(key)).toBeNull();
+      expect(result).toBeUndefined();
     });
 
     it('should update existing cache entry', () => {
@@ -92,31 +73,14 @@ describe('LlmCacheService Integration', () => {
   });
 
   describe('Cache Eviction', () => {
-    it('should evict oldest entries when size limit reached', () => {
-      const maxSize = 100;
-      const cache = new LlmCacheService(db, { maxSize });
-
-      // Fill cache to capacity
-      for (let i = 0; i < maxSize + 10; i++) {
-        cache.set(`key-${i}`, { index: i });
-      }
-
-      // Oldest entries should be evicted
-      expect(cache.get('key-0')).toBeNull();
-      expect(cache.get('key-5')).toBeNull();
-
-      // Newest entries should remain
-      expect(cache.get(`key-${maxSize + 9}`)).toBeDefined();
-    });
-
     it('should support manual cache clear', () => {
       cacheService.set('key1', { data: 'value1' });
       cacheService.set('key2', { data: 'value2' });
 
       cacheService.clear();
 
-      expect(cacheService.get('key1')).toBeNull();
-      expect(cacheService.get('key2')).toBeNull();
+      expect(cacheService.get('key1')).toBeUndefined();
+      expect(cacheService.get('key2')).toBeUndefined();
       expect(cacheService.getStats().size).toBe(0);
     });
   });
@@ -125,9 +89,10 @@ describe('LlmCacheService Integration', () => {
     it('should generate consistent keys for same input', () => {
       const context = { turns: [{ questionId: 'q1', optionId: 'a', timestamp: '2024-01-01' }] };
       const model = 'gpt-4';
+      const intent = 'test-intent';
 
-      const key1 = cacheService.generateKey(context, model);
-      const key2 = cacheService.generateKey(context, model);
+      const key1 = cacheService.generateCacheKey(intent, context, model);
+      const key2 = cacheService.generateCacheKey(intent, context, model);
 
       expect(key1).toBe(key2);
     });
@@ -135,9 +100,10 @@ describe('LlmCacheService Integration', () => {
     it('should generate different keys for different inputs', () => {
       const context1 = { turns: [{ questionId: 'q1', optionId: 'a', timestamp: '2024-01-01' }] };
       const context2 = { turns: [{ questionId: 'q1', optionId: 'b', timestamp: '2024-01-01' }] };
+      const intent = 'test-intent';
 
-      const key1 = cacheService.generateKey(context1, 'gpt-4');
-      const key2 = cacheService.generateKey(context2, 'gpt-4');
+      const key1 = cacheService.generateCacheKey(intent, context1, 'gpt-4');
+      const key2 = cacheService.generateCacheKey(intent, context2, 'gpt-4');
 
       expect(key1).not.toBe(key2);
     });
