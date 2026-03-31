@@ -19,9 +19,6 @@ describe('StickyWindowManager Unit Tests', () => {
       rendererDistPath: '/mock/renderer/dist',
       isQuitting: () => false,
     };
-      preloadPath: '/mock/preload.js',
-      rendererDistPath: '/mock/renderer/dist',
-    };
     
     mockDocument = {
       id: 'test-okr-123',
