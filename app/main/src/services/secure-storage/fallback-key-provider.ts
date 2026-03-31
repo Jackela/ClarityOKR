@@ -35,10 +35,22 @@ export class FallbackKeyProvider {
    * with 100,000 iterations. Uses deterministic salt derived from seed
    * to ensure consistent key generation across test runs.
    *
+   * In CI environments without E2E_FALLBACK_KEY_SEED, uses a deterministic
+   * seed to ensure tests can decrypt data across repository instances.
+   *
    * @returns A 256-bit encryption key derived from environment
    */
   getFallbackEncryptionKey(): Buffer {
-    const seed = process.env.E2E_FALLBACK_KEY_SEED || randomBytes(32).toString('hex');
+    // Use explicit seed if provided, otherwise use deterministic seed in CI
+    // or random seed in other environments
+    let seed: string;
+    if (process.env.E2E_FALLBACK_KEY_SEED) {
+      seed = process.env.E2E_FALLBACK_KEY_SEED;
+    } else if (process.env.CI === 'true' || process.env.E2E_TEST === 'true') {
+      seed = 'ci-test-deterministic-seed-v1';
+    } else {
+      seed = randomBytes(32).toString('hex');
+    }
     const salt = createHash('sha256').update(seed).digest().subarray(0, 16);
     return pbkdf2Sync(seed, salt, 100000, 32, 'sha256');
   }
