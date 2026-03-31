@@ -12,6 +12,7 @@
  *   [errors]="errors"
  *   [canSave]="canSave"
  *   (objectiveChange)="onObjectiveChange($event)"
+ *   (keyResultChange)="onKeyResultChange($event)"
  *   (save)="onSave()"
  *   (cancel)="onCancel()">
  * </clarityokr-okr-edit-mode>
@@ -36,7 +37,9 @@ import type { DraftKeyResult, ValidationError } from '../state/edit-mode.store';
     <div class="okr-edit-mode">
       <header class="okr-edit-mode__header">
         <div class="okr-edit-mode__field">
-          <label for="objective-input">{{ 'okr.sticky.editMode.objectiveLabel' | translate }}</label>
+          <label for="objective-input">{{
+            'okr.sticky.editMode.objectiveLabel' | translate
+          }}</label>
           <clarityokr-input
             id="objective-input"
             [(ngModel)]="draftObjectiveProxy"
@@ -201,21 +204,6 @@ export class OkrEditModeComponent {
 
   set draftObjectiveProxy(value: string) {
     this.objectiveChange.emit(value);
-  }
-
-  /**
-   * Creates a proxy getter/setter for a key result statement
-   * This ensures changes are routed through the store via keyResultChange event
-   */
-  krStatementProxy(kr: DraftKeyResult): { get value(): string; set value(val: string) } {
-    return {
-      get value(): string {
-        return kr.statement;
-      },
-      set value(val: string) {
-        this.keyResultChange.emit({ id: kr.id, statement: val });
-      },
-    };
   }
 
   /**
