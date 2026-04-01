@@ -108,6 +108,7 @@ export default defineConfig({
         // TODO: Re-enable after fixing Electron startup in headless CI environment.
         // 'specs/clarification/interview-flow.spec.ts',
         // 'specs/clarification/boundary-cases.spec.ts',
+        'specs/placeholder.ci.spec.ts',
       ],
       use: {
         ...devices['Desktop Chrome'],
