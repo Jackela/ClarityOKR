@@ -1,7 +1,7 @@
 import nock from 'nock';
 
 // Import the main process service for integration testing
-import { OkrAgentService } from '../../../app/main/src/services/okr-agent.service';
+import { OkrAgentService } from '../../../app/main/src/services/okr-agent.service.js';
 
 describe('US2 - Draft generation (errors)', () => {
   const baseURL = process.env.LLM_BASE_URL || 'https://llm.example.test';

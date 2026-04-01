@@ -1,8 +1,9 @@
 import { mkdtempSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SessionRepository } from '../../../../app/main/src/persistence/session-repository';
-import { OkrRepository } from '../../../../app/main/src/persistence/okr-repository';
+import { SessionRepository } from '../../../../app/main/src/persistence/session-repository.js';
+import { OkrRepository } from '../../../../app/main/src/persistence/okr-repository.js';
+import type { OKRDocument } from '../../../../packages/contracts/src/clarify-to-okr.contract';
 
 describe('Integration: Session persistence across restart', () => {
   let testDir: string;
@@ -50,19 +51,18 @@ describe('Integration: Session persistence across restart', () => {
 
   it('preserves OKR data after repository recreation', async () => {
     const okrRepo1 = new OkrRepository(testDir);
-    const okr = {
+    const okr: OKRDocument = {
       id: 'okr-1',
-      sessionId: 'session-1',
-      objective: {
-        id: 'obj1',
-        title: '提高执行力',
-        description: '自动生成',
-        keyResults: [
-          { id: 'kr1', statement: 'KR1', target: '10%', measurement: 'rate' },
-          { id: 'kr2', statement: 'KR2', target: 5, measurement: 'count' },
-        ],
-      },
-      createdAt: new Date().toISOString(),
+      objective: '提高执行力',
+      keyResults: [
+        { id: 'kr1', statement: 'KR1', successMetric: '10% improvement' },
+        { id: 'kr2', statement: 'KR2', successMetric: '5 items' },
+      ],
+      sourceSessionId: 'session-1',
+      generatedAt: new Date().toISOString(),
+      lastEditedAt: null,
+      regenerationPolicy: 'overwrite',
+      manualEdits: [],
     };
 
     await okrRepo1.save(okr);
@@ -101,14 +101,10 @@ describe('Integration: Session persistence across restart', () => {
     await sessionRepo.saveSession(session2);
 
     // 模拟重启后加载
-    const newRepo = new SessionRepository(testDir);
-    const loaded = await newRepo.load();
+    const sessionRepo2 = new SessionRepository(testDir);
+    const loaded = await sessionRepo2.load();
 
     expect(loaded.session?.initialIntent).toBe('更新后的目标');
     expect(loaded.session?.selectedOptionIds).toEqual(['opt1']);
   });
-
-  // TODO: Add test for file corruption handling
-  // Currently SessionRepository returns default session object on corruption
-  // instead of null as expected. Need to align implementation with expected behavior.
 });

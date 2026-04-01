@@ -2,7 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { ActionLogWriter } from '../../../../app/main/src/persistence/action-log-writer';
+import { ActionLogWriter } from '../../../../app/main/src/persistence/action-log-writer.js';
 
 describe('ActionLogWriter', () => {
   let tempDir: string;

@@ -7,17 +7,10 @@
  * complex subsystems involved in the OKR clarification process.
  *
  * Key Responsibilities:
- * - IPC channel registration and request routing
+ * - IPC channel registration and request routing (via ClarificationIpcRouter)
  * - Window lifecycle management (clarification and sticky windows)
  * - Session state coordination between renderer and persistence layers
- * - Backward compatibility for legacy IPC payload formats
- * - Test mode API exposure for E2E testing
- *
- * Dependencies:
- * - Electron: IPC and window management
- * - Clarification module: 6 specialized handlers for domain logic
- * - Repositories: Session, OKR, and action log persistence
- * - Services: LLM agent, sticky window manager
+ * - Test mode API exposure for E2E testing (via ClarificationControllerApis)
  *
  * Architecture:
  * The controller delegates to 6 specialized handlers:
@@ -34,7 +27,6 @@
 import type { ClarificationSession } from '@clarityokr/contracts';
 import electron from 'electron';
 
-import { IPC_CHANNELS } from '../bootstrap/ipc-channels.js';
 import {
   ClarificationDraftHandler,
   ClarificationPersistenceHandler,
@@ -49,143 +41,9 @@ import type { SessionRepository } from '../persistence/session-repository.js';
 import { ActionLogService } from '../services/action-log.service.js';
 import type { OkrAgentService } from '../services/okr-agent.service.js';
 
+import { ClarificationControllerApis } from './clarification-controller-apis.js';
+import { ClarificationIpcRouter } from './clarification-ipc-router.js';
 import type { StickyWindowManager } from './sticky-window-manager.js';
-
-// ============================================================================
-// IPC Payload Types for Backward Compatibility
-// ============================================================================
-
-/**
- * Represents a single turn in the clarification conversation.
- */
-interface ClarificationTurn {
-  /** Unique identifier for the question */
-  questionId: string;
-  /** Selected option identifier */
-  optionId: string;
-  /** ISO timestamp of when the selection was made */
-  timestamp: string;
-}
-
-/**
- * Context containing the history of clarification turns.
- */
-interface ClarificationContext {
-  /** Array of question-answer pairs from the current session */
-  turns: ClarificationTurn[];
-}
-
-/**
- * Represents the user's most recent selection.
- */
-interface LastChoice {
-  /** Question that was answered */
-  questionId: string;
-  /** Option that was selected */
-  optionId: string;
-}
-
-/**
- * New format for LLM_NEXT_QUESTION IPC channel.
- * Preferred format using explicit session and question IDs.
- */
-interface NextQuestionPayloadNew {
-  /** Active session identifier */
-  sessionId: string;
-  /** Current question being answered */
-  currentQuestionId: string;
-  /** Clarification context with turn history */
-  context: ClarificationContext;
-}
-
-/**
- * Legacy format for LLM_NEXT_QUESTION IPC channel.
- * Used for backward compatibility with older renderer versions.
- */
-interface NextQuestionPayloadOld {
-  /** Clarification context with turn history */
-  context: ClarificationContext;
-  /** User's most recent selection */
-  lastChoice: LastChoice;
-}
-
-/**
- * Union type supporting both new and legacy payload formats.
- */
-type NextQuestionPayload = NextQuestionPayloadNew | NextQuestionPayloadOld;
-
-/**
- * New format for LLM_GENERATE_DRAFT IPC channel.
- * Preferred format using explicit session ID.
- */
-interface GenerateDraftPayloadNew {
-  /** Active session identifier */
-  sessionId: string;
-}
-
-/**
- * Legacy format for LLM_GENERATE_DRAFT IPC channel.
- * Used for backward compatibility with older renderer versions.
- */
-interface GenerateDraftPayloadOld {
-  /** Clarification context with turn history */
-  context: ClarificationContext;
-}
-
-/**
- * Union type supporting both new and legacy payload formats.
- */
-type GenerateDraftPayload = GenerateDraftPayloadNew | GenerateDraftPayloadOld;
-
-/**
- * Type guard to check if payload uses the new format for LLM_NEXT_QUESTION.
- *
- * @param payload - The payload to check
- * @returns True if the payload matches the new format with sessionId and currentQuestionId
- */
-function isNextQuestionPayloadNew(payload: unknown): payload is NextQuestionPayloadNew {
-  return (
-    typeof payload === 'object' &&
-    payload !== null &&
-    'sessionId' in payload &&
-    typeof (payload as Record<string, unknown>).sessionId === 'string' &&
-    'currentQuestionId' in payload &&
-    typeof (payload as Record<string, unknown>).currentQuestionId === 'string'
-  );
-}
-
-/**
- * Type guard to check if payload uses the legacy format for LLM_NEXT_QUESTION.
- *
- * @param payload - The payload to check
- * @returns True if the payload matches the legacy format with context and lastChoice
- */
-function isNextQuestionPayloadOld(payload: unknown): payload is NextQuestionPayloadOld {
-  return (
-    typeof payload === 'object' &&
-    payload !== null &&
-    'context' in payload &&
-    'lastChoice' in payload &&
-    typeof (payload as Record<string, unknown>).lastChoice === 'object' &&
-    (payload as Record<string, unknown>).lastChoice !== null &&
-    'questionId' in ((payload as Record<string, unknown>).lastChoice as Record<string, unknown>)
-  );
-}
-
-/**
- * Type guard to check if payload uses the new format for LLM_GENERATE_DRAFT.
- *
- * @param payload - The payload to check
- * @returns True if the payload matches the new format with sessionId
- */
-function isGenerateDraftPayloadNew(payload: unknown): payload is GenerateDraftPayloadNew {
-  return (
-    typeof payload === 'object' &&
-    payload !== null &&
-    'sessionId' in payload &&
-    typeof (payload as Record<string, unknown>).sessionId === 'string'
-  );
-}
 
 /**
  * Facade controller for the OKR clarification workflow.
@@ -228,6 +86,12 @@ export class ClarificationController {
   private readonly persistenceHandler: ClarificationPersistenceHandler;
   /** Logs user actions for analytics and debugging */
   private readonly actionLogService: ActionLogService;
+  /** Electron instance for IPC and window operations */
+  private readonly elect: typeof electron;
+  /** Repository for OKR storage */
+  private readonly okrRepository: OkrRepository;
+  /** Manager for sticky window lifecycle */
+  private readonly stickyWindowManager: StickyWindowManager;
 
   /**
    * Creates a new ClarificationController instance.
@@ -244,12 +108,16 @@ export class ClarificationController {
    */
   constructor(
     sessionRepository: SessionRepository,
-    private readonly okrRepository: OkrRepository,
+    okrRepository: OkrRepository,
     actionLogWriter: ActionLogWriter,
-    private readonly stickyWindowManager: StickyWindowManager,
+    stickyWindowManager: StickyWindowManager,
     okrAgentService: OkrAgentService,
-    private readonly elect: typeof electron = electron,
+    elect: typeof electron = electron,
   ) {
+    this.elect = elect;
+    this.okrRepository = okrRepository;
+    this.stickyWindowManager = stickyWindowManager;
+
     // Initialize specialized handlers via dependency injection
     this.stateMachine = new ClarificationStateMachine();
     this.persistenceHandler = new ClarificationPersistenceHandler(sessionRepository);
@@ -271,144 +139,30 @@ export class ClarificationController {
   }
 
   /**
+   * Gets controller dependencies for delegation to helper classes.
+   */
+  private getDeps() {
+    return {
+      sessionManager: this.sessionManager,
+      stateMachine: this.stateMachine,
+      promptHandler: this.promptHandler,
+      responseHandler: this.responseHandler,
+      draftHandler: this.draftHandler,
+      persistenceHandler: this.persistenceHandler,
+      okrRepository: this.okrRepository,
+      stickyWindowManager: this.stickyWindowManager,
+      actionLogService: this.actionLogService,
+      ipcMain: this.elect.ipcMain,
+      getAllWebContents: () => this.elect.webContents.getAllWebContents(),
+    };
+  }
+
+  /**
    * Registers all IPC handlers for renderer communication.
-   *
-   * Sets up handlers for:
-   * - CLARIFICATION_PROMPT: Process initial user intent
-   * - CLARIFICATION_RESPOND: Record user selections
-   * - LLM_NEXT_QUESTION: Get next clarification question (supports legacy format)
-   * - LLM_GENERATE_DRAFT: Generate OKR draft (supports legacy format)
-   * - STICKY_REOPEN: Reopen sticky window with latest OKR
-   * - OKR_LATEST: Retrieve most recent OKR
-   * - OKR_GENERATE: Generate and display new OKR
-   *
-   * @private
    */
   private registerHandlers(): void {
-    // CLARIFICATION_PROMPT: Generate initial clarification prompt from user intent
-    this.elect.ipcMain.handle(IPC_CHANNELS.CLARIFICATION_PROMPT, async (_event, payload) => {
-      const { sessionId, intent } = payload;
-      const prompt = await this.promptHandler.handlePrompt(sessionId, intent);
-
-      // Log action asynchronously without blocking response
-      void this.actionLogService
-        .logAction('generate', prompt.id, null, `prompt:${prompt.id}`)
-        .catch((error) => {
-          this.actionLogService.logUnexpectedError('Failed to record generate action', error);
-        });
-
-      return { prompt };
-    });
-
-    // CLARIFICATION_RESPOND: Record user response to a clarification prompt
-    this.elect.ipcMain.on(IPC_CHANNELS.CLARIFICATION_RESPOND, (_event, payload) => {
-      const { sessionId, promptId, optionId } = payload;
-      void this.responseHandler.handleResponse(sessionId, promptId, optionId).catch((error) => {
-        this.actionLogService.logUnexpectedError('Failed to handle response', error);
-      });
-    });
-
-    // LLM_NEXT_QUESTION: Get next question (supports both new and legacy payload formats)
-    this.elect.ipcMain.handle(IPC_CHANNELS.LLM_NEXT_QUESTION, async (_event, payload) => {
-      let sessionId: string;
-      let currentQuestionId: string;
-      let context: ClarificationContext;
-
-      if (isNextQuestionPayloadNew(payload)) {
-        // New format: { sessionId, currentQuestionId, context }
-        sessionId = payload.sessionId;
-        currentQuestionId = payload.currentQuestionId;
-        context = payload.context;
-      } else if (isNextQuestionPayloadOld(payload)) {
-        // Legacy format: { context, lastChoice } - backward compatibility
-        const currentSessionId = this.sessionManager.getCurrentSessionId();
-        if (!currentSessionId) {
-          throw new Error('No active session found. Please start a clarification session first.');
-        }
-        sessionId = currentSessionId;
-        currentQuestionId = payload.lastChoice.questionId;
-        context = payload.context;
-      } else {
-        throw new Error(
-          'Invalid payload format for LLM_NEXT_QUESTION. Expected { sessionId, currentQuestionId, context } or { context, lastChoice }',
-        );
-      }
-
-      const question = await this.promptHandler.getNextQuestion(
-        sessionId,
-        currentQuestionId,
-        context,
-      );
-      return question;
-    });
-
-    // LLM_GENERATE_DRAFT: Generate OKR draft (supports both new and legacy payload formats)
-    this.elect.ipcMain.handle(
-      IPC_CHANNELS.LLM_GENERATE_DRAFT,
-      async (_event, payload: GenerateDraftPayload) => {
-        let sessionId: string;
-
-        if (isGenerateDraftPayloadNew(payload)) {
-          // New format: { sessionId }
-          sessionId = payload.sessionId;
-        } else if ('context' in payload && payload.context) {
-          // Legacy format: { context } - backward compatibility, uses current session
-          const currentSessionId = this.sessionManager.getCurrentSessionId();
-          if (!currentSessionId) {
-            throw new Error('No active session found. Please start a clarification session first.');
-          }
-          sessionId = currentSessionId;
-        } else {
-          throw new Error(
-            'Invalid payload format for LLM_GENERATE_DRAFT. Expected { sessionId } or { context }',
-          );
-        }
-
-        const result = await this.draftHandler.generateDraft(sessionId);
-        await this.okrRepository.save(result.okr);
-        this.elect.webContents
-          .getAllWebContents()
-          .forEach((wc) => wc.send(IPC_CHANNELS.OKR_GENERATE, result));
-        await this.actionLogService.logAction(
-          'generate',
-          result.session.id,
-          result.okr.id,
-          `okr:${result.okr.id}`,
-        );
-        return result;
-      },
-    );
-
-    // STICKY_REOPEN: Reopen the sticky window with the latest OKR
-    this.elect.ipcMain.handle(IPC_CHANNELS.STICKY_REOPEN, async () => {
-      const okr = await this.okrRepository.loadLatest();
-      if (!okr) {
-        return { success: false };
-      }
-      await this.stickyWindowManager.open(okr);
-      return { success: true };
-    });
-
-    // OKR_LATEST: Retrieve the most recently generated OKR
-    this.elect.ipcMain.handle(IPC_CHANNELS.OKR_LATEST, async () => {
-      const okr = await this.okrRepository.loadLatest();
-      return okr ?? null;
-    });
-
-    // OKR_GENERATE: Generate a new OKR and open it in the sticky window
-    this.elect.ipcMain.handle(IPC_CHANNELS.OKR_GENERATE, async (_event, payload) => {
-      const result = await this.draftHandler.generateDraft(payload.sessionId);
-      await this.okrRepository.save(result.okr);
-      await this.stickyWindowManager.open(result.okr);
-      await this.sessionManager.endSession(payload.sessionId);
-      await this.actionLogService.logAction(
-        'generate',
-        result.session.id,
-        result.okr.id,
-        `okr:${result.okr.id}`,
-      );
-      return result;
-    });
+    const deps = this.getDeps();
+    ClarificationIpcRouter.registerHandlers(deps);
   }
 
   // ==================== TestMode API ====================
@@ -419,7 +173,7 @@ export class ClarificationController {
    * Used in E2E tests to ensure clean state between test runs.
    */
   resetSessions(): void {
-    this.sessionManager.cleanupSessions();
+    ClarificationControllerApis.resetSessions(this.getDeps());
   }
 
   /**
@@ -428,7 +182,7 @@ export class ClarificationController {
    * @returns Map of session IDs to session objects
    */
   getAllSessions(): Map<string, ClarificationSession> {
-    return this.sessionManager.getAllSessions();
+    return ClarificationControllerApis.getAllSessions(this.getDeps());
   }
 
   /**
@@ -437,7 +191,7 @@ export class ClarificationController {
    * @returns Current session ID or null if no session is active
    */
   getCurrentSessionId(): string | null {
-    return this.sessionManager.getCurrentSessionId();
+    return ClarificationControllerApis.getCurrentSessionId(this.getDeps());
   }
 
   /**
@@ -447,7 +201,7 @@ export class ClarificationController {
    * @param session - The session object to store
    */
   setSession(sessionId: string, session: ClarificationSession): void {
-    this.sessionManager.setSession(sessionId, session);
+    ClarificationControllerApis.setSession(this.getDeps(), sessionId, session);
   }
 
   /**
@@ -457,7 +211,7 @@ export class ClarificationController {
    * @returns The session object or undefined if not found
    */
   async getSessionForTest(sessionId: string): Promise<ClarificationSession | undefined> {
-    return (await this.sessionManager.getSession(sessionId)) ?? undefined;
+    return ClarificationControllerApis.getSessionForTest(this.getDeps(), sessionId);
   }
 
   /**
@@ -466,7 +220,7 @@ export class ClarificationController {
    * @returns Number of active sessions
    */
   getSessionCount(): number {
-    return this.sessionManager.getSessionCount();
+    return ClarificationControllerApis.getSessionCount(this.getDeps());
   }
 
   // ==================== Advanced API ====================
@@ -477,7 +231,7 @@ export class ClarificationController {
    * @returns The ClarificationSessionManager instance
    */
   getSessionManager(): ClarificationSessionManager {
-    return this.sessionManager;
+    return ClarificationControllerApis.getSessionManager(this.getDeps());
   }
 
   /**
@@ -486,7 +240,7 @@ export class ClarificationController {
    * @returns The ClarificationStateMachine instance
    */
   getStateMachine(): ClarificationStateMachine {
-    return this.stateMachine;
+    return ClarificationControllerApis.getStateMachine(this.getDeps());
   }
 
   /**
@@ -495,7 +249,7 @@ export class ClarificationController {
    * @returns The ClarificationPromptHandler instance
    */
   getPromptHandler(): ClarificationPromptHandler {
-    return this.promptHandler;
+    return ClarificationControllerApis.getPromptHandler(this.getDeps());
   }
 
   /**
@@ -504,7 +258,7 @@ export class ClarificationController {
    * @returns The ClarificationResponseHandler instance
    */
   getResponseHandler(): ClarificationResponseHandler {
-    return this.responseHandler;
+    return ClarificationControllerApis.getResponseHandler(this.getDeps());
   }
 
   /**
@@ -513,7 +267,7 @@ export class ClarificationController {
    * @returns The ClarificationDraftHandler instance
    */
   getDraftHandler(): ClarificationDraftHandler {
-    return this.draftHandler;
+    return ClarificationControllerApis.getDraftHandler(this.getDeps());
   }
 
   /**
@@ -522,6 +276,6 @@ export class ClarificationController {
    * @returns The ClarificationPersistenceHandler instance
    */
   getPersistenceHandler(): ClarificationPersistenceHandler {
-    return this.persistenceHandler;
+    return ClarificationControllerApis.getPersistenceHandler(this.getDeps());
   }
 }

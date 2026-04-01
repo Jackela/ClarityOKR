@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { OkrRepository } from '../../../../app/main/src/persistence/okr-repository';
+import { OkrRepository } from '../../../../app/main/src/persistence/okr-repository.js';
 import type { OKRDocument } from '../../../../packages/contracts/src/clarify-to-okr.contract';
 
 describe('OkrRepository Integration', () => {
@@ -27,6 +27,7 @@ describe('OkrRepository Integration', () => {
       ],
       sourceSessionId: 'session-1',
       generatedAt: new Date().toISOString(),
+      lastEditedAt: null,
       regenerationPolicy: 'overwrite',
       manualEdits: [],
     };
@@ -46,12 +47,14 @@ describe('OkrRepository Integration', () => {
   });
 
   it('overwrites existing OKR document', async () => {
+    const now = Date.now();
     const document1: OKRDocument = {
       id: 'okr-1',
       objective: 'First objective',
       keyResults: [],
       sourceSessionId: 'session-1',
-      generatedAt: new Date().toISOString(),
+      generatedAt: new Date(now).toISOString(),
+      lastEditedAt: null,
       regenerationPolicy: 'overwrite',
       manualEdits: [],
     };
@@ -61,7 +64,8 @@ describe('OkrRepository Integration', () => {
       objective: 'Second objective',
       keyResults: [],
       sourceSessionId: 'session-1',
-      generatedAt: new Date().toISOString(),
+      generatedAt: new Date(now + 1000).toISOString(),
+      lastEditedAt: null,
       regenerationPolicy: 'overwrite',
       manualEdits: [],
     };

@@ -28,6 +28,7 @@ export type CardPadding = 'sm' | 'md' | 'lg' | 'xl';
   template: `
     <div
       class="card"
+      [class.card--default]="variant === 'default'"
       [class.card--elevated]="variant === 'elevated'"
       [class.card--outlined]="variant === 'outlined'"
       [class.card--padding-sm]="padding === 'sm'"

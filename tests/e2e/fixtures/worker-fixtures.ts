@@ -1,9 +1,11 @@
 /* eslint-disable @typescript-eslint/no-empty-object-type, no-empty-pattern */
-import { test as base, expect, TestInfo } from '@playwright/test';
+import type { TestInfo } from '@playwright/test';
+import { test as base, expect } from '@playwright/test';
 
 // Re-export expect for convenience
 export { expect };
-import { _electron as electron, ElectronApplication, Page } from '@playwright/test';
+import type { ElectronApplication, Page } from '@playwright/test';
+import { _electron as electron } from '@playwright/test';
 import { extraElectronArgs, getElectronEnv, ROOT } from '../helpers/build-check';
 import { cleanupPersistenceFiles as indexCleanupPersistenceFiles } from './index';
 
@@ -159,16 +161,16 @@ async function logDiagnostics(
  * - Comprehensive diagnostics for failed tests
  */
 // Worker-scoped fixtures type definition
-type WorkerFixtures = {
+interface WorkerFixtures {
   mockServer: MockServerFixture;
   electronApp: ElectronApplication;
-};
+}
 
 // Test-scoped fixtures type definition
-type TestFixtures = {
+interface TestFixtures {
   mainWindow: Page;
   testId: string;
-};
+}
 
 type FixtureArgs = Record<string, unknown>;
 
@@ -242,9 +244,9 @@ export const workerTest = base.extend<TestFixtures, WorkerFixtures>({
         // 验证 testMode API 可用
         const testModeAvailable = await workerElectronApp
           .evaluate(() => {
-            type TestModeGlobal = {
+            interface TestModeGlobal {
               testMode?: { resetState?: () => Promise<void> };
-            };
+            }
             return !!(global as TestModeGlobal).testMode;
           })
           .catch(() => false);

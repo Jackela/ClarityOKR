@@ -24,39 +24,9 @@ import { nextQuestionResponseSchema, okrDraftResponseSchema } from '@clarityokr/
 
 import { Logger } from '../core/logger.js';
 import { getLlmConfig } from '../env.js';
-import { LlmCacheService, type CacheStats } from './llm-cache.service.js';
-import { LlmCircuitBreaker, type CircuitBreakerMetrics } from './llm-circuit-breaker.service.js';
-
-/**
- * Context object containing the history of clarification turns.
- * Tracks user selections through the wizard flow.
- */
-interface ClarificationContext {
-  /** Array of question-answer pairs from the clarification session */
-  turns: Array<{ questionId: string; optionId: string; timestamp: string }>;
-}
-
-/**
- * Represents the user's most recent selection in the clarification flow.
- */
-interface LastChoice { questionId: string; optionId: string }
-
-/**
- * Performance metrics for monitoring the OKR agent service.
- *
- * @example
- * ```typescript
- * const metrics = okrAgentService.getMetrics();
- * console.log(`Cache hit rate: ${metrics.cache.hitRate}`);
- * console.log(`Circuit state: ${metrics.circuitBreaker.state}`);
- * ```
- */
-export interface PerformanceMetrics {
-  /** Cache statistics including hit rate, size, and memory usage */
-  cache: CacheStats;
-  /** Circuit breaker metrics including failure rate and state */
-  circuitBreaker: CircuitBreakerMetrics;
-}
+import { LlmCacheService } from './llm-cache.service.js';
+import { LlmCircuitBreaker } from './llm-circuit-breaker.service.js';
+import type { ClarificationContext, LastChoice, PerformanceMetrics } from './okr-agent.types.js';
 
 /**
  * Service for interacting with LLM APIs to generate clarification questions and OKR drafts.
@@ -317,37 +287,5 @@ export class OkrAgentService {
   clearCache(): void {
     this.cache.clear();
     Logger.info('[OkrAgentService] Cache cleared');
-  }
-
-  /**
-   * Gets cache statistics.
-   *
-   * @returns Cache statistics including size, hit rate, and memory usage
-   *
-   * @example
-   * ```typescript
-   * const stats = agent.getCacheStats();
-   * console.log(`Cache has ${stats.size} entries with ${stats.hitRate} hit rate`);
-   * ```
-   */
-  getCacheStats(): CacheStats {
-    return this.cache.getStats();
-  }
-
-  /**
-   * Gets circuit breaker state and metrics.
-   *
-   * @returns Circuit breaker metrics including state, failure count, and timestamps
-   *
-   * @example
-   * ```typescript
-   * const metrics = agent.getCircuitBreakerMetrics();
-   * if (metrics.state === 'OPEN') {
-   *   console.warn('Circuit breaker is open - service calls will fail fast');
-   * }
-   * ```
-   */
-  getCircuitBreakerMetrics(): CircuitBreakerMetrics {
-    return this.circuitBreaker.getMetrics();
   }
 }

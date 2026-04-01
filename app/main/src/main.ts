@@ -47,13 +47,19 @@ const rendererDistPath = path.resolve(currentDir, '../../renderer/dist');
 const sessionRepository = new SessionRepository();
 const okrRepository = new OkrRepository();
 const actionLogWriter = new ActionLogWriter();
+const okrAgentService = new OkrAgentService();
 const stickyWindowManager = new StickyWindowManager({
   preloadPath,
   rendererDistPath,
+  okrRepository,
+  actionLogWriter,
+  okrAgentService,
+  sessionRepository,
+  isQuitting: () => isQuitting,
 });
-const okrAgentService = new OkrAgentService();
 
 let mainWindow: ElectronBrowserWindow | null = null;
+let isQuitting = false;
 
 // Instantiate IPC controllers once the process starts.
 const clarificationController = new ClarificationController(
@@ -147,6 +153,11 @@ void app.whenReady().then(() => {
  * On macOS, applications typically remain active until explicitly quit,
  * so we only quit on other platforms.
  */
+app.on('before-quit', () => {
+  isQuitting = true;
+  Logger.info('[main] Application is quitting, allowing windows to close');
+});
+
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();

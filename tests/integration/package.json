@@ -8,13 +8,14 @@
   },
   "dependencies": {
     "jest": "^29.7.0",
+    "jest-resolve": "^29.7.0",
     "nock": "^13.5.4",
-    "ts-jest": "^29.1.1",
-    "node-fetch": "^3.3.2"
+    "node-fetch": "^3.3.2",
+    "ts-jest": "^29.4.6"
   },
   "devDependencies": {
-    "cross-env": "^7.0.3",
     "@types/jest": "^29.5.12",
+    "cross-env": "^7.0.3",
     "typescript": "~5.4.5"
   }
 }

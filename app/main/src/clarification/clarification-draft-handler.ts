@@ -1,5 +1,17 @@
-import { randomUUID } from 'node:crypto';
+/**
+ * ClarificationDraftHandler - OKR Draft Generation Management
+ *
+ * Responsibilities:
+ * - Calls LLM service to generate OKR drafts from session context
+ * - Validates LLM responses against expected schema
+ * - Transforms LLM output into OKRDocument format
+ * - Manages state transitions during draft generation
+ *
+ * The handler converts LLM-generated objectives and key results into
+ * the application's standard OKR document format for storage and display.
+ */
 
+import { randomUUID } from 'node:crypto';
 import type { OKRDocument } from '@clarityokr/contracts';
 import { z } from 'zod';
 
@@ -46,8 +58,17 @@ export class ClarificationDraftHandler implements IClarificationDraftHandler {
   ) {}
 
   /**
-   * 生成OKR草案
+   * Generates an OKR draft from the current session context.
+   *
+   * @param sessionId - The active session identifier
+   * @returns Promise resolving to the draft response with OKR and session
+   * @throws {ValidationError} If session ID is missing
+   * @throws {SessionNotFoundError} If session does not exist
+   * @throws {LLMError} If LLM service fails
+   * @throws {DraftValidationError} If LLM response is invalid
    */
+
+
   async generateDraft(sessionId: string): Promise<OkrDraftResponse> {
     if (!sessionId) {
       throw new ValidationError('Session ID is required');
@@ -139,8 +160,13 @@ export class ClarificationDraftHandler implements IClarificationDraftHandler {
   }
 
   /**
-   * 验证草案
+   * Validates the LLM draft response against the expected schema.
+   *
+   * @param draft - The draft object to validate
+   * @returns True if draft passes validation
    */
+
+
   validateDraft(draft: unknown): boolean {
     const result = draftPayloadSchema.safeParse(draft);
     return result.success;

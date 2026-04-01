@@ -1,42 +1,9 @@
-import { join } from 'node:path';
+// Re-export the interface
+export type { IActionLogWriter } from './action-log-writer.interface.js';
 
-import type { UserActionLogEntry } from '@clarityokr/contracts';
+// Re-export SQLite implementation
+export { SQLiteActionLogWriter } from './sqlite-action-log-writer.js';
 
-import { Logger } from '../core/logger.js';
-import { ensureDataDir, readEncryptedJson, writeEncryptedJson } from './encrypted-persistence.js';
-
-const DEFAULT_DATA_DIR = join(process.cwd(), 'data');
-
-export class ActionLogWriter {
-  private readonly dataDir: string;
-  private readonly actionLogFile: string;
-
-  constructor(dataDir?: string) {
-    this.dataDir = dataDir ?? DEFAULT_DATA_DIR;
-    this.actionLogFile = join(this.dataDir, 'action-log.json');
-  }
-
-  async append(entry: UserActionLogEntry): Promise<void> {
-    await ensureDataDir(this.dataDir);
-
-    try {
-      const current = (await readEncryptedJson<UserActionLogEntry[]>(this.actionLogFile)) ?? [];
-      current.push(entry);
-      await writeEncryptedJson(this.actionLogFile, current);
-    } catch (error) {
-      Logger.error('[ActionLogWriter] Failed to append action log', error);
-      throw error;
-    }
-  }
-
-  async all(): Promise<UserActionLogEntry[]> {
-    await ensureDataDir(this.dataDir);
-
-    try {
-      return (await readEncryptedJson<UserActionLogEntry[]>(this.actionLogFile)) ?? [];
-    } catch (error) {
-      Logger.error('[ActionLogWriter] Failed to read action logs', error);
-      return [];
-    }
-  }
-}
+// Re-export File implementation (deprecated)
+export { FileActionLogWriter } from './file-action-log-writer.js';
+export { FileActionLogWriter as ActionLogWriter } from './file-action-log-writer.js';

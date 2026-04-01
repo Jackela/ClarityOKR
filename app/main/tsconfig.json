@@ -1,21 +1,31 @@
 {
-  "extends": "../../tsconfig.base.json",
-  "compilerOptions": {
-    "composite": true,
-    "rootDir": "src",
-    "outDir": "dist",
-    "declaration": true,
-    "declarationMap": true,
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext"
+"extends": "../../tsconfig.base.json",
+"compilerOptions": {
+"composite": true,
+"rootDir": "src",
+"outDir": "dist",
+"declaration": true,
+"declarationMap": true,
+"module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "paths": {
+      "@bootstrap/*": ["src/bootstrap/*"],
+      "@clarification/*": ["src/clarification/*"],
+      "@core/*": ["src/core/*"],
+      "@persistence/*": ["src/persistence/*"],
+      "@services/*": ["src/services/*"],
+      "@windows/*": ["src/windows/*"],
+      "@config/*": ["src/config/*"]
   },
-  "include": [
-    "src/**/*.ts",
-    "src/**/*.cts",
-    "src/**/*.mts"
-  ],
-  "exclude": [
-    "dist",
-    "node_modules"
-  ]
+    "baseUrl": "."
+  },
+"include": [
+"src/**/*.ts",
+"src/**/*.cts",
+"src/**/*.mts"
+],
+"exclude": [
+"dist",
+"node_modules"
+]
 }

@@ -13,69 +13,74 @@ describe('ProgressIndicatorComponent', () => {
 
     fixture = TestBed.createComponent(ProgressIndicatorComponent);
     component = fixture.componentInstance;
+    component.current = 1;
+    component.total = 5;
   });
 
   it('should create', () => {
     expect(component).toBeTruthy();
   });
 
-  it('should render progress element', () => {
+  it('should render progress container', () => {
     fixture.detectChanges();
-    const progress = fixture.debugElement.query(By.css('.progress-indicator'));
+    const progress = fixture.debugElement.query(By.css('.progress-container'));
     expect(progress).toBeTruthy();
   });
 
   it('should display current step and total steps', () => {
-    component.currentStep = 2;
-    component.totalSteps = 5;
+    component.current = 2;
+    component.total = 5;
     fixture.detectChanges();
 
-    const stepText = fixture.debugElement.query(By.css('.step-text'));
-    expect(stepText.nativeElement.textContent).toContain('2');
-    expect(stepText.nativeElement.textContent).toContain('5');
+    const counter = fixture.debugElement.query(By.css('.progress-counter'));
+    expect(counter.nativeElement.textContent).toContain('2');
+    expect(counter.nativeElement.textContent).toContain('5');
   });
 
   it('should calculate progress percentage correctly', () => {
-    component.currentStep = 3;
-    component.totalSteps = 4;
-    fixture.detectChanges();
+    component.current = 3;
+    component.total = 4;
 
-    expect(component.progressPercentage).toBe(75);
+    expect(component.calculatePercentage()).toBe(50);
   });
 
-  it('should clamp progress to 0 when currentStep is negative', () => {
-    component.currentStep = -1;
-    component.totalSteps = 5;
-    fixture.detectChanges();
+  it('should clamp progress to 0 when current is 1', () => {
+    component.current = 1;
+    component.total = 5;
 
-    expect(component.progressPercentage).toBe(0);
+    expect(component.calculatePercentage()).toBe(0);
   });
 
-  it('should clamp progress to 100 when currentStep exceeds totalSteps', () => {
-    component.currentStep = 10;
-    component.totalSteps = 5;
-    fixture.detectChanges();
+  it('should clamp progress to 100 when current equals total', () => {
+    component.current = 5;
+    component.total = 5;
 
-    expect(component.progressPercentage).toBe(100);
+    expect(component.calculatePercentage()).toBe(100);
   });
 
-  it('should render step indicators', () => {
-    component.totalSteps = 4;
+  it('should render progress bar', () => {
     fixture.detectChanges();
 
-    const stepIndicators = fixture.debugElement.queryAll(By.css('.step-indicator'));
-    expect(stepIndicators.length).toBe(4);
+    const progressBar = fixture.debugElement.query(By.css('.progress-bar'));
+    expect(progressBar).toBeTruthy();
   });
 
-  it('should mark completed steps correctly', () => {
-    component.currentStep = 2;
-    component.totalSteps = 4;
+  it('should render progress fill with correct width', () => {
+    component.current = 2;
+    component.total = 4;
     fixture.detectChanges();
 
-    const stepIndicators = fixture.debugElement.queryAll(By.css('.step-indicator'));
-    expect(stepIndicators[0].nativeElement.classList.contains('completed')).toBe(true);
-    expect(stepIndicators[1].nativeElement.classList.contains('completed')).toBe(true);
-    expect(stepIndicators[2].nativeElement.classList.contains('active')).toBe(true);
-    expect(stepIndicators[3].nativeElement.classList.contains('pending')).toBe(true);
+    const progressFill = fixture.debugElement.query(By.css('.progress-fill'));
+    expect(progressFill).toBeTruthy();
+    expect(progressFill.nativeElement.style.width).toBe('25%');
+  });
+
+  it('should apply progress-fill--complete class when current equals total', () => {
+    component.current = 4;
+    component.total = 4;
+    fixture.detectChanges();
+
+    const progressFill = fixture.debugElement.query(By.css('.progress-fill'));
+    expect(progressFill.nativeElement.classList.contains('progress-fill--complete')).toBe(true);
   });
 });

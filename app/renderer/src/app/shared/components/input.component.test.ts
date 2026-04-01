@@ -44,7 +44,7 @@ describe('InputComponent', () => {
     component.invalid = true;
     fixture.detectChanges();
     const input = fixture.debugElement.query(By.css('input'));
-    expect(input.nativeElement.classList.contains('input-invalid')).toBe(true);
+    expect(input.nativeElement.classList.contains('input--invalid')).toBe(true);
   });
 
   it('should display error message when provided', () => {
@@ -77,7 +77,8 @@ describe('InputComponent', () => {
     const onChangeSpy = jest.fn();
     component.registerOnChange(onChangeSpy);
 
-    component.value = 'test value';
+    // Simulate input event
+    component.onInput({ target: { value: 'test value' } } as unknown as Event);
 
     expect(onChangeSpy).toHaveBeenCalledWith('test value');
   });

@@ -1,0 +1,80 @@
+{
+  "app": {
+    "title": "ClarityOKR"
+  },
+  "common": {
+    "loading": "正在加载...",
+    "error": "错误",
+    "retry": "重试",
+    "cancel": "取消",
+    "save": "保存",
+    "edit": "编辑",
+    "close": "关闭",
+    "back": "返回",
+    "next": "下一步",
+    "submit": "提交",
+    "generate": "生成",
+    "success": "成功",
+    "dismiss": "关闭"
+  },
+  "clarification": {
+    "wizard": {
+      "ariaLabel": "目标澄清向导",
+      "loadingNext": "正在加载下一步",
+      "loadingQuestion": "加载问题",
+      "loadingOptions": "加载选项",
+      "question": "问题",
+      "progress": "进度",
+      "back": "返回",
+      "backAriaLabel": "返回上一步",
+      "keyboardHint": "提示：按数字键 1-{count} 快速选择",
+      "generateOkr": "生成 OKR",
+      "generateHint": " (或按 Ctrl+Enter) ",
+      "generateAriaLabel": "生成 OKR - 已准备好",
+      "ready": {
+        "title": "已准备好生成 OKR",
+        "description": "您已回答了 {count} 个问题，可以生成 OKR 了"
+      },
+      "error": {
+        "title": "出错了",
+        "retry": "重试"
+      }
+    }
+  },
+  "okr": {
+    "sticky": {
+      "generatedAt": "生成时间",
+      "lastEditedAt": "最近编辑",
+      "hasManualEdits": "含手动修改",
+      "addKeyResult": "添加关键结果",
+      "editMode": {
+        "objectiveLabel": "Objective",
+        "objectivePlaceholder": "输入目标...",
+        "keyResultsLabel": "Key Results",
+        "keyResultPlaceholder": "输入关键结果...",
+        "charCount": "{current}/{max}"
+      }
+    },
+    "header": {
+      "generated": "生成于",
+      "lastEdited": "最后编辑于",
+      "manualEdits": "含手动修改"
+    },
+    "actions": {
+      "edit": "编辑",
+      "addKeyResult": "添加关键结果"
+    }
+  },
+  "validation": {
+    "errorPrefix": "⚠️"
+  },
+  "loading": {
+    "default": "加载中",
+    "ariaLabel": "加载中"
+  },
+  "success": {
+    "title": "成功！",
+    "dismiss": "关闭",
+    "dismissWithTime": "关闭 ({seconds}秒)"
+  }
+}

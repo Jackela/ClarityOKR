@@ -1,5 +1,16 @@
-import {
-  clarificationPromptRequestSchema,
+/**
+ * ClarificationPromptHandler - Processes user intent inputs
+ * 
+ * Responsibilities:
+ * - Validates user intent input (minimum 3 characters)
+ * - Creates or retrieves clarification sessions
+ * - Generates initial clarification prompts via LLM
+ * - Fetches next questions based on user context
+ * 
+ * This handler coordinates between the session manager, state machine,
+ * and LLM service to provide a seamless clarification experience.
+ */
+  import {
   clarificationPromptResponseSchema,
   llmQuestionSchema,
   type ClarificationPrompt,
@@ -30,8 +41,16 @@ export class ClarificationPromptHandler implements IClarificationPromptHandler {
   ) {}
 
   /**
-   * 处理用户意图输入
+   * Handles user intent input and generates the first clarification prompt.
+   * 
+   * @param sessionId - The unique session identifier
+   * @param intent - The user's initial intent description
+   * @returns Promise resolving to the generated clarification prompt
+   * @throws {ValidationError} If intent is too short
+   * @throws {LLMError} If LLM service fails or returns invalid response
    */
+
+
   async handlePrompt(sessionId: string, intent: string): Promise<ClarificationPrompt> {
     // 验证输入
     if (!this.validateIntent(intent)) {
@@ -112,15 +131,29 @@ export class ClarificationPromptHandler implements IClarificationPromptHandler {
   }
 
   /**
-   * 验证用户意图
+   * Validates user intent meets minimum requirements.
+   * 
+   * @param intent - The intent string to validate
+   * @returns True if intent is at least 3 characters
    */
+
+
   validateIntent(intent: string): boolean {
     return Boolean(intent && intent.trim().length >= 3);
   }
 
   /**
-   * 获取下一个问题
+   * Gets the next clarification question based on current context.
+   * 
+   * @param sessionId - The active session identifier
+   * @param currentQuestionId - ID of the question being answered
+   * @param context - Current clarification context with turn history
+   * @returns Promise resolving to the next clarification prompt
+   * @throws {ValidationError} If session not found
+   * @throws {LLMError} If LLM service fails or returns invalid response
    */
+
+
   async getNextQuestion(
     sessionId: string,
     currentQuestionId: string,

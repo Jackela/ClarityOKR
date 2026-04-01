@@ -2,19 +2,14 @@
 // Replicates the API using simple implementations instead of Angular signals
 
 import { Injectable } from '@angular/core';
-import type { ClarificationPrompt } from '@clarityokr/contracts';
+import type { ClarificationPrompt, WorkflowState } from '@clarityokr/contracts';
 
 import type { Logger } from '../../core/services/logger.service';
 
-export type WorkflowState =
-  | 'idle'
-  | 'loading'
-  | 'prompting'
-  | 'ready'
-  | 'generating'
-  | 'completed'
-  | 'error';
-
+export interface ErrorInfo {
+  message: string;
+  recoverable: boolean;
+}
 export interface ErrorInfo {
   message: string;
   recoverable: boolean;

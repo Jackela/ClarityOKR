@@ -154,6 +154,7 @@ export class ProgressIndicatorComponent {
    */
   calculatePercentage(): number {
     if (this.total <= 0) return 0;
-    return Math.min(100, Math.max(0, ((this.current - 1) / this.total) * 100));
-  }
+    if (this.current >= this.total) return 100;
+    return Math.max(0, ((this.current - 1) / this.total) * 100);
+}
 }

@@ -418,6 +418,10 @@ export class ButtonComponent {
    * Handle click with ripple effect
    */
   handleClick(event: MouseEvent): void {
+    if (this.disabled || this.loading) {
+      return;
+    }
+
     // Create ripple
     this.createRipple(event);
 

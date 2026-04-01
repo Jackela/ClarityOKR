@@ -22,21 +22,21 @@ describe('ButtonComponent', () => {
   it('should render button with default variant (primary)', () => {
     fixture.detectChanges();
     const button = fixture.debugElement.query(By.css('button'));
-    expect(button.nativeElement.classList.contains('btn-primary')).toBe(true);
+    expect(button.nativeElement.classList.contains('btn--primary')).toBe(true);
   });
 
   it('should apply variant class correctly', () => {
     component.variant = 'secondary';
     fixture.detectChanges();
     const button = fixture.debugElement.query(By.css('button'));
-    expect(button.nativeElement.classList.contains('btn-secondary')).toBe(true);
+    expect(button.nativeElement.classList.contains('btn--secondary')).toBe(true);
   });
 
   it('should apply size class correctly', () => {
     component.size = 'lg';
     fixture.detectChanges();
     const button = fixture.debugElement.query(By.css('button'));
-    expect(button.nativeElement.classList.contains('btn-lg')).toBe(true);
+    expect(button.nativeElement.classList.contains('btn--lg')).toBe(true);
   });
 
   it('should disable button when disabled input is true', () => {
@@ -44,7 +44,7 @@ describe('ButtonComponent', () => {
     fixture.detectChanges();
     const button = fixture.debugElement.query(By.css('button'));
     expect(button.nativeElement.disabled).toBe(true);
-    expect(button.nativeElement.classList.contains('btn-disabled')).toBe(true);
+    expect(button.nativeElement.classList.contains('btn--disabled')).toBe(true);
   });
 
   it('should set data-testid attribute', () => {
@@ -90,7 +90,7 @@ describe('ButtonComponent', () => {
         component.variant = variant;
         fixture.detectChanges();
         const button = fixture.debugElement.query(By.css('button'));
-        expect(button.nativeElement.classList.contains(`btn-${variant}`)).toBe(true);
+        expect(button.nativeElement.classList.contains(`btn--${variant}`)).toBe(true);
       });
     });
   });
@@ -103,7 +103,7 @@ describe('ButtonComponent', () => {
         component.size = size;
         fixture.detectChanges();
         const button = fixture.debugElement.query(By.css('button'));
-        expect(button.nativeElement.classList.contains(`btn-${size}`)).toBe(true);
+        expect(button.nativeElement.classList.contains(`btn--${size}`)).toBe(true);
       });
     });
   });

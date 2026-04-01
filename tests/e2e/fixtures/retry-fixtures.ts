@@ -45,21 +45,21 @@ export const retryTest = base.extend<{
 export function flakyTest(
   test: typeof base,
   title: string,
-  testFn: any,
+  testFn: (fixtures: { page: Page; testInfo: TestInfo }) => Promise<void> | void,
   options: { retry?: number; timeout?: number } = {},
 ): void {
   //
-  (test as any)(title, testFn);
+  (test as typeof base)(title, testFn);
 }
 
 export function slowTest(
   test: typeof base,
   title: string,
-  testFn: any,
+  testFn: (fixtures: { page: Page; testInfo: TestInfo }) => Promise<void> | void,
   options: { timeout?: number } = {},
 ): void {
   //
-  (test as any)(title, testFn);
+  (test as typeof base)(title, testFn);
 }
 
 // Re-export expect

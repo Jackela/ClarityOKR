@@ -1,17 +1,25 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed } from '@angular/core';
-import { NgZone, type OnDestroy } from '@angular/core';
+import { Component, computed } from '@angular/core';
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { NgZone } from '@angular/core';
+import type { OnDestroy } from '@angular/core';
+import { ChangeDetectionStrategy } from '@angular/core';
 import { ReactiveFormsModule, FormControl, Validators } from '@angular/forms';
 import type { ClarificationPrompt } from '@clarityokr/contracts';
 import { Subject } from 'rxjs';
 
-import { ClarificationWizardComponent } from './clarification/components/clarification-wizard.component';
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { ClarificationOrchestratorService } from './clarification/services/clarification-orchestrator.service';
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { IpcLlmGateway } from './clarification/services/ipc-llm-gateway.service';
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { SyncClarificationState } from './clarification/services/sync-clarification-state.service';
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { Logger } from './core/services/logger.service';
 import { OkrStickyNoteComponent } from './okr-sticky/components/okr-sticky-note.component';
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { OkrStickyGatewayService } from './okr-sticky/services/okr-sticky-gateway.service';
+import { ClarificationWizardComponent } from './clarification/components/clarification-wizard.component';
 
 // Type guards for safe type narrowing
 function hasQuestionProperty(obj: unknown): obj is { question: unknown } {

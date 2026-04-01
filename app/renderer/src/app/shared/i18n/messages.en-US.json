@@ -1,0 +1,80 @@
+{
+  "app": {
+    "title": "ClarityOKR"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "save": "Save",
+    "edit": "Edit",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next",
+    "submit": "Submit",
+    "generate": "Generate",
+    "success": "Success",
+    "dismiss": "Dismiss"
+  },
+  "clarification": {
+    "wizard": {
+      "ariaLabel": "Goal Clarification Wizard",
+      "loadingNext": "Loading next step",
+      "loadingQuestion": "Loading question",
+      "loadingOptions": "Loading options",
+      "question": "Question",
+      "progress": "Progress",
+      "back": "Back",
+      "backAriaLabel": "Go back to previous step",
+      "keyboardHint": "Tip: Press number keys 1-{count} for quick selection",
+      "generateOkr": "Generate OKR",
+      "generateHint": " (or press Ctrl+Enter) ",
+      "generateAriaLabel": "Generate OKR - Ready",
+      "ready": {
+        "title": "Ready to Generate OKR",
+        "description": "You've answered {count} questions and can now generate your OKR"
+      },
+      "error": {
+        "title": "An error occurred",
+        "retry": "Retry"
+      }
+    }
+  },
+  "okr": {
+    "sticky": {
+      "generatedAt": "Generated",
+      "lastEditedAt": "Last edited",
+      "hasManualEdits": "Contains manual edits",
+      "addKeyResult": "Add Key Result",
+      "editMode": {
+        "objectiveLabel": "Objective",
+        "objectivePlaceholder": "Enter objective...",
+        "keyResultsLabel": "Key Results",
+        "keyResultPlaceholder": "Enter key result...",
+        "charCount": "{current}/{max}"
+      }
+    },
+    "header": {
+      "generated": "Generated",
+      "lastEdited": "Last edited",
+      "manualEdits": "Contains manual edits"
+    },
+    "actions": {
+      "edit": "Edit",
+      "addKeyResult": "Add Key Result"
+    }
+  },
+  "validation": {
+    "errorPrefix": "⚠️"
+  },
+  "loading": {
+    "default": "Loading",
+    "ariaLabel": "Loading"
+  },
+  "success": {
+    "title": "Success!",
+    "dismiss": "Dismiss",
+    "dismissWithTime": "Dismiss ({seconds}s)"
+  }
+}
