@@ -51,3 +51,6 @@ CLAUDE.md
 # Git worktrees
 .worktrees/
 .eslintcache
+
+# ULTRAWORK system tracking files
+.sisyphus/
