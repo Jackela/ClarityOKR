@@ -35,7 +35,7 @@ import {
   ClarificationSessionManager,
   ClarificationStateMachine,
 } from '../clarification/index.js';
-import type { ActionLogWriter } from '../persistence/action-log-writer.js';
+import type { IActionLogWriter } from '../persistence/action-log-writer.js';
 import type { OkrRepository } from '../persistence/okr-repository.js';
 import type { SessionRepository } from '../persistence/session-repository.js';
 import { ActionLogService } from '../services/action-log.service.js';
@@ -46,7 +46,13 @@ import { ClarificationIpcRouter } from './clarification-ipc-router.js';
 import type { StickyWindowManager } from './sticky-window-manager.js';
 
 /**
- * Facade controller for the OKR clarification workflow.
+  constructor(
+    private readonly sessionRepository: SessionRepository,
+    private readonly okrRepository: OkrRepository,
+    private readonly actionLogWriter: IActionLogWriter,
+    private readonly stickyWindowManager: StickyWindowManager,
+    private readonly okrAgentService: OkrAgentService,
+  ) {}
  *
  * Coordinates all aspects of the clarification process including session management,
  * state transitions, LLM integration, window management, and persistence. Acts as
@@ -109,7 +115,7 @@ export class ClarificationController {
   constructor(
     sessionRepository: SessionRepository,
     okrRepository: OkrRepository,
-    actionLogWriter: ActionLogWriter,
+    actionLogWriter: IActionLogWriter,
     stickyWindowManager: StickyWindowManager,
     okrAgentService: OkrAgentService,
     elect: typeof electron = electron,

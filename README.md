@@ -206,6 +206,29 @@ pnpm run test:unit
 4. Update documentation (README, quickstart, specs)
 5. Run quality gates before opening a PR
 
+### OpenSpec Workflow
+
+We use OpenSpec for structured change management:
+
+```bash
+# List active changes
+openspec list
+
+# Start implementation
+openspec apply --change <name>
+```
+
+### Code Quality Gates
+
+| Gate        | Command                     | Threshold    |
+| ----------- | --------------------------- | ------------ |
+| Lint        | `pnpm run lint`             | Zero errors  |
+| Type Check  | `pnpm run typecheck`        | Zero errors  |
+| Unit Tests  | `pnpm run test:unit`        | 80% coverage |
+| Integration | `pnpm run test:integration` | All passing  |
+| E2E Tests   | `pnpm run test:e2e`         | All passing  |
+| Build       | `pnpm run build`            | Clean build  |
+
 ### Environment Configuration
 
 Create a `.env` file in `app/main/` for LLM configuration:
@@ -244,6 +267,75 @@ API keys are automatically encrypted and stored in the OS keychain on first run.
 2. **Type-Safe IPC**: Zod schemas validate all IPC messages between main and renderer
 3. **Fail-Fast Philosophy**: Defensive validation at boundaries with explicit error handling
 4. **Repository Pattern**: Data access abstracted through repository interfaces
+
+### System Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           CLARITYOKR ARCHITECTURE                           │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                      RENDERER PROCESS (Angular 17)                   │   │
+│  │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────┐  │   │
+│  │  │  Clarification  │  │   OKR Sticky    │  │    Shared UI        │  │   │
+│  │  │    Wizard       │  │     Window      │  │   Components        │  │   │
+│  │  │                 │  │                 │  │                     │  │   │
+│  │  │ • Intent Input  │  │ • Tree View     │  │ • Button            │  │   │
+│  │  │ • Q&A Flow      │  │ • Edit/Regen    │  │ • Card              │  │   │
+│  │  │ • Progress UI   │  │ • Copy/Export   │  │ • Input             │  │   │
+│  │  └────────┬────────┘  └────────┬────────┘  └─────────────────────┘  │   │
+│  │           │                    │                                     │   │
+│  │  ┌────────▼────────────────────▼─────────────────────┐              │   │
+│  │  │         State Management (Signals/ComponentStore)  │              │   │
+│  │  └────────────────────────┬───────────────────────────┘              │   │
+│  └───────────────────────────┼──────────────────────────────────────────┘   │
+│                              │ IPC (Type-Safe)                               │
+│  ┌───────────────────────────▼──────────────────────────────────────────┐   │
+│  │                      MAIN PROCESS (Electron 30 / Node.js 20)           │   │
+│  │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────┐  │   │
+│  │  │ Clarification   │  │   Window        │  │   Persistence       │  │   │
+│  │  │   Controller    │  │   Management    │  │    Layer            │  │   │
+│  │  │                 │  │                 │  │                     │  │   │
+│  │  │ • State Machine │  │ • Main Window   │  │ • SQLite Database   │  │   │
+│  │  │ • Prompt Handler│  │ • Sticky Window │  │ • Session Repo      │  │   │
+│  │  │ • OKR Generator │  │ • IPC Bridge    │  │ • OKR Repository    │  │   │
+│  │  └────────┬────────┘  └─────────────────┘  └─────────────────────┘  │   │
+│  │           │                                                            │   │
+│  │  ┌────────▼─────────────────────────────┐  ┌─────────────────────┐  │   │
+│  │  │         Services Layer                │  │   Core Utilities    │  │   │
+│  │  │  • LLM Agent Service (with caching)   │  │  • Logger           │  │   │
+│  │  │  • Encryption Service (AES-256-GCM)   │  │  • Error Handler    │  │   │
+│  │  │  • Circuit Breaker                    │  │  • Config Manager   │  │   │
+│  │  └───────────────────────────────────────┘  └─────────────────────┘  │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│                              │                                                │
+│                              ▼                                                │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │                    EXTERNAL SERVICES                                  │   │
+│  │  ┌─────────────────┐                    ┌─────────────────────┐      │   │
+│  │  │   LLM API       │◄──────────────────►│   OS Keychain       │      │   │
+│  │  │ (OpenAI/Compat) │   (with circuit    │  (Secure Storage)   │      │   │
+│  │  │                 │     breaker)       │                     │      │   │
+│  │  └─────────────────┘                    └─────────────────────┘      │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Data Flow
+
+```
+User Input → Clarification Wizard → State Machine → LLM Service → OKR Generation
+                │                           │              │
+                ▼                           ▼              ▼
+        UI Components              Session Repository   Cache Layer
+                │                           │              │
+                └──────────► IPC ◄──────────┘              │
+                                     │                      │
+                                     ▼                      ▼
+                           SQLite Storage            Encrypted Config
+```
 
 ### IPC Communication
 

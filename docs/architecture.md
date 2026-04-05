@@ -267,3 +267,198 @@ data/                        # Runtime storage (gitignored)
 2. **IPC Error Propagation**: Main process errors serialize to renderer
 3. **User Feedback**: Error UI with retry options for recoverable failures
 4. **Logging**: Action log records all significant events for debugging
+## Architecture Decision Records (ADR)
+
+This section documents significant architectural decisions and their rationale. Each record follows the format: Context, Decision, Consequences.
+
+### ADR-001: Electron for Desktop Platform
+
+**Status**: Accepted
+**Date**: 2024-Q1
+
+#### Context
+We needed a cross-platform desktop application that could:
+
+- Run on macOS, Windows, and Linux
+- Access native OS features (keychain, always-on-top windows)
+- Support offline operation with local data storage
+- Integrate with modern web UI frameworks
+
+#### Decision
+Use Electron 30 as the desktop framework.
+
+#### Consequences
+**Positive**:
+
+- Single codebase for all platforms
+- Access to Node.js ecosystem
+- Native OS integration via Electron APIs
+- Well-documented, mature framework
+
+**Negative**:
+
+- Larger bundle size compared to native apps
+- Higher memory usage
+- Requires bundling Chromium
+
+---
+
+### ADR-002: Angular 17 with Standalone Components
+
+**Status**: Accepted
+**Date**: 2024-Q1
+
+#### Context
+We needed a modern, maintainable frontend framework with:
+- Strong TypeScript support
+- Component-based architecture
+- Reactive state management
+- Long-term support
+
+#### Decision
+Use Angular 17 with standalone components (no NgModules).
+
+#### Consequences
+**Positive**:
+
+- Strict TypeScript enforcement
+- Signals for fine-grained reactivity
+- Simpler component structure without NgModules
+- Excellent developer tooling
+
+**Negative**:
+
+- Learning curve for developers new to Angular
+- Opinionated framework structure
+
+---
+
+### ADR-003: SQLite for Local Persistence
+
+**Status**: Accepted
+**Date**: 2024-Q1
+
+#### Context
+We needed local data persistence that:
+- Works offline
+- Supports structured queries
+- Is reliable and well-tested
+- Requires no external setup
+
+#### Decision
+Use SQLite with better-sqlite3 for synchronous, reliable database operations.
+
+#### Consequences
+**Positive**:
+
+- Zero configuration required
+- ACID compliance
+- Fast, local queries
+- File-based (easy backup/restore)
+
+**Negative**:
+
+- Single-user limitation (acceptable for desktop app)
+- Requires native module compilation
+
+---
+
+### ADR-004: State Machine for Session Management
+
+**Status**: Accepted
+**Date**: 2024-Q2
+
+#### Context
+The clarification flow requires complex state management with:
+- Multiple states (idle, collecting, generating, completed)
+- Valid state transitions
+- Error handling and recovery
+- Persistence across app restarts
+
+#### Decision
+Implement a finite state machine for clarification session management.
+
+#### Consequences
+**Positive**:
+
+- Explicit, verifiable state transitions
+- Easy to test and debug
+- Prevents invalid state changes
+- Self-documenting code
+
+**Negative**:
+
+- Initial learning curve for state machine pattern
+- More boilerplate than simple flags
+
+---
+
+### ADR-005: Zod for Runtime Validation
+
+**Status**: Accepted
+**Date**: 2024-Q1
+
+#### Context
+We needed runtime validation for:
+- IPC message contracts
+- Data persistence
+- External API responses
+- Configuration files
+
+#### Decision
+Use Zod for runtime type validation and schema definition.
+
+#### Consequences
+**Positive**:
+
+- TypeScript inference from schemas
+- Excellent error messages
+- Composable schemas
+- Works at all boundaries (IPC, persistence, API)
+
+**Negative**:
+
+- Additional runtime overhead (minimal)
+- Schema definition maintenance
+
+---
+
+### ADR-006: Monorepo with pnpm Workspaces
+
+**Status**: Accepted
+**Date**: 2024-Q1
+
+#### Context
+We needed to organize code across:
+- Main process (Node.js/Electron)
+- Renderer process (Angular)
+- Shared contracts (TypeScript/Zod)
+- Multiple test suites
+
+#### Decision
+Use pnpm workspaces in a monorepo structure.
+
+#### Consequences
+**Positive**:
+
+- Shared dependencies reduce duplication
+- Atomic changes across packages
+- Simplified CI/CD
+- Clear package boundaries
+
+**Negative**:
+
+- Initial setup complexity
+- Requires understanding of workspace protocols
+
+---
+
+## Related Documentation
+
+| Document | Purpose |
+| -------- | ------- |
+| [README.md](../README.md) | Project overview and quick start |
+| [quickstart.md](../quickstart.md) | Development setup guide |
+| [ci-simulation.md](./ci-simulation.md) | Local CI testing |
+| [troubleshooting.md](./troubleshooting.md) | Common issues and solutions |
+

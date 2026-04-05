@@ -13,7 +13,7 @@ import { randomUUID } from 'node:crypto';
 import type { ClarificationSession, MockResponseConfig, OKRDocument } from '@clarityokr/contracts';
 
 import { Logger } from './core/logger.js';
-import type { ActionLogWriter } from './persistence/action-log-writer.js';
+import type { IActionLogWriter } from './persistence/action-log-writer.js';
 import type { OkrRepository } from './persistence/okr-repository.js';
 import type { SessionRepository } from './persistence/session-repository.js';
 import type { ClarificationController } from './windows/clarification-controller.js';
@@ -432,7 +432,7 @@ export function initializeTestMode(
   controller: ClarificationController,
   sessionRepo: SessionRepository,
   okrRepo: OkrRepository,
-  actionLogWriter: ActionLogWriter,
+  actionLogWriter: IActionLogWriter,
 ): TestMode {
   globalTestMode = new TestMode(controller, sessionRepo, okrRepo, actionLogWriter);
 
