@@ -2,14 +2,12 @@ import { CommonModule } from '@angular/common';
 import { Component, computed, type OnDestroy } from '@angular/core';
 import { ReactiveFormsModule, FormControl, Validators } from '@angular/forms';
 import { Subject } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
 
 import { ClarificationWizardComponent } from './clarification/components/clarification-wizard.component';
 import { ClarificationOrchestratorService } from './clarification/services/clarification-orchestrator.service';
-import { SyncClarificationState } from './clarification/services/sync-clarification-state.service';
+import { ClarificationStateMachine } from './clarification/services/clarification-state-machine.service';
 import { IpcLlmGateway } from './clarification/services/ipc-llm-gateway.service';
-import type { ClarificationPrompt } from '@clarityokr/contracts';
-import { OkrStickyGatewayService } from './okr-sticky/services/okr-sticky-gateway.service';
+import { OkrStickyService } from './okr-sticky/services/okr-sticky.service';
 import { OkrStickyNoteComponent } from './okr-sticky/components/okr-sticky-note.component';
 import { Logger } from './core/services/logger.service';
 import { TranslatePipe } from './shared/pipes/translate.pipe';
@@ -255,9 +253,9 @@ export class AppComponent implements OnDestroy {
     new URLSearchParams(window.location.search).get('view') === 'sticky';
 
   constructor(
-    readonly state: SyncClarificationState,
+    readonly state: ClarificationStateMachine,
     private readonly orchestrator: ClarificationOrchestratorService,
-    private readonly stickyGateway: OkrStickyGatewayService,
+    private readonly stickyGateway: OkrStickyService,
     private readonly llmGateway: IpcLlmGateway,
     private readonly logger: Logger,
   ) {}

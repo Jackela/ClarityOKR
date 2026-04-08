@@ -1,3 +1,42 @@
+/**
+ * Clarification Orchestrator Service - Manages Clarification Flow State and IPC Communication
+ *
+ * This service orchestrates the clarification wizard flow, managing the communication
+ * between the Angular renderer and the Electron main process. It handles prompting,
+ * option selection, and state synchronization for the OKR clarification process.
+ *
+ * Key Responsibilities:
+ * - Manages clarification session lifecycle through IPC
+ * - Validates and transforms user input using Zod schemas
+ * - Synchronizes state with SyncClarificationState service
+ * - Registers and manages IPC event listeners for real-time updates
+ * - Handles loading states and error recovery
+ *
+ * Dependencies:
+ * - @clarityokr/contracts: Zod schemas and type definitions
+ * - SyncClarificationState: State management for clarification sessions
+ * - Electron IPC bridge (exposed via window.clarifyOkr)
+ *
+ * @module clarification/services/clarification-orchestrator.service
+ *
+ * @example
+ * ```typescript
+ * // In a component
+ * constructor(private orchestrator: ClarificationOrchestratorService) {}
+ *
+ * // Start a new clarification session
+ * this.orchestrator.requestPrompt('session-123', '提高团队效率')
+ *   .subscribe({
+ *     next: () => console.log('First prompt loaded'),
+ *     error: (err) => console.error('Request failed:', err)
+ *   });
+ *
+ * // Record a user's selection
+ * this.orchestrator.recordSelection('session-123', 'prompt-1', 'option-a')
+ *   .subscribe(() => console.log('Selection recorded'));
+ * ```
+ */
+
 import { Injectable } from '@angular/core';
 import type { OnDestroy, NgZone } from '@angular/core';
 import {
@@ -13,21 +52,65 @@ import type { Logger } from '../../core/services/logger.service';
 import { IPC_CHANNELS } from '../../shared/ipc-channel.tokens';
 import type { ClarifyOkrApi } from '../../shared/window';
 
-import type { SyncClarificationState } from './sync-clarification-state.service';
+import type { ClarificationStateMachine } from './clarification-state-machine.service';
 
+/**
+ * Service that orchestrates the clarification flow between renderer and main process.
+ *
+ * This service acts as the primary coordinator for the OKR clarification wizard.
+ * It manages IPC communication, validates all inputs using Zod schemas, and keeps
+ * the UI state synchronized with the main process through the SyncClarificationState
+ * service. The service automatically registers IPC listeners on construction and
+ * cleans them up on destruction.
+ *
+ * @example
+ * ```typescript
+ * @Component({...})
+ * export class ClarificationWizardComponent implements OnDestroy {
+ *   constructor(private orchestrator: ClarificationOrchestratorService) {}
+ *
+ *   startClarification(intent: string) {
+ *     this.orchestrator.requestPrompt('session-123', intent)
+ *       .subscribe({
+ *         next: () => this.showPrompt(),
+ *         error: (err) => this.showError(err.message)
+ *       });
+ *   }
+ *
+ *   ngOnDestroy() {
+ *     // Service handles its own cleanup via ngOnDestroy
+ *   }
+ * }
+ * ```
+ */
 @Injectable({ providedIn: 'root' })
 export class ClarificationOrchestratorService implements OnDestroy {
   private isListenerRegistered = false;
   private promptListenerUnsubscribe?: () => void;
 
+  /**
+   * Creates a new clarification orchestrator service instance.
+   *
+   * Automatically registers the IPC prompt listener on construction.
+   *
+   * @param state - Service for managing clarification session state
+   * @param zone - Angular NgZone for running callbacks in Angular context
+   * @param logger - Logger service for debugging and error reporting
+   */
   constructor(
-    private readonly state: SyncClarificationState,
+    private readonly state: ClarificationStateMachine,
     private readonly zone: NgZone,
     private readonly logger: Logger,
   ) {
     this.registerPromptListener();
   }
 
+  /**
+   * Cleans up IPC listeners when the service is destroyed.
+   *
+   * Called automatically by Angular when the service is no longer needed.
+   * Unsubscribes from IPC events and resets listener registration state.
+   */
   ngOnDestroy(): void {
     if (this.promptListenerUnsubscribe) {
       this.promptListenerUnsubscribe();
@@ -38,22 +121,25 @@ export class ClarificationOrchestratorService implements OnDestroy {
   }
 
   /**
-   * 开始澄清流程并请求第一个提示
+   * Starts the clarification flow and requests the first prompt.
    *
-   * 验证会话ID和意图，设置加载状态，然后调用 Electron IPC 通道
-   * 请求 LLM 返回第一个澄清提示。成功后更新状态为 prompting。
+   * Validates the session ID and intent, sets the loading state, then calls the
+   * Electron IPC channel to request the LLM to return the first clarification prompt.
+   * Updates the state to prompting on success.
    *
-   * @param sessionId - 会话的唯一标识符
-   * @param intent - 用户的初始目标意图描述
-   * @returns Observable 在成功设置提示后完成，错误时抛出
-   * @throws 当验证失败或 IPC 调用失败时抛出错误
+   * @param sessionId - Unique identifier for the clarification session
+   * @param intent - The user's initial goal or objective description
+   * @returns Observable that completes after successfully setting the prompt, throws on error
+   * @throws Error when validation fails or IPC call fails
    *
    * @example
-   * orchestrator.requestPrompt('session-123', '提高团队效率')
+   * ```typescript
+   * orchestrator.requestPrompt('session-123', 'Improve team efficiency')
    *   .subscribe({
-   *     next: () => console.log('第一个提示已加载'),
-   *     error: (err) => console.error('请求失败:', err)
+   *     next: () => console.log('First prompt loaded'),
+   *     error: (err) => console.error('Request failed:', err)
    *   });
+   * ```
    */
   requestPrompt(sessionId: string, intent: string): Observable<void> {
     this.logger.debug('[ORCHESTRATOR] requestPrompt called', { sessionId, intent });
@@ -94,20 +180,23 @@ export class ClarificationOrchestratorService implements OnDestroy {
   }
 
   /**
-   * 处理用户对澄清提示选项的选择
+   * Handles user selection of a clarification prompt option.
    *
-   * 同步更新状态记录用户选择，然后通过 IPC 通道发送选择到主进程
-   * 主进程会根据选择决定下一个提示或生成 OKR
+   * Updates state synchronously to record the user's selection, then sends the
+   * selection to the main process via the IPC channel. The main process decides
+   * the next prompt or triggers OKR generation based on the selection.
    *
-   * @param sessionId - 当前会话的唯一标识符
-   * @param promptId - 当前提示的唯一标识符
-   * @param optionId - 用户选择的选项 ID
-   * @returns Observable 完成时表示选择已发送
-   * @throws 当验证失败时抛出错误
+   * @param sessionId - Unique identifier for the current session
+   * @param promptId - Unique identifier for the current prompt
+   * @param optionId - ID of the option selected by the user
+   * @returns Observable that completes when the selection has been sent
+   * @throws Error when validation fails
    *
    * @example
+   * ```typescript
    * orchestrator.recordSelection('session-123', 'prompt-1', 'option-a')
-   *   .subscribe(() => console.log('选择已记录'));
+   *   .subscribe(() => console.log('Selection recorded'));
+   * ```
    */
   recordSelection(sessionId: string, promptId: string, optionId: string): Observable<void> {
     const bridge = this.ensureBridge();
@@ -127,17 +216,20 @@ export class ClarificationOrchestratorService implements OnDestroy {
   }
 
   /**
-   * 请求下一个澄清问题
+   * Requests the next clarification question.
    *
-   * 封装加载状态管理和错误处理，防止组件直接操作 store
-   * 当前为临时实现，未来应使用新的 LlmGateway 抽象
+   * Encapsulates loading state management and error handling to prevent
+   * components from directly manipulating the store. Currently a placeholder
+   * implementation that should be refactored to use the LlmGateway abstraction.
    *
-   * @param _questionId - 当前问题的 ID（预留参数）
-   * @param _optionId - 用户选择的选项 ID（预留参数）
-   * @returns Observable 完成时返回 null（当前为占位实现）
+   * @param _questionId - ID of the current question (reserved parameter)
+   * @param _optionId - ID of the option selected by the user (reserved parameter)
+   * @returns Observable that completes and returns null (placeholder implementation)
    *
    * @example
+   * ```typescript
    * orchestrator.requestNextQuestion('q-1', 'opt-a').subscribe();
+   * ```
    */
   requestNextQuestion(_questionId: string, _optionId: string): Observable<unknown> {
     this.state.setLoading(true);
@@ -149,7 +241,16 @@ export class ClarificationOrchestratorService implements OnDestroy {
   }
 
   /**
-   * Clear error state
+   * Clears the current error state.
+   *
+   * Resets any error or validation error state in the clarification session,
+   * allowing the user to retry failed operations or continue after an error.
+   *
+   * @example
+   * ```typescript
+   * // After displaying an error message with a retry button
+   * orchestrator.clearError();
+   * ```
    */
   clearError(): void {
     this.logger.debug('[ORCHESTRATOR] clearError called');

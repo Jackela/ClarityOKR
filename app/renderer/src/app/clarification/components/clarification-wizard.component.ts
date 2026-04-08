@@ -22,7 +22,7 @@ import { ProgressIndicatorComponent } from '../../shared/components/progress-ind
 import { SkeletonComponent } from '../../shared/components/skeleton.component';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
-import { SyncClarificationState } from '../services/sync-clarification-state.service';
+import { ClarificationStateMachine } from '../services/clarification-state-machine.service';
 
 @Component({
   selector: 'clarityokr-clarification-wizard',
@@ -222,7 +222,7 @@ export class ClarificationWizardComponent {
   /** Estimated total steps for progress calculation */
   readonly estimatedTotalSteps = 5;
 
-  constructor(public readonly state: SyncClarificationState) {}
+  constructor(public readonly state: ClarificationStateMachine) {}
 
   @Output() optionSelected = new EventEmitter<string>();
   @Output() generate = new EventEmitter<void>();

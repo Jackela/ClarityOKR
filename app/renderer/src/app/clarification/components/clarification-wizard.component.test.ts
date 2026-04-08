@@ -3,7 +3,6 @@ import type { ClarificationPrompt } from '@clarityokr/contracts';
 
 import { Logger } from '../../core/services/logger.service';
 import { ClarificationStateMachine } from '../services/clarification-state-machine.service';
-import { SyncClarificationState } from '../services/sync-clarification-state.service';
 import { ClarificationWizardComponent } from './clarification-wizard.component';
 
 function buildPrompt(): ClarificationPrompt {
@@ -22,21 +21,23 @@ function buildPrompt(): ClarificationPrompt {
 describe('ClarificationWizardComponent', () => {
   let fixture: ComponentFixture<ClarificationWizardComponent>;
   let component: ClarificationWizardComponent;
-  let state: SyncClarificationState;
+  let state: ClarificationStateMachine;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [ClarificationWizardComponent],
       providers: [
         ClarificationStateMachine,
-        SyncClarificationState,
-        { provide: Logger, useValue: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() } },
+        {
+          provide: Logger,
+          useValue: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() },
+        },
       ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(ClarificationWizardComponent);
     component = fixture.componentInstance;
-    state = TestBed.inject(SyncClarificationState);
+    state = TestBed.inject(ClarificationStateMachine);
 
     // Reset state before each test
     state.reset();
@@ -66,7 +67,7 @@ describe('ClarificationWizardComponent', () => {
     ) as NodeListOf<HTMLButtonElement>;
     const buttons: HTMLButtonElement[] = Array.from(optionNodes);
     expect(buttons.length).toBeGreaterThan(0);
-    
+
     const optionSelectedSpy = jest.fn();
     component.optionSelected.subscribe(optionSelectedSpy);
 
@@ -113,7 +114,7 @@ describe('ClarificationWizardComponent', () => {
     ) as HTMLButtonElement;
 
     expect(generateButton).toBeTruthy();
-    
+
     // When: user clicks generate button
     generateButton.click();
 
@@ -129,7 +130,9 @@ describe('ClarificationWizardComponent', () => {
     const retrySpy = jest.fn();
     component.retry.subscribe(retrySpy);
 
-    const retryButton = fixture.nativeElement.querySelector('[data-testid="retry-button"]') as HTMLButtonElement;
+    const retryButton = fixture.nativeElement.querySelector(
+      '[data-testid="retry-button"]',
+    ) as HTMLButtonElement;
     expect(retryButton).toBeTruthy();
 
     // When: user clicks retry button
