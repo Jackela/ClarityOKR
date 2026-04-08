@@ -7,3 +7,4 @@ export { CardComponent, type CardVariant, type CardPadding } from './card.compon
 export { LoadingSpinnerComponent, type SpinnerSize } from './loading-spinner.component';
 export { ProgressIndicatorComponent } from './progress-indicator.component';
 export { SkeletonComponent } from './skeleton.component';
+export { SuccessCelebrationComponent } from './success-celebration.component';
