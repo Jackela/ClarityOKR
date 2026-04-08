@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import type { ClarificationPrompt } from '@clarityokr/contracts';
 import { Logger } from '../../core/services/logger.service';
 import { ClarificationStateMachine } from './clarification-state-machine.service';
-import type { ErrorInfo, WorkflowState } from './clarification-state-machine.service';
+import type { ErrorInfo, WorkflowState } from './clarification-state.types.js';
 
 /**
  * SyncClarificationState - 同步澄清状态适配器

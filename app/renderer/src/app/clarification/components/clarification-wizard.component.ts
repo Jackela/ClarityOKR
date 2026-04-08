@@ -20,19 +20,20 @@ import {
 
 import { ProgressIndicatorComponent } from '../../shared/components/progress-indicator.component';
 import { SkeletonComponent } from '../../shared/components/skeleton.component';
+import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { SyncClarificationState } from '../services/sync-clarification-state.service';
 
 @Component({
   selector: 'clarityokr-clarification-wizard',
   standalone: true,
-  imports: [CommonModule, ProgressIndicatorComponent, SkeletonComponent],
+  imports: [CommonModule, ProgressIndicatorComponent, SkeletonComponent, TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrls: ['./clarification-wizard.component.scss'],
   template: `
     <section
       class="wizard-container"
-      aria-label="目标澄清向导"
+      [attr.aria-label]="'clarification.wizard.ariaLabel' | translate"
       [attr.aria-busy]="state.isLoading()"
     >
       <!-- Progress Indicator -->
@@ -40,14 +41,19 @@ import { SyncClarificationState } from '../services/sync-clarification-state.ser
         <clarityokr-progress-indicator
           [current]="state.history().length + (state.currentPrompt() ? 1 : 0)"
           [total]="estimatedTotalSteps"
-          label="问题"
+          [label]="'clarification.wizard.question' | translate"
         ></clarityokr-progress-indicator>
       }
 
       <!-- Back Button -->
       @if (state.history().length > 0) {
-        <button type="button" class="back-button" (click)="goBack.emit()" aria-label="返回上一步">
-          <span aria-hidden="true">←</span> 返回
+        <button
+          type="button"
+          class="back-button"
+          (click)="goBack.emit()"
+          [attr.aria-label]="'clarification.wizard.backAriaLabel' | translate"
+        >
+          <span aria-hidden="true">←</span> {{ 'clarification.wizard.back' | translate }}
         </button>
       }
 
@@ -59,24 +65,28 @@ import { SyncClarificationState } from '../services/sync-clarification-state.ser
         [attr.aria-hidden]="!state.isLoading()"
       >
         @if (state.isLoading()) {
-          正在加载下一步
+          {{ 'clarification.wizard.loadingNext' | translate }}
         }
       </div>
 
       <!-- Skeleton Loading State -->
       @if (state.isLoading()) {
-        <div class="loading-container" role="status" aria-label="加载中">
+        <div
+          class="loading-container"
+          role="status"
+          [attr.aria-label]="'loading.ariaLabel' | translate"
+        >
           <clarityokr-skeleton
             type="text"
             [lines]="2"
             [lastLineWidth]="60"
-            ariaLabel="加载问题"
+            [ariaLabel]="'clarification.wizard.loadingQuestion' | translate"
           ></clarityokr-skeleton>
           <div class="skeleton-spacing"></div>
           <clarityokr-skeleton
             type="options"
             [count]="3"
-            ariaLabel="加载选项"
+            [ariaLabel]="'clarification.wizard.loadingOptions' | translate"
           ></clarityokr-skeleton>
         </div>
       }
@@ -131,7 +141,7 @@ import { SyncClarificationState } from '../services/sync-clarification-state.ser
           </div>
 
           <p class="keyboard-hint" aria-hidden="true">
-            提示：按数字键 1-{{ prompt.options.length }} 快速选择
+            {{ 'clarification.wizard.keyboardHint' | translate: { count: prompt.options.length } }}
           </p>
 
           @if (state.validationError(); as validationError) {
@@ -150,9 +160,11 @@ import { SyncClarificationState } from '../services/sync-clarification-state.ser
             [attr.aria-describedby]="state.validationError() ? 'validation-error' : null"
             (click)="onGenerate()"
           >
-            <span class="generate-text">生成 OKR</span>
+            <span class="generate-text">{{ 'clarification.wizard.generateOkr' | translate }}</span>
             @if (state.isReadyToGenerate()) {
-              <span class="generate-hint" aria-hidden="true"> (或按 Ctrl+Enter) </span>
+              <span class="generate-hint" aria-hidden="true">{{
+                'clarification.wizard.generateHint' | translate
+              }}</span>
             }
           </button>
         </article>
@@ -163,18 +175,23 @@ import { SyncClarificationState } from '../services/sync-clarification-state.ser
         <article class="prompt-container">
           <div class="ready-state">
             <div class="ready-icon" aria-hidden="true">✓</div>
-            <h2 class="ready-title">已准备好生成 OKR</h2>
+            <h2 class="ready-title">{{ 'clarification.wizard.ready.title' | translate }}</h2>
             <p class="ready-description">
-              您已回答了 {{ state.history().length }} 个问题，可以生成 OKR 了
+              {{
+                'clarification.wizard.ready.description'
+                  | translate: { count: state.history().length }
+              }}
             </p>
             <button
               type="button"
               class="generate-button generate-button--ready"
               data-testid="clarification-generate"
-              [attr.aria-label]="'生成 OKR - 已准备好'"
+              [attr.aria-label]="'clarification.wizard.generateAriaLabel' | translate"
               (click)="onGenerate()"
             >
-              <span class="generate-text">生成 OKR</span>
+              <span class="generate-text">{{
+                'clarification.wizard.generateOkr' | translate
+              }}</span>
             </button>
           </div>
         </article>
@@ -190,10 +207,10 @@ import { SyncClarificationState } from '../services/sync-clarification-state.ser
               type="button"
               class="retry-button"
               data-testid="retry-button"
-              aria-label="重试"
+              [attr.aria-label]="'common.retry' | translate"
               (click)="onRetry()"
             >
-              重试
+              {{ 'common.retry' | translate }}
             </button>
           </div>
         </div>

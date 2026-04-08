@@ -4,88 +4,13 @@ import type { ClarificationPrompt } from '@clarityokr/contracts';
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { Logger } from '../../core/services/logger.service';
 import { environment } from '../../../environments/environment';
-
-/**
- * 统一的状态类型
- */
-export type WorkflowState =
-  | 'idle' // 初始/空闲状态
-  | 'loading' // 加载中
-  | 'prompting' // 显示澄清提示
-  | 'ready' // 已准备好生成
-  | 'generating' // 生成OKR中
-  | 'completed' // 已完成
-  | 'error'; // 错误状态
-
-/**
- * 状态转换动作
- */
-export type StateAction =
-  | { type: 'START'; payload: { intent: string } }
-  | { type: 'SET_PROMPT'; payload: { prompt: ClarificationPrompt | null } }
-  | { type: 'SET_LOADING'; payload: { loading: boolean } }
-  | { type: 'SET_ERROR'; payload: { error: ErrorInfo | null } }
-  | { type: 'CLEAR_ERROR' }
-  | { type: 'RECORD_SELECTION'; payload: { promptId: string; optionId: string } }
-  | { type: 'SET_SESSION_ID'; payload: { sessionId: string | null } }
-  | { type: 'SET_VALIDATION_ERROR'; payload: { message: string | null } }
-  | { type: 'SET_GENERATING' }
-  | { type: 'SET_COMPLETED'; payload: { okr?: { objectives: unknown[] } } }
-  | { type: 'SET_INTENT'; payload: { intent: string } }
-  | { type: 'RESET' };
-
-/**
- * 错误信息
- */
-export interface ErrorInfo {
-  message: string;
-  recoverable: boolean;
-}
-
-/**
- * 状态结构
- */
-export interface ClarificationState {
-  workflowState: WorkflowState;
-  currentPrompt: ClarificationPrompt | null;
-  isLoading: boolean;
-  error: ErrorInfo | null;
-  isReadyToGenerate: boolean;
-  selections: Record<string, string>;
-  sessionId: string | null;
-  validationError: string | null;
-  intent: string;
-  history: ClarificationPrompt[];
-}
-
-/**
- * 初始状态
- */
-const INITIAL_STATE: ClarificationState = {
-  workflowState: 'idle',
-  currentPrompt: null,
-  isLoading: false,
-  error: null,
-  isReadyToGenerate: false,
-  selections: {},
-  sessionId: null,
-  validationError: null,
-  intent: '',
-  history: [],
-};
-
-/**
- * 状态转换规则
- */
-const VALID_TRANSITIONS: Record<WorkflowState, readonly WorkflowState[]> = {
-  idle: ['loading'],
-  loading: ['prompting', 'error', 'generating'],
-  prompting: ['loading', 'ready', 'error', 'generating'],
-  ready: ['generating', 'loading', 'error'],
-  generating: ['completed', 'error'],
-  completed: ['idle'],
-  error: ['idle', 'loading', 'prompting'],
-};
+import {
+  type WorkflowState,
+  type StateAction,
+  type ErrorInfo,
+  type ClarificationState,
+} from './clarification-state.types.js';
+import { INITIAL_STATE, VALID_TRANSITIONS } from './clarification-state.constants.js';
 
 /**
  * ClarificationStateMachine - 统一的状态机
