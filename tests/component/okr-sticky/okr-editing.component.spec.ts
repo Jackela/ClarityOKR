@@ -18,8 +18,10 @@ import { type Provider, signal, computed } from '@angular/core';
 import { OkrStickyNoteComponent } from '@clarityokr/renderer/app/okr-sticky/components/okr-sticky-note.component';
 
 // Services to mock
-import { OkrStickyGatewayService } from '@clarityokr/renderer/app/okr-sticky/services/okr-sticky-gateway.service';
-import type { OkrStickyViewModel } from '@clarityokr/renderer/app/okr-sticky/services/okr-projection.service';
+import {
+  OkrStickyService,
+  type OkrStickyViewModel,
+} from '@clarityokr/renderer/app/okr-sticky/services/okr-sticky.service';
 
 // Shared components
 import { ButtonComponent, InputComponent } from '@clarityokr/renderer/app/shared/components';
@@ -118,12 +120,18 @@ class MockEditModeStore {
 // Mock Gateway Service
 // ============================================================================
 
-class MockOkrStickyGatewayService {
-  private readonly viewModelSubject = signal<OkrStickyViewModel | null>(null);
-  readonly viewModel = computed(() => this.viewModelSubject());
+/**
+ * Mock Sticky Service
+ * Replaces MockOkrStickyGatewayService to match OkrStickyService API
+ */
+class MockOkrStickyService {
+  private readonly _viewModel = signal<OkrStickyViewModel | null>(null);
+  readonly viewModel = this._viewModel.asReadonly();
+  readonly hasStickyNote = computed(() => this._viewModel() !== null);
+  readonly currentViewModel = computed(() => this._viewModel());
 
-  setViewModel(viewModel: OkrStickyViewModel | null): void {
-    this.viewModelSubject.set(viewModel);
+  updateViewModel(viewModel: OkrStickyViewModel | null): void {
+    this._viewModel.set(viewModel);
   }
 
   updateOkr(_data: EditFormData): Promise<void> {
@@ -180,11 +188,11 @@ describe('OkrStickyNoteComponent - Edit Mode', () => {
   let fixture: ComponentFixture<OkrStickyNoteComponent>;
   let component: OkrStickyNoteComponent;
   let mockEditStore: MockEditModeStore;
-  let mockGateway: MockOkrStickyGatewayService;
+  let mockStickyService: MockOkrStickyService;
 
   beforeEach(async () => {
     mockEditStore = new MockEditModeStore();
-    mockGateway = new MockOkrStickyGatewayService();
+    mockStickyService = new MockOkrStickyService();
 
     await TestBed.configureTestingModule({
       imports: [OkrStickyNoteComponent, ButtonComponent, InputComponent],
@@ -194,8 +202,8 @@ describe('OkrStickyNoteComponent - Edit Mode', () => {
           useValue: mockEditStore,
         } satisfies Provider,
         {
-          provide: OkrStickyGatewayService,
-          useValue: mockGateway,
+          provide: OkrStickyService,
+          useValue: mockStickyService,
         } satisfies Provider,
       ],
     }).compileComponents();
@@ -329,7 +337,7 @@ describe('OkrStickyNoteComponent - Edit Mode', () => {
       mockEditStore.updateObjective('Updated Objective');
       fixture.detectChanges();
 
-      const updateSpy = jest.spyOn(mockGateway, 'updateOkr');
+      const updateSpy = jest.spyOn(mockStickyService, 'updateOkr');
       const saveButton = fixture.nativeElement.querySelector('[data-testid="save-button"]');
 
       // Act
