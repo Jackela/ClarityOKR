@@ -1,8 +1,10 @@
 import { Injectable, signal, computed } from '@angular/core';
 import type { KeyResult } from '@clarityokr/contracts';
-import type { EditModeState, DraftKeyResult } from './edit-mode.types.js';
+import type { EditModeState, DraftKeyResult, ValidationError } from './edit-mode.types.js';
 import { INITIAL_STATE } from './edit-mode.types.js';
 import { createDraftKeyResults, recalculateState } from './edit-mode.utils.js';
+
+export type { EditModeState, DraftKeyResult, ValidationError } from './edit-mode.types.js';
 
 /**
  * EditModeStore - Manages edit mode state for OKR sticky note
