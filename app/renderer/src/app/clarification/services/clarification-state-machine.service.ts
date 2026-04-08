@@ -13,103 +13,198 @@ import {
 import { INITIAL_STATE, VALID_TRANSITIONS } from './clarification-state.constants.js';
 
 /**
- * ClarificationStateMachine - 统一的状态机
+ * Clarification State Machine Service - Centralized State Management for OKR Clarification
  *
- * 架构: StateMachine作为单一数据源，Signals作为派生视图
- * - 所有状态转换通过dispatch(action)执行
- * - reducer确保状态一致性
- * - computed signals提供派生状态
+ * This service implements a finite state machine pattern for managing the OKR clarification
+ * workflow. It provides a single source of truth for the clarification process state,
+ * with signals serving as derived views for reactive Angular components.
+ *
+ * Key Responsibilities:
+ * - Manages workflow state transitions (idle, loading, prompting, ready, generating, completed, error)
+ * - Tracks user selections and session data
+ * - Provides computed signals for UI state derivation
+ * - Validates state transitions to prevent invalid operations
+ * - Handles error states with recovery capabilities
+ *
+ * Architecture Pattern:
+ * - StateMachine serves as the single source of truth
+ * - All state transitions flow through dispatch(action)
+ * - Reducer ensures state consistency and immutability
+ * - Computed signals provide derived state for components
+ *
+ * Dependencies:
+ * - Logger: Debug and error logging
+ * - Angular Signals: Reactive state management
+ * - Clarification types and constants from local module
+ *
+ * @module clarification/services/clarification-state-machine.service
  *
  * @example
  * ```typescript
- * // 在组件中使用
+ * // In a component
  * constructor(private stateMachine: ClarificationStateMachine) {}
  *
- * // 读取派生状态
- * const prompt = this.stateMachine.currentPrompt();
- * const isReady = this.stateMachine.isReadyToGenerate();
+ * // Start a new clarification session
+ * this.stateMachine.start('Improve team productivity');
  *
- * // 触发状态转换
- * this.stateMachine.start('提高团队效率');
+ * // React to state changes in template
+ * @if (stateMachine.isLoading()) {
+ *   <loading-spinner />
+ * }
+ *
+ * // Access current prompt
+ * const prompt = this.stateMachine.currentPrompt();
+ *
+ * // Record user selection
  * this.stateMachine.recordSelection('prompt-1', 'option-a');
+ *
+ * // Check if ready to generate OKRs
+ * if (this.stateMachine.isReadyToGenerate()) {
+ *   this.generateOkrs();
+ * }
  * ```
  */
 @Injectable({ providedIn: 'root' })
 export class ClarificationStateMachine {
-  // === 核心状态 (单一数据源) ===
+  /** Core state signal - single source of truth for all clarification state */
   private readonly _state = signal<ClarificationState>(INITIAL_STATE);
 
-  // === 派生的只读 Signals ===
+  // === Derived Read-Only Signals ===
 
-  /** 当前工作流状态 */
+  /**
+   * Current workflow state of the clarification process.
+   * States: idle, loading, prompting, ready, generating, completed, error
+   */
   readonly workflowState = computed(() => this._state().workflowState);
 
-  /** 当前澄清提示 */
+  /**
+   * Current clarification prompt being displayed to the user.
+   * Null when no prompt is active.
+   */
   readonly currentPrompt = computed(() => this._state().currentPrompt);
 
-  /** 是否加载中 */
+  /**
+   * Loading state indicator.
+   * True when waiting for LLM responses or other async operations.
+   */
   readonly isLoading = computed(() => this._state().isLoading);
 
-  /** 错误信息 */
+  /**
+   * Error information when the workflow enters error state.
+   * Null when no error is present.
+   */
   readonly error = computed(() => this._state().error);
 
-  /** 是否准备好生成OKR */
+  /**
+   * Whether the clarification has gathered enough context to generate OKRs.
+   * True when at least one selection has been made.
+   */
   readonly isReadyToGenerate = computed(() => this._state().isReadyToGenerate);
 
-  /** 用户选择记录 */
+  /**
+   * Map of user selections keyed by prompt ID.
+   * Tracks all choices made during the clarification process.
+   */
   readonly selections = computed(() => this._state().selections);
 
-  /** 会话ID */
+  /**
+   * Unique identifier for the current clarification session.
+   * Null when no session is active.
+   */
   readonly sessionId = computed(() => this._state().sessionId);
 
-  /** 验证错误信息 */
+  /**
+   * Validation error message for form inputs.
+   * Null when no validation error exists.
+   */
   readonly validationError = computed(() => this._state().validationError);
 
-  /** 用户意图 */
+  /**
+   * The original user intent that started the clarification process.
+   */
   readonly intent = computed(() => this._state().intent);
 
-  /** 历史记录 */
+  /**
+   * History of prompts shown during the current session.
+   */
   readonly history = computed(() => this._state().history);
 
-  // === 计算属性 Signals ===
+  // === Computed Property Signals ===
 
-  /** 是否有错误 */
+  /**
+   * Whether an error state is currently active.
+   */
   readonly hasError = computed(() => this._state().error !== null);
 
-  /** 选择数量 */
+  /**
+   * Number of selections made by the user.
+   */
   readonly selectionCount = computed(() => Object.keys(this._state().selections).length);
 
-  /** 是否有提示 */
+  /**
+   * Whether a prompt is currently available for display.
+   */
   readonly hasPrompt = computed(() => this._state().currentPrompt !== null);
 
-  /** 错误消息文本 */
+  /**
+   * Error message text for display, or null if no error.
+   */
   readonly errorMessage = computed(() => this._state().error?.message ?? null);
 
-  /** 当前选择 */
+  /**
+   * The user's current selection for the active prompt.
+   * Null if no prompt is active or no selection made for current prompt.
+   */
   readonly currentSelection = computed(() => {
     const prompt = this._state().currentPrompt;
     if (!prompt) return null;
     return this._state().selections[prompt.id] ?? null;
   });
 
-  /** 已选择的选项ID列表 */
+  /**
+   * List of all selected option IDs.
+   */
   readonly selectedOptionIds = computed(() => Object.values(this._state().selections));
 
+  /**
+   * Creates a new ClarificationStateMachine instance.
+   *
+   * Initializes the state machine with default state and sets up logging.
+   *
+   * @param logger - Service for debug and error logging
+   *
+   * @example
+   * ```typescript
+   * // Typically injected by Angular DI
+   * constructor(private stateMachine: ClarificationStateMachine) {}
+   *
+   * // The service is automatically initialized with root-level scope
+   * ```
+   */
   constructor(private readonly logger: Logger) {
     this.logger.debug('[STATE-MACHINE] Initialized');
   }
 
-  // === 状态转换方法 (业务逻辑层) ===
+  // === State Transition Methods (Business Logic Layer) ===
 
   /**
-   * 开始新的澄清流程
-   * 触发: START action -> loading 状态
+   * Starts a new clarification workflow with the user's initial intent.
    *
-   * @param intent - 用户的初始目标意图描述
+   * Transitions the state machine from 'idle' to 'loading' and records
+   * the user's goal. This clears any previous session state.
+   *
+   * @param intent - The user's natural language goal description
    *
    * @example
-   * stateMachine.start('提高团队效率');
-   * // 状态: idle -> loading
+   * ```typescript
+   * // Start clarifying a productivity goal
+   * this.stateMachine.start('Improve team productivity by 20%');
+   *
+   * // UI should react to loading state
+   * @if (stateMachine.isLoading()) {
+   *   <div>Clarifying your intent...</div>
+   * }
+   * ```
    */
   start(intent: string): void {
     this.logger.debug('[STATE-MACHINE] Action: START', { intent });
@@ -117,18 +212,34 @@ export class ClarificationStateMachine {
   }
 
   /**
-   * 设置当前澄清提示
-   * 触发: SET_PROMPT action -> prompting 状态
+   * Sets the current clarification prompt for user interaction.
    *
-   * @param prompt - 要显示的澄清提示
+   * Transitions from 'loading' to 'prompting' state. The prompt contains
+   * a question and mutually exclusive options for the user to choose from.
+   *
+   * @param prompt - The clarification prompt to display, or null to clear
    *
    * @example
-   * stateMachine.setPrompt({
-   *   id: 'prompt-1',
-   *   question: '请选择您的目标类型',
-   *   options: [...]
+   * ```typescript
+   * // Display a new question to the user
+   * this.stateMachine.setPrompt({
+   *   id: 'goal-type',
+   *   question: 'What type of goal is this?',
+   *   options: [
+   *     { id: 'personal', label: 'Personal Development' },
+   *     { id: 'team', label: 'Team Objective' },
+   *     { id: 'company', label: 'Company Initiative' }
+   *   ]
    * });
-   * // 状态: loading -> prompting
+   *
+   * // Access the prompt in template
+   * @if (stateMachine.currentPrompt(); as prompt) {
+   *   <h3>{{ prompt.question }}</h3>
+   *   @for (option of prompt.options; track option.id) {
+   *     <button (click)="select(option.id)">{{ option.label }}</button>
+   *   }
+   * }
+   * ```
    */
   setPrompt(prompt: ClarificationPrompt | null): void {
     this.logger.debug('[STATE-MACHINE] Action: SET_PROMPT', { promptId: prompt?.id ?? 'null' });
@@ -136,10 +247,24 @@ export class ClarificationStateMachine {
   }
 
   /**
-   * 设置加载状态
+   * Sets the loading state for async operations.
    *
-   * @param loading - 是否加载中
-   * @param intent - 可选的意图(仅在开始加载时设置)
+   * Controls the loading indicator while waiting for LLM responses
+   * or other asynchronous operations.
+   *
+   * @param loading - Whether loading is active
+   * @param intent - Optional intent to set when starting loading (only used when loading is true)
+   *
+   * @example
+   * ```typescript
+   * // Show loading before API call
+   * this.stateMachine.setLoading(true);
+   * await this.llmService.getNextQuestion();
+   * this.stateMachine.setLoading(false);
+   *
+   * // Or set intent while loading
+   * this.stateMachine.setLoading(true, 'Improve code quality');
+   * ```
    */
   setLoading(loading: boolean, intent?: string): void {
     this.logger.debug('[STATE-MACHINE] Action: SET_LOADING', { loading, intent });
@@ -150,17 +275,29 @@ export class ClarificationStateMachine {
   }
 
   /**
-   * 设置错误状态
-   * 触发: SET_ERROR action -> error 状态
+   * Sets an error state with optional recovery capability.
    *
-   * @param error - 错误信息字符串或对象
+   * Transitions to 'error' state. Errors can be recoverable (user can retry)
+   * or non-recoverable (requires reset).
+   *
+   * @param error - Error message string or ErrorInfo object
    *
    * @example
-   * stateMachine.setError('网络连接失败');
-   * // 状态: * -> error
+   * ```typescript
+   * // Simple error message (recoverable by default)
+   * this.stateMachine.setError('Network connection failed');
    *
-   * stateMachine.setError({ message: '验证失败', recoverable: false });
-   * // 状态: * -> error, 不可恢复
+   * // Detailed error with recovery flag
+   * this.stateMachine.setError({
+   *   message: 'LLM service unavailable',
+   *   recoverable: false
+   * });
+   *
+   * // Check error in template
+   * @if (stateMachine.hasError()) {
+   *   <error-display [message]="stateMachine.errorMessage()" />
+   * }
+   * ```
    */
   setError(error: string | ErrorInfo | null): void {
     this.logger.debug('[STATE-MACHINE] Action: SET_ERROR', { error });
@@ -169,9 +306,19 @@ export class ClarificationStateMachine {
   }
 
   /**
-   * 清除错误状态
-   * 触发: CLEAR_ERROR action
-   * 自动回到上一个有效状态或 idle
+   * Clears the current error state.
+   *
+   * Attempts to recover from error by transitioning back to 'idle'
+   * or the previous valid state.
+   *
+   * @example
+   * ```typescript
+   * // User clicks "Try Again" button
+   * onRetryClick() {
+   *   this.stateMachine.clearError();
+   *   this.stateMachine.start(this.previousIntent);
+   * }
+   * ```
    */
   clearError(): void {
     this.logger.debug('[STATE-MACHINE] Action: CLEAR_ERROR');
@@ -179,16 +326,30 @@ export class ClarificationStateMachine {
   }
 
   /**
-   * 记录用户选择
-   * 触发: RECORD_SELECTION action
-   * 自动检查是否准备好生成(至少1个选择)
+   * Records a user's selection for a specific prompt.
    *
-   * @param promptId - 提示ID
-   * @param optionId - 选择的选项ID
+   * Stores the selection and automatically checks if enough context
+   * has been gathered to generate OKRs (at least one selection).
+   * Transitions to 'ready' state when ready to generate.
+   *
+   * @param promptId - The ID of the prompt being answered
+   * @param optionId - The ID of the selected option
    *
    * @example
-   * stateMachine.recordSelection('prompt-1', 'option-a');
-   * // 如果有至少1个选择: prompting -> ready
+   * ```typescript
+   * // User selects an option
+   * onOptionSelect(optionId: string) {
+   *   const promptId = this.stateMachine.currentPrompt()?.id;
+   *   if (promptId) {
+   *     this.stateMachine.recordSelection(promptId, optionId);
+   *
+   *     // Check if ready to generate
+   *     if (this.stateMachine.isReadyToGenerate()) {
+   *       this.showGenerateButton();
+   *     }
+   *   }
+   * }
+   * ```
    */
   recordSelection(promptId: string, optionId: string): void {
     this.logger.debug('[STATE-MACHINE] Action: RECORD_SELECTION', { promptId, optionId });
@@ -196,8 +357,21 @@ export class ClarificationStateMachine {
   }
 
   /**
-   * 设置会话ID
-   * @param sessionId - 会话ID或null
+   * Sets the session ID for the current clarification session.
+   *
+   * Links the state machine state to a persistent backend session.
+   *
+   * @param sessionId - The session identifier, or null to clear
+   *
+   * @example
+   * ```typescript
+   * // After creating a backend session
+   * const session = await this.sessionService.create();
+   * this.stateMachine.setSessionId(session.id);
+   *
+   * // Later, to clear
+   * this.stateMachine.setSessionId(null);
+   * ```
    */
   setSessionId(sessionId: string | null): void {
     this.logger.debug('[STATE-MACHINE] Action: SET_SESSION_ID', { sessionId });
@@ -205,8 +379,30 @@ export class ClarificationStateMachine {
   }
 
   /**
-   * 设置验证错误
-   * @param message - 错误消息或null
+   * Sets a validation error for form input.
+   *
+   * Used to display inline validation errors without entering
+   * the error workflow state.
+   *
+   * @param message - The validation error message, or null to clear
+   *
+   * @example
+   * ```typescript
+   * // Validate user input
+   * validateIntent(intent: string) {
+   *   if (intent.length < 5) {
+   *     this.stateMachine.setValidationError('Intent must be at least 5 characters');
+   *     return false;
+   *   }
+   *   this.stateMachine.setValidationError(null);
+   *   return true;
+   * }
+   *
+   * // Display in template
+   * @if (stateMachine.validationError(); as error) {
+   *   <span class="error">{{ error }}</span>
+   * }
+   * ```
    */
   setValidationError(message: string | null): void {
     this.logger.debug('[STATE-MACHINE] Action: SET_VALIDATION_ERROR', { message });
@@ -214,8 +410,23 @@ export class ClarificationStateMachine {
   }
 
   /**
-   * 设置意图
-   * @param intent - 用户意图
+   * Updates the user intent description.
+   *
+   * Allows updating the goal after initial entry, useful for
+   * refining or correcting the user's objective.
+   *
+   * @param intent - The updated intent description
+   *
+   * @example
+   * ```typescript
+   * // User edits their goal
+   * onIntentEdit(newIntent: string) {
+   *   this.stateMachine.setIntent(newIntent);
+   * }
+   *
+   * // Display current intent
+   * <p>Goal: {{ stateMachine.intent() }}</p>
+   * ```
    */
   setIntent(intent: string): void {
     this.logger.debug('[STATE-MACHINE] Action: SET_INTENT', { intent });
@@ -223,8 +434,28 @@ export class ClarificationStateMachine {
   }
 
   /**
-   * 设置为生成中状态
-   * 触发: SET_GENERATING action -> generating 状态
+   * Transitions to the generating state.
+   *
+   * Called when the user initiates OKR generation. Transitions
+   * from 'ready' to 'generating' state and shows loading.
+   *
+   * @example
+   * ```typescript
+   * // User clicks generate button
+   * onGenerateClick() {
+   *   if (this.stateMachine.isReadyToGenerate()) {
+   *     this.stateMachine.setGenerating();
+   *     this.generateOkrs().then(okrs => {
+   *       this.stateMachine.setCompleted(okrs);
+   *     });
+   *   }
+   * }
+   *
+   * // Show generating UI
+   * @if (stateMachine.workflowState() === 'generating') {
+   *   <generating-animation />
+   * }
+   * ```
    */
   setGenerating(): void {
     this.logger.debug('[STATE-MACHINE] Action: SET_GENERATING');
@@ -232,10 +463,26 @@ export class ClarificationStateMachine {
   }
 
   /**
-   * 设置为完成状态
-   * 触发: SET_COMPLETED action -> completed 状态
+   * Marks the clarification workflow as completed.
    *
-   * @param okr - 可选的OKR结果
+   * Transitions to 'completed' state with optional OKR results.
+   * This is the final state of the workflow.
+   *
+   * @param okr - Optional generated OKR result containing objectives
+   *
+   * @example
+   * ```typescript
+   * // After successful OKR generation
+   * const generatedOkrs = await this.llmService.generateDraft(context);
+   * this.stateMachine.setCompleted({
+   *   objectives: generatedOkrs.objectives
+   * });
+   *
+   * // Show completion UI
+   * @if (stateMachine.workflowState() === 'completed') {
+   *   <okr-display [okrs]="generatedOkrs" />
+   * }
+   * ```
    */
   setCompleted(okr?: { objectives: unknown[] }): void {
     this.logger.debug('[STATE-MACHINE] Action: SET_COMPLETED', { okr });
@@ -243,38 +490,97 @@ export class ClarificationStateMachine {
   }
 
   /**
-   * 重置所有状态
-   * 触发: RESET action -> 回到 initial state
+   * Resets the state machine to initial state.
+   *
+   * Clears all session data, selections, and returns to 'idle' state.
+   * Use this to start a completely new clarification workflow.
+   *
+   * @example
+   * ```typescript
+   * // User clicks "Start Over"
+   * onStartOverClick() {
+   *   this.stateMachine.reset();
+   *   this.router.navigate(['/clarify']);
+   * }
+   *
+   * // Or after completing one OKR set
+   * onCreateAnotherClick() {
+   *   this.stateMachine.reset();
+   *   this.showIntentInput();
+   * }
+   * ```
    */
   reset(): void {
     this.logger.debug('[STATE-MACHINE] Action: RESET');
     this.dispatch({ type: 'RESET' });
   }
 
-  // === 辅助方法 ===
+  // === Helper Methods ===
 
   /**
-   * 获取特定提示的选择
-   * @param promptId - 提示ID
-   * @returns 选择的选项ID或null
+   * Retrieves the selected option ID for a specific prompt.
+   *
+   * @param promptId - The prompt ID to look up
+   * @returns The selected option ID, or null if no selection exists
+   *
+   * @example
+   * ```typescript
+   * // Check if user has answered a specific question
+   * const previousAnswer = this.stateMachine.getSelection('goal-type');
+   * if (previousAnswer === 'team') {
+   *   this.showTeamSpecificPrompts();
+   * }
+   * ```
    */
   getSelection(promptId: string): string | null {
     return this._state().selections[promptId] ?? null;
   }
 
   /**
-   * 检查是否有特定提示的选择
-   * @param promptId - 提示ID
-   * @returns 是否已选择
+   * Checks whether a selection exists for a specific prompt.
+   *
+   * @param promptId - The prompt ID to check
+   * @returns True if the user has made a selection for this prompt
+   *
+   * @example
+   * ```typescript
+   * // Show checkmark for answered questions
+   * @for (prompt of prompts; track prompt.id) {
+   *   <div>
+   *     {{ prompt.question }}
+   *     @if (stateMachine.hasSelection(prompt.id)) {
+   *       <checkmark-icon />
+   *     }
+   *   </div>
+   * }
+   * ```
    */
   hasSelection(promptId: string): boolean {
     return promptId in this._state().selections;
   }
 
   /**
-   * 检查是否可以从当前状态转换到目标状态
-   * @param targetState - 目标状态
-   * @returns 是否允许转换
+   * Checks if a transition to the target workflow state is allowed.
+   *
+   * Validates against the state machine's transition rules to prevent
+   * invalid state changes.
+   *
+   * @param targetState - The desired target workflow state
+   * @returns True if the transition is valid from the current state
+   *
+   * @example
+   * ```typescript
+   * // Guard a transition
+   * if (this.stateMachine.canTransitionTo('generating')) {
+   *   this.startGeneration();
+   * } else {
+   *   this.showError('Cannot generate OKRs in current state');
+   * }
+   *
+   * // Check multiple possibilities
+   * const canComplete = this.stateMachine.canTransitionTo('completed');
+   * const canPrompt = this.stateMachine.canTransitionTo('prompting');
+   * ```
    */
   canTransitionTo(targetState: WorkflowState): boolean {
     const currentState = this._state().workflowState;
@@ -282,26 +588,54 @@ export class ClarificationStateMachine {
   }
 
   /**
-   * 获取当前状态快照(用于调试/测试)
-   * @returns 完整状态对象
+   * Gets a snapshot of the current state for debugging or testing.
+   *
+   * Returns a copy of the full state object. Useful for debugging,
+   * testing, or persisting state.
+   *
+   * @returns A copy of the complete ClarificationState object
+   *
+   * @example
+   * ```typescript
+   * // Debug current state
+   * console.log('Current state:', this.stateMachine.getStateSnapshot());
+   *
+   * // Save state for restoration
+   * const snapshot = this.stateMachine.getStateSnapshot();
+   * localStorage.setItem('clarificationState', JSON.stringify(snapshot));
+   *
+   * // Use in tests
+   * expect(stateMachine.getStateSnapshot().workflowState).toBe('ready');
+   * expect(stateMachine.getStateSnapshot().selections).toHaveLength(2);
+   * ```
    */
   getStateSnapshot(): ClarificationState {
     return { ...this._state() };
   }
 
-  // === 私有方法: Reducer ===
+  // === Private Methods: Reducer ===
 
   /**
-   * Reducer - 纯函数，处理所有状态转换
+   * Reducer - Pure function that processes all state transitions.
    *
-   * 核心规则:
-   * 1. 验证状态转换是否合法
-   * 2. 根据action计算新状态
-   * 3. 自动计算派生值(如isReadyToGenerate)
+   * Core rules:
+   * 1. Validates state transitions for legality
+   * 2. Computes new state based on action
+   * 3. Automatically computes derived values (like isReadyToGenerate)
    *
-   * @param state - 当前状态
-   * @param action - 动作
-   * @returns 新状态
+   * @param state - Current state
+   * @param action - Action to process
+   * @returns New state
+   *
+   * @example
+   * ```typescript
+   * // Not typically called directly - use dispatch()
+   * // The reducer handles all state changes immutably
+   * const newState = this.reducer(currentState, {
+   *   type: 'RECORD_SELECTION',
+   *   payload: { promptId: 'q1', optionId: 'opt1' }
+   * });
+   * ```
    */
   private reducer(state: ClarificationState, action: StateAction): ClarificationState {
     this.logger.debug('[STATE-MACHINE] Reducer processing:', action.type);
@@ -424,10 +758,26 @@ export class ClarificationStateMachine {
   }
 
   /**
-   * 验证状态转换
-   * @param oldState - 旧状态
-   * @param newState - 新状态
-   * @returns 新状态(如果转换非法则抛出错误)
+   * Validates a state transition according to the state machine rules.
+   *
+   * Checks if the transition from oldState to newState is allowed.
+   * In development, throws an error for invalid transitions.
+   * In production, falls back to the old state gracefully.
+   *
+   * @param oldState - The current state before transition
+   * @param newState - The proposed new state
+   * @returns The new state if valid, or old state if invalid (in production)
+   * @throws Error in development mode if transition is invalid
+   *
+   * @example
+   * ```typescript
+   * // Validation happens automatically in reducer
+   * const newState = this.validateTransition(currentState, proposedState);
+   *
+   * // Invalid transitions throw in development
+   * // Valid: 'loading' -> 'prompting'
+   * // Invalid: 'idle' -> 'ready' (throws in dev)
+   * ```
    */
   private validateTransition(
     oldState: ClarificationState,
@@ -441,7 +791,7 @@ export class ClarificationStateMachine {
     if (!allowedTransitions.includes(newState.workflowState)) {
       const error = `Invalid state transition: ${oldState.workflowState} -> ${newState.workflowState}`;
       this.logger.error('[STATE-MACHINE]', error);
-      // 在开发环境抛出错误，生产环境回退到旧状态
+      // Throw error in development, fall back to old state in production
       if (!environment.production) {
         throw new Error(error);
       }
@@ -456,8 +806,19 @@ export class ClarificationStateMachine {
   }
 
   /**
-   * 分发动作
-   * @param action - 要执行的动作
+   * Dispatches an action to the reducer to update state.
+   *
+   * This is the internal entry point for all state changes.
+   * The reducer processes the action and returns the new state.
+   *
+   * @param action - The action to dispatch
+   *
+   * @example
+   * ```typescript
+   * // Internal usage - not typically called directly
+   * this.dispatch({ type: 'START', payload: { intent: 'Improve team' } });
+   * this.dispatch({ type: 'RESET' });
+   * ```
    */
   private dispatch(action: StateAction): void {
     this._state.update((currentState) => this.reducer(currentState, action));

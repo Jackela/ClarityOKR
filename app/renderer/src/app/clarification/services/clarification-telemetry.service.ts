@@ -22,45 +22,58 @@ import {
 } from './clarification-telemetry.config';
 
 /**
- * ClarificationTelemetryService - 澄清流程遥测服务
+ * ClarificationTelemetryService - Feature-specific telemetry for the clarification workflow
  *
- * 负责跟踪用户在澄清流程中的所有交互行为，包括:
- * - 步骤浏览(step views)
- * - 选项选择(option selects)
- * - 完成率(completion)
- * - 流失分析(drop-offs)
- * - 性能指标(performance metrics)
+ * Tracks user interactions throughout the clarification process, providing detailed
+ * analytics on user engagement, completion rates, and drop-off points. This service
+ * extends the base telemetry capabilities with clarification-specific event types
+ * and automatic state monitoring.
  *
- * 特性:
- * - 批量事件收集，定期发送
- * - 隐私优先(支持opt-out)
- * - 自动会话跟踪
- * - 性能指标自动收集
+ * Key Responsibilities:
+ * - Track step views and navigation patterns
+ * - Record option selections with timing data
+ * - Monitor completion and drop-off events
+ * - Collect performance timing metrics
+ * - Provide privacy-first opt-out support
+ * - Batch events for efficient transmission
+ *
+ * Telemetry Events:
+ * - step_view: User views a clarification step
+ * - option_select: User selects an answer option
+ * - completion: User completes the clarification flow
+ * - drop_off: User abandons the clarification flow
+ * - timing: Performance measurements
+ * - error: Errors encountered during the flow
+ *
+ * @module clarification/services/clarification-telemetry.service
  *
  * @usage
  * ```typescript
- * // 在组件中注入
+ * // In a component
  * constructor(private telemetry: ClarificationTelemetryService) {}
  *
- * // 记录步骤查看
+ * // Track step view
  * this.telemetry.trackStepView({
  *   stepId: 'intent-input',
- *   stepName: '输入意图',
+ *   stepName: 'Enter your intent',
  *   stepIndex: 1,
  *   totalSteps: 5
  * });
  *
- * // 记录选项选择
+ * // Track option selection
  * this.telemetry.trackOptionSelect({
- *   promptId: 'prompt-1',
- *   optionId: 'opt-a',
- *   optionLabel: '提高效率',
- *   selectionIndex: 0
+ *   promptId: 'priority',
+ *   optionId: 'efficiency',
+ *   optionLabel: 'Improve efficiency',
+ *   selectionIndex: 2
  * });
  *
- * // 检查是否允许遥测
+ * // Track completion
+ * this.telemetry.trackCompletion(true);
+ *
+ * // Check if telemetry is enabled
  * if (this.telemetry.isEnabled()) {
- *   // 执行敏感跟踪
+ *   // Perform tracked operations
  * }
  * ```
  */
