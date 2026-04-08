@@ -38,13 +38,11 @@ import {
         <div class="confetti-container" aria-hidden="true">
           @for (piece of confettiPieces; track piece.id) {
             <div
-              class="confetti-piece"
-              [style.--confetti-x.px]="piece.x"
-              [style.--confetti-y.px]="piece.y"
-              [style.--confetti-rotation.deg]="piece.rotation"
-              [style.--confetti-color]="piece.color"
-              [style.--confetti-size.px]="piece.size"
-              [style.--confetti-delay.ms]="piece.delay"
+              class="confetti"
+              [style.left.%]="piece.x"
+              [style.animation-delay.ms]="piece.delay"
+              [style.background-color]="piece.color"
+              [style.transform]="'rotate(' + piece.rotation + 'deg)'"
             ></div>
           }
         </div>
