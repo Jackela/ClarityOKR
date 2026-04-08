@@ -1,8 +1,4 @@
-import type {
-  ClarificationState,
-  WorkflowState,
-  ErrorInfo,
-} from './clarification-state-machine.types.js';
+import type { ClarificationState, WorkflowState } from './clarification-state-machine.types.js';
 import { VALID_TRANSITIONS } from './clarification-state-machine.config.js';
 
 /**

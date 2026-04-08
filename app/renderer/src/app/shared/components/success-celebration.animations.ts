@@ -22,7 +22,7 @@ export function generateConfettiPieces(
       x: (Math.random() - 0.5) * 200,
       y: (Math.random() - 0.5) * 100 - 50,
       rotation: Math.random() * 360,
-      color: colors[Math.floor(Math.random() * colors.length)] ?? colors[0]!,
+      color: colors[Math.floor(Math.random() * colors.length)] ?? colors[0],
       size: Math.random() * 8 + 4,
       delay: Math.random() * 300,
     }),
@@ -38,6 +38,7 @@ export function generateConfettiPiece(
     x: (Math.random() - 0.5) * 200,
     y: (Math.random() - 0.5) * 100 - 50,
     rotation: Math.random() * 360,
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     color: colors[Math.floor(Math.random() * colors.length)] ?? colors[0]!,
     size: Math.random() * 8 + 4,
     delay: Math.random() * 300,

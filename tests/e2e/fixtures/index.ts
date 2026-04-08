@@ -1,6 +1,5 @@
 import type { ElectronApplication, Page } from '@playwright/test';
 import { test as base, _electron as electron } from '@playwright/test';
-import type { BrowserWindow } from 'electron';
 import { existsSync, promises as fs } from 'node:fs';
 import {
   ROOT,
@@ -15,7 +14,6 @@ import {
   collectDiagnostics,
   printDiagnostics,
   getElectronArgs,
-  logPageState,
   logElectronState,
 } from '../helpers/ci-diagnostics';
 import { getElectronLaunchOptions } from '../helpers/electron-ci';

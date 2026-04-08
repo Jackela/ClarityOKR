@@ -10,7 +10,6 @@ import {
   forceClick,
   waitForText,
 } from '../../helpers/native-dom';
-import type { MockResponseConfig } from '@clarityokr/contracts';
 
 test.beforeEach(async () => {
   await cleanupPersistenceFiles();

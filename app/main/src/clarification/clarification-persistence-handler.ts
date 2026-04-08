@@ -4,13 +4,8 @@ import type { ClarificationSession } from '@clarityokr/contracts';
 
 import { Logger } from '../core/logger.js';
 import type { SessionRepository } from '../persistence/session-repository.js';
-import type {
-  IClarificationPersistenceHandler,
-  PersistedSessionData,
-} from './interfaces/persistence-handler.interface.js';
+import type { IClarificationPersistenceHandler } from './interfaces/persistence-handler.interface.js';
 import { PersistenceError } from './types.js';
-
-const CURRENT_VERSION = '1.0.0';
 
 /**
  * ClarificationPersistenceHandler - 会话持久化操作
@@ -24,13 +19,6 @@ export class ClarificationPersistenceHandler implements IClarificationPersistenc
    */
   async persistSession(session: ClarificationSession): Promise<void> {
     try {
-      const data: PersistedSessionData = {
-        session,
-        version: CURRENT_VERSION,
-        checksum: this.calculateChecksum(session),
-        savedAt: new Date().toISOString(),
-      };
-
       await this.sessionRepository.saveSession(session);
 
       Logger.info(`[Persistence] Session ${session.id} persisted`);

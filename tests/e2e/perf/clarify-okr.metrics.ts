@@ -1,7 +1,7 @@
 import { workerTest as test, expect } from '../fixtures/worker-fixtures';
 import { cleanupPersistenceFiles } from '../fixtures';
 import { ClarificationPage, OkrStickyPage, waitForStickyWindow } from '../page-objects';
-import { waitForElement, forceClick, waitForStateChange } from '../helpers/native-dom';
+import { waitForElement, forceClick } from '../helpers/native-dom';
 import type { MockResponseConfig } from '@clarityokr/contracts';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';

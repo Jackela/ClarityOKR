@@ -5,7 +5,6 @@ import {
   waitForStickyWindow,
   debugWindows,
 } from '../page-objects';
-import { waitForElement, forceClick, waitForStateChange, waitForText } from '../helpers/native-dom';
 import type { MockResponseConfig } from '@clarityokr/contracts';
 
 test.beforeEach(async () => {

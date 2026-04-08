@@ -140,7 +140,8 @@ export async function angularClick(
   selector: string,
   options: { timeout?: number; force?: boolean } = {},
 ): Promise<void> {
-  const { timeout = 10000, force = false } = options;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { timeout = 10000, force: _force = false } = options;
 
   // Wait for Angular to be ready
   await waitForAngularBootstrap(page, 5000).catch(() => {});

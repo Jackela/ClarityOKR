@@ -22,7 +22,7 @@ export function computed(fn: () => unknown) {
 }
 
 // Injectable decorator - just returns the target
-export function Injectable(config?: unknown) {
+export function Injectable(_config?: unknown) {
   return (target: unknown) => target;
 }
 

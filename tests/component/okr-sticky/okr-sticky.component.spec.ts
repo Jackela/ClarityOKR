@@ -14,7 +14,7 @@
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { type Provider } from '@angular/core';
-import { BehaviorSubject, of } from 'rxjs';
+import { BehaviorSubject } from 'rxjs';
 
 // Component under test
 import { OkrStickyNoteComponent } from '@clarityokr/renderer/app/okr-sticky/components/okr-sticky-note.component';

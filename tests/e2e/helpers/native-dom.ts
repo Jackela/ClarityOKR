@@ -316,7 +316,8 @@ export async function waitForStateChange(
   }
 
   // Step 2: Wait for 'to' state to appear
-  const remainingTimeout = timeout - (Date.now() - startTime);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _remainingTimeout = timeout - (Date.now() - startTime);
   while (Date.now() - startTime < timeout) {
     const toExists = await page.evaluate(
       ({ sel, checkVis }: { sel: string; checkVis: boolean }) => {

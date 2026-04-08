@@ -117,9 +117,12 @@ async function logDiagnostics(
       if (!testMode) return { error: 'testMode not available' };
 
       const state = testMode.getCurrentState();
-      const sessions: Array<[string, unknown]> = Array.from(state.sessions?.entries?.() || []) as Array<[string, unknown]>;
+      const sessions: Array<[string, unknown]> = Array.from(
+        state.sessions?.entries?.() || [],
+      ) as Array<[string, unknown]>;
 
-      const sessionData = sessions.map((entry: SessionEntry) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const _sessionData = sessions.map((entry: SessionEntry) => {
         const [id, session] = entry;
         return {
           id,
@@ -174,11 +177,13 @@ interface TestFixtures {
 
 type FixtureArgs = Record<string, unknown>;
 
-const workerFixture = <T>(
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _workerFixture = <T>(
   fn: (args: FixtureArgs, use: (value: T) => Promise<void>, testInfo: TestInfo) => Promise<void>,
 ) => [fn, { scope: 'worker' as const }] as const;
 
-const testFixture = <T>(
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _testFixture = <T>(
   fn: (args: FixtureArgs, use: (value: T) => Promise<void>, testInfo: TestInfo) => Promise<void>,
 ) => [fn, { scope: 'test' as const }] as const;
 
@@ -207,9 +212,12 @@ export const workerTest = base.extend<TestFixtures, WorkerFixtures>({
         url: workerMockServer.getUrl(),
         port: workerMockServer.getPort(),
         setResponses: async (config: MockResponseConfig) => {
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
           await workerMockServer!.waitForPendingRequests(3000);
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
           workerMockServer!.setResponses(config);
         },
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         getRequestLog: () => workerMockServer!.getRequestLog(),
       });
     },
@@ -253,6 +261,7 @@ export const workerTest = base.extend<TestFixtures, WorkerFixtures>({
         console.log(`[worker ${workerId}] TestMode API available: ${testModeAvailable}`);
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       await use(workerElectronApp!);
     },
     { scope: 'worker' as const },
@@ -261,7 +270,8 @@ export const workerTest = base.extend<TestFixtures, WorkerFixtures>({
   // Test 级别：每个测试使用相同的 Electron 但清理状态
   mainWindow: [
     async ({ electronApp, testId }, use, testInfo) => {
-      const diagnosticInfo = {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const _diagnosticInfo = {
         testId,
         testName: testInfo.title,
         startTime: new Date().toISOString(),
@@ -275,7 +285,8 @@ export const workerTest = base.extend<TestFixtures, WorkerFixtures>({
       // 使用 testMode API 清理状态（更可靠）
       const testModeAvailable = await electronApp
         .evaluate(() => {
-        return !!(global as { testMode?: { resetState?: () => Promise<void> } }).testMode?.resetState;
+          return !!(global as { testMode?: { resetState?: () => Promise<void> } }).testMode
+            ?.resetState;
         })
         .catch(() => false);
 

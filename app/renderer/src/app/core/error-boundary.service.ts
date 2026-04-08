@@ -287,7 +287,7 @@ export class ErrorBoundaryService {
     const suggestion = getRecoverySuggestion(clarityError);
     if (suggestion && this.config.onRecoverySuggestion) {
       this.ngZone.run(() => {
-        this.config.onRecoverySuggestion!(suggestion);
+        this.config.onRecoverySuggestion(suggestion);
       });
     }
 
@@ -295,7 +295,7 @@ export class ErrorBoundaryService {
     const severity = getErrorSeverity(clarityError.code as ErrorCode);
     if (severity === 'CRITICAL' && this.config.onCriticalError) {
       this.ngZone.run(() => {
-        this.config.onCriticalError!(clarityError, context);
+        this.config.onCriticalError(clarityError, context);
       });
     }
 

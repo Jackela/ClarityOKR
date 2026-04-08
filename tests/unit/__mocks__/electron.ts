@@ -53,6 +53,7 @@ const createMockBrowserWindow = (options: Record<string, unknown>): MockBrowserW
       if (!eventHandlers.has(event)) {
         eventHandlers.set(event, []);
       }
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       eventHandlers.get(event)!.push(handler);
       return mockWindow;
     }),
@@ -62,6 +63,7 @@ const createMockBrowserWindow = (options: Record<string, unknown>): MockBrowserW
         if (!eventHandlers.has(event)) {
           eventHandlers.set(event, []);
         }
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         eventHandlers.get(event)!.push(handler);
         return mockWindow.webContents;
       }),

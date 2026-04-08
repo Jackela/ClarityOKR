@@ -11,7 +11,6 @@
  */
 
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
-import { By } from '@angular/platform-browser';
 import { type Provider, signal, computed } from '@angular/core';
 
 // Component under test
