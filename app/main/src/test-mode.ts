@@ -176,7 +176,7 @@ export class TestMode implements TestModeAPI {
     private readonly controller: ClarificationController,
     private readonly sessionRepo: SessionRepository,
     private readonly okrRepo: OkrRepository,
-    private readonly actionLogWriter: ActionLogWriter,
+    private readonly actionLogWriter: IActionLogWriter,
   ) {
     Logger.info('[testMode] Initialized');
   }

@@ -3,14 +3,14 @@ import { randomUUID } from 'node:crypto';
 import type { UserActionLogEntry, UserActionType } from '@clarityokr/contracts';
 
 import { Logger } from '../core/logger.js';
-import type { ActionLogWriter } from '../persistence/action-log-writer.js';
+import type { IActionLogWriter } from '../persistence/action-log-writer.js';
 
 /**
  * ActionLogService - 动作日志服务
  * 职责：记录用户操作日志
  */
 export class ActionLogService {
-  constructor(private readonly actionLogWriter: ActionLogWriter) {}
+  constructor(private readonly actionLogWriter: IActionLogWriter) {}
 
   async logAction(
     actionType: UserActionType,
