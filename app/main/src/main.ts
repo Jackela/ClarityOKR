@@ -75,12 +75,12 @@ const clarificationController = new ClarificationController(
 // Initialize TestMode API for E2E testing
 let testMode: TestMode | null = null;
 if (process.env.NODE_ENV === 'test' || process.env.CI || process.env.E2E_TEST) {
-  testMode = initializeTestMode(
-    clarificationController,
-    sessionRepository,
-    okrRepository,
+  testMode = initializeTestMode({
+    controller: clarificationController,
+    sessionRepo: sessionRepository,
+    okrRepo: okrRepository,
     actionLogWriter,
-  );
+  });
   Logger.info('[main] TestMode initialized:', !!testMode);
 }
 

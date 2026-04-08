@@ -46,6 +46,7 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 
+import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 import type { OkrStickyViewModel } from '../services/okr-projection.service';
 
 /**
@@ -68,7 +69,7 @@ import type { OkrStickyViewModel } from '../services/okr-projection.service';
 @Component({
   selector: 'clarityokr-sticky-note',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="sticky-note" *ngIf="okr as viewModel">
@@ -76,17 +77,17 @@ import type { OkrStickyViewModel } from '../services/okr-projection.service';
         <h1 data-testid="sticky-objective">{{ viewModel.objective }}</h1>
         <div class="sticky-note__meta">
           <span class="sticky-note__badge">
-            Generated: {{ viewModel.generatedAt | date: 'medium' }}
+            {{ 'okr.header.generated' | translate }}: {{ viewModel.generatedAt | date: 'medium' }}
           </span>
           <span *ngIf="viewModel.lastEditedAt" class="sticky-note__badge sticky-note__badge--edit">
-            Last edited: {{ viewModel.lastEditedAt | date: 'medium' }}
+            {{ 'okr.header.lastEdited' | translate }}: {{ viewModel.lastEditedAt | date: 'medium' }}
           </span>
           <span
             *ngIf="viewModel.hasManualEdits"
             class="sticky-note__badge sticky-note__badge--edit"
             data-testid="sticky-manual-edits"
           >
-            Contains manual edits
+            {{ 'okr.header.manualEdits' | translate }}
           </span>
         </div>
         <button
@@ -95,7 +96,7 @@ import type { OkrStickyViewModel } from '../services/okr-projection.service';
           data-testid="sticky-add-kr"
           (click)="addKr.emit()"
         >
-          Add Key Result
+          {{ 'okr.actions.addKeyResult' | translate }}
         </button>
       </header>
 
