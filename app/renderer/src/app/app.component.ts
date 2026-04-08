@@ -266,11 +266,8 @@ export class AppComponent implements OnDestroy {
           // Check if no more questions (clarification complete)
           const hasQuestion = hasQuestionProperty(result);
           if (!hasQuestion) {
-            this.logger.debug(
-              '[DEBUG] No more questions, clearing prompt and setting ready to generate',
-            );
+            this.logger.debug('[DEBUG] No more questions, clearing prompt');
             this.state.setPrompt(null);
-            this.state.setReady(true);
           }
           this.logger.debug('[DEBUG] Setting llmBusy=false');
           this.llmBusy = false;

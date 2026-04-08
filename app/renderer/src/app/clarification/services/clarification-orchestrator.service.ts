@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import type { OnDestroy , NgZone } from '@angular/core';
+import type { OnDestroy, NgZone } from '@angular/core';
 import {
   clarificationOptionSelectionSchema,
   clarificationPromptRequestSchema,
@@ -124,11 +124,6 @@ export class ClarificationOrchestratorService implements OnDestroy {
 
     bridge.send(IPC_CHANNELS.CLARIFICATION_RESPOND, parsed.data);
     return of(void 0);
-  }
-
-  markReady(ready: boolean): void {
-    this.logger.debug('[ORCHESTRATOR] markReady:', ready);
-    this.state.setReady(ready);
   }
 
   /**

@@ -326,45 +326,6 @@ export class ClarificationStateMachine {
     this.dispatch({ type: 'RESET' });
   }
 
-  // === 兼容层 (旧API兼容) ===
-
-  /**
-   * 记录选择(兼容旧API)
-   * @deprecated 使用 recordSelection(promptId, optionId)
-   */
-  selectOption(optionId: string): void {
-    const prompt = this.currentPrompt();
-    if (prompt) {
-      this.recordSelection(prompt.id, optionId);
-    } else {
-      this.logger.warn('[STATE-MACHINE] selectOption called with no current prompt');
-    }
-  }
-
-  /**
-   * 报告错误(兼容旧API)
-   * @deprecated 使用 setError(error)
-   */
-  reportError(error: string | ErrorInfo | null): void {
-    this.setError(error);
-  }
-
-  /**
-   * 设置就绪状态(兼容旧API)
-   * @deprecated 就绪状态现在自动计算，此方法不再生效
-   */
-  setReady(_ready: boolean): void {
-    this.logger.warn('[STATE-MACHINE] setReady is deprecated, readiness determined automatically');
-  }
-
-  /**
-   * 标记就绪(兼容旧API)
-   * @deprecated 使用 recordSelection 自动触发就绪状态
-   */
-  markReady(_ready: boolean): void {
-    this.logger.warn('[STATE-MACHINE] markReady is deprecated, use recordSelection instead');
-  }
-
   // === 辅助方法 ===
 
   /**
