@@ -47,7 +47,7 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
-import type { OkrStickyViewModel } from '../services/okr-projection.service';
+import type { OkrStickyViewModel } from '../services/okr-sticky.service';
 
 /**
  * Component that renders an OKR as a sticky note card.

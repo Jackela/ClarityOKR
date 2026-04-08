@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import type { ComponentFixture } from '@angular/core/testing';
 
-import type { OkrStickyViewModel } from '../services/okr-projection.service';
+import type { OkrStickyViewModel } from '../services/okr-sticky.service';
 
 import { OkrStickyNoteComponent } from './okr-sticky-note.component';
 
