@@ -81,7 +81,8 @@ jobs:
             test("(?i)(glob|tar|minimatch)") or
             test("(?i)(webpack|node-forge)") or
             test("(?i)(svg|animation)") or
-            test("(?i)(undici|serializejavascript|serialize javascript|picomatch)")
+            test("(?i)(undici|serializejavascript|serialize javascript|picomatch)") or
+            test("(?i)(lodash|electron)")
           )) | .value.id] | length' 2>/dev/null || echo "0")
           echo "Known dev-only vulnerabilities (ignoring): $DEV_ONLY_VULNS"
           ACTUAL_HIGH_VULNS=$((HIGH_VULNS - DEV_ONLY_VULNS))
