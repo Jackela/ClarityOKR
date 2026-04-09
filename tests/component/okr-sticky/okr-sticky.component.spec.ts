@@ -14,14 +14,14 @@
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { type Provider } from '@angular/core';
-import { BehaviorSubject, of } from 'rxjs';
+import { BehaviorSubject } from 'rxjs';
 
 // Component under test
 import { OkrStickyNoteComponent } from '@clarityokr/renderer/app/okr-sticky/components/okr-sticky-note.component';
 
 // Services to mock
-import { OkrStickyGatewayService } from '@clarityokr/renderer/app/okr-sticky/services/okr-sticky-gateway.service';
-import type { OkrStickyViewModel } from '@clarityokr/renderer/app/okr-sticky/services/okr-projection.service';
+import { OkrStickyService } from '@clarityokr/renderer/app/okr-sticky/services/okr-sticky.service';
+import type { OkrStickyViewModel } from '@clarityokr/renderer/app/okr-sticky/services/okr-sticky.service';
 
 // Shared components
 import {
@@ -30,10 +30,10 @@ import {
 } from '@clarityokr/renderer/app/shared/components';
 
 /**
- * Mock implementation of OkrStickyGatewayService
+ * Mock implementation of OkrStickyService
  * Controls the state of the sticky note for testing
  */
-class MockOkrStickyGatewayService {
+class MockOkrStickyService {
   private readonly viewModelSubject = new BehaviorSubject<OkrStickyViewModel | null>(null);
   private readonly loadingSubject = new BehaviorSubject<boolean>(false);
   private readonly errorSubject = new BehaviorSubject<string | null>(null);
@@ -94,10 +94,10 @@ function createOkrViewModel(overrides: Partial<OkrStickyViewModel> = {}): OkrSti
 describe('OkrStickyNoteComponent', () => {
   let fixture: ComponentFixture<OkrStickyNoteComponent>;
   let component: OkrStickyNoteComponent;
-  let mockGateway: MockOkrStickyGatewayService;
+  let mockGateway: MockOkrStickyService;
 
   beforeEach(async () => {
-    mockGateway = new MockOkrStickyGatewayService();
+    mockGateway = new MockOkrStickyService();
 
     await TestBed.configureTestingModule({
       imports: [
@@ -109,7 +109,7 @@ describe('OkrStickyNoteComponent', () => {
       ],
       providers: [
         {
-          provide: OkrStickyGatewayService,
+          provide: OkrStickyService,
           useValue: mockGateway,
         } satisfies Provider,
       ],

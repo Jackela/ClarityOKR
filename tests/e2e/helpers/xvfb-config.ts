@@ -3,7 +3,7 @@
  * 用于 CI 环境中的虚拟显示
  */
 
-import type { ChildProcess} from 'child_process';
+import type { ChildProcess } from 'child_process';
 import { spawn, execSync } from 'child_process';
 
 let xvfbProcess: ChildProcess | null = null;
@@ -63,6 +63,7 @@ export async function startXvfb(): Promise<string | null> {
         reject(new Error('Xvfb start timeout'));
       }, 5000);
 
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       xvfbProcess!.on('error', (err: Error) => {
         clearTimeout(timeout);
         reject(err);

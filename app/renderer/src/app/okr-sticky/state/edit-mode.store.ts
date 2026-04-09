@@ -1,69 +1,10 @@
 import { Injectable, signal, computed } from '@angular/core';
 import type { KeyResult } from '@clarityokr/contracts';
+import type { EditModeState, DraftKeyResult } from './edit-mode.types.js';
+import { INITIAL_STATE } from './edit-mode.types.js';
+import { createDraftKeyResults, recalculateState } from './edit-mode.utils.js';
 
-/**
- * Validation error structure for edit mode
- */
-export interface ValidationError {
-  field: string;
-  message: string;
-}
-
-/**
- * Draft key result with editable fields
- */
-export interface DraftKeyResult {
-  id: string;
-  statement: string;
-  successMetric: string;
-  owner: string;
-}
-
-/**
- * Edit mode state interface
- */
-export interface EditModeState {
-  isEditing: boolean;
-  originalObjective: string;
-  originalKeyResults: KeyResult[];
-  draftObjective: string;
-  draftKeyResults: DraftKeyResult[];
-  isDirty: boolean;
-  isValid: boolean;
-  errors: ValidationError[];
-}
-
-/**
- * Initial state for edit mode
- */
-const INITIAL_STATE: EditModeState = {
-  isEditing: false,
-  originalObjective: '',
-  originalKeyResults: [],
-  draftObjective: '',
-  draftKeyResults: [],
-  isDirty: false,
-  isValid: true,
-  errors: [],
-};
-
-/**
- * Maximum length constants for validation
- */
-const VALIDATION_LIMITS = {
-  objectiveMaxLength: 200,
-  keyResultMaxLength: 180,
-} as const;
-
-/**
- * Validation messages
- */
-const VALIDATION_MESSAGES = {
-  objectiveEmpty: '目标描述不能为空',
-  objectiveTooLong: '目标描述不能超过200个字符',
-  keyResultEmpty: '关键结果描述不能为空',
-  keyResultTooLong: '关键结果描述不能超过180个字符',
-} as const;
+export type { EditModeState, DraftKeyResult, ValidationError } from './edit-mode.types.js';
 
 /**
  * EditModeStore - Manages edit mode state for OKR sticky note
@@ -149,12 +90,7 @@ export class EditModeStore {
    * ```
    */
   enterEditMode(objective: string, keyResults: KeyResult[]): void {
-    const draftKeyResults: DraftKeyResult[] = keyResults.map((kr) => ({
-      id: kr.id,
-      statement: kr.statement,
-      successMetric: kr.successMetric ?? '',
-      owner: kr.owner ?? '',
-    }));
+    const draftKeyResults: DraftKeyResult[] = createDraftKeyResults(keyResults);
 
     this._state.set({
       isEditing: true,
@@ -204,7 +140,7 @@ export class EditModeStore {
         ...state,
         draftObjective: text,
       };
-      return this.recalculateState(newState);
+      return recalculateState(newState);
     });
   }
 
@@ -234,7 +170,7 @@ export class EditModeStore {
         ...state,
         draftKeyResults: newDraftKeyResults,
       };
-      return this.recalculateState(newState);
+      return recalculateState(newState);
     });
   }
 
@@ -287,12 +223,9 @@ export class EditModeStore {
       throw new Error('Cannot cancel edits when not in edit mode');
     }
 
-    const draftKeyResults: DraftKeyResult[] = currentState.originalKeyResults.map((kr) => ({
-      id: kr.id,
-      statement: kr.statement,
-      successMetric: kr.successMetric ?? '',
-      owner: kr.owner ?? '',
-    }));
+    const draftKeyResults: DraftKeyResult[] = createDraftKeyResults(
+      currentState.originalKeyResults,
+    );
 
     this._state.set({
       isEditing: false,
@@ -304,108 +237,5 @@ export class EditModeStore {
       isValid: true,
       errors: [],
     });
-  }
-
-  // === Private Methods ===
-
-  /**
-   * Recalculate derived state (isDirty, isValid, errors)
-   * Called after any draft change
-   *
-   * @param state - Current state
-   * @returns Updated state with recalculated values
-   */
-  private recalculateState(state: EditModeState): EditModeState {
-    const errors = this.validateState(state);
-    const isValid = errors.length === 0;
-    const isDirty = this.calculateDirty(state);
-
-    return {
-      ...state,
-      isDirty,
-      isValid,
-      errors,
-    };
-  }
-
-  /**
-   * Calculate if draft differs from original
-   *
-   * @param state - Current state
-   * @returns true if any draft value differs from original
-   */
-  private calculateDirty(state: EditModeState): boolean {
-    // Check objective
-    if (state.draftObjective !== state.originalObjective) {
-      return true;
-    }
-
-    // Check key results count
-    if (state.draftKeyResults.length !== state.originalKeyResults.length) {
-      return true;
-    }
-
-    // Check each key result
-    for (let i = 0; i < state.draftKeyResults.length; i++) {
-      const draft = state.draftKeyResults[i];
-      const original = state.originalKeyResults[i];
-
-      if (
-        draft.statement !== original.statement ||
-        draft.successMetric !== (original.successMetric ?? '') ||
-        draft.owner !== (original.owner ?? '')
-      ) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  /**
-   * Validate current state
-   *
-   * Rules:
-   * - Objective: required, max 200 chars
-   * - KR statement: required, max 180 chars
-   * - At least 1 KR required
-   *
-   * @param state - Current state
-   * @returns Array of validation errors
-   */
-  private validateState(state: EditModeState): ValidationError[] {
-    const errors: ValidationError[] = [];
-
-    // Validate objective
-    const objectiveTrimmed = state.draftObjective.trim();
-    if (objectiveTrimmed.length === 0) {
-      errors.push({
-        field: 'objective',
-        message: VALIDATION_MESSAGES.objectiveEmpty,
-      });
-    } else if (state.draftObjective.length > VALIDATION_LIMITS.objectiveMaxLength) {
-      errors.push({
-        field: 'objective',
-        message: VALIDATION_MESSAGES.objectiveTooLong,
-      });
-    }
-
-    // Validate key results
-    state.draftKeyResults.forEach((kr) => {
-      const statementTrimmed = kr.statement.trim();
-      if (statementTrimmed.length === 0) {
-        errors.push({
-          field: `keyResults.${kr.id}.statement`,
-          message: VALIDATION_MESSAGES.keyResultEmpty,
-        });
-      } else if (kr.statement.length > VALIDATION_LIMITS.keyResultMaxLength) {
-        errors.push({
-          field: `keyResults.${kr.id}.statement`,
-          message: VALIDATION_MESSAGES.keyResultTooLong,
-        });
-      }
-    });
-
-    return errors;
   }
 }

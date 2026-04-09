@@ -1,4 +1,4 @@
-import type { UserActionLogEntry, UserActionType } from '@clarityokr/contracts';
+import type { UserActionLogEntry } from '@clarityokr/contracts';
 
 /**
  * Interface for writing user action logs to the database.

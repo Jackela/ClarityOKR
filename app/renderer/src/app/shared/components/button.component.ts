@@ -8,20 +8,19 @@
  */
 
 import { CommonModule } from '@angular/common';
-import type {
-  ElementRef} from '@angular/core';
+import type { ElementRef } from '@angular/core';
 import {
   ChangeDetectionStrategy,
   Component,
   EventEmitter,
-  HostListener,
   Input,
   Output,
   ViewChild,
 } from '@angular/core';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost';
-export type ButtonSize = 'sm' | 'md' | 'lg';
+import { buttonStyles } from './button.component.styles.js';
+import type { ButtonSize, ButtonVariant } from './button.component.types.js';
+import { createRipple } from './button.component.utils.js';
 
 /**
  * Button component with enhanced visual effects and accessibility.
@@ -69,282 +68,7 @@ export type ButtonSize = 'sm' | 'md' | 'lg';
       <span class="btn__ripple-container" aria-hidden="true"></span>
     </button>
   `,
-  styles: [
-    `
-      :host {
-        display: inline-block;
-      }
-
-      .btn {
-        position: relative;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: var(--space-2);
-        border: none;
-        border-radius: var(--radius-full);
-        font-family: var(--font-family-sans);
-        font-weight: var(--font-weight-semibold);
-        cursor: pointer;
-        overflow: hidden;
-        isolation: isolate;
-        transition: all var(--duration-fast) var(--ease-out);
-      }
-
-      /* Focus styles */
-      .btn:focus-visible {
-        outline: none;
-        box-shadow: var(--shadow-focus-ring);
-      }
-
-      /* Disabled state */
-      .btn:disabled,
-      .btn--disabled {
-        cursor: not-allowed;
-        opacity: 0.6;
-      }
-
-      /* Loading state */
-      .btn--loading {
-        cursor: wait;
-      }
-
-      .btn__spinner {
-        position: absolute;
-        width: 20px;
-        height: 20px;
-        border: 2px solid transparent;
-        border-top-color: currentColor;
-        border-right-color: currentColor;
-        border-radius: var(--radius-full);
-        animation: spin 0.8s linear infinite;
-      }
-
-      @keyframes spin {
-        to {
-          transform: rotate(360deg);
-        }
-      }
-
-      .btn__content--hidden {
-        opacity: 0;
-      }
-
-      /* Sizes */
-      .btn--sm {
-        padding: var(--space-2) var(--space-4);
-        font-size: var(--font-size-sm);
-        min-height: 36px;
-      }
-
-      .btn--md {
-        padding: var(--space-3) var(--space-5);
-        font-size: var(--font-size-base);
-        min-height: 44px;
-      }
-
-      .btn--lg {
-        padding: var(--space-4) var(--space-6);
-        font-size: var(--font-size-lg);
-        min-height: 52px;
-      }
-
-      /* ========== PRIMARY VARIANT ========== */
-      .btn--primary {
-        background: var(--gradient-primary);
-        color: white;
-        box-shadow:
-          var(--shadow-sm),
-          0 4px 6px -1px rgba(37, 99, 235, 0.2);
-      }
-
-      /* Shine effect overlay */
-      .btn--primary::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background: linear-gradient(135deg, rgba(255, 255, 255, 0.25) 0%, transparent 50%);
-        opacity: 0;
-        transition: opacity var(--duration-fast);
-        z-index: 1;
-      }
-
-      /* Glow effect on hover */
-      .btn--primary::after {
-        content: '';
-        position: absolute;
-        inset: -2px;
-        background: var(--gradient-primary);
-        border-radius: var(--radius-full);
-        opacity: 0;
-        filter: blur(12px);
-        z-index: -1;
-        transition: opacity var(--duration-fast);
-      }
-
-      .btn--primary:not(:disabled):hover {
-        transform: translateY(-2px);
-        box-shadow:
-          var(--shadow-lg),
-          0 0 30px rgba(37, 99, 235, 0.4);
-      }
-
-      .btn--primary:not(:disabled):hover::before {
-        opacity: 1;
-      }
-
-      .btn--primary:not(:disabled):hover::after {
-        opacity: 0.5;
-      }
-
-      .btn--primary:not(:disabled):active {
-        transform: translateY(0);
-        box-shadow: var(--shadow-sm);
-      }
-
-      .btn--primary:disabled {
-        background: linear-gradient(
-          135deg,
-          rgba(37, 99, 235, 0.5) 0%,
-          rgba(124, 58, 237, 0.5) 100%
-        );
-        box-shadow: none;
-      }
-
-      .btn--primary:disabled::after {
-        display: none;
-      }
-
-      /* ========== SECONDARY VARIANT ========== */
-      .btn--secondary {
-        background: var(--color-brand-primary-alpha);
-        color: var(--color-brand-primary-hover);
-        border: 1px solid transparent;
-      }
-
-      .btn--secondary::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background: linear-gradient(135deg, rgba(37, 99, 235, 0.1) 0%, transparent 50%);
-        opacity: 0;
-        transition: opacity var(--duration-fast);
-      }
-
-      .btn--secondary:not(:disabled):hover {
-        background: var(--color-brand-primary-alpha);
-        border-color: var(--color-brand-primary-alpha);
-        transform: translateY(-1px);
-        box-shadow: var(--shadow-brand-sm);
-      }
-
-      .btn--secondary:not(:disabled):hover::before {
-        opacity: 1;
-      }
-
-      .btn--secondary:not(:disabled):active {
-        transform: translateY(0);
-      }
-
-      /* ========== DANGER VARIANT ========== */
-      .btn--danger {
-        background: var(--color-error);
-        color: white;
-        box-shadow: var(--shadow-sm);
-      }
-
-      .btn--danger::after {
-        content: '';
-        position: absolute;
-        inset: -2px;
-        background: var(--color-error);
-        border-radius: var(--radius-full);
-        opacity: 0;
-        filter: blur(12px);
-        z-index: -1;
-        transition: opacity var(--duration-fast);
-      }
-
-      .btn--danger:not(:disabled):hover {
-        background: var(--color-error-hover);
-        transform: translateY(-2px);
-        box-shadow:
-          var(--shadow-lg),
-          0 0 30px rgba(239, 68, 68, 0.4);
-      }
-
-      .btn--danger:not(:disabled):hover::after {
-        opacity: 0.5;
-      }
-
-      .btn--danger:not(:disabled):active {
-        transform: translateY(0);
-      }
-
-      /* ========== GHOST VARIANT ========== */
-      .btn--ghost {
-        background: transparent;
-        color: var(--color-text-secondary);
-        border: 1px solid var(--color-gray-200);
-      }
-
-      .btn--ghost:not(:disabled):hover {
-        background: var(--color-gray-50);
-        border-color: var(--color-gray-300);
-        color: var(--color-text-primary);
-        transform: translateY(-1px);
-      }
-
-      .btn--ghost:not(:disabled):active {
-        transform: translateY(0);
-        background: var(--color-gray-100);
-      }
-
-      /* ========== RIPPLE EFFECT ========== */
-      .btn__ripple-container {
-        position: absolute;
-        inset: 0;
-        pointer-events: none;
-        overflow: hidden;
-        border-radius: inherit;
-      }
-
-      .ripple {
-        position: absolute;
-        border-radius: 50%;
-        background: rgba(255, 255, 255, 0.5);
-        transform: scale(0);
-        animation: ripple-animation 0.6s linear;
-        pointer-events: none;
-      }
-
-      @keyframes ripple-animation {
-        to {
-          transform: scale(4);
-          opacity: 0;
-        }
-      }
-
-      /* Reduced motion */
-      @media (prefers-reduced-motion: reduce) {
-        .btn,
-        .btn::before,
-        .btn::after {
-          transition: none;
-        }
-
-        .btn:not(:disabled):hover {
-          transform: none;
-        }
-
-        .ripple {
-          animation: none;
-          opacity: 0.3;
-          transform: scale(2);
-        }
-      }
-    `,
-  ],
+  styles: buttonStyles,
 })
 export class ButtonComponent {
   @ViewChild('buttonElement', { static: true })
@@ -422,38 +146,8 @@ export class ButtonComponent {
       return;
     }
 
-    // Create ripple
-    this.createRipple(event);
-
-    // Emit click event
+    createRipple(this.buttonElement.nativeElement, event);
     this.onClick.emit(event);
-  }
-
-  /**
-   * Create ripple animation at click position
-   */
-  private createRipple(event: MouseEvent): void {
-    const button = this.buttonElement.nativeElement;
-    const rect = button.getBoundingClientRect();
-    const size = Math.max(rect.width, rect.height);
-    const x = event.clientX - rect.left - size / 2;
-    const y = event.clientY - rect.top - size / 2;
-
-    const ripple = document.createElement('span');
-    ripple.classList.add('ripple');
-    ripple.style.width = ripple.style.height = `${size}px`;
-    ripple.style.left = `${x}px`;
-    ripple.style.top = `${y}px`;
-
-    const container = button.querySelector('.btn__ripple-container');
-    if (container) {
-      container.appendChild(ripple);
-
-      // Remove ripple after animation
-      setTimeout(() => {
-        ripple.remove();
-      }, 600);
-    }
   }
 
   /**

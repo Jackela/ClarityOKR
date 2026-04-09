@@ -33,11 +33,13 @@ export class SimpleMockServer {
     });
 
     return new Promise((resolve, reject) => {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       this.server!.listen(this.port, '127.0.0.1', () => {
         console.log(`[mock-server] Started on http://127.0.0.1:${this.port}`);
         resolve(this.port);
       });
 
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       this.server!.on('error', (err) => {
         console.error('[mock-server] Failed to start:', err);
         reject(err);
@@ -256,6 +258,7 @@ export class SimpleMockServer {
   async stop(): Promise<void> {
     if (this.server) {
       return new Promise((resolve) => {
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         this.server!.close(() => {
           console.log(`[mock-server] Stopped on port ${this.port}`);
           this.server = null;

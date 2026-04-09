@@ -1,7 +1,4 @@
-import {
-  CrashRecoveryService,
-  createCrashRecoveryService,
-} from '@clarityokr/main/persistence/crash-recovery.service';
+import { CrashRecoveryService } from '@clarityokr/main/persistence/crash-recovery.service';
 import { AtomicPersistenceService } from '@clarityokr/main/persistence/atomic-persistence.service';
 import { promises as fs } from 'fs';
 import { join } from 'path';
@@ -133,7 +130,6 @@ describe('CrashRecoveryService', () => {
   });
 
   describe('isDataHealthy', () => {
-
     it('should return true when all files are healthy', async () => {
       const testFile = join(tempDir, 'test.json');
       await atomicService.atomicWrite(testFile, { test: 'data' });

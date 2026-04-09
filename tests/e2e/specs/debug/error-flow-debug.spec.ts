@@ -2,7 +2,6 @@ import { test, expect } from '../../fixtures';
 import { ClarificationPage } from '../../page-objects';
 import {
   waitForElement,
-  waitForErrorMessage,
   forceClick,
   waitForStateChange,
   waitForLoadingComplete,

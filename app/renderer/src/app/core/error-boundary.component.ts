@@ -9,7 +9,7 @@
 import { Component, Input } from '@angular/core';
 import { ClarityOkrError, getRecoverySuggestion, isClarityOkrError } from '@clarityokr/contracts';
 
-import { ErrorBoundaryService, RendererErrorContext } from './error-boundary.service.js';
+import { ErrorBoundaryService } from './error-boundary.service.js';
 
 /**
  * Error boundary component for catching child component errors

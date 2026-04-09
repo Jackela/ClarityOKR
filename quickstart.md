@@ -324,6 +324,77 @@ npm install --global windows-build-tools
 # Or use Visual Studio Build Tools
 ```
 
+### Issue: Sticky window does not stay on top
+
+**Solution:**
+
+```bash
+# On macOS, ensure ClarityOKR has Screen Recording permission
+# System Preferences → Security & Privacy → Screen Recording
+
+# On Linux (some DEs), check window manager settings
+# Some tiling window managers may override always-on-top
+
+# Kill and restart the app
+pkill -f electron
+rm -rf data/
+pnpm run dev
+```
+
+### Issue: OKR edit changes not saving
+
+**Solution:**
+
+```bash
+# Check write permissions on data/ directory
+ls -la data/
+
+# Clear stale OKR data
+rm -rf data/okr/
+
+# Ensure the app has proper file system access
+# On macOS: System Preferences → Security & Privacy → Files and Folders
+```
+
+### Issue: LLM API calls failing
+
+**Solution:**
+
+```bash
+# Check your .env configuration
+cat app/main/.env
+
+# Verify API key is valid
+# Check LLM_BASE_URL is accessible from your network
+
+# Enable debug logging
+DEBUG=true pnpm run dev
+```
+
+### Issue: Hot reload not working
+
+**Solution:**
+
+```bash
+# For renderer changes: should auto-reload
+# For main process changes: Electron auto-restarts
+
+# If stuck, manually restart
+pnpm run dev
+
+# Clear Angular cache
+rm -rf app/renderer/.angular
+```
+
+**Solution:**
+
+```bash
+# Install Windows build tools (PowerShell as Admin)
+npm install --global windows-build-tools
+
+# Or use Visual Studio Build Tools
+```
+
 ## Next Steps
 
 ### Explore the Codebase

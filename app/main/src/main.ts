@@ -30,8 +30,9 @@ import type {
 } from 'electron';
 
 import { Logger } from './core/logger.js';
-import { ActionLogWriter } from './persistence/action-log-writer.js';
-import { OkrRepository } from './persistence/okr-repository.js';
+import { DatabaseService } from './persistence/database.service.js';
+import { SQLiteActionLogWriter } from './persistence/action-log-writer.js';
+import { OKRRepositorySqlite } from './persistence/okr-repository.js';
 import { SessionRepository } from './persistence/session-repository.js';
 import { OkrAgentService } from './services/okr-agent.service.js';
 import { initializeTestMode, type TestMode } from './test-mode.js';
@@ -45,8 +46,9 @@ const preloadPath = path.resolve(currentDir, 'bootstrap', 'preload.js');
 const rendererDistPath = path.resolve(currentDir, '../../renderer/dist');
 
 const sessionRepository = new SessionRepository();
-const okrRepository = new OkrRepository();
-const actionLogWriter = new ActionLogWriter();
+const okrRepository = new OKRRepositorySqlite();
+const databaseService = new DatabaseService();
+const actionLogWriter = new SQLiteActionLogWriter(databaseService);
 const okrAgentService = new OkrAgentService();
 const stickyWindowManager = new StickyWindowManager({
   preloadPath,
@@ -73,12 +75,12 @@ const clarificationController = new ClarificationController(
 // Initialize TestMode API for E2E testing
 let testMode: TestMode | null = null;
 if (process.env.NODE_ENV === 'test' || process.env.CI || process.env.E2E_TEST) {
-  testMode = initializeTestMode(
-    clarificationController,
-    sessionRepository,
-    okrRepository,
+  testMode = initializeTestMode({
+    controller: clarificationController,
+    sessionRepo: sessionRepository,
+    okrRepo: okrRepository,
     actionLogWriter,
-  );
+  });
   Logger.info('[main] TestMode initialized:', !!testMode);
 }
 

@@ -1,4 +1,4 @@
-import { test, expect } from '../../fixtures';
+import { test } from '../../fixtures';
 import { ClarificationPage } from '../../page-objects';
 
 test('timing: when is button really available', async ({ mainWindow, mockServer }) => {

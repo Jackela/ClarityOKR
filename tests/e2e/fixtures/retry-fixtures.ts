@@ -46,7 +46,7 @@ export function flakyTest(
   test: typeof base,
   title: string,
   testFn: (fixtures: { page: Page; testInfo: TestInfo }) => Promise<void> | void,
-  options: { retry?: number; timeout?: number } = {},
+  _options: { retry?: number; timeout?: number } = {},
 ): void {
   //
   (test as typeof base)(title, testFn);
@@ -56,7 +56,7 @@ export function slowTest(
   test: typeof base,
   title: string,
   testFn: (fixtures: { page: Page; testInfo: TestInfo }) => Promise<void> | void,
-  options: { timeout?: number } = {},
+  _options: { timeout?: number } = {},
 ): void {
   //
   (test as typeof base)(title, testFn);

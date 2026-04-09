@@ -186,51 +186,12 @@ export class StateTransitionEngine {
   }
 
   /**
-   * Resets all state.
+   * Resets the state machine to initial state.
    * Triggers: RESET action -> back to initial state
    */
   reset(): void {
     this.logger.debug('[STATE-MACHINE] Action: RESET');
     this.dispatch({ type: 'RESET' });
-  }
-
-  // === Compatibility layer (old API compatibility) ===
-
-  /**
-   * Records selection (old API compatibility).
-   * @deprecated Use recordSelection(promptId, optionId)
-   */
-  selectOption(optionId: string): void {
-    const prompt = this.currentPrompt();
-    if (prompt) {
-      this.recordSelection(prompt.id, optionId);
-    } else {
-      this.logger.warn('[STATE-MACHINE] selectOption called with no current prompt');
-    }
-  }
-
-  /**
-   * Reports error (old API compatibility).
-   * @deprecated Use setError(error)
-   */
-  reportError(error: string | ErrorInfo | null): void {
-    this.setError(error);
-  }
-
-  /**
-   * Sets ready state (old API compatibility).
-   * @deprecated Ready state is now automatically calculated, this method has no effect
-   */
-  setReady(_ready: boolean): void {
-    this.logger.warn('[STATE-MACHINE] setReady is deprecated, readiness determined automatically');
-  }
-
-  /**
-   * Marks ready (old API compatibility).
-   * @deprecated Use recordSelection to auto-trigger ready state
-   */
-  markReady(_ready: boolean): void {
-    this.logger.warn('[STATE-MACHINE] markReady is deprecated, use recordSelection instead');
   }
 
   // === Helper methods ===
