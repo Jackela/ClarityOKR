@@ -285,17 +285,19 @@ export class ErrorBoundaryService {
 
     // Show recovery suggestion
     const suggestion = getRecoverySuggestion(clarityError);
-    if (suggestion && this.config.onRecoverySuggestion) {
+    const onRecoverySuggestion = this.config.onRecoverySuggestion;
+    if (suggestion && onRecoverySuggestion) {
       this.ngZone.run(() => {
-        this.config.onRecoverySuggestion(suggestion);
+        onRecoverySuggestion(suggestion);
       });
     }
 
     // Handle critical errors
     const severity = getErrorSeverity(clarityError.code as ErrorCode);
-    if (severity === 'CRITICAL' && this.config.onCriticalError) {
+    const onCriticalError = this.config.onCriticalError;
+    if (severity === 'CRITICAL' && onCriticalError) {
       this.ngZone.run(() => {
-        this.config.onCriticalError(clarityError, context);
+        onCriticalError(clarityError, context);
       });
     }
 

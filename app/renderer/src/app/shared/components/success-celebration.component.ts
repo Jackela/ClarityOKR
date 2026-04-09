@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
-import type { ElementRef, OnDestroy, OnInit ,
-  ChangeDetectorRef} from '@angular/core';
+import type { ElementRef, OnDestroy, OnInit } from '@angular/core';
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { ChangeDetectorRef } from '@angular/core';
 import {
   ChangeDetectionStrategy,
   Component,
