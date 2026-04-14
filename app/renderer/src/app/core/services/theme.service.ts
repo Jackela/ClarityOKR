@@ -15,11 +15,12 @@ export class ThemeService {
   private readonly systemDark = window.matchMedia('(prefers-color-scheme: dark)');
 
   readonly userPreference = signal<ThemePreference>(this.loadPreference());
+  private readonly systemPreference = signal<boolean>(this.systemDark.matches);
 
   readonly resolvedTheme = computed(() => {
     const pref = this.userPreference();
     if (pref !== 'system') return pref;
-    return this.systemDark.matches ? 'dark' : 'light';
+    return this.systemPreference() ? 'dark' : 'light';
   });
 
   constructor() {
@@ -27,8 +28,8 @@ export class ThemeService {
     this.applyTheme(this.resolvedTheme());
 
     // Listen to OS-level changes when in system mode
-    this.systemDark.addEventListener('change', () => {
-      this.userPreference.set(this.userPreference());
+    this.systemDark.addEventListener('change', (event) => {
+      this.systemPreference.set(event.matches);
       this.applyTheme(this.resolvedTheme());
     });
   }

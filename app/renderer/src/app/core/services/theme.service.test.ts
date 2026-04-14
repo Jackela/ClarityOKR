@@ -90,4 +90,28 @@ describe('ThemeService', () => {
     expect(darkService.resolvedTheme()).toBe('dark');
     expect(html.dataset.theme).toBe('dark');
   });
+
+  it('should update resolved theme when OS preference changes while in system mode', () => {
+    const mm = mockMatchMedia(false)('(prefers-color-scheme: dark)');
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: jest.fn().mockImplementation((query: string) =>
+        query === '(prefers-color-scheme: dark)' ? mm : mockMatchMedia(false)(query),
+      ),
+    });
+
+    const systemService = new ThemeService();
+    systemService.setPreference('system');
+    expect(systemService.resolvedTheme()).toBe('light');
+    expect(html.dataset.theme).toBe('light');
+
+    // Simulate OS switching to dark
+    const changeListener = (mm.addEventListener as jest.Mock).mock.calls.find(
+      ([event]) => event === 'change',
+    )?.[1] as (e: { matches: boolean }) => void;
+
+    changeListener({ matches: true });
+    expect(systemService.resolvedTheme()).toBe('dark');
+    expect(html.dataset.theme).toBe('dark');
+  });
 });
