@@ -1,64 +1,70 @@
 .sticky-note {
   display: flex;
   flex-direction: column;
-  gap: var(--space-lg);
-  padding: var(--space-xl);
-  background: var(--color-surface);
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
   min-height: 100vh;
   box-sizing: border-box;
-  color: var(--color-text);
+  color: var(--color-text-primary);
 }
 
 .sticky-note__header {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
+  gap: var(--space-2);
 }
 
 .sticky-note__meta {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-sm);
+  gap: var(--space-2);
 }
 
 .sticky-note__badge {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-xs);
-  padding: var(--space-xs) var(--space-md);
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-full);
-  background: var(--color-primary-light);
-  color: var(--color-text-primary);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
 }
 
 .sticky-note__badge--edit {
-  background: var(--color-neutral-badge);
-  color: var(--color-text);
+  background: var(--color-warning-light);
+  color: var(--color-warning);
 }
 
 .sticky-note__badge--owner {
-  background: var(--color-accent-purple-light);
-  color: var(--color-accent-purple-text);
+  background: var(--color-success-light);
+  color: var(--color-success);
 }
 
 .sticky-note__action {
   align-self: flex-start;
-  padding: var(--space-sm) var(--space-lg);
+  padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-full);
   border: none;
-  background: var(--color-primary);
-  color: var(--color-surface);
+  background: var(--color-brand-primary);
+  color: var(--color-text-inverse);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
   transition:
-    background-color var(--transition-fast),
-    transform var(--transition-fast);
+    background-color var(--duration-fast) var(--ease-snappy),
+    transform var(--duration-micro) var(--ease-snappy);
 }
 
 .sticky-note__action:hover {
-  background-color: var(--color-primary-hover);
-  transform: translateY(-1px);
+  background-color: var(--color-brand-primary-hover);
+}
+
+.sticky-note__action:active {
+  transform: scale(0.97);
 }
 
 .sticky-note__list {
@@ -67,26 +73,76 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-lg);
+  gap: var(--space-2);
 }
 
 .sticky-note__item {
-  background: rgba(37, 99, 235, 0.06);
-  border-radius: var(--radius-md);
-  padding: var(--space-lg);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  animation: enter-up var(--duration-smooth) var(--ease-fluid) both;
+}
+
+.sticky-note__item:nth-child(1) { animation-delay: 0ms; }
+.sticky-note__item:nth-child(2) { animation-delay: 50ms; }
+.sticky-note__item:nth-child(3) { animation-delay: 100ms; }
+.sticky-note__item:nth-child(4) { animation-delay: 150ms; }
+.sticky-note__item:nth-child(5) { animation-delay: 200ms; }
+
+@keyframes enter-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.sticky-note__item-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: var(--color-brand-primary-alpha);
+  color: var(--color-brand-primary);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  flex-shrink: 0;
+}
+
+.sticky-note__item-content {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
-  border: 1px solid rgba(37, 99, 235, 0.2);
+  gap: var(--space-1);
 }
 
 .sticky-note__item-text {
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-sm);
   line-height: var(--line-height-normal);
+  color: var(--color-text-primary);
 }
 
 .sticky-note__item-badges {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-sm);
+  gap: var(--space-1);
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .sticky-note__item {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
 }

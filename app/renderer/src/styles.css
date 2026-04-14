@@ -6,9 +6,11 @@
 
 @import './styles/tokens.css';
 @import './styles/responsive.css';
+@import './app/shared/animations/enter-animations.css';
 
 :root {
-  font-family: var(--font-family);
+  font-family: var(--font-family-sans);
+  color-scheme: light dark;
 }
 
 * {
@@ -17,19 +19,40 @@
 
 body {
   margin: 0;
-  background: var(--color-background);
-  color: var(--color-text);
+  background: var(--color-bg-default);
+  color: var(--color-text-primary);
   line-height: var(--line-height-normal);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Global focus styles */
 *:focus-visible {
-  outline: 2px solid var(--color-primary);
+  outline: 2px solid var(--color-brand-primary);
   outline-offset: 2px;
 }
 
 /* Selection styles */
 ::selection {
-  background-color: var(--color-primary-light-hover);
-  color: var(--color-text);
+  background-color: var(--color-brand-primary-alpha);
+  color: var(--color-text-primary);
+}
+
+/* Scrollbar styling - Apple-like thin bars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-tertiary);
 }

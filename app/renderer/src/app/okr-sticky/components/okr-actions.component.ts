@@ -35,7 +35,7 @@ import { TranslatePipe } from '@shared/pipes/translate.pipe';
       </button>
       <button
         type="button"
-        class="okr-actions__button"
+        class="okr-actions__button okr-actions__button--primary"
         data-testid="sticky-add-kr"
         (click)="addKr.emit()"
       >
@@ -51,22 +51,44 @@ import { TranslatePipe } from '@shared/pipes/translate.pipe';
 
       .okr-actions {
         display: flex;
-        gap: var(--space-sm);
+        gap: var(--space-2);
         margin-top: var(--space-sm);
       }
 
       .okr-actions__button {
-        padding: var(--space-sm) var(--space-md);
-        border: 1px solid var(--color-primary-alpha-25);
-        border-radius: var(--radius-md);
-        background: var(--color-surface);
+        padding: var(--space-2) var(--space-3);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-full);
+        background: var(--color-bg-primary);
+        color: var(--color-text-secondary);
         cursor: pointer;
         font-size: var(--font-size-sm);
-        transition: all var(--transition-fast);
+        font-weight: var(--font-weight-medium);
+        transition:
+          background-color var(--duration-fast) var(--ease-snappy),
+          border-color var(--duration-fast) var(--ease-snappy),
+          color var(--duration-fast) var(--ease-snappy),
+          transform var(--duration-micro) var(--ease-snappy);
       }
 
       .okr-actions__button:hover {
-        background: var(--color-primary-light);
+        background: var(--color-bg-secondary);
+        color: var(--color-text-primary);
+        border-color: var(--color-border-strong);
+      }
+
+      .okr-actions__button:active {
+        transform: scale(0.97);
+      }
+
+      .okr-actions__button--primary {
+        background: var(--color-brand-primary);
+        color: var(--color-text-inverse);
+        border-color: transparent;
+      }
+
+      .okr-actions__button--primary:hover {
+        background: var(--color-brand-primary-hover);
       }
     `,
   ],

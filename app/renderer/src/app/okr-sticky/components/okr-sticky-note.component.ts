@@ -72,7 +72,12 @@ import type { OkrStickyViewModel } from '../services/okr-sticky.service';
   imports: [CommonModule, TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <section class="sticky-note" *ngIf="okr as viewModel">
+    <section
+      class="sticky-note"
+      *ngIf="okr as viewModel"
+      role="region"
+      aria-label="OKR 便利贴"
+    >
       <header class="sticky-note__header">
         <h1 data-testid="sticky-objective">{{ viewModel.objective }}</h1>
         <div class="sticky-note__meta">
@@ -103,27 +108,30 @@ import type { OkrStickyViewModel } from '../services/okr-sticky.service';
       <ol class="sticky-note__list">
         <li
           class="sticky-note__item"
-          *ngFor="let kr of viewModel.keyResults; trackBy: trackByKeyResultId"
+          *ngFor="let kr of viewModel.keyResults; trackBy: trackByKeyResultId; let i = index"
           data-testid="sticky-key-result"
         >
-          <div class="sticky-note__item-text">{{ kr.statement }}</div>
-          <div class="sticky-note__item-badges">
-            <span *ngIf="kr.metricLabel" class="sticky-note__badge" data-testid="sticky-kr-badge">
-              {{ kr.metricLabel }}
-            </span>
-            <span
-              *ngIf="kr.ownerLabel"
-              class="sticky-note__badge sticky-note__badge--owner"
-              data-testid="sticky-kr-badge"
-            >
-              {{ kr.ownerLabel }}
-            </span>
+          <span class="sticky-note__item-number" aria-hidden="true">{{ i + 1 }}</span>
+          <div class="sticky-note__item-content">
+            <div class="sticky-note__item-text">{{ kr.statement }}</div>
+            <div class="sticky-note__item-badges">
+              <span *ngIf="kr.metricLabel" class="sticky-note__badge" data-testid="sticky-kr-badge">
+                {{ kr.metricLabel }}
+              </span>
+              <span
+                *ngIf="kr.ownerLabel"
+                class="sticky-note__badge sticky-note__badge--owner"
+                data-testid="sticky-kr-badge"
+              >
+                {{ kr.ownerLabel }}
+              </span>
+            </div>
           </div>
         </li>
       </ol>
     </section>
   `,
-  styles: [],
+  styleUrls: ['./okr-sticky-note.component.scss'],
 })
 export class OkrStickyNoteComponent {
   /**

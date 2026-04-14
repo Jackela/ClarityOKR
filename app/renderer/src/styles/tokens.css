@@ -1,8 +1,14 @@
 /**
  * Design Tokens - ClarityOKR Design System
- * 
+ *
  * Semantic CSS custom properties for consistent theming.
  * Organized hierarchically: base values → semantic aliases → component tokens.
+ *
+ * Apple-inspired philosophy:
+ * - Clean, generous whitespace
+ * - Soft, diffuse shadows
+ * - Refined typography with tight leading
+ * - Light-first with elegant dark mode
  */
 
 :root {
@@ -70,7 +76,7 @@
   --color-amber-600: #d97706;
 
   /* =====================================================
-   * 2. SEMANTIC COLORS
+   * 2. SEMANTIC COLORS (Light Mode Defaults)
    * Purpose-based color aliases
    * ===================================================== */
 
@@ -82,22 +88,36 @@
   --color-brand-secondary: var(--color-purple-600);
   --color-brand-secondary-hover: var(--color-purple-700);
 
-  /* Background Colors */
-  --color-bg-default: #f3f4ff;
-  --color-bg-surface: #ffffff;
+  /* Background Hierarchy - Apple Inspired */
+  --color-bg-default: #f5f5f7;
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f2f2f7;
+  --color-bg-tertiary: #e5e5ea;
   --color-bg-elevated: #ffffff;
-  --color-bg-overlay: rgba(15, 23, 42, 0.5);
+  --color-bg-overlay: rgba(0, 0, 0, 0.4);
+
+  /* Surface alias for backward compatibility */
+  --color-surface: var(--color-bg-primary);
+  --color-background: var(--color-bg-default);
 
   /* Text Colors - WCAG AA Compliant (4.5:1 minimum) */
-  --color-text-primary: var(--color-gray-900);
-  --color-text-secondary: rgba(15, 23, 42, 0.75);
-  --color-text-tertiary: rgba(15, 23, 42, 0.6);
-  --color-text-disabled: rgba(15, 23, 42, 0.38);
+  --color-text-primary: #1d1d1f;
+  --color-text-secondary: #86868b;
+  --color-text-tertiary: #a1a1a6;
+  --color-text-disabled: rgba(29, 29, 31, 0.38);
   --color-text-inverse: #ffffff;
   --color-text-link: var(--color-blue-600);
   --color-text-link-hover: var(--color-blue-700);
-  /* FIXED: 0.7 → 0.76 for 4.5:1 contrast ratio */
-  --color-text-placeholder: rgba(15, 23, 42, 0.76);
+  --color-text-placeholder: rgba(29, 29, 31, 0.5);
+
+  /* Legacy text aliases */
+  --color-text: var(--color-text-primary);
+  --color-text-muted: var(--color-text-secondary);
+
+  /* Border Colors */
+  --color-border: rgba(0, 0, 0, 0.1);
+  --color-border-subtle: rgba(0, 0, 0, 0.05);
+  --color-border-strong: rgba(0, 0, 0, 0.2);
 
   /* =====================================================
    * 3. FEEDBACK COLORS
@@ -111,7 +131,7 @@
   --color-error-alpha: rgba(239, 68, 68, 0.1);
   --color-error-border: rgba(239, 68, 68, 0.3);
 
-  /* Success - Green (FIXED: was dark teal, now vibrant green) */
+  /* Success - Green */
   --color-success: var(--color-green-500);
   --color-success-hover: var(--color-green-600);
   --color-success-light: var(--color-green-50);
@@ -161,12 +181,17 @@
 
   /* =====================================================
    * 5. TYPOGRAPHY
-   * Font stack and size scale
+   * Apple-style font stack with tight leading
    * ===================================================== */
   --font-family-sans:
-    'Inter', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial,
-    sans-serif;
-  --font-family-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI",
+    system-ui, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-family-display:
+    -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif;
+  --font-family-mono: "SF Mono", "JetBrains Mono", "Fira Code", Consolas, monospace;
+
+  /* Legacy alias */
+  --font-family: var(--font-family-sans);
 
   /* Font Sizes */
   --font-size-xs: 0.75rem; /* 12px */
@@ -185,43 +210,45 @@
   --font-weight-bold: 700;
 
   /* Line Heights */
-  --line-height-tight: 1.25;
+  --line-height-tight: 1.2;
   --line-height-normal: 1.5;
   --line-height-relaxed: 1.625;
 
   /* Letter Spacing */
-  --letter-spacing-tight: -0.025em;
+  --letter-spacing-tighter: -0.024em;
+  --letter-spacing-tight: -0.022em;
   --letter-spacing-normal: 0;
   --letter-spacing-wide: 0.025em;
 
   /* =====================================================
    * 6. ELEVATION (Shadows)
-   * Layer hierarchy through shadows
+   * Soft, diffuse Apple-style shadows
    * ===================================================== */
 
-  /* Base Shadows */
+  /* Ambient Shadows */
   --shadow-color: 15 23 42;
-  --shadow-sm: 0 1px 2px 0 rgb(var(--shadow-color) / 0.05);
-  --shadow-md:
-    0 4px 6px -1px rgb(var(--shadow-color) / 0.1), 0 2px 4px -2px rgb(var(--shadow-color) / 0.1);
-  --shadow-lg:
-    0 10px 15px -3px rgb(var(--shadow-color) / 0.1), 0 4px 6px -4px rgb(var(--shadow-color) / 0.1);
-  --shadow-xl:
-    0 20px 25px -5px rgb(var(--shadow-color) / 0.1), 0 8px 10px -6px rgb(var(--shadow-color) / 0.1);
+  --shadow-sm: 0 1px 2px 0 rgb(var(--shadow-color) / 0.03);
+  --shadow-md: 0 4px 12px -2px rgb(var(--shadow-color) / 0.05);
+  --shadow-lg: 0 12px 32px -4px rgb(var(--shadow-color) / 0.06);
+  --shadow-xl: 0 20px 40px -8px rgb(var(--shadow-color) / 0.08);
+
+  /* Lifted / Floating */
+  --shadow-ambient: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-lifted: 0 8px 24px rgba(0, 0, 0, 0.06);
 
   /* Brand-colored Shadows */
-  --shadow-brand-sm: 0 2px 8px rgba(37, 99, 235, 0.15);
-  --shadow-brand-md: 0 4px 16px rgba(37, 99, 235, 0.2);
-  --shadow-brand-lg: 0 8px 32px rgba(37, 99, 235, 0.25);
+  --shadow-brand-sm: 0 2px 8px rgba(37, 99, 235, 0.12);
+  --shadow-brand-md: 0 4px 16px rgba(37, 99, 235, 0.16);
+  --shadow-brand-lg: 0 8px 32px rgba(37, 99, 235, 0.2);
 
   /* Glow Effects */
-  --shadow-glow-primary: 0 0 20px rgba(37, 99, 235, 0.4);
-  --shadow-glow-success: 0 0 20px rgba(34, 197, 94, 0.4);
-  --shadow-glow-error: 0 0 20px rgba(239, 68, 68, 0.4);
+  --shadow-glow-primary: 0 0 20px rgba(37, 99, 235, 0.35);
+  --shadow-glow-success: 0 0 20px rgba(34, 197, 94, 0.35);
+  --shadow-glow-error: 0 0 20px rgba(239, 68, 68, 0.35);
 
   /* Focus Ring */
-  --shadow-focus-ring: 0 0 0 3px rgba(37, 99, 235, 0.3);
-  --shadow-focus-ring-error: 0 0 0 3px rgba(239, 68, 68, 0.3);
+  --shadow-focus-ring: 0 0 0 3px rgba(37, 99, 235, 0.2);
+  --shadow-focus-ring-error: 0 0 0 3px rgba(239, 68, 68, 0.2);
 
   /* =====================================================
    * 7. SHAPE (Border Radius)
@@ -233,6 +260,7 @@
   --radius-xl: 1rem; /* 16px */
   --radius-2xl: 1.5rem; /* 24px */
   --radius-3xl: 2rem; /* 32px */
+  --radius-apple: 0.625rem; /* 10px */
   --radius-full: 9999px;
 
   /* Legacy aliases */
@@ -240,12 +268,16 @@
 
   /* =====================================================
    * 8. MOTION
-   * Transitions and animations
+   * Fluid, physics-based animation curves
    * ===================================================== */
   --duration-instant: 0ms;
+  --duration-micro: 100ms;
   --duration-fast: 150ms;
   --duration-normal: 200ms;
+  --duration-swift: 200ms;
   --duration-slow: 300ms;
+  --duration-smooth: 350ms;
+  --duration-dramatic: 500ms;
   --duration-slower: 500ms;
 
   --ease-linear: linear;
@@ -253,6 +285,11 @@
   --ease-out: cubic-bezier(0, 0, 0.2, 1);
   --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+  /* Apple-style physics curves */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-fluid: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-snappy: cubic-bezier(0.4, 0, 0.2, 1);
 
   /* Legacy aliases */
   --transition-fast: var(--duration-fast) var(--ease-out);
@@ -295,12 +332,11 @@
    * ===================================================== */
 
   /* Glassmorphism */
-  --glass-bg: rgba(255, 255, 255, 0.7);
-  --glass-bg-dark: rgba(15, 23, 42, 0.7);
-  --glass-border: rgba(255, 255, 255, 0.3);
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-bg-dark: rgba(28, 28, 30, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.4);
   --glass-border-dark: rgba(255, 255, 255, 0.1);
-  --glass-blur: blur(12px);
-  --glass-saturate: saturate(180%);
+  --glass-blur: blur(20px) saturate(180%);
 
   /* Gradient Backgrounds */
   --gradient-primary: linear-gradient(
@@ -316,7 +352,7 @@
   --gradient-background: linear-gradient(
     180deg,
     var(--color-bg-default) 0%,
-    var(--color-bg-surface) 100%
+    var(--color-bg-primary) 100%
   );
 
   /* Accent Gradients */
@@ -332,41 +368,108 @@
    * DEPRECATED TOKENS
    * Kept for backwards compatibility - DO NOT USE
    * ===================================================== */
-  --color-primary-shadow: rgba(37, 99, 235, 0.2); /* Use --shadow-brand-md */
-  --color-primary-ring: rgba(37, 99, 235, 0.12); /* Use --shadow-focus-ring */
-  --color-primary-alpha-25: rgba(37, 99, 235, 0.25); /* Use --color-brand-primary-alpha */
-  --color-primary-alpha-65: rgba(37, 99, 235, 0.65); /* Legacy */
-  --color-success-alpha-25: rgba(34, 197, 94, 0.25); /* Use --color-success-border */
-  --color-neutral-badge: rgba(100, 116, 139, 0.12); /* Legacy */
-  --color-text-muted-alt: rgba(30, 41, 59, 0.7); /* Use --color-text-tertiary */
-
-  /* Legacy breakpoints (use CSS custom properties in media queries not supported) */
-  --breakpoint-sm: 640px;
-  --breakpoint-md: 768px;
-  --breakpoint-lg: 1024px;
-  --breakpoint-xl: 1280px;
+  --color-primary: var(--color-brand-primary);
+  --color-primary-hover: var(--color-brand-primary-hover);
+  --color-primary-light: var(--color-brand-primary-light);
+  --color-primary-light-hover: var(--color-brand-primary-light);
+  --color-primary-alpha-25: rgba(37, 99, 235, 0.25);
+  --color-primary-alpha-65: rgba(37, 99, 235, 0.65);
+  --color-primary-shadow: rgba(37, 99, 235, 0.2);
+  --color-primary-ring: rgba(37, 99, 235, 0.12);
+  --color-success-alpha-25: rgba(34, 197, 94, 0.25);
+  --color-neutral-badge: rgba(100, 116, 139, 0.12);
+  --color-text-muted-alt: rgba(30, 41, 59, 0.7);
+  --color-accent-purple: var(--color-brand-secondary);
+  --color-accent-purple-light: var(--color-purple-100);
+  --color-accent-purple-text: var(--color-purple-700);
+  --shadow-ring: var(--shadow-focus-ring);
+  --color-background-gradient-start: var(--color-bg-default);
+  --color-background-gradient-end: var(--color-bg-primary);
 }
 
 /* =====================================================
- * DARK MODE SUPPORT
- * Uncomment when dark mode is implemented
+ * DARK MODE
  * ===================================================== */
-/*
-@media (prefers-color-scheme: dark) {
+[data-theme="dark"] {
+  /* Brand Colors - slightly brighter for dark */
+  --color-brand-primary: var(--color-blue-500);
+  --color-brand-primary-hover: var(--color-blue-400);
+  --color-brand-primary-light: rgba(59, 130, 246, 0.2);
+  --color-brand-primary-alpha: rgba(59, 130, 246, 0.15);
+
+  /* Background Hierarchy */
+  --color-bg-default: #000000;
+  --color-bg-primary: #1c1c1e;
+  --color-bg-secondary: #2c2c2e;
+  --color-bg-tertiary: #3a3a3c;
+  --color-bg-elevated: #2c2c2e;
+  --color-bg-overlay: rgba(0, 0, 0, 0.6);
+
+  /* Surface alias */
+  --color-surface: var(--color-bg-primary);
+  --color-background: var(--color-bg-default);
+
+  /* Text Colors */
+  --color-text-primary: #f5f5f7;
+  --color-text-secondary: #98989d;
+  --color-text-tertiary: #636366;
+  --color-text-disabled: rgba(245, 245, 247, 0.32);
+  --color-text-inverse: #000000;
+  --color-text-link: var(--color-blue-400);
+  --color-text-link-hover: var(--color-blue-300);
+  --color-text-placeholder: rgba(245, 245, 247, 0.4);
+
+  /* Legacy text aliases */
+  --color-text: var(--color-text-primary);
+  --color-text-muted: var(--color-text-secondary);
+
+  /* Border Colors */
+  --color-border: rgba(255, 255, 255, 0.12);
+  --color-border-subtle: rgba(255, 255, 255, 0.06);
+  --color-border-strong: rgba(255, 255, 255, 0.22);
+
+  /* Shadows - use deeper colored shadows instead of black */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 32px -4px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 20px 40px -8px rgba(0, 0, 0, 0.6);
+  --shadow-ambient: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-lifted: 0 8px 24px rgba(0, 0, 0, 0.4);
+
+  /* Glassmorphism */
+  --glass-bg: rgba(28, 28, 30, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.1);
+
+  /* Gradients */
+  --gradient-background: linear-gradient(
+    180deg,
+    var(--color-bg-default) 0%,
+    var(--color-bg-primary) 100%
+  );
+
+  /* Focus Ring */
+  --shadow-focus-ring: 0 0 0 3px rgba(96, 165, 250, 0.25);
+  --shadow-focus-ring-error: 0 0 0 3px rgba(248, 113, 113, 0.25);
+}
+
+/* =====================================================
+ * HIGH CONTRAST MODE
+ * ===================================================== */
+@media (prefers-contrast: more) {
   :root {
-    --color-bg-default: #0f172a;
-    --color-bg-surface: #1e293b;
-    --color-bg-elevated: #334155;
-    
-    --color-text-primary: #f8fafc;
-    --color-text-secondary: rgba(248, 250, 252, 0.8);
-    --color-text-tertiary: rgba(248, 250, 252, 0.6);
-    
-    --glass-bg: rgba(15, 23, 42, 0.7);
-    --glass-border: rgba(255, 255, 255, 0.1);
+    --color-border: rgba(0, 0, 0, 0.5);
+    --color-border-subtle: rgba(0, 0, 0, 0.3);
+    --color-text-secondary: rgba(29, 29, 31, 0.85);
+    --shadow-focus-ring: 0 0 0 4px rgba(37, 99, 235, 0.5);
+  }
+
+  [data-theme="dark"] {
+    --color-border: rgba(255, 255, 255, 0.5);
+    --color-border-subtle: rgba(255, 255, 255, 0.3);
+    --color-text-secondary: rgba(245, 245, 247, 0.85);
+    --shadow-focus-ring: 0 0 0 4px rgba(96, 165, 250, 0.5);
   }
 }
-*/
 
 /* =====================================================
  * REDUCED MOTION SUPPORT
@@ -374,9 +477,13 @@
  * ===================================================== */
 @media (prefers-reduced-motion: reduce) {
   :root {
+    --duration-micro: 0ms;
     --duration-fast: 0ms;
     --duration-normal: 0ms;
+    --duration-swift: 0ms;
     --duration-slow: 0ms;
+    --duration-smooth: 0ms;
+    --duration-dramatic: 0ms;
     --duration-slower: 0ms;
   }
 }

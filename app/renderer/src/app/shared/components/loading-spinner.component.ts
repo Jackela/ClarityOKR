@@ -55,7 +55,6 @@ export type SpinnerSize = 'sm' | 'md' | 'lg';
         display: flex;
         align-items: center;
         gap: var(--space-md);
-        /* FIXED: Use primary brand color instead of success green */
         color: var(--color-brand-primary);
       }
 
@@ -88,7 +87,7 @@ export type SpinnerSize = 'sm' | 'md' | 'lg';
         border-color: transparent;
         border-top-color: currentColor;
         border-right-color: currentColor;
-        animation: spinner-rotate var(--duration-normal) linear infinite;
+        animation: spinner-rotate var(--duration-normal) cubic-bezier(0.4, 0, 0.2, 1) infinite;
       }
 
       /* Size variants */

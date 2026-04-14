@@ -114,13 +114,13 @@ export type SkeletonType = 'text' | 'card' | 'circle' | 'options' | 'custom';
       .skeleton-option-card {
         background: linear-gradient(
           90deg,
-          var(--color-gray-100) 0%,
-          var(--color-gray-200) 50%,
-          var(--color-gray-100) 100%
+          var(--color-bg-secondary) 0%,
+          var(--color-bg-tertiary) 50%,
+          var(--color-bg-secondary) 100%
         );
         background-size: 200% 100%;
-        animation: shimmer 1.5s ease-in-out infinite;
-        border-radius: var(--radius-md);
+        animation: shimmer 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        border-radius: var(--radius-apple);
       }
 
       @keyframes shimmer {
@@ -153,8 +153,8 @@ export type SkeletonType = 'text' | 'card' | 'circle' | 'options' | 'custom';
       /* Card skeleton */
       .skeleton-card {
         padding: var(--space-5);
-        background: var(--color-bg-surface);
-        border: 1px solid var(--color-gray-200);
+        background: var(--color-bg-primary);
+        border: 1px solid var(--color-border);
         border-radius: var(--radius-xl);
         box-shadow: var(--shadow-sm);
       }
@@ -164,7 +164,7 @@ export type SkeletonType = 'text' | 'card' | 'circle' | 'options' | 'custom';
         width: 40%;
         margin-bottom: var(--space-4);
         background: inherit;
-        border-radius: var(--radius-md);
+        border-radius: var(--radius-apple);
         animation: inherit;
       }
 
@@ -192,8 +192,8 @@ export type SkeletonType = 'text' | 'card' | 'circle' | 'options' | 'custom';
         align-items: center;
         gap: var(--space-4);
         padding: var(--space-5);
-        background: var(--color-bg-surface);
-        border: 1px solid var(--color-gray-200);
+        background: var(--color-bg-primary);
+        border: 1px solid var(--color-border);
         border-radius: var(--radius-xl);
         box-shadow: var(--shadow-sm);
       }
@@ -226,7 +226,7 @@ export type SkeletonType = 'text' | 'card' | 'circle' | 'options' | 'custom';
         .skeleton-card,
         .skeleton-option-card {
           animation: none;
-          background: var(--color-gray-100);
+          background: var(--color-bg-tertiary);
         }
       }
     `,
