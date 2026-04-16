@@ -17,6 +17,7 @@ module.exports = {
   transformIgnorePatterns: ['node_modules/(?!.*\\.mjs$)'],
   moduleNameMapper: {
     '^@renderer/(.*)$': '<rootDir>/src/$1',
+    '^@shared/(.*)$': '<rootDir>/src/app/shared/$1',
     '^@clarityokr/contracts$': '<rootDir>/../../packages/contracts/src/index.ts',
     '^@clarityokr/main/(.*)$': '<rootDir>/../../app/main/src/$1',
     '^\./(.*)\.js$': './$1',

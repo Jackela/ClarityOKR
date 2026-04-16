@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { TIMEOUTS } from '../playwright.config';
+import { TIMEOUTS } from '../../playwright.config';
 
 /**
  * Comprehensive Browser Automation Review

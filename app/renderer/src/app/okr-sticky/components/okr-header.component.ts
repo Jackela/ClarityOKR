@@ -50,30 +50,32 @@ import { TranslatePipe } from '@shared/pipes/translate.pipe';
       }
 
       .okr-header {
-        margin-bottom: var(--space-lg);
+        margin-bottom: var(--space-md);
       }
 
       .okr-header h1 {
-        font-size: var(--font-size-lg);
-        font-weight: var(--font-weight-semibold);
-        margin: 0 0 var(--space-sm) 0;
+        font-size: var(--font-size-xl);
+        font-weight: var(--font-weight-bold);
+        margin: 0 0 var(--space-xs) 0;
+        line-height: var(--line-height-tight);
+        color: var(--color-text-primary);
       }
 
       .okr-header__meta {
         display: flex;
         flex-wrap: wrap;
-        gap: var(--space-xs);
-        margin-bottom: var(--space-sm);
+        gap: var(--space-2);
+        margin-bottom: var(--space-xs);
       }
 
       .okr-header__badge {
         display: inline-flex;
         align-items: center;
-        padding: var(--space-xs) var(--space-sm);
-        background: var(--color-primary-light);
+        padding: var(--space-1) var(--space-2);
+        background: var(--color-bg-secondary);
         border-radius: var(--radius-full);
-        font-size: var(--font-size-sm);
-        color: var(--color-text-muted);
+        font-size: var(--font-size-xs);
+        color: var(--color-text-secondary);
       }
 
       .okr-header__badge--edit {

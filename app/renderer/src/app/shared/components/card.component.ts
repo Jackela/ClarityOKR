@@ -46,22 +46,29 @@ export type CardPadding = 'sm' | 'md' | 'lg' | 'xl';
       }
 
       .card {
-        background: var(--color-surface);
+        background: var(--color-bg-primary);
         border-radius: var(--radius-2xl);
-        transition: box-shadow var(--transition-fast);
+        transition:
+          transform var(--duration-fast) cubic-bezier(0.25, 0.46, 0.45, 0.94),
+          box-shadow var(--duration-fast) cubic-bezier(0.25, 0.46, 0.45, 0.94);
       }
 
       /* Variants */
       .card--default {
-        box-shadow: var(--shadow-xs);
+        box-shadow: var(--shadow-sm);
       }
 
       .card--elevated {
-        box-shadow: var(--shadow-xl);
+        box-shadow: var(--shadow-lifted);
+      }
+
+      .card--elevated:hover {
+        transform: scale(1.005);
+        box-shadow: var(--shadow-lg);
       }
 
       .card--outlined {
-        border: 1px solid var(--color-primary-alpha-25);
+        border: 1px solid var(--color-border);
         box-shadow: none;
       }
 
@@ -79,7 +86,7 @@ export type CardPadding = 'sm' | 'md' | 'lg' | 'xl';
       }
 
       .card--padding-xl {
-        padding: var(--space-2xl) var(--space-4xl);
+        padding: var(--space-3xl);
       }
     `,
   ],

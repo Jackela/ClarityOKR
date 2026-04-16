@@ -18,6 +18,7 @@
             "inlineStyleLanguage": "css",
             "styles": ["src/styles.css"],
             "scripts": [],
+            "assets": ["src/theme-bootstrap.js"],
             "aot": true,
             "optimization": true,
             "sourceMap": false,

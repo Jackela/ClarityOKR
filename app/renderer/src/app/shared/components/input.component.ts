@@ -72,28 +72,30 @@ import type { ControlValueAccessor } from '@angular/forms';
         display: block;
         font-weight: var(--font-weight-medium);
         font-size: var(--font-size-sm);
-        color: var(--color-text-muted);
-        margin-bottom: var(--space-xs);
+        color: var(--color-text-secondary);
+        margin-bottom: var(--space-2);
       }
 
       .input-wrapper {
         display: flex;
         flex-direction: column;
-        gap: var(--space-xs);
+        gap: var(--space-1);
       }
 
       .input {
         width: 100%;
-        padding: var(--space-md) var(--space-lg);
+        min-height: 48px;
+        padding: var(--space-3) var(--space-4);
         border-radius: var(--radius-lg);
-        border: 1px solid var(--color-primary-alpha-25);
+        border: 1px solid var(--color-border);
         font-size: var(--font-size-base);
-        font-family: var(--font-family);
-        background-color: var(--color-primary-light);
-        color: var(--color-text);
+        font-family: var(--font-family-sans);
+        background-color: var(--color-bg-primary);
+        color: var(--color-text-primary);
         transition:
-          border-color var(--transition-fast),
-          box-shadow var(--transition-fast);
+          border-color var(--duration-fast) var(--ease-snappy),
+          box-shadow var(--duration-fast) var(--ease-snappy),
+          background-color var(--duration-fast) var(--ease-snappy);
       }
 
       .input::placeholder {
@@ -102,8 +104,8 @@ import type { ControlValueAccessor } from '@angular/forms';
 
       .input:focus {
         outline: none;
-        border-color: var(--color-primary-alpha-65);
-        box-shadow: var(--shadow-ring);
+        border-color: var(--color-brand-primary);
+        box-shadow: var(--shadow-focus-ring);
       }
 
       .input--invalid {
@@ -112,19 +114,19 @@ import type { ControlValueAccessor } from '@angular/forms';
       }
 
       .input--invalid:focus {
-        box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.12);
+        box-shadow: var(--shadow-focus-ring-error);
       }
 
       .input--disabled {
-        background-color: var(--color-neutral-badge);
+        background-color: var(--color-bg-secondary);
         cursor: not-allowed;
-        opacity: 0.7;
+        opacity: 0.6;
       }
 
       .error-message {
         font-size: var(--font-size-sm);
         color: var(--color-error);
-        margin-top: var(--space-xs);
+        margin-top: var(--space-2);
       }
     `,
   ],

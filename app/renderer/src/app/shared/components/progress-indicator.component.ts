@@ -82,8 +82,8 @@ import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
       /* Progress bar track */
       .progress-bar {
         width: 100%;
-        height: 4px;
-        background: var(--color-brand-primary-alpha);
+        height: 6px;
+        background: var(--color-bg-tertiary);
         border-radius: var(--radius-full);
         overflow: hidden;
         position: relative;
@@ -94,7 +94,7 @@ import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
         height: 100%;
         background: var(--gradient-primary);
         border-radius: var(--radius-full);
-        transition: width var(--duration-normal) var(--ease-out);
+        transition: width var(--duration-smooth) cubic-bezier(0.22, 1, 0.36, 1);
         position: relative;
       }
 
@@ -109,9 +109,13 @@ import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
         height: 8px;
         background: var(--color-brand-primary);
         border-radius: var(--radius-full);
-        box-shadow: 0 0 8px var(--color-brand-primary);
+        box-shadow: 0 0 10px var(--color-brand-primary);
         opacity: 0;
         transition: opacity var(--duration-fast);
+      }
+
+      [data-theme="dark"] .progress-fill::after {
+        box-shadow: 0 0 12px var(--color-brand-primary);
       }
 
       .progress-fill:not(.progress-fill--complete)::after {
@@ -156,5 +160,5 @@ export class ProgressIndicatorComponent {
     if (this.total <= 0) return 0;
     if (this.current >= this.total) return 100;
     return Math.max(0, ((this.current - 1) / this.total) * 100);
-}
+  }
 }

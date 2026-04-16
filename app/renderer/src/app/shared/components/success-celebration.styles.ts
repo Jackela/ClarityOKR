@@ -22,8 +22,8 @@ export const successCelebrationStyles = [
       display: flex;
       align-items: center;
       justify-content: center;
-      background: rgba(15, 23, 42, 0.5);
-      backdrop-filter: blur(4px);
+      background: rgba(0, 0, 0, 0.55);
+      backdrop-filter: blur(8px);
       pointer-events: auto;
       animation: fade-in var(--duration-normal) var(--ease-out);
     }
@@ -81,18 +81,18 @@ export const successCelebrationStyles = [
       background: var(--glass-bg);
       backdrop-filter: var(--glass-blur);
       border: 1px solid var(--glass-border);
-      border-radius: var(--radius-2xl);
-      padding: var(--space-8);
+      border-radius: 28px;
+      padding: var(--space-8) var(--space-6);
       text-align: center;
       box-shadow: var(--shadow-xl);
       max-width: 420px;
       width: 90%;
-      animation: content-pop var(--duration-slow) var(--ease-bounce);
+      animation: content-pop var(--duration-smooth) var(--ease-spring);
+      will-change: transform;
     }
 
     @keyframes content-pop {
-      0% { transform: scale(0.5); opacity: 0; }
-      50% { transform: scale(1.05); }
+      0% { transform: scale(0.88); opacity: 0; }
       100% { transform: scale(1); opacity: 1; }
     }
 
@@ -116,7 +116,7 @@ export const successCelebrationStyles = [
       stroke-dasharray: 166;
       stroke-dashoffset: 166;
       stroke-linecap: round;
-      animation: checkmark-circle var(--duration-slow) var(--ease-out) forwards;
+      animation: checkmark-circle var(--duration-smooth) var(--ease-out) forwards;
     }
 
     @keyframes checkmark-circle {
@@ -131,7 +131,7 @@ export const successCelebrationStyles = [
       stroke-dashoffset: 48;
       stroke-linecap: round;
       stroke-linejoin: round;
-      animation: checkmark-draw 0.4s var(--ease-out) 0.4s forwards;
+      animation: checkmark-draw 0.35s var(--ease-spring) 0.35s forwards;
     }
 
     @keyframes checkmark-draw {
@@ -182,7 +182,7 @@ export const successCelebrationStyles = [
     .progress-container {
       width: 100%;
       height: 4px;
-      background: var(--color-gray-200);
+      background: var(--color-bg-tertiary);
       border-radius: var(--radius-full);
       overflow: hidden;
       margin-bottom: var(--space-6);
@@ -215,14 +215,21 @@ export const successCelebrationStyles = [
       font-size: var(--font-size-base);
       font-weight: var(--font-weight-semibold);
       cursor: pointer;
-      transition: all var(--duration-fast);
+      transition:
+        transform var(--duration-micro) var(--ease-snappy),
+        background-color var(--duration-fast) var(--ease-snappy),
+        box-shadow var(--duration-fast) var(--ease-snappy);
       box-shadow: var(--shadow-brand-sm);
     }
 
     .dismiss-button:hover {
       background: var(--color-brand-primary-hover);
-      transform: translateY(-2px);
+      transform: translateY(-1px);
       box-shadow: var(--shadow-brand-md);
+    }
+
+    .dismiss-button:active {
+      transform: scale(0.98);
     }
 
     .dismiss-button:focus-visible {

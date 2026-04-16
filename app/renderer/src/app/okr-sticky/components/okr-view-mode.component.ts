@@ -30,8 +30,13 @@ import type { KeyResultViewModel } from './types.js';
     <div class="okr-view-mode">
       <ol class="okr-view-mode__list">
         <li
-          class="okr-view-mode__item"
-          *ngFor="let kr of keyResults; trackBy: trackByKeyResultId"
+          class="okr-view-mode__item animate-enter-up"
+          *ngFor="let kr of keyResults; trackBy: trackByKeyResultId; let i = index"
+          [class.animate-stagger-1]="i === 0"
+          [class.animate-stagger-2]="i === 1"
+          [class.animate-stagger-3]="i === 2"
+          [class.animate-stagger-4]="i === 3"
+          [class.animate-stagger-5]="i >= 4"
           data-testid="sticky-key-result"
         >
           <div class="okr-view-mode__item-text">{{ kr.statement }}</div>
@@ -61,45 +66,59 @@ import type { KeyResultViewModel } from './types.js';
         list-style: none;
         padding: 0;
         margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-2);
       }
 
       .okr-view-mode__item {
         display: flex;
         justify-content: space-between;
         align-items: flex-start;
-        padding: var(--space-md);
-        border-bottom: 1px solid var(--color-border);
+        padding: var(--space-3);
+        background: var(--color-bg-primary);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
         gap: var(--space-md);
-      }
-
-      .okr-view-mode__item:last-child {
-        border-bottom: none;
       }
 
       .okr-view-mode__item-text {
         flex: 1;
-        font-size: var(--font-size-base);
+        font-size: var(--font-size-sm);
+        font-weight: var(--font-weight-medium);
+        color: var(--color-text-primary);
+        line-height: var(--line-height-normal);
       }
 
       .okr-view-mode__item-badges {
         display: flex;
-        gap: var(--space-xs);
+        gap: var(--space-1);
         flex-shrink: 0;
+        flex-wrap: wrap;
+        justify-content: flex-end;
       }
 
       .okr-view-mode__badge {
         display: inline-flex;
         align-items: center;
-        padding: var(--space-xs) var(--space-sm);
-        background: var(--color-primary-light);
+        padding: var(--space-1) var(--space-2);
+        background: var(--color-bg-secondary);
         border-radius: var(--radius-full);
-        font-size: var(--font-size-sm);
-        color: var(--color-text-muted);
+        font-size: var(--font-size-xs);
+        color: var(--color-text-secondary);
       }
 
       .okr-view-mode__badge--owner {
         background: var(--color-success-light);
         color: var(--color-success);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .okr-view-mode__item {
+          animation: none;
+          opacity: 1;
+          transform: none;
+        }
       }
     `,
   ],

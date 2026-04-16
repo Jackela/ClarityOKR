@@ -15,7 +15,13 @@
     "submit": "Submit",
     "generate": "Generate",
     "success": "Success",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "theme": "Theme"
+  },
+  "theme": {
+    "light": "Light",
+    "dark": "Dark",
+    "system": "Auto"
   },
   "clarification": {
     "wizard": {

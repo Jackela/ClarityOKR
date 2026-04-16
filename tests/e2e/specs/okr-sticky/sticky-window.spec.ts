@@ -1,11 +1,11 @@
-import { test, expect, cleanupPersistenceFiles } from '../fixtures';
+import { test, expect, cleanupPersistenceFiles } from '../../fixtures';
 import {
   ClarificationPage,
   OkrStickyPage,
   waitForStickyWindow,
   debugWindows,
-} from '../page-objects';
-import { waitForElement, forceClick, waitForStateChange } from '../helpers/native-dom';
+} from '../../page-objects';
+import { waitForElement, forceClick, waitForStateChange } from '../../helpers/native-dom';
 import type { MockResponseConfig } from '@clarityokr/contracts';
 
 test.beforeEach(async () => {

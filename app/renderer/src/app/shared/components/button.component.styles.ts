@@ -17,7 +17,10 @@ export const buttonStyles = [
       cursor: pointer;
       overflow: hidden;
       isolation: isolate;
-      transition: all var(--duration-fast) var(--ease-out);
+      transition:
+        transform var(--duration-micro) var(--ease-snappy),
+        box-shadow var(--duration-fast) cubic-bezier(0.25, 0.46, 0.45, 0.94),
+        background-color var(--duration-fast) var(--ease-snappy);
     }
 
     .btn:focus-visible {
@@ -27,7 +30,7 @@ export const buttonStyles = [
 
     .btn:disabled, .btn--disabled {
       cursor: not-allowed;
-      opacity: 0.6;
+      opacity: 0.5;
     }
 
     .btn--loading { cursor: wait; }
@@ -70,14 +73,17 @@ export const buttonStyles = [
     .btn--primary {
       background: var(--gradient-primary);
       color: white;
-      box-shadow: var(--shadow-sm), 0 4px 6px -1px rgba(37, 99, 235, 0.2);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.25),
+        var(--shadow-sm),
+        0 2px 6px -1px rgba(37, 99, 235, 0.18);
     }
 
     .btn--primary::before {
       content: '';
       position: absolute;
       inset: 0;
-      background: linear-gradient(135deg, rgba(255, 255, 255, 0.25) 0%, transparent 50%);
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, transparent 50%);
       opacity: 0;
       transition: opacity var(--duration-fast);
       z-index: 1;
@@ -96,13 +102,16 @@ export const buttonStyles = [
     }
 
     .btn--primary:not(:disabled):hover {
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-lg), 0 0 30px rgba(37, 99, 235, 0.4);
+      transform: translateY(-1px);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.25),
+        var(--shadow-md),
+        0 0 24px rgba(37, 99, 235, 0.3);
     }
 
     .btn--primary:not(:disabled):hover::before { opacity: 1; }
-    .btn--primary:not(:disabled):hover::after { opacity: 0.5; }
-    .btn--primary:not(:disabled):active { transform: translateY(0); box-shadow: var(--shadow-sm); }
+    .btn--primary:not(:disabled):hover::after { opacity: 0.4; }
+    .btn--primary:not(:disabled):active { transform: scale(0.98); box-shadow: var(--shadow-sm); }
 
     /* Secondary Variant */
     .btn--secondary {
@@ -115,20 +124,20 @@ export const buttonStyles = [
       content: '';
       position: absolute;
       inset: 0;
-      background: linear-gradient(135deg, rgba(37, 99, 235, 0.1) 0%, transparent 50%);
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, transparent 50%);
       opacity: 0;
       transition: opacity var(--duration-fast);
     }
 
     .btn--secondary:not(:disabled):hover {
       background: var(--color-brand-primary-alpha);
-      border-color: var(--color-brand-primary-alpha);
+      border-color: var(--color-border);
       transform: translateY(-1px);
       box-shadow: var(--shadow-brand-sm);
     }
 
     .btn--secondary:not(:disabled):hover::before { opacity: 1; }
-    .btn--secondary:not(:disabled):active { transform: translateY(0); }
+    .btn--secondary:not(:disabled):active { transform: scale(0.98); }
 
     /* Danger Variant */
     .btn--danger {
@@ -151,30 +160,30 @@ export const buttonStyles = [
 
     .btn--danger:not(:disabled):hover {
       background: var(--color-error-hover);
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-lg), 0 0 30px rgba(239, 68, 68, 0.4);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md), 0 0 24px rgba(239, 68, 68, 0.3);
     }
 
-    .btn--danger:not(:disabled):hover::after { opacity: 0.5; }
-    .btn--danger:not(:disabled):active { transform: translateY(0); }
+    .btn--danger:not(:disabled):hover::after { opacity: 0.4; }
+    .btn--danger:not(:disabled):active { transform: scale(0.98); }
 
     /* Ghost Variant */
     .btn--ghost {
       background: transparent;
       color: var(--color-text-secondary);
-      border: 1px solid var(--color-gray-200);
+      border: 1px solid var(--color-border);
     }
 
     .btn--ghost:not(:disabled):hover {
-      background: var(--color-gray-50);
-      border-color: var(--color-gray-300);
+      background: var(--color-bg-secondary);
+      border-color: var(--color-border-strong);
       color: var(--color-text-primary);
       transform: translateY(-1px);
     }
 
     .btn--ghost:not(:disabled):active {
-      transform: translateY(0);
-      background: var(--color-gray-100);
+      transform: scale(0.98);
+      background: var(--color-bg-tertiary);
     }
 
     /* Ripple Effect */
@@ -189,9 +198,9 @@ export const buttonStyles = [
     .ripple {
       position: absolute;
       border-radius: 50%;
-      background: rgba(255, 255, 255, 0.5);
+      background: rgba(255, 255, 255, 0.45);
       transform: scale(0);
-      animation: ripple-animation 0.6s linear;
+      animation: ripple-animation 0.4s linear;
       pointer-events: none;
     }
 
@@ -203,6 +212,7 @@ export const buttonStyles = [
     @media (prefers-reduced-motion: reduce) {
       .btn, .btn::before, .btn::after { transition: none; }
       .btn:not(:disabled):hover { transform: none; }
+      .btn:not(:disabled):active { transform: none; }
       .ripple { animation: none; opacity: 0.3; transform: scale(2); }
     }
   `,
