@@ -1,5 +1,5 @@
 import { TranslatePipe } from './translate.pipe';
-import { I18nService } from '../services/i18n.service';
+import type { I18nService } from '../services/i18n.service';
 
 describe('TranslatePipe', () => {
   let pipe: TranslatePipe;

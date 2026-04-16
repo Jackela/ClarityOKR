@@ -5,7 +5,7 @@ import { ButtonComponent } from '../../shared/components/button.component';
 import { InputComponent } from '../../shared/components/input.component';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 import { I18nService } from '../../shared/services/i18n.service';
-import type { DraftKeyResult, ValidationError } from '../state/edit-mode.store';
+import type { ValidationError } from '../state/edit-mode.store';
 
 describe('OkrEditModeComponent', () => {
   let fixture: ComponentFixture<OkrEditModeComponent>;
@@ -119,8 +119,8 @@ describe('OkrEditModeComponent', () => {
     component.save.subscribe(spy);
     fixture.detectChanges();
 
-    const saveButton = fixture.debugElement.query(By.css('[testId="save-button"]'));
-    saveButton.triggerEventHandler('onClick', {});
+    const saveButton = fixture.debugElement.query(By.css('button[data-testid="save-button"]'));
+    saveButton.nativeElement.click();
 
     expect(spy).toHaveBeenCalled();
   });
@@ -130,8 +130,8 @@ describe('OkrEditModeComponent', () => {
     component.cancel.subscribe(spy);
     fixture.detectChanges();
 
-    const cancelButton = fixture.debugElement.query(By.css('[testId="cancel-button"]'));
-    cancelButton.triggerEventHandler('onClick', {});
+    const cancelButton = fixture.debugElement.query(By.css('button[data-testid="cancel-button"]'));
+    cancelButton.nativeElement.click();
 
     expect(spy).toHaveBeenCalled();
   });
