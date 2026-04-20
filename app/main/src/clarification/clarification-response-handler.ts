@@ -64,7 +64,7 @@ export class ClarificationResponseHandler implements IClarificationResponseHandl
 
     Logger.info('[ResponseHandler] Selection recorded', {
       sessionId,
-      selectedOptionCount: session.selectedOptionIds.length,
+      selectedOptionCount: session.selectedOptions.length,
     });
   }
 
@@ -78,7 +78,10 @@ export class ClarificationResponseHandler implements IClarificationResponseHandl
 
 
   async recordSelection(session: ClarificationSession, optionId: string): Promise<void> {
-    session.selectedOptionIds = [...session.selectedOptionIds, optionId];
+    session.selectedOptions = [
+      ...session.selectedOptions,
+      { promptId: session.pendingQuestionId ?? '', optionId, selectedAt: new Date().toISOString() },
+    ];
     session.pendingQuestionId = null;
     session.updatedAt = new Date().toISOString();
 

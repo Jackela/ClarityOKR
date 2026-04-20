@@ -14,7 +14,7 @@
 
 import { Logger } from '../core/logger.js';
 import type { ClarificationSession } from '@clarityokr/contracts';
-import type { SessionRepository } from '../persistence/session-repository.js';
+import type { ISessionRepository } from '../persistence/interfaces/index.js';
 import type { IClarificationSessionManager } from './interfaces/session-manager.interface.js';
 import type { IClarificationStateMachine } from './interfaces/state-machine.interface.js';
 import { SessionNotFoundError, StateTransitionError } from './types.js';
@@ -28,7 +28,7 @@ export class ClarificationSessionManager implements IClarificationSessionManager
   private currentSessionId: string | null = null;
 
   constructor(
-    private readonly sessionRepository: SessionRepository,
+    private readonly sessionRepository: ISessionRepository,
     private readonly stateMachine: IClarificationStateMachine,
   ) {}
 
@@ -50,7 +50,7 @@ export class ClarificationSessionManager implements IClarificationSessionManager
       createdAt: now,
       updatedAt: now,
       steps: [],
-      selectedOptionIds: [],
+      selectedOptions: [],
       confidence: 0,
       pendingQuestionId: null,
     };
@@ -78,9 +78,9 @@ export class ClarificationSessionManager implements IClarificationSessionManager
     }
 
     // 回退到持久化存储
-    const persisted = await this.sessionRepository.load();
-    if (persisted.session && persisted.session.id === sessionId) {
-      session = persisted.session;
+    const persisted = await this.sessionRepository.getById(sessionId);
+    if (persisted) {
+      session = persisted;
       this.sessions.set(sessionId, session);
       this.currentSessionId = sessionId;
       return session;
@@ -116,7 +116,7 @@ export class ClarificationSessionManager implements IClarificationSessionManager
     session.updatedAt = new Date().toISOString();
 
     // 保存到持久化存储
-    await this.sessionRepository.saveSession(session);
+    await this.sessionRepository.save(session);
 
     Logger.info(`[SessionManager] Session ${sessionId} ended`);
   }
@@ -175,7 +175,7 @@ export class ClarificationSessionManager implements IClarificationSessionManager
   async saveSession(session: ClarificationSession): Promise<void> {
     this.sessions.set(session.id, session);
     this.currentSessionId = session.id;
-    await this.sessionRepository.saveSession(session);
+    await this.sessionRepository.save(session);
     Logger.info(`[SessionManager] Session ${session.id} saved`);
   }
 
@@ -197,9 +197,9 @@ export class ClarificationSessionManager implements IClarificationSessionManager
    * @returns Promise resolving to the loaded session or null
    */
   async loadFromPersistence(): Promise<ClarificationSession | null> {
-    const persisted = await this.sessionRepository.load();
-    if (persisted.session) {
-      const session = persisted.session;
+    const sessions = await this.sessionRepository.getAll();
+    if (sessions.length > 0) {
+      const session = sessions[0];
       this.sessions.set(session.id, session);
       this.currentSessionId = session.id;
       return session;

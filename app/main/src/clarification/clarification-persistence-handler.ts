@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import type { ClarificationSession } from '@clarityokr/contracts';
 
 import { Logger } from '../core/logger.js';
-import type { SessionRepository } from '../persistence/session-repository.js';
+import type { ISessionRepository } from '../persistence/interfaces/index.js';
 import type { IClarificationPersistenceHandler } from './interfaces/persistence-handler.interface.js';
 import { PersistenceError } from './types.js';
 
@@ -12,14 +12,14 @@ import { PersistenceError } from './types.js';
  * 职责：管理会话的保存、加载和恢复
  */
 export class ClarificationPersistenceHandler implements IClarificationPersistenceHandler {
-  constructor(private readonly sessionRepository: SessionRepository) {}
+  constructor(private readonly sessionRepository: ISessionRepository) {}
 
   /**
    * 持久化会话
    */
   async persistSession(session: ClarificationSession): Promise<void> {
     try {
-      await this.sessionRepository.saveSession(session);
+      await this.sessionRepository.save(session);
 
       Logger.info(`[Persistence] Session ${session.id} persisted`);
     } catch (error) {
@@ -34,17 +34,18 @@ export class ClarificationPersistenceHandler implements IClarificationPersistenc
    */
   async restoreSession(): Promise<ClarificationSession | null> {
     try {
-      const persisted = await this.sessionRepository.load();
+      const sessions = await this.sessionRepository.getAll();
 
-      if (!persisted.session) {
+      if (sessions.length === 0) {
         return null;
       }
 
-      // 验证数据完整性 (如果需要校验和，可以在此实现)
-      // 当前 SessionRepository 不存储 checksum，如需添加可在 schema 中扩展
+      const latestSession = sessions.sort(
+        (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+      )[0];
 
-      Logger.info(`[Persistence] Session ${persisted.session.id} restored`);
-      return persisted.session;
+      Logger.info(`[Persistence] Session ${latestSession.id} restored`);
+      return latestSession;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       Logger.error(`[Persistence] Failed to restore session:`, errorMsg);
@@ -57,8 +58,8 @@ export class ClarificationPersistenceHandler implements IClarificationPersistenc
    */
   async clearPersistence(): Promise<void> {
     try {
-      // 保存一个空会话来清除数据
-      await this.sessionRepository.saveSession({} as ClarificationSession);
+      const sessions = await this.sessionRepository.getAll();
+      await Promise.all(sessions.map((s) => this.sessionRepository.delete(s.id)));
       Logger.info('[Persistence] Persistence cleared');
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';

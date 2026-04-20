@@ -23,7 +23,7 @@ import type {
 } from './interfaces/draft-handler.interface.js';
 import type { IClarificationSessionManager } from './interfaces/session-manager.interface.js';
 import type { IClarificationStateMachine } from './interfaces/state-machine.interface.js';
-import { SessionNotFoundError, DraftValidationError, LLMError } from './types.js';
+import { SessionNotFoundError, DraftValidationError, LLMError, ValidationError } from './types.js';
 
 // Extended schema for LLM draft response validation
 const draftKeyResultSchema = z.object({
@@ -173,9 +173,4 @@ export class ClarificationDraftHandler implements IClarificationDraftHandler {
   }
 }
 
-class ValidationError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'ValidationError';
-  }
-}
+
