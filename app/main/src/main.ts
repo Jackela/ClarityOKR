@@ -33,7 +33,8 @@ import { Logger } from './core/logger.js';
 import { DatabaseService } from './persistence/database.service.js';
 import { SQLiteActionLogWriter } from './persistence/action-log-writer.js';
 import { OKRRepositorySqlite } from './persistence/okr-repository.js';
-import { SessionRepository } from './persistence/session-repository.js';
+import { SqliteSessionRepository } from './persistence/sqlite-session-repository.js';
+import { MigrationService } from './persistence/migration.service.js';
 import { OkrAgentService } from './services/okr-agent.service.js';
 import { initializeTestMode, type TestMode } from './test-mode.js';
 import { ClarificationController } from './windows/clarification-controller.js';
@@ -45,10 +46,18 @@ const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const preloadPath = path.resolve(currentDir, 'bootstrap', 'preload.js');
 const rendererDistPath = path.resolve(currentDir, '../../renderer/dist');
 
-const sessionRepository = new SessionRepository();
-const okrRepository = new OKRRepositorySqlite();
 const databaseService = new DatabaseService();
+databaseService.initialize();
+
+const sessionRepository = new SqliteSessionRepository(databaseService);
+const okrRepository = new OKRRepositorySqlite(databaseService);
 const actionLogWriter = new SQLiteActionLogWriter(databaseService);
+
+const migrationService = new MigrationService(databaseService);
+if (migrationService.needsMigration()) {
+  void migrationService.migrate();
+}
+
 const okrAgentService = new OkrAgentService();
 const stickyWindowManager = new StickyWindowManager({
   preloadPath,
