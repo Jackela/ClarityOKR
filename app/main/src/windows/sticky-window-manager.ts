@@ -11,7 +11,7 @@ import { Logger } from '../core/logger.js';
 import type { OKRRepository } from '../persistence/okr-repository.types.js';
 import type { IActionLogWriter } from '../persistence/action-log-writer.js';
 import type { OkrAgentService } from '../services/okr-agent.service.js';
-import type { SessionRepository } from '../persistence/session-repository.js';
+import type { ISessionRepository } from '../persistence/interfaces/index.js';
 
 /**
  * Configuration for sticky window manager
@@ -22,7 +22,7 @@ export interface StickyWindowConfig {
   okrRepository: OKRRepository;
   actionLogWriter: IActionLogWriter;
   okrAgentService: OkrAgentService;
-  sessionRepository: SessionRepository;
+  sessionRepository: ISessionRepository;
   isQuitting: () => boolean;
 }
 
@@ -196,7 +196,7 @@ export class StickyWindowManager {
 
     try {
       // Step 1: Retrieve clarification context from session
-      const session = await this.config.sessionRepository.getSession(sessionId);
+      const session = await this.config.sessionRepository.getById(sessionId);
       if (!session) {
         throw new Error(`Session not found: ${sessionId}`);
       }
@@ -209,7 +209,7 @@ export class StickyWindowManager {
         turns: session.steps.map((step) => ({
           questionId: step.id,
           optionId:
-            session.selectedOptionIds.find((id) => step.options.some((opt) => opt.id === id)) ?? '',
+            session.selectedOptions.find((sel) => step.options.some((opt) => opt.id === sel.optionId))?.optionId ?? '',
           timestamp: step.context ?? new Date().toISOString(),
         })),
       };

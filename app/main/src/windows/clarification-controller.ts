@@ -37,7 +37,7 @@ import {
 } from '../clarification/index.js';
 import type { IActionLogWriter } from '../persistence/action-log-writer.js';
 import type { OkrRepository } from '../persistence/okr-repository.js';
-import type { SessionRepository } from '../persistence/session-repository.js';
+import type { ISessionRepository } from '../persistence/interfaces/index.js';
 import { ActionLogService } from '../services/action-log.service.js';
 import type { OkrAgentService } from '../services/okr-agent.service.js';
 
@@ -47,7 +47,7 @@ import type { StickyWindowManager } from './sticky-window-manager.js';
 
 /**
   constructor(
-    private readonly sessionRepository: SessionRepository,
+    private readonly sessionRepository: ISessionRepository,
     private readonly okrRepository: OkrRepository,
     private readonly actionLogWriter: IActionLogWriter,
     private readonly stickyWindowManager: StickyWindowManager,
@@ -113,7 +113,7 @@ export class ClarificationController {
    * @param elect - Electron instance (default: imported electron) - used for test injection
    */
   constructor(
-    sessionRepository: SessionRepository,
+    sessionRepository: ISessionRepository,
     okrRepository: OkrRepository,
     actionLogWriter: IActionLogWriter,
     stickyWindowManager: StickyWindowManager,
