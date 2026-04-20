@@ -18,6 +18,7 @@ module.exports = {
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
     '^@clarityokr/contracts$': '<rootDir>/../../packages/contracts/src/index.ts',
+    '^@clarityokr/main/(.*)\\.js$': '<rootDir>/../../app/main/src/$1',
     '^@clarityokr/main/(.*)$': '<rootDir>/../../app/main/src/$1',
     '^electron$': '<rootDir>/__mocks__/electron.ts',
   },

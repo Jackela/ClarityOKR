@@ -3,16 +3,21 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { SessionRepository } from '../../../../app/main/src/persistence/session-repository.js';
 import { OkrRepository } from '../../../../app/main/src/persistence/okr-repository.js';
+import { DatabaseService } from '../../../../app/main/src/persistence/database.service.js';
 import type { OKRDocument } from '../../../../packages/contracts/src/clarify-to-okr.contract';
 
 describe('Integration: Session persistence across restart', () => {
   let testDir: string;
+  let db: DatabaseService;
 
   beforeEach(() => {
     testDir = mkdtempSync(join(tmpdir(), 'clarityokr-persist-test-'));
+    db = new DatabaseService({ dataDir: testDir, filename: 'test.db' });
+    db.initialize();
   });
 
   afterEach(() => {
+    db.close();
     rmSync(testDir, { recursive: true, force: true });
   });
 
@@ -50,7 +55,7 @@ describe('Integration: Session persistence across restart', () => {
   });
 
   it('preserves OKR data after repository recreation', async () => {
-    const okrRepo1 = new OkrRepository(testDir);
+    const okrRepo1 = new OkrRepository(db);
     const okr: OKRDocument = {
       id: 'okr-1',
       objective: '提高执行力',
@@ -68,7 +73,7 @@ describe('Integration: Session persistence across restart', () => {
     await okrRepo1.save(okr);
 
     // 模拟应用重启
-    const okrRepo2 = new OkrRepository(testDir);
+    const okrRepo2 = new OkrRepository(db);
     const loaded = await okrRepo2.loadLatest();
 
     expect(loaded).toEqual(okr);

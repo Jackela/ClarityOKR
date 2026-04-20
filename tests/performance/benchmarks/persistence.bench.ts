@@ -6,7 +6,8 @@ import { performance } from 'node:perf_hooks';
 import type { ClarificationSession, OKRDocument, UserActionLogEntry } from '@clarityokr/contracts';
 import { SessionRepository } from '../../../app/main/src/persistence/session-repository';
 import { OkrRepository } from '../../../app/main/src/persistence/okr-repository';
-import { ActionLogWriter } from '../../../app/main/src/persistence/action-log-writer';
+import { DatabaseService } from '../../../app/main/src/persistence/database.service';
+import { SQLiteActionLogWriter } from '../../../app/main/src/persistence/sqlite-action-log-writer';
 
 interface BenchmarkResult {
   operation: string;
@@ -123,7 +124,8 @@ describe('Persistence Benchmarks', () => {
   let tempDir: string;
   let sessionRepo: SessionRepository;
   let okrRepo: OkrRepository;
-  let actionLogWriter: ActionLogWriter;
+  let actionLogWriter: SQLiteActionLogWriter;
+  let databaseService: DatabaseService;
 
   beforeAll(async () => {
     tempDir = join(tmpdir(), `clarityokr-bench-${Date.now()}`);
@@ -131,16 +133,23 @@ describe('Persistence Benchmarks', () => {
 
     sessionRepo = new SessionRepository(tempDir);
     okrRepo = new OkrRepository(tempDir);
-    actionLogWriter = new ActionLogWriter(tempDir);
+    databaseService = new DatabaseService({ dataDir: tempDir, filename: 'benchmark.db' });
+    databaseService.initialize();
+    actionLogWriter = new SQLiteActionLogWriter(databaseService);
   });
 
   afterAll(async () => {
+    databaseService.close();
     await cleanupDir(tempDir);
   });
 
   afterEach(async () => {
+    databaseService.close();
     await cleanupDir(tempDir);
     await fs.mkdir(tempDir, { recursive: true });
+    databaseService = new DatabaseService({ dataDir: tempDir, filename: 'benchmark.db' });
+    databaseService.initialize();
+    actionLogWriter = new SQLiteActionLogWriter(databaseService);
   });
 
   describe('SessionRepository Benchmarks', () => {
@@ -297,7 +306,10 @@ describe('Persistence Benchmarks', () => {
       for (let size = 10; size <= 50; size += 10) {
         await cleanupDir(tempDir);
         await fs.mkdir(tempDir, { recursive: true });
-        actionLogWriter = new ActionLogWriter(tempDir);
+        databaseService.close();
+        databaseService = new DatabaseService({ dataDir: tempDir, filename: 'benchmark.db' });
+        databaseService.initialize();
+        actionLogWriter = new SQLiteActionLogWriter(databaseService);
 
         const entries = generateMockActionLog(sessionId, size);
         for (const entry of entries) {

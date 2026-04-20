@@ -24,7 +24,7 @@ export class SessionControlModule implements ISessionControl {
       createdAt: data.createdAt ?? now,
       updatedAt: data.updatedAt ?? now,
       steps: data.steps ?? [],
-      selectedOptionIds: data.selectedOptionIds ?? [],
+      selectedOptions: data.selectedOptions ?? [],
       confidence: data.confidence ?? 0,
       pendingQuestionId: data.pendingQuestionId ?? null,
       ...data,

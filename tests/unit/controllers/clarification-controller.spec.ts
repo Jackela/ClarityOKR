@@ -3,7 +3,7 @@ import { jest } from '@jest/globals';
 import { ClarificationController } from '@clarityokr/main/windows/clarification-controller';
 import type { SessionRepository } from '@clarityokr/main/persistence/session-repository';
 import type { OkrRepository } from '@clarityokr/main/persistence/okr-repository';
-import type { ActionLogWriter } from '@clarityokr/main/persistence/action-log-writer';
+import type { IActionLogWriter } from '@clarityokr/main/persistence/action-log-writer';
 import type { StickyWindowManager } from '@clarityokr/main/windows/sticky-window-manager';
 import type { OkrAgentService } from '@clarityokr/main/services/okr-agent.service';
 import type { OKRDocument } from '@clarityokr/contracts';
@@ -12,7 +12,7 @@ describe('ClarificationController', () => {
   let controller: ClarificationController;
   let mockSessionRepository: jest.Mocked<SessionRepository>;
   let mockOkrRepository: jest.Mocked<OkrRepository>;
-  let mockActionLogWriter: jest.Mocked<ActionLogWriter>;
+  let mockActionLogWriter: jest.Mocked<IActionLogWriter>;
   let mockStickyWindowManager: jest.Mocked<StickyWindowManager>;
   let mockOkrAgentService: jest.Mocked<OkrAgentService>;
   let mockElectron: any;
