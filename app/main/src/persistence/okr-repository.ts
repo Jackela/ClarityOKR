@@ -4,7 +4,7 @@ import { Logger } from '../core/logger.js';
 
 import type { DatabaseRow, OKRRepository } from './okr-repository.types.js';
 import { detectChanges, OKR_QUERIES, rowToDocument } from './okr-repository.utils.js';
-import { DatabaseService } from './database.service.js';
+import type { DatabaseService } from './database.service.js';
 
 /**
  * SQLite-based implementation of OKRRepository
@@ -13,19 +13,8 @@ import { DatabaseService } from './database.service.js';
 export class OKRRepositorySqlite implements OKRRepository {
   private readonly db: DatabaseService;
 
-  constructor(dataDir?: string) {
-    this.db = new DatabaseService({ dataDir });
-    this.db.initialize();
-    this.ensureTableExists();
-  }
-
-  /**
-   * Ensure the okr_documents table exists with proper schema and foreign key
-   */
-  private ensureTableExists(): void {
-    const database = this.db.getDb();
-    database.exec(OKR_QUERIES.ensureTable);
-    Logger.debug('[OKRRepository] Table okr_documents ensured');
+  constructor(db: DatabaseService) {
+    this.db = db;
   }
 
   /**
