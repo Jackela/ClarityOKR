@@ -94,6 +94,7 @@ export async function cleanupPersistenceFiles(): Promise<void> {
 export const test = base.extend<E2EFixtures>({
   // Mock server fixture - uses global HTTP server for Electron compatibility
   mockServer: [
+    // eslint-disable-next-line no-empty-pattern
     async ({}, use) => {
       const port = process.env.MOCK_SERVER_PORT || '7777';
       const url = `http://127.0.0.1:${port}`;
