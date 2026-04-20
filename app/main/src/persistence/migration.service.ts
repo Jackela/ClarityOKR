@@ -1,10 +1,10 @@
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, promises as fs } from 'node:fs';
+import { join, basename } from 'node:path';
 
-import type { ClarificationSession, OKRDocument, UserActionLogEntry } from '@clarityokr/contracts';
+import type { ClarificationSession, ClarificationSelection, OKRDocument, UserActionLogEntry } from '@clarityokr/contracts';
 
 import { Logger } from '../core/logger.js';
-import { DatabaseService } from './database.service.js';
+import type { DatabaseService } from './database.service.js';
 import { readJson } from './utils.js';
 
 export interface MultiSessionState {
@@ -32,9 +32,9 @@ export class MigrationService {
     actionLog: string;
   };
 
-  constructor(dataDir?: string) {
+  constructor(db: DatabaseService, dataDir?: string) {
+    this.db = db;
     this.dataDir = dataDir ?? join(process.cwd(), 'data');
-    this.db = new DatabaseService({ dataDir: this.dataDir });
     this.jsonFiles = {
       multiSession: join(this.dataDir, 'multi-sessions.json'),
       session: join(this.dataDir, 'clarification-session.json'),
@@ -83,6 +83,9 @@ export class MigrationService {
         return result;
       }
 
+      // Create backup before migration
+      await this.createBackup();
+
       // Migrate multi-session data first
       if (existsSync(this.jsonFiles.multiSession)) {
         await this.migrateMultiSessionData(result);
@@ -111,6 +114,49 @@ export class MigrationService {
     return result;
   }
 
+  private async createBackup(): Promise<void> {
+    const backupDir = join(this.dataDir, 'backup');
+    await fs.mkdir(backupDir, { recursive: true });
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+
+    for (const file of Object.values(this.jsonFiles)) {
+      if (existsSync(file)) {
+        const filename = basename(file);
+        const backupFile = join(backupDir, `${filename}.${timestamp}`);
+        await fs.copyFile(file, backupFile);
+        Logger.debug('[MigrationService] Backed up:', filename);
+      }
+    }
+  }
+
+  private transformSession(session: Record<string, unknown>): ClarificationSession {
+    // Already in new format
+    if (session.selectedOptions) {
+      return session as unknown as ClarificationSession;
+    }
+
+    const selectedOptions: ClarificationSelection[] = [];
+    const selectedOptionIds = session.selectedOptionIds as string[] | undefined;
+    const steps = session.steps as Array<{ id: string; options?: Array<{ id: string }> }> | undefined;
+
+    if (selectedOptionIds && Array.isArray(selectedOptionIds)) {
+      for (const optionId of selectedOptionIds) {
+        const prompt = steps?.find((step) => step.options?.some((opt) => opt.id === optionId));
+
+        selectedOptions.push({
+          promptId: prompt?.id ?? 'unknown',
+          optionId,
+          selectedAt: new Date().toISOString(),
+        });
+      }
+    }
+
+    return {
+      ...(session as unknown as ClarificationSession),
+      selectedOptions,
+    };
+  }
+
   /**
    * Migrate multi-session JSON data
    */
@@ -123,12 +169,13 @@ export class MigrationService {
     }
 
     // Migrate sessions
-    for (const session of Object.values(data.sessions)) {
+    for (const rawSession of Object.values(data.sessions)) {
       try {
+        const session = this.transformSession(rawSession as unknown as Record<string, unknown>);
         this.db.saveSession(session);
         result.sessionsMigrated++;
       } catch (error) {
-        const errorMsg = `Failed to migrate session ${session.id}: ${error instanceof Error ? error.message : String(error)}`;
+        const errorMsg = `Failed to migrate session ${(rawSession as unknown as Record<string, unknown>).id}: ${error instanceof Error ? error.message : String(error)}`;
         result.errors.push(errorMsg);
         Logger.error('[MigrationService]', errorMsg);
       }
@@ -167,12 +214,13 @@ export class MigrationService {
   private async migrateLegacyData(result: MigrationResult): Promise<void> {
     Logger.info('[MigrationService] Migrating legacy single-session data');
 
-    const session = await readJson<ClarificationSession>(this.jsonFiles.session);
+    const rawSession = await readJson<ClarificationSession>(this.jsonFiles.session);
     const okr = await readJson<OKRDocument>(this.jsonFiles.okr);
     const actions = await readJson<UserActionLogEntry[]>(this.jsonFiles.actionLog);
 
-    if (session) {
+    if (rawSession) {
       try {
+        const session = this.transformSession(rawSession as unknown as Record<string, unknown>);
         this.db.saveSession(session);
         result.sessionsMigrated++;
         Logger.info('[MigrationService] Migrated legacy session:', session.id);
