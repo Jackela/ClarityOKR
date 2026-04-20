@@ -57,7 +57,7 @@ export class DatabaseService {
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         steps TEXT NOT NULL,
-        selected_option_ids TEXT NOT NULL,
+        selected_options TEXT NOT NULL,
         confidence REAL NOT NULL,
         pending_question_id TEXT
       );
@@ -113,6 +113,15 @@ export class DatabaseService {
   }
 
   /**
+   * Execute a function within a database transaction
+   */
+  transaction<T>(fn: () => T): T {
+    const db = this.getDb();
+    const tx = db.transaction(fn);
+    return tx() as T;
+  }
+
+  /**
    * Save a session
    */
   saveSession(session: ClarificationSession): void {
@@ -126,7 +135,7 @@ export class DatabaseService {
       session.createdAt,
       session.updatedAt,
       JSON.stringify(session.steps),
-      JSON.stringify(session.selectedOptionIds),
+      JSON.stringify(session.selectedOptions),
       session.confidence,
       session.pendingQuestionId ?? null,
     );

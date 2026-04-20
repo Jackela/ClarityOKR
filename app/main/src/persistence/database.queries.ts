@@ -1,5 +1,6 @@
 import type {
   ClarificationPrompt,
+  ClarificationSelection,
   ClarificationSession,
   OKRDocument,
   UserActionLogEntry,
@@ -15,7 +16,7 @@ export interface SessionRow {
   created_at: string;
   updated_at: string;
   steps: string;
-  selected_option_ids: string;
+  selected_options: string;
   confidence: number;
   pending_question_id: string | null;
 }
@@ -51,7 +52,7 @@ export function parseSessionRow(row: SessionRow): ClarificationSession {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     steps: JSON.parse(row.steps) as ClarificationPrompt[],
-    selectedOptionIds: JSON.parse(row.selected_option_ids) as string[],
+    selectedOptions: JSON.parse(row.selected_options) as ClarificationSelection[],
     confidence: row.confidence,
     pendingQuestionId: row.pending_question_id,
   };
@@ -93,17 +94,17 @@ export function parseActionLogRow(row: ActionLogRow): UserActionLogEntry {
 export const SQL_QUERIES = {
   saveSession: `
     INSERT OR REPLACE INTO sessions 
-    (id, initial_intent, status, created_at, updated_at, steps, selected_option_ids, confidence, pending_question_id)
+    (id, initial_intent, status, created_at, updated_at, steps, selected_options, confidence, pending_question_id)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `,
   getSession: `
     SELECT id, initial_intent, status, created_at, updated_at, 
-           steps, selected_option_ids, confidence, pending_question_id
+           steps, selected_options, confidence, pending_question_id
     FROM sessions WHERE id = ?
   `,
   getAllSessions: `
     SELECT id, initial_intent, status, created_at, updated_at, 
-           steps, selected_option_ids, confidence, pending_question_id
+           steps, selected_options, confidence, pending_question_id
     FROM sessions ORDER BY created_at DESC
   `,
   deleteSession: 'DELETE FROM sessions WHERE id = ?',
