@@ -30,6 +30,12 @@ export const clarificationOptionSelectionSchema = z.object({
   optionId: z.string().min(1)
 });
 
+export const clarificationSelectionSchema = z.object({
+  promptId: z.string().min(1),
+  optionId: z.string().min(1),
+  selectedAt: z.string().datetime()
+});
+
 export const clarificationSessionSchema = z.object({
   id: z.string().min(1),
   initialIntent: z.string().min(3),
@@ -37,7 +43,7 @@ export const clarificationSessionSchema = z.object({
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
   steps: z.array(clarificationPromptSchema),
-  selectedOptionIds: z.array(z.string().min(1)),
+  selectedOptions: z.array(clarificationSelectionSchema),
   confidence: z.number().min(0).max(1),
   pendingQuestionId: z.string().optional().nullable()
 });

@@ -36,6 +36,12 @@ export interface ClarificationOptionSelection {
   optionId: string;
 }
 
+export interface ClarificationSelection {
+  promptId: string;
+  optionId: string;
+  selectedAt: string;
+}
+
 export interface ClarificationSession {
   id: string;
   initialIntent: string;
@@ -43,7 +49,7 @@ export interface ClarificationSession {
   createdAt: string;
   updatedAt: string;
   steps: ClarificationPrompt[];
-  selectedOptionIds: string[];
+  selectedOptions: ClarificationSelection[];
   confidence: number;
   pendingQuestionId?: string | null;
 }
