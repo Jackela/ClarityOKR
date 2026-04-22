@@ -1,4 +1,5 @@
 import type { ManualEditRecord, OKRDocument } from '@clarityokr/contracts';
+import { PersistenceError } from '@clarityokr/contracts';
 
 import { Logger } from '../core/logger.js';
 
@@ -58,8 +59,9 @@ export class OKRRepositorySqlite implements OKRRepository {
       Logger.debug('[OKRRepository] Saved OKR document:', okr.id);
     } catch (error) {
       Logger.error('[OKRRepository] Failed to save OKR document:', error);
-      throw new Error(
+      throw new PersistenceError(
         `Failed to save OKR document: ${error instanceof Error ? error.message : String(error)}`,
+        error,
       );
     }
   }
@@ -80,8 +82,9 @@ export class OKRRepositorySqlite implements OKRRepository {
       return rowToDocument(row);
     } catch (error) {
       Logger.error('[OKRRepository] Failed to find OKR by ID:', error);
-      throw new Error(
+      throw new PersistenceError(
         `Failed to find OKR document: ${error instanceof Error ? error.message : String(error)}`,
+        error,
       );
     }
   }
@@ -98,8 +101,9 @@ export class OKRRepositorySqlite implements OKRRepository {
       return rows.map(rowToDocument);
     } catch (error) {
       Logger.error('[OKRRepository] Failed to find OKRs by session ID:', error);
-      throw new Error(
+      throw new PersistenceError(
         `Failed to find OKR documents: ${error instanceof Error ? error.message : String(error)}`,
+        error,
       );
     }
   }
@@ -122,8 +126,9 @@ export class OKRRepositorySqlite implements OKRRepository {
       return rowToDocument(row);
     } catch (error) {
       Logger.error('[OKRRepository] Failed to get latest OKR:', error);
-      throw new Error(
+      throw new PersistenceError(
         `Failed to get latest OKR: ${error instanceof Error ? error.message : String(error)}`,
+        error,
       );
     }
   }
@@ -144,8 +149,9 @@ export class OKRRepositorySqlite implements OKRRepository {
       return rowToDocument(row);
     } catch (error) {
       Logger.error('[OKRRepository] Failed to load latest OKR:', error);
-      throw new Error(
+      throw new PersistenceError(
         `Failed to load latest OKR: ${error instanceof Error ? error.message : String(error)}`,
+        error,
       );
     }
   }
@@ -158,7 +164,7 @@ export class OKRRepositorySqlite implements OKRRepository {
     try {
       const existing = await this.findById(okrId);
       if (!existing) {
-        throw new Error(`OKR document not found: ${okrId}`);
+        throw new PersistenceError(`OKR document not found: ${okrId}`);
       }
 
       const database = this.db.getDb();
@@ -172,8 +178,9 @@ export class OKRRepositorySqlite implements OKRRepository {
       Logger.debug('[OKRRepository] Recorded edit for OKR:', okrId, 'Edit ID:', edit.id);
     } catch (error) {
       Logger.error('[OKRRepository] Failed to record edit:', error);
-      throw new Error(
+      throw new PersistenceError(
         `Failed to record edit: ${error instanceof Error ? error.message : String(error)}`,
+        error,
       );
     }
   }
