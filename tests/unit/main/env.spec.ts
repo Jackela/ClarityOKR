@@ -1,6 +1,15 @@
 import { getLlmConfig } from '../../../app/main/src/env.js';
+import { resetConfig } from '../../../app/main/src/config/app-config.js';
 
 describe('Main env loader (LLM config)', () => {
+  beforeEach(() => {
+    resetConfig();
+  });
+
+  afterEach(() => {
+    resetConfig();
+  });
+
   it('throws if LLM_API_KEY is missing', async () => {
     delete process.env.LLM_API_KEY;
     await expect(async () => getLlmConfig()).rejects.toThrow();

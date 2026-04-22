@@ -1,6 +1,7 @@
 import { jest } from '@jest/globals';
 import { OkrAgentService } from '@clarityokr/main/services/okr-agent.service';
 import { setFallbackConfig } from '@clarityokr/main/services/secure-storage.service';
+import { resetConfig } from '@clarityokr/main/config/app-config';
 
 describe('OkrAgentService Unit Tests', () => {
   let okrAgentService: OkrAgentService;
@@ -8,6 +9,7 @@ describe('OkrAgentService Unit Tests', () => {
 
   beforeEach(() => {
     // 任务19.2: OkrAgentService单元测试
+    resetConfig();
     process.env.LLM_API_KEY = 'test-api-key';
     process.env.LLM_BASE_URL = 'https://api.test.com';
     process.env.LLM_MODEL = 'gpt-4o-mini';
@@ -26,6 +28,7 @@ describe('OkrAgentService Unit Tests', () => {
     delete process.env.LLM_MODEL;
     // Clear the cache singleton between tests to avoid cross-test contamination
     jest.resetModules();
+    resetConfig();
   });
 
   describe('getNextQuestion', () => {
@@ -298,18 +301,17 @@ describe('OkrAgentService Unit Tests', () => {
 
   describe('默认值配置', () => {
     it('should use default values when env vars not set', async () => {
-      delete process.env.LLM_API_KEY;
       delete process.env.LLM_BASE_URL;
       delete process.env.LLM_MODEL;
+      delete process.env.LLM_TIMEOUT_MS;
 
-      // Use fallback config for testing
-      setFallbackConfig({
-        apiKey: 'test-api-key',
-        baseUrl: 'https://api.openai.com',
-        model: 'gpt-4o-mini',
-      });
+      // Set only required API key; defaults should be used for rest
+      process.env.LLM_API_KEY = 'test-api-key';
 
-      // Service should still work with defaults
+      // Reset config singleton to pick up changed env vars
+      resetConfig();
+
+      // Service should work with defaults
       const service = new OkrAgentService();
 
       fetchMock.mockResolvedValue({
