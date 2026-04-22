@@ -6,6 +6,7 @@ module.exports = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.cjs'],
   roots: [
     '<rootDir>/clarification',
+    '<rootDir>/contracts',
     '<rootDir>/okr-sticky',
     '<rootDir>/main',
     '<rootDir>/lib',
