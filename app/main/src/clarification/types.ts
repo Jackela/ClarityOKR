@@ -1,30 +1,25 @@
 /**
- * 错误基类
+ * Re-export unified domain errors from contracts package.
+ * Local errors extend ClarificationError for domain-specific behavior.
  */
-export class ClarificationError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = this.constructor.name;
-  }
-}
 
-/**
- * 验证错误
- */
-export class ValidationError extends ClarificationError {
-  constructor(message: string) {
-    super(message);
-  }
-}
+import {
+  DomainError,
+  ClarificationError,
+  ValidationError,
+  PersistenceError,
+  LLMError,
+  SessionNotFoundError,
+} from '@clarityokr/contracts';
 
-/**
- * 会话未找到错误
- */
-export class SessionNotFoundError extends ClarificationError {
-  constructor(sessionId: string) {
-    super(`Session not found: ${sessionId}`);
-  }
-}
+export {
+  DomainError,
+  ClarificationError,
+  ValidationError,
+  PersistenceError,
+  LLMError,
+  SessionNotFoundError,
+};
 
 /**
  * 无效选择错误
@@ -45,29 +40,11 @@ export class DraftValidationError extends ClarificationError {
 }
 
 /**
- * 持久化错误
- */
-export class PersistenceError extends ClarificationError {
-  constructor(message: string) {
-    super(message);
-  }
-}
-
-/**
  * 状态转换错误
  */
 export class StateTransitionError extends ClarificationError {
   constructor(fromState: string, toState: string) {
     super(`Invalid state transition from "${fromState}" to "${toState}"`);
-  }
-}
-
-/**
- * LLM服务错误
- */
-export class LLMError extends ClarificationError {
-  constructor(message: string) {
-    super(message);
   }
 }
 
