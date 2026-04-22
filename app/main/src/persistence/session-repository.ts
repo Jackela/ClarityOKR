@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import type { ClarificationSession, OKRDocument, UserActionLogEntry } from '@clarityokr/contracts';
 
 import { Logger } from '../core/logger.js';
+import type { IEncryptionService } from '../core/encryption-port.js';
 import { ensureDataDir, readEncryptedJson, writeEncryptedJson } from './encrypted-persistence.js';
 
 export interface PersistedState {
@@ -26,7 +27,11 @@ export class SessionRepository {
   private readonly actionLogFile: string;
   private readonly multiSessionFile: string;
 
-  constructor(dataDir?: string) {
+  constructor(
+    dataDir?: string,
+    private readonly encryptionService?: IEncryptionService,
+    private readonly key?: Buffer,
+  ) {
     this.dataDir = dataDir ?? join(process.cwd(), 'data');
     this.sessionFile = join(this.dataDir, 'clarification-session.json');
     this.okrFile = join(this.dataDir, 'okr-document.json');
@@ -39,9 +44,9 @@ export class SessionRepository {
 
     try {
       const [session, okr, actions] = await Promise.all([
-        readEncryptedJson<ClarificationSession>(this.sessionFile),
-        readEncryptedJson<OKRDocument>(this.okrFile),
-        readEncryptedJson<UserActionLogEntry[]>(this.actionLogFile),
+        this.readEncrypted<ClarificationSession>(this.sessionFile),
+        this.readEncrypted<OKRDocument>(this.okrFile),
+        this.readEncrypted<UserActionLogEntry[]>(this.actionLogFile),
       ]);
 
       return {
@@ -60,7 +65,7 @@ export class SessionRepository {
 
     try {
       if (session) {
-        await writeEncryptedJson(this.sessionFile, session);
+        await this.writeEncrypted(this.sessionFile, session);
       } else {
         await fs.rm(this.sessionFile, { force: true });
       }
@@ -75,7 +80,7 @@ export class SessionRepository {
 
     try {
       if (document) {
-        await writeEncryptedJson(this.okrFile, document);
+        await this.writeEncrypted(this.okrFile, document);
       } else {
         await fs.rm(this.okrFile, { force: true });
       }
@@ -89,9 +94,9 @@ export class SessionRepository {
     await ensureDataDir(this.dataDir);
 
     try {
-      const current = (await readEncryptedJson<UserActionLogEntry[]>(this.actionLogFile)) ?? [];
+      const current = (await this.readEncrypted<UserActionLogEntry[]>(this.actionLogFile)) ?? [];
       current.push(entry);
-      await writeEncryptedJson(this.actionLogFile, current);
+      await this.writeEncrypted(this.actionLogFile, current);
     } catch (error) {
       Logger.error('[SessionRepository] Failed to append action log', error);
       throw error;
@@ -102,7 +107,7 @@ export class SessionRepository {
     await ensureDataDir(this.dataDir);
 
     try {
-      await writeEncryptedJson(this.actionLogFile, entries);
+      await this.writeEncrypted(this.actionLogFile, entries);
     } catch (error) {
       Logger.error('[SessionRepository] Failed to replace action log', error);
       throw error;
@@ -119,7 +124,7 @@ export class SessionRepository {
     await ensureDataDir(this.dataDir);
 
     try {
-      const state = await readEncryptedJson<MultiSessionState>(this.multiSessionFile);
+      const state = await this.readEncrypted<MultiSessionState>(this.multiSessionFile);
 
       if (!state) {
         // 如果没有多会话状态，尝试从旧格式迁移
@@ -161,7 +166,7 @@ export class SessionRepository {
     await ensureDataDir(this.dataDir);
 
     try {
-      await writeEncryptedJson(this.multiSessionFile, state);
+      await this.writeEncrypted(this.multiSessionFile, state);
     } catch (error) {
       Logger.error('[SessionRepository] Failed to save multi-session state', error);
       throw error;
@@ -256,5 +261,20 @@ export class SessionRepository {
   async getActiveSessionId(): Promise<string | null> {
     const state = await this.loadMultiSessionState();
     return state.activeSessionId;
+  }
+
+  // ========== Private Helpers ==========
+
+  private async readEncrypted<T>(file: string): Promise<T | null> {
+    if (this.encryptionService && this.key) {
+      return readEncryptedJson<T>(file, this.encryptionService, this.key);
+    }
+    return null;
+  }
+
+  private async writeEncrypted<T>(file: string, value: T): Promise<void> {
+    if (this.encryptionService && this.key) {
+      await writeEncryptedJson(file, value, this.encryptionService, this.key);
+    }
   }
 }

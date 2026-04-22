@@ -4,16 +4,19 @@ import { join } from 'node:path';
 import { SessionRepository } from '../../../../app/main/src/persistence/session-repository.js';
 import { OkrRepository } from '../../../../app/main/src/persistence/okr-repository.js';
 import { DatabaseService } from '../../../../app/main/src/persistence/database.service.js';
+import { encryptionService, generateEncryptionKey } from '../../../../app/main/src/services/encryption.service.js';
 import type { OKRDocument } from '../../../../packages/contracts/src/clarify-to-okr.contract';
 
 describe('Integration: Session persistence across restart', () => {
   let testDir: string;
   let db: DatabaseService;
+  let key: Buffer;
 
   beforeEach(() => {
     testDir = mkdtempSync(join(tmpdir(), 'clarityokr-persist-test-'));
     db = new DatabaseService({ dataDir: testDir, filename: 'test.db' });
     db.initialize();
+    key = generateEncryptionKey();
   });
 
   afterEach(() => {
@@ -22,7 +25,7 @@ describe('Integration: Session persistence across restart', () => {
   });
 
   it('preserves session data after repository recreation', async () => {
-    const sessionRepo1 = new SessionRepository(testDir);
+    const sessionRepo1 = new SessionRepository(testDir, encryptionService, key);
     const session = {
       id: 'test-session-1',
       initialIntent: '提高效率',
@@ -46,7 +49,7 @@ describe('Integration: Session persistence across restart', () => {
     await sessionRepo1.saveSession(session);
 
     // 模拟应用重启：创建新的repository实例
-    const sessionRepo2 = new SessionRepository(testDir);
+    const sessionRepo2 = new SessionRepository(testDir, encryptionService, key);
     const loaded = await sessionRepo2.load();
 
     expect(loaded.session).toEqual(session);
@@ -80,7 +83,7 @@ describe('Integration: Session persistence across restart', () => {
   });
 
   it('maintains data integrity after multiple saves', async () => {
-    const sessionRepo = new SessionRepository(testDir);
+    const sessionRepo = new SessionRepository(testDir, encryptionService, key);
 
     // 第一次保存
     const session1 = {
@@ -106,7 +109,7 @@ describe('Integration: Session persistence across restart', () => {
     await sessionRepo.saveSession(session2);
 
     // 模拟重启后加载
-    const sessionRepo2 = new SessionRepository(testDir);
+    const sessionRepo2 = new SessionRepository(testDir, encryptionService, key);
     const loaded = await sessionRepo2.load();
 
     expect(loaded.session?.initialIntent).toBe('更新后的目标');

@@ -2,14 +2,17 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { SessionRepository } from '../../../../app/main/src/persistence/session-repository.js';
+import { encryptionService, generateEncryptionKey } from '../../../../app/main/src/services/encryption.service.js';
 
 describe('SessionRepository Integration', () => {
   let testDir: string;
   let repo: SessionRepository;
+  let key: Buffer;
 
   beforeEach(() => {
     testDir = mkdtempSync(join(tmpdir(), 'clarityokr-session-test-'));
-    repo = new SessionRepository(testDir);
+    key = generateEncryptionKey();
+    repo = new SessionRepository(testDir, encryptionService, key);
   });
 
   afterEach(() => {

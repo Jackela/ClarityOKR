@@ -8,6 +8,7 @@ import { SessionRepository } from '../../../app/main/src/persistence/session-rep
 import { OkrRepository } from '../../../app/main/src/persistence/okr-repository';
 import { DatabaseService } from '../../../app/main/src/persistence/database.service';
 import { SQLiteActionLogWriter } from '../../../app/main/src/persistence/sqlite-action-log-writer';
+import { encryptionService, generateEncryptionKey } from '../../../app/main/src/services/encryption.service';
 
 interface BenchmarkResult {
   operation: string;
@@ -126,12 +127,14 @@ describe('Persistence Benchmarks', () => {
   let okrRepo: OkrRepository;
   let actionLogWriter: SQLiteActionLogWriter;
   let databaseService: DatabaseService;
+  let key: Buffer;
 
   beforeAll(async () => {
     tempDir = join(tmpdir(), `clarityokr-bench-${Date.now()}`);
     await fs.mkdir(tempDir, { recursive: true });
+    key = generateEncryptionKey();
 
-    sessionRepo = new SessionRepository(tempDir);
+    sessionRepo = new SessionRepository(tempDir, encryptionService, key);
     okrRepo = new OkrRepository(tempDir);
     databaseService = new DatabaseService({ dataDir: tempDir, filename: 'benchmark.db' });
     databaseService.initialize();

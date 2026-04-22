@@ -8,13 +8,10 @@
 import { promises as fs } from 'node:fs';
 
 import {
-  decrypt,
-  encrypt,
   EncryptionError,
   type EncryptedData,
-  isEncryptedData,
-} from '../services/encryption.service.js';
-import { getOrCreateMasterKey } from '../services/secure-storage.service.js';
+  type IEncryptionService,
+} from '../core/encryption-port.js';
 import { atomicPersistence, type PersistenceResult } from './atomic-persistence.service.js';
 
 /**
@@ -64,10 +61,16 @@ export async function ensureDataDir(dataDir: string): Promise<void> {
 /**
  * 读取并解密JSON文件
  * @param file - 文件路径
+ * @param encryptionService - 加密服务实现
+ * @param key - 加密密钥
  * @returns 解密后的数据，或null如果文件不存在
  * @throws EncryptedPersistenceError 如果解密失败
  */
-export async function readEncryptedJson<T>(file: string): Promise<T | null> {
+export async function readEncryptedJson<T>(
+  file: string,
+  encryptionService: IEncryptionService,
+  key: Buffer,
+): Promise<T | null> {
   try {
     // 首先尝试原子读取
     const result = await atomicPersistence.atomicRead<EncryptedEnvelope>(file);
@@ -84,11 +87,8 @@ export async function readEncryptedJson<T>(file: string): Promise<T | null> {
       return await readLegacyJson<T>(file);
     }
 
-    // 获取加密密钥
-    const key = getOrCreateMasterKey();
-
     // 解密数据
-    const decryptedJson = decrypt(envelope.data, key);
+    const decryptedJson = encryptionService.decrypt(envelope.data, key);
     return JSON.parse(decryptedJson) as T;
   } catch (error) {
     if (error instanceof EncryptedPersistenceError) {
@@ -105,17 +105,21 @@ export async function readEncryptedJson<T>(file: string): Promise<T | null> {
  * 加密并写入JSON文件
  * @param file - 文件路径
  * @param value - 要加密和存储的数据
+ * @param encryptionService - 加密服务实现
+ * @param key - 加密密钥
  * @returns 持久化结果
  * @throws EncryptedPersistenceError 如果加密或写入失败
  */
-export async function writeEncryptedJson<T>(file: string, value: T): Promise<PersistenceResult> {
+export async function writeEncryptedJson<T>(
+  file: string,
+  value: T,
+  encryptionService: IEncryptionService,
+  key: Buffer,
+): Promise<PersistenceResult> {
   try {
-    // 获取加密密钥
-    const key = getOrCreateMasterKey();
-
     // 序列化并加密数据
     const jsonData = JSON.stringify(value);
-    const encryptedData = encrypt(jsonData, key);
+    const encryptedData = encryptionService.encrypt(jsonData, key);
 
     // 创建信封
     const envelope = createEnvelope(encryptedData);
@@ -159,6 +163,22 @@ function isValidEnvelope(value: unknown): value is EncryptedEnvelope {
 }
 
 /**
+ * 类型守卫：检查值是否为有效的 EncryptedData
+ */
+function isEncryptedData(value: unknown): value is EncryptedData {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'encrypted' in value &&
+    'iv' in value &&
+    'authTag' in value &&
+    typeof (value as Record<string, unknown>).encrypted === 'string' &&
+    typeof (value as Record<string, unknown>).iv === 'string' &&
+    typeof (value as Record<string, unknown>).authTag === 'string'
+  );
+}
+
+/**
  * 清理孤立的临时文件
  * 在应用启动时调用
  */
@@ -169,9 +189,15 @@ export async function cleanupOrphanedTempFiles(dataDir: string): Promise<string[
 /**
  * 迁移明文数据到加密格式
  * @param file - 要迁移的文件路径
+ * @param encryptionService - 加密服务实现
+ * @param key - 加密密钥
  * @returns true如果迁移成功
  */
-export async function migrateToEncrypted<T>(file: string): Promise<boolean> {
+export async function migrateToEncrypted<T>(
+  file: string,
+  encryptionService: IEncryptionService,
+  key: Buffer,
+): Promise<boolean> {
   try {
     const legacyData = await readLegacyJson<T>(file);
     if (legacyData === null) {
@@ -179,7 +205,7 @@ export async function migrateToEncrypted<T>(file: string): Promise<boolean> {
     }
 
     // 重写为加密格式
-    const result = await writeEncryptedJson(file, legacyData);
+    const result = await writeEncryptedJson(file, legacyData, encryptionService, key);
     return result.success;
   } catch {
     return false;
