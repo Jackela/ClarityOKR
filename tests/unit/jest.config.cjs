@@ -7,6 +7,7 @@ module.exports = {
   roots: [
     '<rootDir>/clarification',
     '<rootDir>/contracts',
+    '<rootDir>/core',
     '<rootDir>/okr-sticky',
     '<rootDir>/main',
     '<rootDir>/lib',
