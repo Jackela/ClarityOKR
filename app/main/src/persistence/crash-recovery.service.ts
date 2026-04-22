@@ -1,5 +1,6 @@
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
+import { Logger } from '../core/logger.js';
 import { atomicPersistence } from './atomic-persistence.service.js';
 
 export interface CrashRecoveryReport {
@@ -71,7 +72,7 @@ export class CrashRecoveryService {
         success: true,
       };
     } catch (error) {
-      console.error('Crash recovery failed:', error);
+      Logger.error('[CrashRecovery] Crash recovery failed:', error);
       return {
         tempFilesCleaned,
         filesRecovered,

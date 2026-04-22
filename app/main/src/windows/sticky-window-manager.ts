@@ -146,7 +146,6 @@ export class StickyWindowManager {
 
   /**
    * Reopens the sticky window with the last displayed document.
-   * Stub implementation for T033.
    */
   async reopenStickyWindow(): Promise<void> {
     if (!this.lastDocument) {

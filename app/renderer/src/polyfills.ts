@@ -73,13 +73,6 @@ function verifyZoneJs(): void {
   if (missingPatches.length > 0) {
     console.warn('[polyfills] Some APIs may not be properly patched by zone.js:', missingPatches);
   }
-
-  // Log zone.js status for debugging
-  console.log('[polyfills] Zone.js loaded successfully');
-  console.log(
-    '[polyfills] Zone.js version:',
-    zone['__symbol__']?.('legacy') ? 'legacy' : 'standard',
-  );
 }
 
 // Execute verification
