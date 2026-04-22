@@ -3,6 +3,7 @@
  *
  * Provides AES-256-GCM encryption for sensitive data at rest.
  * Uses Node.js crypto module for cryptographic operations.
+ * Implements the {@link IEncryptionService} port from the core layer.
  */
 
 import {
@@ -13,17 +14,13 @@ import {
   type DecipherGCM,
 } from 'node:crypto';
 
-/**
- * Encrypted data format with IV and auth tag
- */
-export interface EncryptedData {
-  /** Base64-encoded encrypted data */
-  encrypted: string;
-  /** Base64-encoded initialization vector (16 bytes) */
-  iv: string;
-  /** Base64-encoded authentication tag (16 bytes for GCM) */
-  authTag: string;
-}
+import {
+  EncryptionError,
+  type EncryptedData,
+  type IEncryptionService,
+} from '../core/encryption-port.js';
+
+export { EncryptionError, type EncryptedData } from '../core/encryption-port.js';
 
 /**
  * Encryption configuration
@@ -38,19 +35,6 @@ const ENCRYPTION_CONFIG = {
   /** Auth tag size in bytes (128 bits for GCM) */
   authTagSize: 16,
 };
-
-/**
- * Error thrown when encryption/decryption fails
- */
-export class EncryptionError extends Error {
-  constructor(
-    message: string,
-    override readonly cause?: unknown,
-  ) {
-    super(message);
-    this.name = 'EncryptionError';
-  }
-}
 
 /**
  * Encrypts data using AES-256-GCM
@@ -199,3 +183,11 @@ export function isEncryptedData(value: unknown): value is EncryptedData {
     typeof (value as Record<string, unknown>).authTag === 'string'
   );
 }
+
+/**
+ * Encryption service implementation conforming to {@link IEncryptionService}.
+ */
+export const encryptionService: IEncryptionService = {
+  encrypt,
+  decrypt,
+};

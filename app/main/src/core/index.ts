@@ -21,3 +21,8 @@ export type {
   ErrorHandler,
   RecoveryStrategy,
 } from './error-boundary.js';
+export {
+  EncryptionError,
+  type EncryptedData,
+  type IEncryptionService,
+} from './encryption-port.js';
