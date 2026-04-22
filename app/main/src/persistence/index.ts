@@ -1,4 +1,5 @@
 export { DatabaseService, type DatabaseOptions } from './database.service.js';
+export { ConnectionManager, type ConnectionManagerOptions } from './connection-manager.js';
 export { SqliteSessionRepository } from './sqlite-session-repository.js';
 export { OKRRepositorySqlite } from './okr-repository.js';
 export { SessionRepository } from './session-repository.js';

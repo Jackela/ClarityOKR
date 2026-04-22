@@ -1,5 +1,4 @@
 import type { Database } from 'better-sqlite3';
-import BetterSqlite3 from 'better-sqlite3';
 import { join } from 'node:path';
 
 import type { ClarificationSession, OKRDocument, UserActionLogEntry } from '@clarityokr/contracts';
@@ -7,122 +6,65 @@ import type { ClarificationSession, OKRDocument, UserActionLogEntry } from '@cla
 import { Logger } from '../core/logger.js';
 import type { SessionRow, OKRRow, ActionLogRow } from './database.queries.js';
 import { SQL_QUERIES, parseSessionRow, parseOKRRow, parseActionLogRow } from './database.queries.js';
-
+import { ConnectionManager } from './connection-manager.js';
 
 export interface DatabaseOptions {
   dataDir?: string;
   filename?: string;
 }
 
+/**
+ * Database service providing backward-compatible CRUD operations.
+ * Connection management has been extracted to {@link ConnectionManager}.
+ * @deprecated Direct CRUD methods are being moved to repository classes.
+ * Use {@link SqliteSessionRepository}, {@link OKRRepositorySqlite}, etc.
+ */
 export class DatabaseService {
-  private db: Database | null = null;
-  private readonly dataDir: string;
-  private readonly dbPath: string;
+  private readonly connectionManager: ConnectionManager;
 
   constructor(options: DatabaseOptions = {}) {
-    this.dataDir = options.dataDir ?? join(process.cwd(), 'data');
-    this.dbPath = options.filename
-      ? join(this.dataDir, options.filename)
-      : join(this.dataDir, 'clarityokr.db');
+    const dataDir = options.dataDir ?? join(process.cwd(), 'data');
+    const dbPath = options.filename
+      ? join(dataDir, options.filename)
+      : join(dataDir, 'clarityokr.db');
+    this.connectionManager = new ConnectionManager({ dbPath });
   }
 
   /**
-   * Initialize the database connection and create tables
+   * Initialize the database connection and create tables.
+   * Delegates to {@link ConnectionManager#initialize}.
    */
   initialize(): void {
-    if (this.db) {
-      return;
-    }
-
-    this.db = new BetterSqlite3(this.dbPath);
-    this.db.pragma('journal_mode = WAL');
-    this.db.pragma('foreign_keys = ON');
-
-    this.createTables();
-    Logger.info('[DatabaseService] Database initialized at', this.dbPath);
+    this.connectionManager.initialize();
   }
 
   /**
-   * Create all required tables
-   */
-  private createTables(): void {
-    if (!this.db) throw new Error('Database not initialized');
-
-    // Sessions table
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS sessions (
-        id TEXT PRIMARY KEY,
-        initial_intent TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'collecting',
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL,
-        steps TEXT NOT NULL,
-        selected_options TEXT NOT NULL,
-        confidence REAL NOT NULL,
-        pending_question_id TEXT
-      );
-    `);
-
-    // OKR documents table
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS okr_documents (
-        id TEXT PRIMARY KEY,
-        objective TEXT NOT NULL,
-        key_results TEXT NOT NULL,
-        source_session_id TEXT NOT NULL,
-        generated_at TEXT NOT NULL,
-        last_edited_at TEXT,
-        regeneration_policy TEXT NOT NULL,
-        manual_edits TEXT NOT NULL
-      );
-    `);
-
-    // Action logs table
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS action_logs (
-        id TEXT PRIMARY KEY,
-        action_type TEXT NOT NULL,
-        session_id TEXT NOT NULL,
-        okr_id TEXT,
-        payload_summary TEXT NOT NULL,
-        occurred_at TEXT NOT NULL
-      );
-    `);
-
-    // Migration tracking table
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS migrations (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        version TEXT NOT NULL,
-        migrated_at TEXT NOT NULL,
-        source TEXT
-      );
-    `);
-
-    Logger.debug('[DatabaseService] Tables created');
-  }
-
-  /**
-   * Get the database instance
+   * Get the database instance.
+   * Delegates to {@link ConnectionManager#getDb}.
    */
   getDb(): Database {
-    if (!this.db) {
-      throw new Error('Database not initialized. Call initialize() first.');
-    }
-    return this.db;
+    return this.connectionManager.getDb();
   }
 
   /**
-   * Execute a function within a database transaction
+   * Execute a function within a database transaction.
+   * Delegates to {@link ConnectionManager#transaction}.
    */
   transaction<T>(fn: () => T): T {
-    const db = this.getDb();
-    const tx = db.transaction(fn);
-    return tx() as T;
+    return this.connectionManager.transaction(fn);
   }
 
   /**
-   * Save a session
+   * Close the database connection.
+   * Delegates to {@link ConnectionManager#close}.
+   */
+  close(): void {
+    this.connectionManager.close();
+  }
+
+  /**
+   * Save a session.
+   * @deprecated Use {@link SqliteSessionRepository#save} instead.
    */
   saveSession(session: ClarificationSession): void {
     const db = this.getDb();
@@ -144,7 +86,8 @@ export class DatabaseService {
   }
 
   /**
-   * Get a session by ID
+   * Get a session by ID.
+   * @deprecated Use {@link SqliteSessionRepository#getById} instead.
    */
   getSession(id: string): ClarificationSession | null {
     const db = this.getDb();
@@ -156,7 +99,8 @@ export class DatabaseService {
   }
 
   /**
-   * Get all sessions
+   * Get all sessions.
+   * @deprecated Use {@link SqliteSessionRepository#getAll} instead.
    */
   getAllSessions(): ClarificationSession[] {
     const db = this.getDb();
@@ -166,7 +110,8 @@ export class DatabaseService {
   }
 
   /**
-   * Delete a session
+   * Delete a session.
+   * @deprecated Use {@link SqliteSessionRepository#delete} instead.
    */
   deleteSession(id: string): void {
     const db = this.getDb();
@@ -175,7 +120,8 @@ export class DatabaseService {
   }
 
   /**
-   * Save an OKR document
+   * Save an OKR document.
+   * @deprecated Use {@link OKRRepositorySqlite#save} instead.
    */
   saveOKR(okr: OKRDocument): void {
     const db = this.getDb();
@@ -196,7 +142,8 @@ export class DatabaseService {
   }
 
   /**
-   * Get an OKR document by ID
+   * Get an OKR document by ID.
+   * @deprecated Use {@link OKRRepositorySqlite#findById} instead.
    */
   getOKR(id: string): OKRDocument | null {
     const db = this.getDb();
@@ -208,7 +155,8 @@ export class DatabaseService {
   }
 
   /**
-   * Get OKR by session ID
+   * Get OKR by session ID.
+   * @deprecated Use {@link OKRRepositorySqlite#findBySessionId} instead.
    */
   getOKRBySessionId(sessionId: string): OKRDocument | null {
     const db = this.getDb();
@@ -220,7 +168,8 @@ export class DatabaseService {
   }
 
   /**
-   * Save an action log entry
+   * Save an action log entry.
+   * @deprecated Use {@link SQLiteActionLogWriter#append} instead.
    */
   saveActionLog(entry: UserActionLogEntry): void {
     const db = this.getDb();
@@ -239,7 +188,8 @@ export class DatabaseService {
   }
 
   /**
-   * Get action logs for a session
+   * Get action logs for a session.
+   * @deprecated Use {@link SQLiteActionLogWriter} instead.
    */
   getActionLogs(sessionId: string): UserActionLogEntry[] {
     const db = this.getDb();
@@ -249,7 +199,8 @@ export class DatabaseService {
   }
 
   /**
-   * Record migration
+   * Record migration.
+   * @deprecated Use {@link MigrationService} instead.
    */
   recordMigration(version: string, source?: string): void {
     const db = this.getDb();
@@ -259,22 +210,12 @@ export class DatabaseService {
   }
 
   /**
-   * Check if migration has been run
+   * Check if migration has been run.
+   * @deprecated Use {@link MigrationService} instead.
    */
   hasMigration(version: string): boolean {
     const db = this.getDb();
     const row = db.prepare(SQL_QUERIES.hasMigration).get(version);
     return !!row;
-  }
-
-  /**
-   * Close the database connection
-   */
-  close(): void {
-    if (this.db) {
-      this.db.close();
-      this.db = null;
-      Logger.info('[DatabaseService] Database connection closed');
-    }
   }
 }
