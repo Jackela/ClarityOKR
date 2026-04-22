@@ -22,6 +22,9 @@ export class SqliteSessionRepository implements ISessionRepository {
     this.db.deleteSession(id);
   }
 
+  /**
+   * @deprecated Use getAll() instead. This method loads all sessions and returns the first one.
+   */
   async load(): Promise<{ session: ClarificationSession | null }> {
     const sessions = await this.getAll();
     return {
@@ -29,6 +32,9 @@ export class SqliteSessionRepository implements ISessionRepository {
     };
   }
 
+  /**
+   * @deprecated Use save() instead. This is an alias that delegates to save().
+   */
   async saveSession(session: ClarificationSession | null): Promise<void> {
     if (!session || !session.id) {
       return;
@@ -36,6 +42,9 @@ export class SqliteSessionRepository implements ISessionRepository {
     await this.save(session);
   }
 
+  /**
+   * @deprecated Use getById() instead. This is an alias that delegates to getById().
+   */
   async getSession(sessionId: string): Promise<ClarificationSession | null> {
     return this.getById(sessionId);
   }

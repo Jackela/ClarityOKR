@@ -77,10 +77,7 @@ export class ClarificationDraftHandler implements IClarificationDraftHandler {
     // 获取会话
     const session = await this.sessionManager.getSession(sessionId);
     if (!session) {
-      const availableSessions = Array.from(this.sessionManager.getAllSessions().keys()).join(', ');
-      Logger.error(
-        `[DraftHandler] Session ${sessionId} not found. Available: ${availableSessions || '(none)'}`,
-      );
+      Logger.error(`[DraftHandler] Session ${sessionId} not found`);
       throw new SessionNotFoundError(sessionId);
     }
 

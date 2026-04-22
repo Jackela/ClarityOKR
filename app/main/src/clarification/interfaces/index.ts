@@ -2,7 +2,10 @@
  * 澄清模块接口导出
  */
 
-export type { IClarificationSessionManager } from './session-manager.interface.js';
+export type {
+  IClarificationSessionManager,
+  ISessionManagerTestExtensions,
+} from './session-manager.interface.js';
 export type { IClarificationStateMachine } from './state-machine.interface.js';
 export type { SessionStatus } from '../../config/constants.js';
 export type { IClarificationPromptHandler } from './prompt-handler.interface.js';

@@ -27,10 +27,23 @@ export interface IClarificationSessionManager {
   endSession(sessionId: string): Promise<void>;
 
   /**
-   * 清理所有会话
+   * 保存会话到持久化存储
+   * @param session - 要保存的会话
    */
-  cleanupSessions(): void;
+  saveSession(session: ClarificationSession): Promise<void>;
 
+  /**
+   * 从持久化存储加载会话到内存
+   * @returns 加载的会话或null
+   */
+  loadFromPersistence(): Promise<ClarificationSession | null>;
+}
+
+/**
+ * 会话管理器测试扩展接口
+ * 职责：提供测试和调试所需的会话内省方法
+ */
+export interface ISessionManagerTestExtensions {
   /**
    * 获取所有会话（用于测试模式）
    * @returns 会话映射
@@ -48,10 +61,4 @@ export interface IClarificationSessionManager {
    * @returns 会话数量
    */
   getSessionCount(): number;
-
-  /**
-   * 保存会话到持久化存储
-   * @param session - 要保存的会话
-   */
-  saveSession(session: ClarificationSession): Promise<void>;
 }
