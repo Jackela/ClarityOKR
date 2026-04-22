@@ -34,6 +34,6 @@ export interface IClarificationPromptHandler {
   getNextQuestion(
     sessionId: string,
     currentQuestionId: string,
-    context: { turns: Array<{ questionId: string; optionId: string }> },
+    context: { turns: Array<{ questionId: string; optionId: string; timestamp: string }> },
   ): Promise<ClarificationPrompt>;
 }

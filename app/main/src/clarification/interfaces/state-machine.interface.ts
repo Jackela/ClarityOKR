@@ -27,4 +27,11 @@ export interface IClarificationStateMachine {
    * @returns 是否允许转换
    */
   canTransition(fromState: ClarificationStatus, toState: ClarificationStatus): boolean;
+
+  /**
+   * 获取从指定状态允许的所有转换目标状态
+   * @param fromState - 当前状态
+   * @returns 允许转换的目标状态数组
+   */
+  getAllowedTransitions(fromState: ClarificationStatus): ClarificationStatus[];
 }
