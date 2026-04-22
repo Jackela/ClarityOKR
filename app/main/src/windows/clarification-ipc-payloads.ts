@@ -139,3 +139,19 @@ export function isGenerateDraftPayloadNew(payload: unknown): payload is Generate
     typeof (payload as Record<string, unknown>).sessionId === 'string'
   );
 }
+
+/**
+ * Type guard to check if payload uses the legacy format for LLM_GENERATE_DRAFT.
+ *
+ * @param payload - The payload to check
+ * @returns True if the payload matches the legacy format with context
+ */
+export function isGenerateDraftPayloadOld(payload: unknown): payload is GenerateDraftPayloadOld {
+  return (
+    typeof payload === 'object' &&
+    payload !== null &&
+    'context' in payload &&
+    typeof (payload as Record<string, unknown>).context === 'object' &&
+    (payload as Record<string, unknown>).context !== null
+  );
+}

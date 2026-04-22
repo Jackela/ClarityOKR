@@ -24,6 +24,7 @@ import type { OkrRegenerationService } from '../services/okr-regeneration.servic
 import type { StickyWindowManager } from './sticky-window-manager.js';
 import {
   isGenerateDraftPayloadNew,
+  isGenerateDraftPayloadOld,
   isNextQuestionPayloadNew,
   isNextQuestionPayloadOld,
   type ClarificationContext,
@@ -152,7 +153,7 @@ export class ClarificationIpcRouter {
         if (isGenerateDraftPayloadNew(payload)) {
           // New format: { sessionId }
           sessionId = payload.sessionId;
-        } else if ('context' in payload && payload.context) {
+        } else if (isGenerateDraftPayloadOld(payload)) {
           // Legacy format: { context } - backward compatibility, uses current session
           const currentSessionId = sessionManager.getCurrentSessionId();
           if (!currentSessionId) {
