@@ -42,12 +42,13 @@
  */
 
 import { Injectable } from '@angular/core';
-import type {
-  ClarificationContext,
-  DraftResponse,
-  LastChoice,
-  LlmGatewayObservable,
-  NextQuestionResponse,
+import {
+  BridgeUnavailableError,
+  type ClarificationContext,
+  type DraftResponse,
+  type LastChoice,
+  type LlmGatewayObservable,
+  type NextQuestionResponse,
 } from '@clarityokr/contracts';
 import { defer } from 'rxjs';
 import type { Observable } from 'rxjs';
@@ -80,7 +81,7 @@ import type { ClarifyOkrApi } from '../../shared/window';
  */
 function bridgeOrThrow(): ClarifyOkrApi {
   const candidate = window.clarifyOkr;
-  if (!candidate) throw new Error('ClarifyOKR bridge is unavailable.');
+  if (!candidate) throw new BridgeUnavailableError();
   return candidate;
 }
 

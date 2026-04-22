@@ -1,6 +1,7 @@
 import { Injectable, type OnDestroy, signal, computed } from '@angular/core';
 import type { GenerateOKRRequest, OKRDocument, RegenerationPolicy } from '@clarityokr/contracts';
 import {
+  BridgeUnavailableError,
   generateOKRRequestSchema,
   generateOKRResponseSchema,
   okrDocumentSchema,
@@ -274,7 +275,7 @@ export class OkrStickyService implements OnDestroy {
   private ensureBridge(): ClarifyOkrApi {
     const bridge = this.bridgeOrUndefined();
     if (!bridge) {
-      throw new Error('ClarifyOKR bridge is unavailable.');
+        throw new BridgeUnavailableError();
     }
     return bridge;
   }

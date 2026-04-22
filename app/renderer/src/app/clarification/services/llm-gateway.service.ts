@@ -41,6 +41,7 @@ import { Injectable } from '@angular/core';
 import { defer } from 'rxjs';
 import type { Observable } from 'rxjs';
 import { finalize, tap } from 'rxjs/operators';
+import { BridgeUnavailableError } from '@clarityokr/contracts';
 import type { ClarificationContext, LastChoice } from '@clarityokr/contracts';
 
 import type { TelemetryService } from '../../services/telemetry.service';
@@ -61,7 +62,7 @@ import type { ClarifyOkrApi } from '../../shared/window';
  */
 function bridgeOrThrow(): ClarifyOkrApi {
   const candidate = window.clarifyOkr;
-  if (!candidate) throw new Error('ClarifyOKR bridge is unavailable.');
+  if (!candidate) throw new BridgeUnavailableError();
   return candidate;
 }
 

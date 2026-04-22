@@ -40,6 +40,7 @@
 import { Injectable } from '@angular/core';
 import type { OnDestroy, NgZone } from '@angular/core';
 import {
+  BridgeUnavailableError,
   clarificationOptionSelectionSchema,
   clarificationPromptRequestSchema,
   clarificationPromptResponseSchema,
@@ -294,7 +295,7 @@ export class ClarificationOrchestratorService implements OnDestroy {
     const bridge = this.bridgeOrUndefined();
     if (!bridge) {
       this.logger.error('[renderer] clarifyOkr bridge missing');
-      throw new Error('ClarifyOKR bridge is unavailable.');
+        throw new BridgeUnavailableError();
     }
     this.logger.info('[renderer] clarifyOkr bridge established');
     return bridge;
