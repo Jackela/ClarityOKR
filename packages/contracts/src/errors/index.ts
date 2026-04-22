@@ -39,3 +39,4 @@ export { CircuitBreakerError, RetryExhaustedError } from './llm-errors.js';
 
 // Persistence-related errors
 export { DatabaseError, StateMachineError, SecurityError } from './persistence-errors.js';
+export { BridgeUnavailableError } from './shared-errors.js';
