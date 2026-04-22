@@ -20,10 +20,10 @@
  *
  * @module services/okr-agent.service
  */
-import { nextQuestionResponseSchema, okrDraftResponseSchema } from '@clarityokr/contracts';
+import { nextQuestionResponseSchema, okrDraftResponseSchema, LLMError } from '@clarityokr/contracts';
 
 import { Logger } from '../core/logger.js';
-import { getLlmConfig } from '../env.js';
+import { getConfig } from '../config/app-config.js';
 import { LlmCacheService } from './llm-cache.service.js';
 import { LlmCircuitBreaker } from './llm-circuit-breaker.service.js';
 import type { ClarificationContext, LastChoice, PerformanceMetrics } from './okr-agent.types.js';
@@ -54,10 +54,10 @@ import type { ClarificationContext, LastChoice, PerformanceMetrics } from './okr
  * ```
  */
 export class OkrAgentService {
-  private readonly cfg = getLlmConfig();
-  private readonly baseUrl = (this.cfg.baseUrl || 'https://api.openai.com').replace(/\/$/, '');
-  private readonly model = this.cfg.model || 'gpt-4o-mini';
-  private readonly timeoutMs = 5000;
+  private readonly cfg = getConfig().llm;
+  private readonly baseUrl = this.cfg.baseUrl;
+  private readonly model = this.cfg.model;
+  private readonly timeoutMs = this.cfg.timeoutMs;
 
   private readonly cache: LlmCacheService;
   private readonly circuitBreaker: LlmCircuitBreaker;
@@ -86,7 +86,7 @@ export class OkrAgentService {
 
     // Set fallback for when circuit is open
     this.circuitBreaker.fallback(() => {
-      throw new Error('LLM service temporarily unavailable - circuit breaker is open');
+      throw new LLMError('LLM service temporarily unavailable - circuit breaker is open');
     });
 
     Logger.info('[OkrAgentService] Initialized with cache and circuit breaker');
@@ -120,7 +120,7 @@ export class OkrAgentService {
       body: JSON.stringify(body),
       signal,
     });
-    if (!res.ok) throw new Error(`LLM request failed: ${res.status}`);
+    if (!res.ok) throw new LLMError(`LLM request failed: ${res.status}`);
     const jsonData = await res.json();
     return jsonData;
   }
@@ -187,7 +187,7 @@ export class OkrAgentService {
     const result = await this.circuitBreaker.fire<unknown>(path, body);
 
     if (!validate(result)) {
-      throw new Error('LLM response validation failed');
+      throw new LLMError('LLM response validation failed');
     }
 
     // Store in cache if cache key is provided
