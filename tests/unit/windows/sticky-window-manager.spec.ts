@@ -6,20 +6,26 @@ import type { MockBrowserWindow } from '../__mocks__/electron.js';
 
 describe('StickyWindowManager Unit Tests', () => {
   let manager: StickyWindowManager;
-  let config: { preloadPath: string; rendererDistPath: string; isQuitting?: () => boolean };
+  let config: {
+    preloadPath: string;
+    rendererDistPath: string;
+    okrRegeneration?: { regenerate: jest.Mock };
+    isQuitting?: () => boolean;
+  };
   let mockDocument: OKRDocument;
 
   beforeEach(() => {
     // Clear tracked windows
     createdWindows.length = 0;
     jest.clearAllMocks();
-    
+
     config = {
       preloadPath: '/mock/preload.js',
       rendererDistPath: '/mock/renderer/dist',
+      okrRegeneration: { regenerate: jest.fn() },
       isQuitting: () => false,
     };
-    
+
     mockDocument = {
       id: 'test-okr-123',
       objective: 'Improve team productivity',
@@ -31,8 +37,8 @@ describe('StickyWindowManager Unit Tests', () => {
       regenerationPolicy: { type: 'conservative' },
       manualEdits: [],
     };
-    
-    manager = new StickyWindowManager(config);
+
+    manager = new StickyWindowManager(config as unknown as ConstructorParameters<typeof StickyWindowManager>[0]);
   });
 
   afterEach(() => {

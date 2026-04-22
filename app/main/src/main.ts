@@ -36,6 +36,7 @@ import { OKRRepositorySqlite } from './persistence/okr-repository.js';
 import { SqliteSessionRepository } from './persistence/sqlite-session-repository.js';
 import { MigrationService } from './persistence/migration.service.js';
 import { OkrAgentService } from './services/okr-agent.service.js';
+import { OkrRegenerationService } from './services/okr-regeneration.service.js';
 import { initializeTestMode, type TestMode } from './test-mode.js';
 import { ClarificationController } from './windows/clarification-controller.js';
 import { StickyWindowManager } from './windows/sticky-window-manager.js';
@@ -59,6 +60,11 @@ if (migrationService.needsMigration()) {
 }
 
 const okrAgentService = new OkrAgentService();
+const okrRegenerationService = new OkrRegenerationService(
+  sessionRepository,
+  okrRepository,
+  okrAgentService,
+);
 const stickyWindowManager = new StickyWindowManager({
   preloadPath,
   rendererDistPath,
@@ -66,6 +72,7 @@ const stickyWindowManager = new StickyWindowManager({
   actionLogWriter,
   okrAgentService,
   sessionRepository,
+  okrRegeneration: okrRegenerationService,
   isQuitting: () => isQuitting,
 });
 
@@ -79,6 +86,7 @@ const clarificationController = new ClarificationController(
   actionLogWriter,
   stickyWindowManager,
   okrAgentService,
+  okrRegenerationService,
 );
 
 // Initialize TestMode API for E2E testing

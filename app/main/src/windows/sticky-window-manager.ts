@@ -1,5 +1,4 @@
 import path from 'node:path';
-import { randomUUID } from 'node:crypto';
 
 import type { OKRDocument } from '@clarityokr/contracts';
 import { BrowserWindow, ipcMain } from 'electron';
@@ -12,6 +11,7 @@ import type { OKRRepository } from '../persistence/okr-repository.types.js';
 import type { IActionLogWriter } from '../persistence/action-log-writer.js';
 import type { OkrAgentService } from '../services/okr-agent.service.js';
 import type { ISessionRepository } from '../persistence/interfaces/index.js';
+import type { OkrRegenerationService } from '../services/okr-regeneration.service.js';
 
 /**
  * Configuration for sticky window manager
@@ -23,6 +23,7 @@ export interface StickyWindowConfig {
   actionLogWriter: IActionLogWriter;
   okrAgentService: OkrAgentService;
   sessionRepository: ISessionRepository;
+  okrRegeneration: OkrRegenerationService;
   isQuitting: () => boolean;
 }
 
@@ -194,99 +195,20 @@ export class StickyWindowManager {
   async regenerateOkr(sessionId: string, policy: 'overwrite' | 'append'): Promise<void> {
     Logger.info('[main] regenerating OKR', { sessionId, policy });
 
-    try {
-      // Step 1: Retrieve clarification context from session
-      const session = await this.config.sessionRepository.getById(sessionId);
-      if (!session) {
-        throw new Error(`Session not found: ${sessionId}`);
-      }
+    const result = await this.config.okrRegeneration.regenerate(sessionId, policy);
 
-      // Get current OKR for the session (needed for append policy)
-      const currentOkr = await this.config.okrRepository.getLatestForSession(sessionId);
-
-      // Build clarification context from session steps and selections
-      const context = {
-        turns: session.steps.map((step) => ({
-          questionId: step.id,
-          optionId:
-            session.selectedOptions.find((sel) => step.options.some((opt) => opt.id === sel.optionId))?.optionId ?? '',
-          timestamp: step.context ?? new Date().toISOString(),
-        })),
-      };
-
-      // Step 2: Call LLM to generate new OKR draft
-      const llmResponse = await this.config.okrAgentService.generateDraft(context);
-      const newDraft = llmResponse as {
-        objective: string;
-        keyResults: Array<{
-          id: string;
-          statement: string;
-          successMetric?: string;
-          owner?: string;
-        }>;
-      };
-
-      // Step 3: Generate new OKR document based on policy
-      const timestamp = new Date().toISOString();
-      let newOkr: OKRDocument;
-
-      if (policy === 'overwrite') {
-        // Complete replacement - create new document
-        newOkr = {
-          id: currentOkr?.id ?? randomUUID(),
-          objective: newDraft.objective,
-          keyResults: newDraft.keyResults.map((kr) => ({
-            id: kr.id,
-            statement: kr.statement,
-            successMetric: kr.successMetric,
-            owner: kr.owner,
-          })),
-          sourceSessionId: sessionId,
-          generatedAt: timestamp,
-          regenerationPolicy: policy,
-          manualEdits: currentOkr?.manualEdits ?? [],
-        };
-      } else {
-        // Append policy - merge new KRs into existing OKR
-        const existingKeyResults = currentOkr?.keyResults ?? [];
-        const mergedKeyResults = [
-          ...existingKeyResults,
-          ...newDraft.keyResults.map((kr) => ({
-            id: kr.id,
-            statement: kr.statement,
-            successMetric: kr.successMetric,
-            owner: kr.owner,
-          })),
-        ];
-
-        newOkr = {
-          id: currentOkr?.id ?? randomUUID(),
-          objective: newDraft.objective,
-          keyResults: mergedKeyResults,
-          sourceSessionId: sessionId,
-          generatedAt: timestamp,
-          regenerationPolicy: policy,
-          manualEdits: currentOkr?.manualEdits ?? [],
-        };
-      }
-
-      // Step 4: Save to OKRRepository
-      await this.config.okrRepository.save(newOkr);
-
-      // Step 5: Update last document reference
-      this.lastDocument = newOkr;
-
-      // Step 6: Broadcast update via IPC (OKR_GENERATE channel)
-      this.sendDocument(newOkr);
-
-      // Step 7: Log action via ActionLogWriter
-      await this.config.actionLogWriter.logRegenerate(sessionId, newOkr.id, policy);
-
-      Logger.info('[main] OKR regenerated successfully', { okrId: newOkr.id, policy });
-    } catch (error) {
-      Logger.error('[main] Failed to regenerate OKR', { sessionId, policy, error });
-      throw error;
+    if (!result.ok) {
+      Logger.error('[main] Failed to regenerate OKR', { sessionId, policy, error: result.error });
+      throw result.error;
     }
+
+    const newOkr = result.value;
+
+    this.lastDocument = newOkr;
+    this.sendDocument(newOkr);
+    await this.config.actionLogWriter.logRegenerate(sessionId, newOkr.id, policy);
+
+    Logger.info('[main] OKR regenerated successfully', { okrId: newOkr.id, policy });
   }
 
   private sendDocument(document: OKRDocument): void {

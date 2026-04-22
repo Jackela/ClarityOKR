@@ -40,6 +40,7 @@ import type { OkrRepository } from '../persistence/okr-repository.js';
 import type { ISessionRepository } from '../persistence/interfaces/index.js';
 import { ActionLogService } from '../services/action-log.service.js';
 import type { OkrAgentService } from '../services/okr-agent.service.js';
+import type { OkrRegenerationService } from '../services/okr-regeneration.service.js';
 
 import { ClarificationControllerApis } from './clarification-controller-apis.js';
 import { ClarificationIpcRouter } from './clarification-ipc-router.js';
@@ -98,6 +99,8 @@ export class ClarificationController {
   private readonly okrRepository: OkrRepository;
   /** Manager for sticky window lifecycle */
   private readonly stickyWindowManager: StickyWindowManager;
+  /** Service for OKR regeneration */
+  private readonly okrRegenerationService: OkrRegenerationService;
 
   /**
    * Creates a new ClarificationController instance.
@@ -110,6 +113,7 @@ export class ClarificationController {
    * @param actionLogWriter - Writer for action log persistence
    * @param stickyWindowManager - Manager for sticky window lifecycle
    * @param okrAgentService - Service for LLM API communication
+   * @param okrRegenerationService - Service for OKR regeneration
    * @param elect - Electron instance (default: imported electron) - used for test injection
    */
   constructor(
@@ -118,11 +122,13 @@ export class ClarificationController {
     actionLogWriter: IActionLogWriter,
     stickyWindowManager: StickyWindowManager,
     okrAgentService: OkrAgentService,
+    okrRegenerationService: OkrRegenerationService,
     elect: typeof electron = electron,
   ) {
     this.elect = elect;
     this.okrRepository = okrRepository;
     this.stickyWindowManager = stickyWindowManager;
+    this.okrRegenerationService = okrRegenerationService;
 
     // Initialize specialized handlers via dependency injection
     this.stateMachine = new ClarificationStateMachine();
@@ -157,6 +163,7 @@ export class ClarificationController {
       persistenceHandler: this.persistenceHandler,
       okrRepository: this.okrRepository,
       stickyWindowManager: this.stickyWindowManager,
+      okrRegenerationService: this.okrRegenerationService,
       actionLogService: this.actionLogService,
       ipcMain: this.elect.ipcMain,
       getAllWebContents: () => this.elect.webContents.getAllWebContents(),
