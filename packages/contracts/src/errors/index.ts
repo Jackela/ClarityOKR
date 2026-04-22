@@ -20,17 +20,22 @@ export {
   getRecoverySuggestion,
 } from './base.js';
 
+export {
+  DomainError,
+  ValidationError,
+  PersistenceError,
+  LLMError,
+  SessionNotFoundError,
+  EncryptionError,
+  SecureStorageError,
+  ClarificationError,
+} from './domain-error.js';
+
 // IPC-related errors
-export { IpcError, ValidationError, WindowError } from './ipc-errors.js';
+export { IpcError, WindowError } from './ipc-errors.js';
 
 // LLM-related errors
-export { LlmError, CircuitBreakerError, RetryExhaustedError } from './llm-errors.js';
+export { CircuitBreakerError, RetryExhaustedError } from './llm-errors.js';
 
 // Persistence-related errors
-export {
-  DatabaseError,
-  ClarificationError,
-  StateMachineError,
-  SecurityError,
-  PersistenceError,
-} from './persistence-errors.js';
+export { DatabaseError, StateMachineError, SecurityError } from './persistence-errors.js';
