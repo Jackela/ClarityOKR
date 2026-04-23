@@ -3,18 +3,18 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { SessionRepository } from '../../../../app/main/src/persistence/session-repository.js';
 import { OkrRepository } from '../../../../app/main/src/persistence/okr-repository.js';
-import { DatabaseService } from '../../../../app/main/src/persistence/database.service.js';
+import { ConnectionManager } from '../../../../app/main/src/persistence/connection-manager.js';
 import { encryptionService, generateEncryptionKey } from '../../../../app/main/src/services/encryption.service.js';
 import type { OKRDocument } from '../../../../packages/contracts/src/clarify-to-okr.contract';
 
 describe('Integration: Session persistence across restart', () => {
   let testDir: string;
-  let db: DatabaseService;
+  let db: ConnectionManager;
   let key: Buffer;
 
   beforeEach(() => {
     testDir = mkdtempSync(join(tmpdir(), 'clarityokr-persist-test-'));
-    db = new DatabaseService({ dataDir: testDir, filename: 'test.db' });
+    db = new ConnectionManager({ dbPath: join(testDir, 'test.db') });
     db.initialize();
     key = generateEncryptionKey();
   });

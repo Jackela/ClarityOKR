@@ -2,17 +2,17 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { OkrRepository } from '../../../../app/main/src/persistence/okr-repository.js';
-import { DatabaseService } from '../../../../app/main/src/persistence/database.service.js';
+import { ConnectionManager } from '../../../../app/main/src/persistence/connection-manager.js';
 import type { OKRDocument } from '../../../../packages/contracts/src/clarify-to-okr.contract';
 
 describe('OkrRepository Integration', () => {
   let testDir: string;
-  let db: DatabaseService;
+  let db: ConnectionManager;
   let repo: OkrRepository;
 
   beforeEach(() => {
     testDir = mkdtempSync(join(tmpdir(), 'clarityokr-okr-test-'));
-    db = new DatabaseService({ dataDir: testDir, filename: 'test.db' });
+    db = new ConnectionManager({ dbPath: join(testDir, 'test.db') });
     db.initialize();
     repo = new OkrRepository(db);
   });

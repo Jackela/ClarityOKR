@@ -3,18 +3,18 @@ import { mkdtempSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { DatabaseService } from '@clarityokr/main/persistence/database.service.js';
+import { ConnectionManager } from '@clarityokr/main/persistence/connection-manager.js';
 import { MigrationService } from '@clarityokr/main/persistence/migration.service.js';
 import { atomicPersistence } from '@clarityokr/main/persistence/atomic-persistence.service.js';
 
 describe('MigrationService', () => {
   let tempDir: string;
-  let db: DatabaseService;
+  let db: ConnectionManager;
   let migrationService: MigrationService;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), 'clarityokr-test-'));
-    db = new DatabaseService({ dataDir: tempDir, filename: 'test.db' });
+    db = new ConnectionManager({ dbPath: join(tempDir, 'test.db') });
     db.initialize();
     migrationService = new MigrationService(db, tempDir);
   });
@@ -43,7 +43,11 @@ describe('MigrationService', () => {
     it('should return false when migration already completed', async () => {
       // Arrange
       await atomicPersistence.atomicWrite(join(tempDir, 'clarification-session.json'), { id: 'test' });
-      db.recordMigration('json-to-sqlite-v1', 'test');
+      db.getDb().prepare('INSERT INTO migrations (version, migrated_at, source) VALUES (?, ?, ?)').run(
+        'json-to-sqlite-v1',
+        new Date().toISOString(),
+        'test',
+      );
 
       // Act
       const result = migrationService.needsMigration();
@@ -75,11 +79,18 @@ describe('MigrationService', () => {
       // Assert
       expect(result.success).toBe(true);
       expect(result.sessionsMigrated).toBe(1);
-      expect(db.hasMigration('json-to-sqlite-v1')).toBe(true);
+      const hasMigration = db.getDb()
+        .prepare('SELECT 1 FROM migrations WHERE version = ?')
+        .get('json-to-sqlite-v1') !== undefined;
+      expect(hasMigration).toBe(true);
 
-      const migratedSession = db.getSession('legacy-session');
-      expect(migratedSession).not.toBeNull();
-      expect(migratedSession?.initialIntent).toBe('Legacy intent');
+      const migratedSession = db.getDb()
+        .prepare('SELECT * FROM sessions WHERE id = ?')
+        .get('legacy-session') as
+        | { id: string; initial_intent: string; status: string; created_at: string; updated_at: string; steps: string; selected_options: string; confidence: number; pending_question_id: string | null }
+        | undefined;
+      expect(migratedSession).not.toBeUndefined();
+      expect(migratedSession?.initial_intent).toBe('Legacy intent');
     });
 
     it('should transform selectedOptionIds to selectedOptions', async () => {
@@ -104,9 +115,14 @@ describe('MigrationService', () => {
       await migrationService.migrate();
 
       // Assert
-      const migrated = db.getSession('session-with-selections');
-      expect(migrated?.selectedOptions).toHaveLength(2);
-      expect(migrated?.selectedOptions[0]).toEqual({
+      const migrated = db.getDb()
+        .prepare('SELECT * FROM sessions WHERE id = ?')
+        .get('session-with-selections') as
+        | { id: string; initial_intent: string; status: string; created_at: string; updated_at: string; steps: string; selected_options: string; confidence: number; pending_question_id: string | null }
+        | undefined;
+      const selectedOptions = migrated ? JSON.parse(migrated.selected_options) : [];
+      expect(selectedOptions).toHaveLength(2);
+      expect(selectedOptions[0]).toEqual({
         promptId: 'prompt-1',
         optionId: 'opt-1',
         selectedAt: expect.any(String),
