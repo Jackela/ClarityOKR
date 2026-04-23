@@ -10,7 +10,7 @@ import { ClarificationOrchestratorService } from './clarification/services/clari
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { ClarificationStateMachine } from './clarification/services/clarification-state-machine.service';
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
-import { IpcLlmGateway } from './clarification/services/ipc-llm-gateway.service';
+
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { OkrStickyService } from './okr-sticky/services/okr-sticky.service';
 import { OkrStickyNoteComponent } from './okr-sticky/components/okr-sticky-note.component';
@@ -142,7 +142,6 @@ export class AppComponent implements OnDestroy {
     readonly state: ClarificationStateMachine,
     private readonly orchestrator: ClarificationOrchestratorService,
     private readonly stickyGateway: OkrStickyService,
-    private readonly llmGateway: IpcLlmGateway,
     private readonly logger: Logger,
     private readonly renderer: Renderer2,
   ) {}
