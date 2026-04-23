@@ -104,7 +104,7 @@ export class ClarificationPromptHandler implements IClarificationPromptHandler {
       id: q.id,
       sequence: session.steps.length,
       question: q.text,
-      context: 'LLM generated',
+      context: `${intent.slice(0, 50)}${intent.length > 50 ? '...' : ''}`,
       options: (q.options ?? []).map((o: { id: string; label: string }) => ({
         id: o.id,
         label: o.label,
@@ -191,7 +191,9 @@ export class ClarificationPromptHandler implements IClarificationPromptHandler {
       id: q.id,
       sequence: session.steps.length,
       question: q.text,
-      context: 'LLM generated',
+      context: session.initialIntent
+        ? `${session.initialIntent.slice(0, 50)}${session.initialIntent.length > 50 ? '...' : ''}`
+        : 'LLM generated',
       options: (q.options ?? []).map((o: { id: string; label: string }) => ({
         id: o.id,
         label: o.label,

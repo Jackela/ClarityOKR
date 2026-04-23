@@ -119,6 +119,7 @@ import { ThemeToggleComponent } from './shared/components/theme-toggle.component
 export class AppComponent implements OnDestroy {
   private readonly destroy$ = new Subject<void>();
   private llmBusy = false;
+  private currentSessionId = '';
 
   readonly intentControl = new FormControl('', {
     validators: [Validators.required, Validators.minLength(3)],
@@ -157,8 +158,8 @@ export class AppComponent implements OnDestroy {
     this.state.reset();
     this.state.start(intent);
 
-    const sessionId = crypto.randomUUID();
-    this.orchestrator.requestPrompt(sessionId, intent).subscribe({
+    this.currentSessionId = crypto.randomUUID();
+    this.orchestrator.requestPrompt(this.currentSessionId, intent).subscribe({
       error: (error: unknown) => {
         const message = error instanceof Error ? error.message : String(error);
         this.state.setError({ message, recoverable: true });
@@ -188,14 +189,14 @@ export class AppComponent implements OnDestroy {
     this.llmBusy = true;
     this.state.setLoading(true);
 
-    this.orchestrator.recordSelection(crypto.randomUUID(), prompt.id, optionId).subscribe({
+    this.orchestrator.recordSelection(this.currentSessionId, prompt.id, optionId).subscribe({
       error: () => {
         this.llmBusy = false;
         this.state.setLoading(false);
       },
     });
 
-    this.llmGateway.getNextQuestion({ turns: [] }, { questionId: prompt.id, optionId }).subscribe({
+    this.orchestrator.requestNextQuestion(prompt.id, optionId).subscribe({
       next: () => {
         this.llmBusy = false;
         this.state.setLoading(false);
@@ -211,10 +212,9 @@ export class AppComponent implements OnDestroy {
 
   async onGenerate(): Promise<void> {
     const intent = this.intentControl.value;
-    const sessionId = crypto.randomUUID();
 
     try {
-      await this.stickyGateway.generate(sessionId, intent);
+      await this.stickyGateway.generate(this.currentSessionId, intent);
     } catch (error) {
       this.logger.error('[renderer] generate failed', error);
     }
@@ -223,9 +223,9 @@ export class AppComponent implements OnDestroy {
   onRetry(): void {
     this.state.clearError();
     const intent = this.intentControl.value;
-    const sessionId = crypto.randomUUID();
+    this.currentSessionId = crypto.randomUUID();
 
-    this.orchestrator.requestPrompt(sessionId, intent).subscribe({
+    this.orchestrator.requestPrompt(this.currentSessionId, intent).subscribe({
       error: (error: unknown) => {
         const message = error instanceof Error ? error.message : String(error);
         this.state.setError({ message, recoverable: true });

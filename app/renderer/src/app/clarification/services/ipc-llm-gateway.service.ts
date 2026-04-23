@@ -52,7 +52,7 @@ import {
 } from '@clarityokr/contracts';
 import { defer } from 'rxjs';
 import type { Observable } from 'rxjs';
-import { finalize, tap } from 'rxjs/operators';
+import { tap } from 'rxjs/operators';
 
 import type { TelemetryService } from '../../services/telemetry.service';
 import { IPC_CHANNELS } from '../../shared/ipc-channel.tokens';
@@ -191,7 +191,6 @@ export class IpcLlmGateway implements LlmGatewayObservable<Observable<unknown>> 
         }) as Promise<NextQuestionResponse>,
     ).pipe(
       tap(() => this.telemetry.recordCall('next-question', 'success', performance.now() - started)),
-      finalize(() => void 0),
     );
   }
 
@@ -252,7 +251,6 @@ export class IpcLlmGateway implements LlmGatewayObservable<Observable<unknown>> 
             performance.now() - started,
           ),
       }),
-      finalize(() => void 0),
     );
   }
 }

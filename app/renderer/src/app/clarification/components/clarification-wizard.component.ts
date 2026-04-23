@@ -40,7 +40,7 @@ import { ClarificationStateMachine } from '../services/clarification-state-machi
       @if (state.history().length > 0 || state.currentPrompt()) {
         <clarityokr-progress-indicator
           [current]="state.history().length + (state.currentPrompt() ? 1 : 0)"
-          [total]="estimatedTotalSteps"
+          [total]="progressTotal"
           [label]="'clarification.wizard.question' | translate"
         ></clarityokr-progress-indicator>
       }
@@ -219,8 +219,14 @@ import { ClarificationStateMachine } from '../services/clarification-state-machi
   `,
 })
 export class ClarificationWizardComponent {
-  /** Estimated total steps for progress calculation */
   readonly estimatedTotalSteps = 5;
+
+  get progressTotal(): number {
+    const historyLength = this.state.history().length;
+    const hasCurrent = this.state.currentPrompt() ? 1 : 0;
+    const current = historyLength + hasCurrent;
+    return Math.max(current, this.estimatedTotalSteps);
+  }
 
   constructor(public readonly state: ClarificationStateMachine) {}
 

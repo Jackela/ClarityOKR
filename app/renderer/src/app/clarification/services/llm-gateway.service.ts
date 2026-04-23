@@ -40,7 +40,7 @@
 import { Injectable } from '@angular/core';
 import { defer } from 'rxjs';
 import type { Observable } from 'rxjs';
-import { finalize, tap } from 'rxjs/operators';
+import { tap } from 'rxjs/operators';
 import { BridgeUnavailableError } from '@clarityokr/contracts';
 import type { ClarificationContext, LastChoice } from '@clarityokr/contracts';
 
@@ -136,7 +136,6 @@ export class LlmGatewayService {
     const started = performance.now();
     return defer(() => bridge.invoke(IPC_CHANNELS.LLM_NEXT_QUESTION, { context, lastChoice })).pipe(
       tap(() => this.telemetry.recordCall('next-question', 'success', performance.now() - started)),
-      finalize(() => void 0),
     );
   }
 
@@ -190,7 +189,6 @@ export class LlmGatewayService {
             performance.now() - started,
           ),
       }),
-      finalize(() => void 0),
     );
   }
 }

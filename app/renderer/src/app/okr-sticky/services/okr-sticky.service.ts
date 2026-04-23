@@ -183,7 +183,7 @@ export class OkrStickyService implements OnDestroy {
         ...current.keyResults,
         {
           id,
-          statement: '新关键结果',
+          statement: 'New Key Result',
           metricLabel: null,
           ownerLabel: null,
         },
