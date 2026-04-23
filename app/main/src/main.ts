@@ -37,7 +37,7 @@ import { SqliteSessionRepository } from './persistence/sqlite-session-repository
 import { MigrationService } from './persistence/migration.service.js';
 import { OkrAgentService } from './services/okr-agent.service.js';
 import { OkrRegenerationService } from './services/okr-regeneration.service.js';
-import { initializeTestMode, type TestMode } from './test-mode.js';
+
 import { ClarificationController } from './windows/clarification-controller.js';
 import { StickyWindowManager } from './windows/sticky-window-manager.js';
 
@@ -91,9 +91,9 @@ const clarificationController = new ClarificationController(
   okrRegenerationService,
 );
 
-// Initialize TestMode API for E2E testing
-let testMode: TestMode | null = null;
+let testMode: unknown = null;
 if (process.env.NODE_ENV === 'test' || process.env.CI || process.env.E2E_TEST) {
+  const { initializeTestMode } = await import('./test-mode.js');
   testMode = initializeTestMode({
     controller: clarificationController,
     sessionRepo: sessionRepository,
@@ -224,5 +224,4 @@ ipcMain.on(
   },
 );
 
-// Export for test access
 export { testMode };
