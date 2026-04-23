@@ -3,15 +3,10 @@
  *
  * This module provides configuration for LLM services.
  * Delegates to the centralized config service for reading values.
- *
- * TODO: Consolidate secure storage integration with centralized config service.
- * The legacy secure storage code below is kept for backward compatibility
- * and should be migrated in a future wave.
  */
 
 import { getConfig } from './config/app-config.js';
 
-// TODO: Legacy secure storage imports - kept for backward compatibility
 import {
   getActiveLlmConfig,
   storeLlmConfig,
@@ -40,7 +35,6 @@ export interface LlmConfig {
  * @throws Error if no configuration is available
  */
 export function getLlmConfig(): LlmConfig {
-  // TODO: Try secure storage first for backward compatibility
   try {
     const secureConfig = getActiveLlmConfig();
     return {
@@ -63,8 +57,6 @@ export function getLlmConfig(): LlmConfig {
  * Sets LLM configuration in secure storage.
  * @param config - The LLM configuration to store
  * @throws SecureStorageError if storage fails
- *
- * TODO: Migrate to centralized config service in future wave.
  */
 export function setLlmConfig(config: SecureLlmConfig): void {
   storeLlmConfig(config);
@@ -85,8 +77,6 @@ export function hasLlmConfiguration(): boolean {
 
 export { SecureStorageError };
 
-// TODO: Re-export legacy secure storage functions for backward compatibility.
-// These should be imported directly from secure-storage.service.js in new code.
 export {
   getActiveLlmConfig,
   storeLlmConfig,

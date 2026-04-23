@@ -16,7 +16,7 @@
  * - @clarityokr/contracts: Zod schemas for response validation
  * - LlmCacheService: In-memory response caching
  * - LlmCircuitBreaker: Fault tolerance wrapper
- * - env.ts: LLM configuration (API key, base URL, model)
+ * - app-config.ts: LLM configuration (API key, base URL, model)
  *
  * @module services/okr-agent.service
  */

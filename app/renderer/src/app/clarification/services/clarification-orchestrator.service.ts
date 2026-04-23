@@ -45,6 +45,7 @@ import {
   clarificationPromptRequestSchema,
   clarificationPromptResponseSchema,
 } from '@clarityokr/contracts';
+import type { ClarificationContext, LastChoice } from '@clarityokr/contracts';
 import { from, of, throwError } from 'rxjs';
 import type { Observable } from 'rxjs';
 import { catchError, map, tap } from 'rxjs/operators';
@@ -216,29 +217,45 @@ export class ClarificationOrchestratorService implements OnDestroy {
     return of(void 0);
   }
 
-  /**
-   * Requests the next clarification question.
-   *
-   * Encapsulates loading state management and error handling to prevent
-   * components from directly manipulating the store. Currently a placeholder
-   * implementation that should be refactored to use the LlmGateway abstraction.
-   *
-   * @param _questionId - ID of the current question (reserved parameter)
-   * @param _optionId - ID of the option selected by the user (reserved parameter)
-   * @returns Observable that completes and returns null (placeholder implementation)
-   *
-   * @example
-   * ```typescript
-   * orchestrator.requestNextQuestion('q-1', 'opt-a').subscribe();
-   * ```
-   */
-  requestNextQuestion(_questionId: string, _optionId: string): Observable<unknown> {
+  requestNextQuestion(_questionId: string, _optionId: string): Observable<void> {
+    this.logger.debug('[ORCHESTRATOR] requestNextQuestion called', { _questionId, _optionId });
+    const bridge = this.ensureBridge();
+
+    const snapshot = this.state.getStateSnapshot();
+    const turns = Object.entries(snapshot.selections).map(([questionId, optionId]) => ({
+      questionId,
+      optionId,
+      timestamp: new Date().toISOString(),
+    }));
+    const context: ClarificationContext = { turns };
+
+    const lastChoice: LastChoice = {
+      questionId: _questionId,
+      optionId: _optionId,
+    };
+
     this.state.setLoading(true);
 
-    // Note: This is a temporary implementation that uses the old llmGateway
-    // In the future, this should be refactored to use the new LlmGateway abstraction
-    // For now, we keep the direct gateway call but manage store state properly
-    return of(null);
+    return from(bridge.invoke(IPC_CHANNELS.LLM_NEXT_QUESTION, { context, lastChoice })).pipe(
+      map((response) => clarificationPromptResponseSchema.safeParse(response)),
+      tap((result) => {
+        if (!result.success) {
+          throw result.error;
+        }
+        this.logger.debug('[ORCHESTRATOR] Setting prompt:', result.data.prompt.id);
+        this.state.setPrompt(result.data.prompt);
+      }),
+      map(() => void 0),
+      catchError((error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        const safeError = error instanceof Error ? error : new Error(String(error));
+        this.logger.debug('[ORCHESTRATOR] Caught error in requestNextQuestion:', message, {
+          error: safeError,
+        });
+        this.state.setError({ message, recoverable: true });
+        return throwError(() => (error instanceof Error ? error : new Error(message)));
+      }),
+    );
   }
 
   /**
