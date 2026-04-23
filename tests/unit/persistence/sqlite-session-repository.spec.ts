@@ -3,18 +3,18 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { DatabaseService } from '@clarityokr/main/persistence/database.service';
+import { ConnectionManager } from '@clarityokr/main/persistence/connection-manager';
 import { SqliteSessionRepository } from '@clarityokr/main/persistence/sqlite-session-repository';
 import type { ClarificationSession } from '@clarityokr/contracts';
 
 describe('SqliteSessionRepository', () => {
-  let db: DatabaseService;
+  let db: ConnectionManager;
   let repo: SqliteSessionRepository;
   let tempDir: string;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), 'clarityokr-test-'));
-    db = new DatabaseService({ dataDir: tempDir, filename: 'test.db' });
+    db = new ConnectionManager({ dbPath: join(tempDir, 'test.db') });
     db.initialize();
     repo = new SqliteSessionRepository(db);
   });

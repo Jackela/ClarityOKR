@@ -3,19 +3,19 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { DatabaseService } from '@clarityokr/main/persistence/database.service';
+import { ConnectionManager } from '@clarityokr/main/persistence/connection-manager';
 import { OKRRepositorySqlite } from '@clarityokr/main/persistence/okr-repository';
 import type { OKRDocument, ManualEditRecord } from '@clarityokr/contracts';
 import { PersistenceError } from '@clarityokr/contracts';
 
 describe('OKRRepositorySqlite', () => {
-  let db: DatabaseService;
+  let db: ConnectionManager;
   let repo: OKRRepositorySqlite;
   let tempDir: string;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), 'clarityokr-okr-test-'));
-    db = new DatabaseService({ dataDir: tempDir, filename: 'test.db' });
+    db = new ConnectionManager({ dbPath: join(tempDir, 'test.db') });
     db.initialize();
     repo = new OKRRepositorySqlite(db);
   });

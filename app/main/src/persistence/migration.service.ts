@@ -4,7 +4,7 @@ import { join, basename } from 'node:path';
 import type { ClarificationSession, ClarificationSelection, OKRDocument, UserActionLogEntry } from '@clarityokr/contracts';
 
 import { Logger } from '../core/logger.js';
-import type { DatabaseService } from './database.service.js';
+import type { ConnectionManager } from './connection-manager.js';
 import { readJson } from './utils.js';
 
 export interface MultiSessionState {
@@ -23,7 +23,7 @@ export interface MigrationResult {
 }
 
 export class MigrationService {
-  private readonly db: DatabaseService;
+  private readonly connectionManager: ConnectionManager;
   private readonly dataDir: string;
   private readonly jsonFiles: {
     multiSession: string;
@@ -32,8 +32,8 @@ export class MigrationService {
     actionLog: string;
   };
 
-  constructor(db: DatabaseService, dataDir?: string) {
-    this.db = db;
+  constructor(connectionManager: ConnectionManager, dataDir?: string) {
+    this.connectionManager = connectionManager;
     this.dataDir = dataDir ?? join(process.cwd(), 'data');
     this.jsonFiles = {
       multiSession: join(this.dataDir, 'multi-sessions.json'),
@@ -52,12 +52,28 @@ export class MigrationService {
 
     // Check if migration already done
     try {
-      this.db.initialize();
-      const alreadyMigrated = this.db.hasMigration('json-to-sqlite-v1');
+      this.connectionManager.initialize();
+      const alreadyMigrated = this.hasMigration('json-to-sqlite-v1');
       return hasJsonFiles && !alreadyMigrated;
     } catch {
       return hasJsonFiles;
     }
+  }
+
+  private hasMigration(version: string): boolean {
+    const db = this.connectionManager.getDb();
+    const row = db.prepare('SELECT 1 FROM migrations WHERE version = ?').get(version);
+    return !!row;
+  }
+
+  private recordMigration(version: string, source?: string): void {
+    const db = this.connectionManager.getDb();
+    db.prepare('INSERT INTO migrations (version, migrated_at, source) VALUES (?, ?, ?)').run(
+      version,
+      new Date().toISOString(),
+      source ?? null,
+    );
+    Logger.info('[MigrationService] Migration recorded:', version);
   }
 
   /**
@@ -75,10 +91,10 @@ export class MigrationService {
     Logger.info('[MigrationService] Starting migration from JSON to SQLite');
 
     try {
-      this.db.initialize();
+      this.connectionManager.initialize();
 
       // Check if already migrated
-      if (this.db.hasMigration('json-to-sqlite-v1')) {
+      if (this.hasMigration('json-to-sqlite-v1')) {
         Logger.info('[MigrationService] Migration already completed');
         return result;
       }
@@ -97,7 +113,7 @@ export class MigrationService {
       }
 
       // Record migration
-      this.db.recordMigration('json-to-sqlite-v1', 'json-files');
+      this.recordMigration('json-to-sqlite-v1', 'json-files');
 
       Logger.info('[MigrationService] Migration completed', {
         sessions: result.sessionsMigrated,
@@ -172,7 +188,7 @@ export class MigrationService {
     for (const rawSession of Object.values(data.sessions)) {
       try {
         const session = this.transformSession(rawSession as unknown as Record<string, unknown>);
-        this.db.saveSession(session);
+        this.saveSession(session);
         result.sessionsMigrated++;
       } catch (error) {
         const errorMsg = `Failed to migrate session ${(rawSession as unknown as Record<string, unknown>).id}: ${error instanceof Error ? error.message : String(error)}`;
@@ -184,7 +200,7 @@ export class MigrationService {
     // Migrate OKRs
     for (const okr of Object.values(data.okrs)) {
       try {
-        this.db.saveOKR(okr);
+        this.saveOKR(okr);
         result.okrsMigrated++;
       } catch (error) {
         const errorMsg = `Failed to migrate OKR ${okr.id}: ${error instanceof Error ? error.message : String(error)}`;
@@ -197,7 +213,7 @@ export class MigrationService {
     for (const entries of Object.values(data.actions)) {
       for (const entry of entries) {
         try {
-          this.db.saveActionLog(entry);
+          this.saveActionLog(entry);
           result.actionsMigrated++;
         } catch (error) {
           const errorMsg = `Failed to migrate action ${entry.id}: ${error instanceof Error ? error.message : String(error)}`;
@@ -221,7 +237,7 @@ export class MigrationService {
     if (rawSession) {
       try {
         const session = this.transformSession(rawSession as unknown as Record<string, unknown>);
-        this.db.saveSession(session);
+        this.saveSession(session);
         result.sessionsMigrated++;
         Logger.info('[MigrationService] Migrated legacy session:', session.id);
       } catch (error) {
@@ -233,7 +249,7 @@ export class MigrationService {
 
     if (okr) {
       try {
-        this.db.saveOKR(okr);
+        this.saveOKR(okr);
         result.okrsMigrated++;
         Logger.info('[MigrationService] Migrated legacy OKR:', okr.id);
       } catch (error) {
@@ -246,7 +262,7 @@ export class MigrationService {
     if (actions) {
       for (const entry of actions) {
         try {
-          this.db.saveActionLog(entry);
+          this.saveActionLog(entry);
           result.actionsMigrated++;
         } catch (error) {
           const errorMsg = `Failed to migrate legacy action ${entry.id}: ${error instanceof Error ? error.message : String(error)}`;
@@ -262,12 +278,12 @@ export class MigrationService {
    */
   getMigrationStatus(): { migrated: boolean; version?: string; migratedAt?: string } {
     try {
-      this.db.initialize();
-      const db = this.db.getDb();
+      this.connectionManager.initialize();
+      const db = this.connectionManager.getDb();
       const row = db
         .prepare(
           `
-        SELECT version, migrated_at FROM migrations 
+        SELECT version, migrated_at FROM migrations
         ORDER BY migrated_at DESC LIMIT 1
       `,
         )
@@ -281,5 +297,63 @@ export class MigrationService {
     } catch {
       return { migrated: false };
     }
+  }
+
+  private saveSession(session: ClarificationSession): void {
+    const db = this.connectionManager.getDb();
+    const stmt = db.prepare(`
+      INSERT OR REPLACE INTO sessions
+      (id, initial_intent, status, created_at, updated_at, steps, selected_options, confidence, pending_question_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    stmt.run(
+      session.id,
+      session.initialIntent,
+      session.status,
+      session.createdAt,
+      session.updatedAt,
+      JSON.stringify(session.steps),
+      JSON.stringify(session.selectedOptions),
+      session.confidence,
+      session.pendingQuestionId ?? null,
+    );
+  }
+
+  private saveOKR(okr: OKRDocument): void {
+    const db = this.connectionManager.getDb();
+    const stmt = db.prepare(`
+      INSERT OR REPLACE INTO okr_documents
+      (id, objective, key_results, source_session_id, generated_at, last_edited_at, regeneration_policy, manual_edits)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    stmt.run(
+      okr.id,
+      okr.objective,
+      JSON.stringify(okr.keyResults),
+      okr.sourceSessionId,
+      okr.generatedAt,
+      okr.lastEditedAt ?? null,
+      okr.regenerationPolicy,
+      JSON.stringify(okr.manualEdits),
+    );
+  }
+
+  private saveActionLog(entry: UserActionLogEntry): void {
+    const db = this.connectionManager.getDb();
+    const stmt = db.prepare(`
+      INSERT INTO action_logs (id, action_type, session_id, okr_id, payload_summary, occurred_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+
+    stmt.run(
+      entry.id,
+      entry.actionType,
+      entry.sessionId,
+      entry.okrId ?? null,
+      entry.payloadSummary,
+      entry.occurredAt,
+    );
   }
 }

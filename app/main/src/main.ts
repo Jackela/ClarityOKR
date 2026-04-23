@@ -30,7 +30,7 @@ import type {
 } from 'electron';
 
 import { Logger } from './core/logger.js';
-import { DatabaseService } from './persistence/database.service.js';
+import { ConnectionManager } from './persistence/connection-manager.js';
 import { SQLiteActionLogWriter } from './persistence/action-log-writer.js';
 import { OKRRepositorySqlite } from './persistence/okr-repository.js';
 import { SqliteSessionRepository } from './persistence/sqlite-session-repository.js';
@@ -47,14 +47,16 @@ const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const preloadPath = path.resolve(currentDir, 'bootstrap', 'preload.js');
 const rendererDistPath = path.resolve(currentDir, '../../renderer/dist');
 
-const databaseService = new DatabaseService();
-databaseService.initialize();
+const connectionManager = new ConnectionManager({
+  dbPath: path.resolve(currentDir, '../../data/clarityokr.db'),
+});
+connectionManager.initialize();
 
-const sessionRepository = new SqliteSessionRepository(databaseService);
-const okrRepository = new OKRRepositorySqlite(databaseService);
-const actionLogWriter = new SQLiteActionLogWriter(databaseService);
+const sessionRepository = new SqliteSessionRepository(connectionManager);
+const okrRepository = new OKRRepositorySqlite(connectionManager);
+const actionLogWriter = new SQLiteActionLogWriter(connectionManager);
 
-const migrationService = new MigrationService(databaseService);
+const migrationService = new MigrationService(connectionManager);
 if (migrationService.needsMigration()) {
   void migrationService.migrate();
 }

@@ -1,25 +1,51 @@
 import type { ClarificationSession } from '@clarityokr/contracts';
 
-import type { DatabaseService } from './database.service.js';
+import { SQL_QUERIES, parseSessionRow } from './database.queries.js';
+import type { ConnectionManager } from './connection-manager.js';
 import type { ISessionRepository } from './interfaces/session-repository.interface.js';
 
 export class SqliteSessionRepository implements ISessionRepository {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(private readonly connectionManager: ConnectionManager) {}
 
   async save(session: ClarificationSession): Promise<void> {
-    this.db.saveSession(session);
+    const db = this.connectionManager.getDb();
+    const stmt = db.prepare(SQL_QUERIES.saveSession);
+
+    stmt.run(
+      session.id,
+      session.initialIntent,
+      session.status,
+      session.createdAt,
+      session.updatedAt,
+      JSON.stringify(session.steps),
+      JSON.stringify(session.selectedOptions),
+      session.confidence,
+      session.pendingQuestionId ?? null,
+    );
   }
 
   async getById(id: string): Promise<ClarificationSession | null> {
-    return this.db.getSession(id);
+    const db = this.connectionManager.getDb();
+    const row = db.prepare(SQL_QUERIES.getSession).get(id) as
+      | { id: string; initial_intent: string; status: string; created_at: string; updated_at: string; steps: string; selected_options: string; confidence: number; pending_question_id: string | null }
+      | undefined;
+
+    if (!row) return null;
+
+    return parseSessionRow(row);
   }
 
   async getAll(): Promise<ClarificationSession[]> {
-    return this.db.getAllSessions();
+    const db = this.connectionManager.getDb();
+    const rows = db.prepare(SQL_QUERIES.getAllSessions).all() as
+      Array<{ id: string; initial_intent: string; status: string; created_at: string; updated_at: string; steps: string; selected_options: string; confidence: number; pending_question_id: string | null }>;
+
+    return rows.map(parseSessionRow);
   }
 
   async delete(id: string): Promise<void> {
-    this.db.deleteSession(id);
+    const db = this.connectionManager.getDb();
+    db.prepare(SQL_QUERIES.deleteSession).run(id);
   }
 
   /**

@@ -5,16 +5,16 @@ import { Logger } from '../core/logger.js';
 
 import type { DatabaseRow, OKRRepository } from './okr-repository.types.js';
 import { detectChanges, OKR_QUERIES, rowToDocument } from './okr-repository.utils.js';
-import type { DatabaseService } from './database.service.js';
+import type { ConnectionManager } from './connection-manager.js';
 
 /**
  * SQLite-based implementation of OKRRepository
  * Stores OKR documents with JSON-serialized complex fields
  */
 export class OKRRepositorySqlite implements OKRRepository {
-  private readonly db: DatabaseService;
+  private readonly db: ConnectionManager;
 
-  constructor(db: DatabaseService) {
+  constructor(db: ConnectionManager) {
     this.db = db;
   }
 
