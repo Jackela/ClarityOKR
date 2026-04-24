@@ -65,7 +65,7 @@ export class StickyWindowManager {
       backgroundColor: '#ffffff',
       title: 'ClarityOKR Sticky',
       alwaysOnTop: true,
-      type: 'toolbar',
+      type: 'panel',
       titleBarStyle: 'hidden',
       frame: false,
       webPreferences: {
