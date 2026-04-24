@@ -4,6 +4,27 @@
   "private": true,
   "type": "module",
   "description": "ClarityOKR desktop assistant workspace",
+  "license": "MIT",
+  "author": "Jackela",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Jackela/ClarityOKR.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Jackela/ClarityOKR/issues"
+  },
+  "homepage": "https://github.com/Jackela/ClarityOKR#readme",
+  "keywords": [
+    "electron",
+    "angular",
+    "typescript",
+    "okr",
+    "ai-assistant",
+    "desktop-app",
+    "productivity",
+    "llm",
+    "sqlite"
+  ],
   "engines": {
     "node": ">=20.0.0"
   },
