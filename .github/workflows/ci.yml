@@ -19,6 +19,7 @@ env:
   NODE_VERSION: '20'
   PNPM_VERSION: '9'
   CI: 'true'
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 # 全局超时配置
 defaults:
@@ -166,8 +167,8 @@ jobs:
         with:
           name: test-results
           path: |
-            coverage/
-            junit.xml
+            tests/unit/coverage/
+            tests/unit/junit.xml
           retention-days: 7
           if-no-files-found: ignore
 
@@ -542,9 +543,9 @@ jobs:
         run: |
           pnpm run test:unit --coverage --coverageReporters=text-summary --coverageReporters=lcov --coverageReporters=html
 
-          # 提取覆盖率
-          if [ -f coverage/coverage-summary.json ]; then
-            COVERAGE=$(cat coverage/coverage-summary.json | jq -r '.total.lines.pct // 0')
+          COVERAGE_FILE="tests/unit/coverage/coverage-summary.json"
+          if [ -f "$COVERAGE_FILE" ]; then
+            COVERAGE=$(cat "$COVERAGE_FILE" | jq -r '.total.lines.pct // 0')
             echo "Overall coverage: ${COVERAGE}%"
             echo "coverage=$COVERAGE" >> $GITHUB_ENV
             
@@ -554,7 +555,7 @@ jobs:
             fi
             echo "✅ Coverage meets 80% threshold"
           else
-            echo "⚠️ Coverage summary not found"
+            echo "⚠️ Coverage summary not found at $COVERAGE_FILE"
           fi
 
       - name: Upload coverage report
@@ -562,9 +563,9 @@ jobs:
         if: ${{ !cancelled() }}
         with:
           name: coverage-report
-          path: |
-            coverage/
+          path: tests/unit/coverage/
           retention-days: 30
+          if-no-files-found: error
 
   # 汇总状态检查
   ci-status:

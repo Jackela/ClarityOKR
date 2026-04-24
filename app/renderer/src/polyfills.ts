@@ -47,8 +47,6 @@ function verifyZoneJs(): void {
     return;
   }
 
-  const zone = (window as Window).Zone;
-
   // Verify zone.js has patched standard APIs
   const requiredPatches = [
     'setTimeout',
