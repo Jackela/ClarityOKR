@@ -69,7 +69,7 @@ describe('StickyWindowManager Unit Tests', () => {
       expect(windowOptions.backgroundColor).toBe('#ffffff');
       expect(windowOptions.title).toBe('ClarityOKR Sticky');
       expect(windowOptions.alwaysOnTop).toBe(true);
-      expect(windowOptions.type).toBe('toolbar');
+      expect(windowOptions.type).toBe('panel');
       expect(windowOptions.titleBarStyle).toBe('hidden');
       expect(windowOptions.frame).toBe(false);
       
