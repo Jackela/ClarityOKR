@@ -59,7 +59,8 @@
     "test:audit": "node --test scripts/security-audit.test.mjs",
     "rebuild:electron": "electron-rebuild --module-dir app/main --which-module better-sqlite3",
     "coverage:check": "node scripts/check-coverage.mjs",
-    "test:coverage": "node scripts/run-coverage.mjs"
+    "test:coverage": "node scripts/run-coverage.mjs",
+    "rebuild:node": "pnpm --filter @clarityokr/main rebuild better-sqlite3"
   },
   "devDependencies": {
     "@ampproject/remapping": "^2.3.0",

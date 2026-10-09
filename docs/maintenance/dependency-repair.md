@@ -33,7 +33,7 @@ pnpm run test:coverage
 pnpm run rebuild:electron
 pnpm run test:e2e:ci
 # Restore the host ABI before running Node tests again:
-pnpm rebuild better-sqlite3
+pnpm run rebuild:node
 ```
 
 The security command writes `audit-report.json` and a JSON summary. All high/critical advisories, inconsistent counts, invalid reports, and command/network failures block the gate. No advisory/title exceptions remain. CI always uses the frozen lock.
@@ -61,13 +61,13 @@ The moderate [sprintf-js advisory](https://github.com/advisories/GHSA-hp3w-g68c-
 
 The previous unit coverage reported `Unknown% (0/0)` because source globs pointed outside its scan roots. CI also printed a coverage-success message without checking a percentage. The repair measures the same complete main/renderer source set in unit, component, and integration tests, merges their actual Istanbul hits, then enforces all four original **80%** thresholds. Missing or empty reports and zero denominators fail. Only tests, declarations, and Jest setup files are excluded; product source remains in scope.
 
-Latest local assertions: **496 unit, 158 component, 63 integration** pass. Merged statements **37.99%**, branches **31.02%**, functions **36.61%**, lines **39.53%** fail the 80% gate. New tests exercise actual renderer IPC/state behavior, session-preserving recovery, canonical regeneration, persistence protections, database directory creation, and nonce safety. Existing mock-based unit assertions are not substituted for coverage of their product implementations.
+Latest local assertions: **496 unit, 158 component, 63 integration** pass. Merged statements **38.20%**, branches **32.26%**, functions **36.74%**, lines **39.61%** fail the 80% gate. New tests exercise actual renderer IPC/state behavior, session-preserving recovery, canonical regeneration, persistence protections, database directory creation, and nonce safety. Existing mock-based unit assertions are not substituted for coverage of their product implementations.
 
 Existing builds do not emit JavaScript source maps (main only emits declaration maps, renderer disables source maps). Raw Electron/Chromium bundle coverage cannot be reported as TypeScript source coverage. Adding actual E2E coverage requires a dedicated test build, main/renderer collection, verified source-map conversion, and cross-job aggregation; that infrastructure is not currently implemented. Remaining uncovered product behavior needs further real tests before the gate passes.
 
 ## Check status
 
-Lint and typecheck pass. Build, three audit failure-path tests, and all **23 real Electron E2E tests** pass on Node 24 / Electron 44.7.0, with zero retries (3.2 minutes). Real Electron functional validation and fresh GitHub checks are recorded against the final candidate in the machine-readable repair record; remote success must not be inferred from a local build. Required CI remains blocked by the unpatched braces advisory and the measured coverage deficit. No merge or release is authorized by these results.
+Lint and typecheck pass. Build, three audit failure-path tests, and all **23 real Electron E2E tests** pass on Node 24 / Electron 44.7.0, with zero retries (3.2 minutes). The initial pushed repair head also builds successfully on GitHub Linux, macOS, and Windows; strict audit fails, required CI Status fails, and dependent E2E/coverage jobs are skipped. Real Electron functional validation and fresh GitHub checks are recorded against the final candidate in the machine-readable repair record; remote success must not be inferred from a local build. Required CI remains blocked by the unpatched braces advisory and the measured coverage deficit. No merge or release is authorized by these results.
 
 ## Primary sources
 
@@ -76,6 +76,7 @@ Lint and typecheck pass. Build, three audit failure-path tests, and all **23 rea
 - [Angular CSP nonce guidance](https://v20.angular.dev/best-practices/security)
 - [Electron protocol handling](https://www.electronjs.org/docs/latest/api/protocol)
 - [Electron net.fetch forwarding](https://www.electronjs.org/docs/latest/api/net/)
+- [node-gyp supported configuration](https://github.com/nodejs/node-gyp)
 - [Electron 44.7.0 release](https://github.com/electron/electron/releases/tag/v44.7.0)
 
 The local evidence JSON contains source URLs, candidate SHA, actual check conclusions, and remaining blockers. Authentication material and real session contents are not evidence artifacts.

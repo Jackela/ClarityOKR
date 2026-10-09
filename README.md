@@ -229,7 +229,7 @@ openspec apply --change <name>
 | E2E Tests     | `pnpm run test:e2e`         | All passing                                              |
 | Build         | `pnpm run build`            | Clean build                                              |
 
-Before desktop E2E, run `pnpm run rebuild:electron` to compile SQLite for Electron. Node tests require the host Node ABI; run `pnpm rebuild better-sqlite3` before returning to Node tests. The sandboxed preload is bundled as `preload.cjs`. Angular component styles receive a fresh document nonce; script policy and sandbox remain strict.
+Before desktop E2E, run `pnpm run rebuild:electron` to compile SQLite for Electron. Node tests require the host Node ABI; run `pnpm run rebuild:node` before returning to Node tests. The sandboxed preload is bundled as `preload.cjs`. Angular component styles receive a fresh document nonce; script policy and sandbox remain strict.
 
 ### Environment Configuration
 
