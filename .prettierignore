@@ -5,3 +5,7 @@ playwright-report/
 
 # Generated artifacts
 *.log
+
+# Preserve upstream source for a surgical, independently reviewable security patch.
+vendor/braces/**/*.js
+**/dist-coverage/**

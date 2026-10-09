@@ -72,5 +72,11 @@ export default defineConfig({
     },
   ],
 
-  reporter: [['list'], ...(process.env.CI ? ([['github']] as const) : [])],
+  reporter: [
+    ['list'],
+    ...(process.env.CI ? ([['github']] as const) : []),
+    ...(process.env.E2E_COVERAGE === 'true'
+      ? ([['json', { outputFile: 'coverage/playwright-results.json' }]] as const)
+      : []),
+  ],
 });

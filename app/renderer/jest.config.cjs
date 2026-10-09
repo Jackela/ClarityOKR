@@ -20,6 +20,10 @@ module.exports = {
   moduleNameMapper: {
     '^@renderer/(.*)$': '<rootDir>/app/renderer/src/$1',
     '^@shared/(.*)$': '<rootDir>/app/renderer/src/app/shared/$1',
+    '^@core/(.*)$': '<rootDir>/app/renderer/src/app/core/$1',
+    '^@services/(.*)$': '<rootDir>/app/renderer/src/app/services/$1',
+    '^@env/(.*)\\.js$': '<rootDir>/app/renderer/src/environments/$1',
+    '^@env/(.*)$': '<rootDir>/app/renderer/src/environments/$1',
     '^@clarityokr/contracts$': '<rootDir>/packages/contracts/src/index.ts',
     '^@clarityokr/main/(.*)$': '<rootDir>/app/main/src/$1',
     '^(\\.{1,2}/.*)\\.js$': '$1',

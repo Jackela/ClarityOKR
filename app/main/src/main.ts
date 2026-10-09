@@ -46,7 +46,10 @@ const { app, BrowserWindow, ipcMain } = electron;
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const preloadPath = path.resolve(currentDir, 'bootstrap', 'preload.cjs');
-const rendererDistPath = path.resolve(currentDir, '../../renderer/dist');
+const rendererDistPath =
+  process.env.E2E_TEST === '1' && process.env.E2E_RENDERER_DIR
+    ? path.resolve(process.env.E2E_RENDERER_DIR)
+    : path.resolve(currentDir, '../../renderer/dist');
 
 const connectionManager = new ConnectionManager({
   dbPath:

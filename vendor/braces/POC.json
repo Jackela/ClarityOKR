@@ -1,0 +1,54 @@
+{
+  "node": "v24.19.0",
+  "upstreamCommit": "74b2db2938fad48a2ea54a9c8bf27a37a62c350d",
+  "rows": [
+    {
+      "implementation": "upstream 3.0.3",
+      "method": "compile",
+      "depth": 4500,
+      "characters": 9003,
+      "status": 0,
+      "signal": null,
+      "result": {
+        "name": "RangeError",
+        "message": "Maximum call stack size exceeded"
+      }
+    },
+    {
+      "implementation": "upstream 3.0.3",
+      "method": "expand",
+      "depth": 4500,
+      "characters": 9003,
+      "status": 0,
+      "signal": null,
+      "result": {
+        "name": "RangeError",
+        "message": "Maximum call stack size exceeded"
+      }
+    },
+    {
+      "implementation": "controlled replacement",
+      "method": "compile",
+      "depth": 4500,
+      "characters": 9003,
+      "status": 0,
+      "signal": null,
+      "result": {
+        "name": "RangeError",
+        "message": "Brace nesting exceeds 32 levels"
+      }
+    },
+    {
+      "implementation": "controlled replacement",
+      "method": "expand",
+      "depth": 4500,
+      "characters": 9003,
+      "status": 0,
+      "signal": null,
+      "result": {
+        "name": "RangeError",
+        "message": "Brace nesting exceeds 32 levels"
+      }
+    }
+  ]
+}

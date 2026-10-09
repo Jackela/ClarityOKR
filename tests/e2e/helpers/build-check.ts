@@ -7,8 +7,14 @@ import { _electron } from '@playwright/test';
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT = path.resolve(currentDir, '../../../');
-export const MAIN_DIST = path.join(ROOT, 'app/main/dist/main.js');
-export const RENDERER_DIST = path.join(ROOT, 'app/renderer/dist/index.html');
+const output = process.env.E2E_COVERAGE === 'true' ? 'dist-coverage' : 'dist';
+export const MAIN_DIST = path.join(ROOT, `app/main/${output}/main.js`);
+export const RENDERER_DIST = path.join(
+  ROOT,
+  `app/renderer/${output}`,
+  ...(process.env.E2E_COVERAGE === 'true' ? ['browser'] : []),
+  'index.html',
+);
 export const SESSION_PERSIST_PATH = path.join(ROOT, 'data', 'clarification-session.json');
 export const OKR_PERSIST_PATH = path.join(ROOT, 'data', 'okr-document.json');
 
@@ -20,6 +26,9 @@ export function ensureBuildArtifacts(): void {
   }
 
   const needsBuild = !existsSync(MAIN_DIST) || !existsSync(RENDERER_DIST);
+  if (needsBuild && process.env.E2E_COVERAGE === 'true') {
+    throw new Error('Run build:coverage before instrumented Electron tests');
+  }
   if (needsBuild) {
     // eslint-disable-next-line no-console
     console.log('[build-check] Building project...');
@@ -40,6 +49,9 @@ export function getElectronEnv(mockServerUrl: string): { [key: string]: string }
   return {
     ...process.env,
     E2E_TEST: '1',
+    ...(process.env.E2E_COVERAGE === 'true'
+      ? { E2E_RENDERER_DIR: path.dirname(RENDERER_DIST) }
+      : {}),
     LLM_API_KEY: 'test',
     LLM_BASE_URL: mockServerUrl,
     LLM_MODEL: 'test',
@@ -52,7 +64,7 @@ export async function launchElectronApp(
   ensureBuildArtifacts();
 
   const electronApp = await _electron.launch({
-    args: ['.', ...extraElectronArgs()],
+    args: [MAIN_DIST, ...extraElectronArgs()],
     cwd: ROOT,
     env: getElectronEnv(mockServerUrl),
   });

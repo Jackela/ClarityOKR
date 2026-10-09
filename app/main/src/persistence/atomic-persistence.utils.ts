@@ -1,9 +1,15 @@
 import { createHash } from 'node:crypto';
 import { basename, dirname, extname, join } from 'node:path';
-import { promises as fs } from 'node:fs';
+import { promises as fs, constants } from 'node:fs';
 
 import { Logger } from '../core/logger.js';
 import type { PersistedPayload, RecoveryResult } from './atomic-persistence.types.js';
+
+/** Match one document's backup files literally, including punctuation in its name. */
+export function backupFilePattern(baseName: string, suffix: string): RegExp {
+  const escaped = `${baseName}${suffix}`.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`^${escaped}\\.[^.]+\\.json$`);
+}
 
 /**
  * Calculate SHA256 checksum
@@ -18,11 +24,23 @@ export function calculateChecksum(data: string): string {
 export async function createBackup(filePath: string, backupSuffix: string): Promise<string> {
   const baseName = basename(filePath, extname(filePath));
   const dir = dirname(filePath);
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const backupPath = join(dir, `${baseName}${backupSuffix}.${timestamp}.json`);
-
-  await fs.copyFile(filePath, backupPath);
-  return backupPath;
+  // Exclusive copies also protect separate service instances within the same millisecond.
+  for (let time = Date.now(); ; time++) {
+    const timestamp = new Date(time).toISOString().replace(/[:.]/g, '-');
+    const backupPath = join(dir, `${baseName}${backupSuffix}.${timestamp}.json`);
+    try {
+      await fs.copyFile(filePath, backupPath, constants.COPYFILE_EXCL);
+      return backupPath;
+    } catch (error) {
+      if (!(
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        error.code === 'EEXIST'
+      ))
+        throw error;
+    }
+  }
 }
 
 /**
@@ -34,7 +52,7 @@ export async function rotateBackups(
   backupSuffix: string,
   retentionCount: number,
 ): Promise<void> {
-  const pattern = new RegExp(`^${baseName}\\${backupSuffix}\\.[^\\.]+\\.json$`);
+  const pattern = backupFilePattern(baseName, backupSuffix);
 
   try {
     const entries = await fs.readdir(dir);
@@ -42,8 +60,8 @@ export async function rotateBackups(
       .filter((name: string) => pattern.test(name))
       .map((name: string) => join(dir, name))
       .sort((a, b) => {
-        const timeA = a.match(/\\.(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z)\.json$/)?.[1] || '';
-        const timeB = b.match(/\\.(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z)\.json$/)?.[1] || '';
+        const timeA = a.match(/\.(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z)\.json$/)?.[1] || '';
+        const timeB = b.match(/\.(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z)\.json$/)?.[1] || '';
         return timeA.localeCompare(timeB);
       });
 
@@ -83,7 +101,7 @@ export async function verifyFile(filePath: string, expectedChecksum: string): Pr
     const jsonData = JSON.stringify(parsed.data, null, 2);
     const actualChecksum = calculateChecksum(jsonData);
 
-    return actualChecksum === expectedChecksum;
+    return actualChecksum === expectedChecksum && parsed.checksum === expectedChecksum;
   } catch (error) {
     Logger.debug(
       '[AtomicPersistenceService] File verification failed',
@@ -133,7 +151,7 @@ export async function recoverFromBackup<T>(
 ): Promise<RecoveryResult<T>> {
   const baseName = basename(filePath, extname(filePath));
   const dir = dirname(filePath);
-  const pattern = new RegExp(`^${baseName}\\${backupSuffix}\\.[^\\.]+\\.json$`);
+  const pattern = backupFilePattern(baseName, backupSuffix);
 
   try {
     const entries = await fs.readdir(dir);
@@ -141,8 +159,8 @@ export async function recoverFromBackup<T>(
       .filter((name: string) => pattern.test(name))
       .map((name: string) => join(dir, name))
       .sort((a, b) => {
-        const timeA = a.match(/\\.(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z)\.json$/)?.[1] || '';
-        const timeB = b.match(/\\.(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z)\.json$/)?.[1] || '';
+        const timeA = a.match(/\.(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z)\.json$/)?.[1] || '';
+        const timeB = b.match(/\.(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z)\.json$/)?.[1] || '';
         return timeB.localeCompare(timeA);
       });
 

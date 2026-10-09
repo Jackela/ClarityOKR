@@ -139,10 +139,10 @@ export class ErrorBoundaryComponent {
   /**
    * Recover from error and retry
    */
-  recover(): void {
+  readonly recover = (): void => {
     this.hasError = false;
     this.error = null;
     this.recoverySuggestion = null;
     this.onRecover?.();
-  }
+  };
 }

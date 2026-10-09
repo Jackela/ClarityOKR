@@ -7,7 +7,15 @@ import { test as base, expect } from '@playwright/test';
 export { expect };
 import type { ElectronApplication, Page } from '@playwright/test';
 import { _electron as electron } from '@playwright/test';
-import { extraElectronArgs, getElectronEnv, ROOT } from '../helpers/build-check';
+import {
+  extraElectronArgs,
+  getElectronEnv,
+  ROOT,
+  MAIN_DIST,
+  RENDERER_DIST,
+} from '../helpers/build-check';
+import { collectSourceCoverage } from '../helpers/source-coverage';
+import { pathToFileURL } from 'node:url';
 import { cleanupPersistenceFiles as indexCleanupPersistenceFiles } from './index';
 
 // Re-export cleanupPersistenceFiles for convenience
@@ -243,7 +251,7 @@ export const workerTest = base.extend<TestFixtures, WorkerFixtures>({
 
         // 启动 Electron，使用当前 worker 的 Mock Server URL
         workerElectronApp = await electron.launch({
-          args: ['.', ...extraElectronArgs()],
+          args: [MAIN_DIST, ...extraElectronArgs()],
           cwd: ROOT,
           env: {
             ...getElectronEnv(mockServer.url),
@@ -269,8 +277,13 @@ export const workerTest = base.extend<TestFixtures, WorkerFixtures>({
         console.log(`[worker ${workerId}] TestMode API available: ${testModeAvailable}`);
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      await use(workerElectronApp!);
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        await use(workerElectronApp!);
+      } finally {
+        // Teardown runs in the worker that owns these resources, including on a failed test.
+        await cleanupWorker();
+      }
     },
     { scope: 'worker' as const },
   ],
@@ -310,11 +323,12 @@ export const workerTest = base.extend<TestFixtures, WorkerFixtures>({
 
       // 导航到首页（确保干净状态）
       await window.goto('about:blank');
-      await window.goto(`file://${ROOT}/app/renderer/dist/index.html`);
+      await window.goto(pathToFileURL(RENDERER_DIST).href);
 
       try {
         await use(window);
       } finally {
+        await collectSourceCoverage(electronApp, testInfo.outputPath('source-coverage.json'));
         // 测试结束后：如果测试失败，记录诊断信息
         if (testInfo.status !== 'passed') {
           await logDiagnostics(electronApp, testInfo, testId);

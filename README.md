@@ -220,14 +220,14 @@ openspec apply --change <name>
 
 ### Code Quality Gates
 
-| Gate          | Command                     | Threshold                                                |
-| ------------- | --------------------------- | -------------------------------------------------------- |
-| Lint          | `pnpm run lint`             | Zero errors                                              |
-| Type Check    | `pnpm run typecheck`        | Zero errors                                              |
-| Test coverage | `pnpm run test:coverage`    | 80% on merged unit/component/integration source coverage |
-| Integration   | `pnpm run test:integration` | All passing                                              |
-| E2E Tests     | `pnpm run test:e2e`         | All passing                                              |
-| Build         | `pnpm run build`            | Clean build                                              |
+| Gate          | Command                     | Threshold                                                                                               |
+| ------------- | --------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Lint          | `pnpm run lint`             | Zero errors                                                                                             |
+| Type Check    | `pnpm run typecheck`        | Zero errors                                                                                             |
+| Test coverage | `pnpm run test:coverage`    | 80% on complete product source coverage, merged across Jest layers and instrumented real Electron flows |
+| Integration   | `pnpm run test:integration` | All passing                                                                                             |
+| E2E Tests     | `pnpm run test:e2e`         | All passing                                                                                             |
+| Build         | `pnpm run build`            | Clean build                                                                                             |
 
 Before desktop E2E, run `pnpm run rebuild:electron` to compile SQLite for Electron. Node tests require the host Node ABI; run `pnpm run rebuild:node` before returning to Node tests. The sandboxed preload is bundled as `preload.cjs`. Angular component styles receive a fresh document nonce; script policy and sandbox remain strict.
 

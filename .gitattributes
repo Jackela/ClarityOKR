@@ -1,2 +1,6 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Preserve the verified MIT upstream source and unified-diff context syntax.
+vendor/braces/lib/stringify.js whitespace=-blank-at-eof
+vendor/braces/security.patch whitespace=-blank-at-eol

@@ -5,7 +5,12 @@ import reporting from 'istanbul-lib-report';
 import reports from 'istanbul-reports';
 
 const merged = coverage.createCoverageMap({});
-for (const directory of ['tests/unit', 'app/renderer', 'tests/integration']) {
+for (const directory of [
+  'tests/unit',
+  'app/renderer',
+  'tests/integration',
+  ...(process.env.E2E_COVERAGE === 'true' ? ['tests/e2e'] : []),
+]) {
   const input = JSON.parse(
     readFileSync(resolve(directory, 'coverage/coverage-final.json'), 'utf8'),
   );

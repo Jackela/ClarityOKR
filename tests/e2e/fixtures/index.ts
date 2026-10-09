@@ -3,6 +3,7 @@ import { test as base, _electron as electron } from '@playwright/test';
 import { existsSync, promises as fs } from 'node:fs';
 import {
   ROOT,
+  MAIN_DIST,
   SESSION_PERSIST_PATH,
   OKR_PERSIST_PATH,
   extraElectronArgs,
@@ -18,6 +19,7 @@ import {
 } from '../helpers/ci-diagnostics';
 import { getElectronLaunchOptions } from '../helpers/electron-ci';
 import { SimpleMockServer } from '../helpers/simple-mock-server';
+import { collectSourceCoverage } from '../helpers/source-coverage';
 import { startXvfb, stopXvfb, isXvfbAvailable } from '../helpers/xvfb-config';
 
 /**
@@ -147,7 +149,7 @@ export const test = base.extend<E2EFixtures>({
       const ciConfig = getElectronLaunchOptions();
 
       // 使用 CI 优化的 Electron 参数
-      const args = ['.', ...getElectronArgs(), ...extraElectronArgs(), ...ciConfig.args];
+      const args = [MAIN_DIST, ...getElectronArgs(), ...extraElectronArgs(), ...ciConfig.args];
 
       // 启动 Electron
       const app = await electron.launch({
@@ -166,9 +168,15 @@ export const test = base.extend<E2EFixtures>({
       childProcess.stderr?.on('data', stderrHandler);
       childProcess.stdout?.on('data', stdoutHandler);
 
+      let coverageError: unknown;
       try {
         await use(app);
       } finally {
+        try {
+          await collectSourceCoverage(app, testInfo.outputPath('source-coverage.json'));
+        } catch (error) {
+          coverageError = error;
+        }
         // 记录最终状态（仅在 CI 且测试失败时）
         if (process.env.CI && testInfo.status !== 'passed') {
           await logElectronState(app);
@@ -204,6 +212,7 @@ export const test = base.extend<E2EFixtures>({
           await stopXvfb();
         }
       }
+      if (coverageError) throw coverageError;
     },
     { scope: 'test' },
   ],

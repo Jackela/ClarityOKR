@@ -68,6 +68,7 @@ jobs:
         timeout-minutes: 5
         run: |
           pnpm run test:audit
+          pnpm run test:dependency-security
           pnpm run audit:security
 
       - name: Build contracts
@@ -88,21 +89,12 @@ jobs:
           NODE_OPTIONS: '--max-old-space-size=4096'
         run: pnpm run build:ci
 
-      - name: Unit, component and integration coverage (minimum 80%)
+      - name: Collect unit, component and integration coverage for final combined gate
         id: coverage
         timeout-minutes: 30
         run: |
-          pnpm run test:coverage
+          pnpm run coverage:collect
           echo "path=coverage" >> "$GITHUB_OUTPUT"
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        if: ${{ !cancelled() }}
-        with:
-          files: ./coverage/lcov.info
-          fail_ci_if_error: false
-          verbose: true
-          token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -146,6 +138,7 @@ jobs:
       ELECTRON_ENABLE_LOGGING: 'true'
       CI_DEBUG_SCREENSHOTS: 'true'
       DEBUG: 'pw:api'
+      E2E_COVERAGE: 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -180,6 +173,7 @@ jobs:
         timeout-minutes: 5
         run: |
           echo "🔒 Running npm audit security scan..."
+          pnpm run test:dependency-security
           pnpm run audit:security
 
       - name: Rebuild native modules for Electron
@@ -190,6 +184,15 @@ jobs:
         with:
           name: build-artifacts
           path: .
+
+      - name: Download coverage from the same workflow head
+        uses: actions/download-artifact@v4
+        with:
+          name: test-results
+          path: .
+
+      - name: Build instrumented main, sandboxed preload and Angular renderer
+        run: pnpm run build:coverage
 
       - name: Cache Playwright browsers
         uses: actions/cache@v4
@@ -281,6 +284,29 @@ jobs:
             tests/e2e/test-results/**/video.webm
           if-no-files-found: ignore
           retention-days: 7
+
+      - name: Map real Electron coverage to source and enforce 80% across every metric
+        run: |
+          pnpm run coverage:remap:e2e
+          pnpm run coverage:check
+
+      - name: Upload combined source coverage
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: combined-source-coverage
+          path: |
+            coverage/
+            tests/e2e/coverage/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage/lcov.info
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Upload Playwright HTML report
         if: ${{ !cancelled() }}
@@ -465,7 +491,7 @@ jobs:
 
   coverage-report:
     name: Coverage Report
-    needs: build-and-test
+    needs: e2e
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -477,18 +503,18 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - name: Install pnpm
-        run: |
-          npm install -g pnpm@${{ env.PNPM_VERSION }}
-          pnpm --version
+      - name: Download combined source coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: combined-source-coverage
+          path: .
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile --prefer-offline
-
-      - name: Generate and check combined coverage
-        run: |
-          pnpm run build:contracts
-          pnpm run test:coverage
+      - name: Verify reported coverage retains the 80% contract
+        run: >-
+          node --input-type=module -e "import fs from 'node:fs';
+          const {total}=JSON.parse(fs.readFileSync('coverage/coverage-summary.json'));
+          for(const metric of ['lines','statements','functions','branches'])
+          if(!total[metric]?.total || total[metric].pct<80) throw new Error('Coverage below 80%: '+metric);"
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
@@ -502,7 +528,7 @@ jobs:
   # 汇总状态检查
   ci-status:
     name: CI Status
-    needs: [build-and-test, e2e]
+    needs: [build-and-test, e2e, coverage-report]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -516,7 +542,7 @@ jobs:
             exit 1
           fi
 
-          if [ "${{ needs.e2e.result }}" != "success" ] && [ "${{ needs.e2e.result }}" != "skipped" ]; then
+          if [ "${{ needs.e2e.result }}" != "success" ] || [ "${{ needs.coverage-report.result }}" != "success" ]; then
             echo "❌ E2E tests failed"
             exit 1
           fi

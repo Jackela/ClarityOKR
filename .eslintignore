@@ -5,3 +5,7 @@ playwright-report/
 app/renderer/dist/
 .eslintcache
 html-report/
+
+# Vendored MIT upstream syntax is preserved; security/semantics have dedicated executable tests.
+vendor/braces/**/*.js
+**/dist-coverage/**

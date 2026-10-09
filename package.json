@@ -57,13 +57,20 @@
     "format:write": "prettier --write .",
     "audit:security": "node scripts/security-audit.mjs",
     "test:audit": "node --test scripts/security-audit.test.mjs",
-    "rebuild:electron": "electron-rebuild --module-dir app/main --which-module better-sqlite3",
+    "rebuild:electron": "electron-rebuild --force --module-dir app/main --which-module better-sqlite3",
     "coverage:check": "node scripts/check-coverage.mjs",
     "test:coverage": "node scripts/run-coverage.mjs",
-    "rebuild:node": "pnpm --filter @clarityokr/main rebuild better-sqlite3"
+    "rebuild:node": "pnpm --filter @clarityokr/main rebuild better-sqlite3",
+    "test:dependency-security": "node --test scripts/dependency-security.test.mjs",
+    "build:coverage": "node scripts/build-source-coverage.mjs",
+    "coverage:remap:e2e": "node scripts/remap-source-coverage.mjs",
+    "coverage:collect": "node scripts/run-coverage.mjs --collect-only"
   },
   "devDependencies": {
     "@ampproject/remapping": "^2.3.0",
+    "@angular/build": "20.3.39",
+    "@clarityokr/braces": "file:vendor/braces",
+    "@electron/rebuild": "4.2.1",
     "@playwright/test": "^1.44.0",
     "@types/node": "^24.9.0",
     "@typescript-eslint/eslint-plugin": "^8.71.1",
@@ -73,16 +80,16 @@
     "eslint-import-resolver-typescript": "^4.4.4",
     "eslint-plugin-import": "^2.29.1",
     "get-port": "^7.0.0",
+    "istanbul-lib-coverage": "3.2.2",
+    "istanbul-lib-instrument": "6.0.3",
+    "istanbul-lib-report": "3.0.1",
+    "istanbul-lib-source-maps": "4.0.1",
+    "istanbul-reports": "3.2.0",
     "jest-environment-jsdom": "^29.7.0",
     "jest-preset-angular": "^14.6.2",
     "prettier": "^3.2.5",
     "rimraf": "^6.0.0",
-    "typescript": "~5.9.3",
-    "@angular/build": "20.3.39",
-    "@electron/rebuild": "4.2.1",
-    "istanbul-lib-coverage": "3.2.2",
-    "istanbul-lib-report": "3.0.1",
-    "istanbul-reports": "3.2.0"
+    "typescript": "~5.9.3"
   },
   "pnpm": {
     "overrides": {
@@ -92,7 +99,8 @@
       "handlebars": "4.7.10",
       "piscina@4": "4.9.4",
       "js-yaml@3": "3.15.2",
-      "js-yaml@4": "4.3.2"
+      "js-yaml@4": "4.3.2",
+      "braces": "file:vendor/braces"
     }
   },
   "main": "app/main/dist/main.js"

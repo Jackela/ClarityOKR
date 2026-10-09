@@ -3,7 +3,6 @@ import { dirname, join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 
-
 import { Logger } from '../core/logger.js';
 import { BackupStrategy } from './backup-strategy.js';
 import { PersistenceMetricsCollector, type PersistenceMetrics } from './persistence-metrics.js';
@@ -191,7 +190,7 @@ export class AtomicPersistenceService {
       const jsonData = JSON.stringify(parsed.data, null, 2);
       const actualChecksum = this.calculateChecksum(jsonData);
 
-      return actualChecksum === expectedChecksum;
+      return actualChecksum === expectedChecksum && parsed.checksum === expectedChecksum;
     } catch (error) {
       Logger.debug(
         '[AtomicPersistenceService] File verification failed',
@@ -231,9 +230,9 @@ export class AtomicPersistenceService {
 
   private async recoverFromBackup<T>(filePath: string): Promise<RecoveryResult<T>> {
     const { baseName, dir } = this.backupStrategy.parseFilePath(filePath);
-    const latestBackup = await this.backupStrategy.getLatestBackup(dir, baseName);
+    const backups = (await this.backupStrategy.findBackups(dir, baseName)).reverse();
 
-    if (latestBackup) {
+    for (const latestBackup of backups) {
       try {
         const result = await this.readAndVerify<T>(latestBackup);
         if (result.success && result.data) {

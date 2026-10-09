@@ -41,6 +41,9 @@ export default defineConfig({
       },
     ],
     ['github'], // GitHub Annotations
+    ...(process.env.E2E_COVERAGE === 'true'
+      ? ([['json', { outputFile: 'coverage/playwright-results.json' }]] as const)
+      : []),
   ],
 
   use: {
