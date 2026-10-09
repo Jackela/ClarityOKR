@@ -57,6 +57,49 @@ describe('ClarificationWizardComponent', () => {
     state.setError({ message, recoverable });
   }
 
+  it('honors keyboard selection and navigation without intercepting text entry', () => {
+    setupPromptingState();
+    fixture.detectChanges();
+    const selected = jest.fn();
+    const back = jest.fn();
+    const generated = jest.fn();
+    component.optionSelected.subscribe(selected);
+    component.goBack.subscribe(back);
+    component.generate.subscribe(generated);
+    const second = new KeyboardEvent('keydown', { key: '2', cancelable: true });
+    document.dispatchEvent(second);
+    expect(selected).toHaveBeenCalledWith('opt-2');
+    expect(second.defaultPrevented).toBe(true);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: '0' }));
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: '9' }));
+    const textInput = document.createElement('input');
+    document.body.append(textInput);
+    textInput.dispatchEvent(new KeyboardEvent('keydown', { key: '1', bubbles: true }));
+    textInput.remove();
+    expect(selected).toHaveBeenCalledTimes(1);
+    const option: HTMLButtonElement = fixture.nativeElement.querySelector(
+      '[data-testid="clarification-option"]',
+    );
+    option.dispatchEvent(
+      new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true }),
+    );
+    expect(selected).toHaveBeenLastCalledWith('opt-1');
+    option.dispatchEvent(new KeyboardEvent('keydown', { key: 'x', bubbles: true }));
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(back).toHaveBeenCalledTimes(1);
+    state.recordSelection('prompt-1', 'opt-1');
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(back).toHaveBeenCalledTimes(2);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    expect(generated).not.toHaveBeenCalled();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true }));
+    expect(generated).toHaveBeenCalledTimes(1);
+    state.reset();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: '1' }));
+    expect(selected).toHaveBeenCalledTimes(2);
+    expect(component.progressTotal).toBe(5);
+  });
+
   it('renders prompt and emits selected option id on click', () => {
     // Given: component in prompting state
     setupPromptingState();

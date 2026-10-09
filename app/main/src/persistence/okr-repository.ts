@@ -116,8 +116,7 @@ export class OKRRepositorySqlite implements OKRRepository {
     try {
       const database = this.db.getDb();
       const row = database.prepare(OKR_QUERIES.getLatestForSession).get(sessionId) as
-        | DatabaseRow
-        | undefined;
+        DatabaseRow | undefined;
 
       if (!row) {
         return null;
@@ -182,6 +181,14 @@ export class OKRRepositorySqlite implements OKRRepository {
         `Failed to record edit: ${error instanceof Error ? error.message : String(error)}`,
         error,
       );
+    }
+  }
+
+  async clear(): Promise<void> {
+    try {
+      this.db.getDb().prepare('DELETE FROM okr_documents').run();
+    } catch (error) {
+      throw new PersistenceError('Failed to clear OKR documents', error);
     }
   }
 

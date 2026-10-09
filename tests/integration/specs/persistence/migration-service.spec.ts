@@ -26,7 +26,9 @@ describe('MigrationService', () => {
   describe('needsMigration', () => {
     it('should return true when JSON files exist and no migration record', async () => {
       // Arrange
-      await atomicPersistence.atomicWrite(join(tempDir, 'clarification-session.json'), { id: 'test' });
+      await atomicPersistence.atomicWrite(join(tempDir, 'clarification-session.json'), {
+        id: 'test',
+      });
 
       // Act
       const result = migrationService.needsMigration();
@@ -42,12 +44,12 @@ describe('MigrationService', () => {
 
     it('should return false when migration already completed', async () => {
       // Arrange
-      await atomicPersistence.atomicWrite(join(tempDir, 'clarification-session.json'), { id: 'test' });
-      db.getDb().prepare('INSERT INTO migrations (version, migrated_at, source) VALUES (?, ?, ?)').run(
-        'json-to-sqlite-v1',
-        new Date().toISOString(),
-        'test',
-      );
+      await atomicPersistence.atomicWrite(join(tempDir, 'clarification-session.json'), {
+        id: 'test',
+      });
+      db.getDb()
+        .prepare('INSERT INTO migrations (version, migrated_at, source) VALUES (?, ?, ?)')
+        .run('json-to-sqlite-v1', new Date().toISOString(), 'test');
 
       // Act
       const result = migrationService.needsMigration();
@@ -79,15 +81,28 @@ describe('MigrationService', () => {
       // Assert
       expect(result.success).toBe(true);
       expect(result.sessionsMigrated).toBe(1);
-      const hasMigration = db.getDb()
-        .prepare('SELECT 1 FROM migrations WHERE version = ?')
-        .get('json-to-sqlite-v1') !== undefined;
+      const hasMigration =
+        db
+          .getDb()
+          .prepare('SELECT 1 FROM migrations WHERE version = ?')
+          .get('json-to-sqlite-v1') !== undefined;
       expect(hasMigration).toBe(true);
 
-      const migratedSession = db.getDb()
+      const migratedSession = db
+        .getDb()
         .prepare('SELECT * FROM sessions WHERE id = ?')
         .get('legacy-session') as
-        | { id: string; initial_intent: string; status: string; created_at: string; updated_at: string; steps: string; selected_options: string; confidence: number; pending_question_id: string | null }
+        | {
+            id: string;
+            initial_intent: string;
+            status: string;
+            created_at: string;
+            updated_at: string;
+            steps: string;
+            selected_options: string;
+            confidence: number;
+            pending_question_id: string | null;
+          }
         | undefined;
       expect(migratedSession).not.toBeUndefined();
       expect(migratedSession?.initial_intent).toBe('Legacy intent');
@@ -102,8 +117,20 @@ describe('MigrationService', () => {
         createdAt: '2024-01-01T00:00:00Z',
         updatedAt: '2024-01-01T00:00:00Z',
         steps: [
-          { id: 'prompt-1', question: 'Q1', sequence: 1, context: 'ctx', options: [{ id: 'opt-1', label: 'A', scopeTag: 's1' }] },
-          { id: 'prompt-2', question: 'Q2', sequence: 2, context: 'ctx', options: [{ id: 'opt-2', label: 'B', scopeTag: 's2' }] },
+          {
+            id: 'prompt-1',
+            question: 'Q1',
+            sequence: 1,
+            context: 'ctx',
+            options: [{ id: 'opt-1', label: 'A', scopeTag: 's1' }],
+          },
+          {
+            id: 'prompt-2',
+            question: 'Q2',
+            sequence: 2,
+            context: 'ctx',
+            options: [{ id: 'opt-2', label: 'B', scopeTag: 's2' }],
+          },
         ],
         selectedOptionIds: ['opt-1', 'opt-2'],
         confidence: 0.8,
@@ -115,10 +142,21 @@ describe('MigrationService', () => {
       await migrationService.migrate();
 
       // Assert
-      const migrated = db.getDb()
+      const migrated = db
+        .getDb()
         .prepare('SELECT * FROM sessions WHERE id = ?')
         .get('session-with-selections') as
-        | { id: string; initial_intent: string; status: string; created_at: string; updated_at: string; steps: string; selected_options: string; confidence: number; pending_question_id: string | null }
+        | {
+            id: string;
+            initial_intent: string;
+            status: string;
+            created_at: string;
+            updated_at: string;
+            steps: string;
+            selected_options: string;
+            confidence: number;
+            pending_question_id: string | null;
+          }
         | undefined;
       const selectedOptions = migrated ? JSON.parse(migrated.selected_options) : [];
       expect(selectedOptions).toHaveLength(2);
@@ -131,7 +169,16 @@ describe('MigrationService', () => {
 
     it('should be idempotent', async () => {
       // Arrange
-      await atomicPersistence.atomicWrite(join(tempDir, 'clarification-session.json'), { id: 'test' });
+      await atomicPersistence.atomicWrite(join(tempDir, 'clarification-session.json'), {
+        id: 'test',
+        initialIntent: 'Synthetic intent',
+        status: 'collecting',
+        createdAt: '2026-10-09T00:00:00Z',
+        updatedAt: '2026-10-09T00:00:00Z',
+        steps: [],
+        selectedOptions: [],
+        confidence: 0,
+      });
 
       // Act
       const first = await migrationService.migrate();
@@ -141,11 +188,16 @@ describe('MigrationService', () => {
       expect(first.success).toBe(true);
       expect(second.success).toBe(true);
       expect(second.sessionsMigrated).toBe(0); // No-op
+      expect(db.getDb().prepare('SELECT count(*) AS count FROM sessions').get()).toEqual({
+        count: 1,
+      });
     });
 
     it('should create backup of JSON files before migration', async () => {
       // Arrange
-      await atomicPersistence.atomicWrite(join(tempDir, 'clarification-session.json'), { id: 'test' });
+      await atomicPersistence.atomicWrite(join(tempDir, 'clarification-session.json'), {
+        id: 'test',
+      });
 
       // Act
       await migrationService.migrate();

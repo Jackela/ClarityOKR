@@ -3,6 +3,7 @@ import { test as base, _electron as electron } from '@playwright/test';
 import { existsSync, promises as fs } from 'node:fs';
 import {
   ROOT,
+  MAIN_DIST,
   SESSION_PERSIST_PATH,
   OKR_PERSIST_PATH,
   extraElectronArgs,
@@ -17,6 +18,8 @@ import {
   logElectronState,
 } from '../helpers/ci-diagnostics';
 import { getElectronLaunchOptions } from '../helpers/electron-ci';
+import { SimpleMockServer } from '../helpers/simple-mock-server';
+import { collectSourceCoverage } from '../helpers/source-coverage';
 import { startXvfb, stopXvfb, isXvfbAvailable } from '../helpers/xvfb-config';
 
 /**
@@ -92,50 +95,27 @@ export async function cleanupPersistenceFiles(): Promise<void> {
  * - Better error handling and logging
  */
 export const test = base.extend<E2EFixtures>({
-  // Mock server fixture - uses global HTTP server for Electron compatibility
+  // Playwright workers cannot share objects created by globalSetup.
   mockServer: [
-    // eslint-disable-next-line no-empty-pattern
+    // eslint-disable-next-line no-empty-pattern -- Playwright requires destructured fixture args.
     async ({}, use) => {
-      const port = process.env.MOCK_SERVER_PORT || '7777';
-      const url = `http://127.0.0.1:${port}`;
-
-      // 导入全局 server 实例（注意：global-setup.ts 中导出的是 let 变量）
-      const { globalMockServer } = await import('../global-setup');
-
-      // 安全检查：确保 globalMockServer 已初始化
-      if (!globalMockServer) {
-        throw new Error(
-          'globalMockServer is not initialized. ' +
-            'Make sure global-setup.ts is configured in playwright config and is exporting globalMockServer.',
-        );
-      }
-
-      await use({
-        url,
-        // Wait for pending requests before setting responses
-        setResponses: async (config: MockResponseConfig) => {
-          await globalMockServer.waitForPendingRequests();
-          globalMockServer.setResponses(config);
-        },
-        getRequestLog: () => globalMockServer.getRequestLog(),
-        // Reset the mock server state for test isolation
-        reset: async () => {
-          await globalMockServer.waitForPendingRequests();
-          globalMockServer.setResponses({});
-        },
-      });
-
-      // Note: We don't stop the server here - it's managed by globalSetup teardown
-      // But we do reset the state for the next test
-      // 🔴 FIX: Add null check for globalMockServer to prevent undefined errors
-      // The globalMockServer may be undefined if global-setup failed or was reloaded
-      if (globalMockServer) {
-        try {
-          await globalMockServer.waitForPendingRequests();
-          globalMockServer.setResponses({});
-        } catch (e) {
-          console.warn('[fixture] Error resetting mock server:', e);
-        }
+      const server = new SimpleMockServer();
+      await server.start();
+      try {
+        await use({
+          url: server.getUrl(),
+          setResponses: async (config: MockResponseConfig) => {
+            await server.waitForPendingRequests();
+            server.setResponses(config);
+          },
+          getRequestLog: () => server.getRequestLog(),
+          reset: async () => {
+            await server.waitForPendingRequests();
+            server.setResponses({});
+          },
+        });
+      } finally {
+        await server.stop();
       }
     },
     { scope: 'test' },
@@ -169,7 +149,7 @@ export const test = base.extend<E2EFixtures>({
       const ciConfig = getElectronLaunchOptions();
 
       // 使用 CI 优化的 Electron 参数
-      const args = ['.', ...getElectronArgs(), ...extraElectronArgs(), ...ciConfig.args];
+      const args = [MAIN_DIST, ...getElectronArgs(), ...extraElectronArgs(), ...ciConfig.args];
 
       // 启动 Electron
       const app = await electron.launch({
@@ -177,6 +157,7 @@ export const test = base.extend<E2EFixtures>({
         cwd: ROOT,
         env: {
           ...getElectronEnv(mockServer.url),
+          E2E_DB_PATH: testInfo.outputPath('clarityokr.db'),
           ...ciConfig.env,
         } as Record<string, string>,
       });
@@ -187,9 +168,15 @@ export const test = base.extend<E2EFixtures>({
       childProcess.stderr?.on('data', stderrHandler);
       childProcess.stdout?.on('data', stdoutHandler);
 
+      let coverageError: unknown;
       try {
         await use(app);
       } finally {
+        try {
+          await collectSourceCoverage(app, testInfo.outputPath('source-coverage.json'));
+        } catch (error) {
+          coverageError = error;
+        }
         // 记录最终状态（仅在 CI 且测试失败时）
         if (process.env.CI && testInfo.status !== 'passed') {
           await logElectronState(app);
@@ -225,6 +212,7 @@ export const test = base.extend<E2EFixtures>({
           await stopXvfb();
         }
       }
+      if (coverageError) throw coverageError;
     },
     { scope: 'test' },
   ],
@@ -235,9 +223,9 @@ export const test = base.extend<E2EFixtures>({
       // 🔴 FIX: Add better error handling and diagnostics for window creation
       let window: Page;
       try {
-        window = await electronApp.waitForEvent('window', { timeout: 60_000 });
+        window = await electronApp.firstWindow({ timeout: 60_000 });
       } catch (error) {
-        console.error('[mainWindow] Failed to wait for window event:', error);
+        console.error('[mainWindow] Failed to obtain the first window:', error);
 
         // Try to get diagnostic information
         try {

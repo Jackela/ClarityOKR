@@ -41,7 +41,7 @@
  * ```
  */
 
-import { Injectable } from '@angular/core';
+import { Inject, Injectable } from '@angular/core';
 import {
   BridgeUnavailableError,
   type ClarificationContext,
@@ -54,7 +54,7 @@ import { defer } from 'rxjs';
 import type { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 
-import type { TelemetryService } from '../../services/telemetry.service';
+import { TelemetryService } from '../../services/telemetry.service';
 import { IPC_CHANNELS } from '../../shared/ipc-channel.tokens';
 import type { ClarifyOkrApi } from '../../shared/window';
 
@@ -135,7 +135,7 @@ export class IpcLlmGateway implements LlmGatewayObservable<Observable<unknown>> 
    * @param telemetry - Service for recording performance metrics and telemetry data.
    *                    Tracks call duration and outcomes (success/error/timeout).
    */
-  constructor(private readonly telemetry: TelemetryService) {}
+  constructor(@Inject(TelemetryService) private readonly telemetry: TelemetryService) {}
 
   /**
    * Requests the next clarification question from the LLM via IPC.

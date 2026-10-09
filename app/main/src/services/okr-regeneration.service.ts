@@ -1,7 +1,14 @@
 import { randomUUID } from 'node:crypto';
 
 import type { OKRDocument } from '@clarityokr/contracts';
-import { LLMError, PersistenceError, SessionNotFoundError } from '@clarityokr/contracts';
+import {
+  LLMError,
+  PersistenceError,
+  SessionNotFoundError,
+  okrDraftResponseSchema,
+  llmOkrGenerationResponseSchema,
+  okrDocumentSchema,
+} from '@clarityokr/contracts';
 import type { DomainError } from '@clarityokr/contracts';
 
 import { Logger } from '../core/logger.js';
@@ -12,9 +19,7 @@ import type { OkrAgentService } from './okr-agent.service.js';
 /**
  * Result type for operations that can fail with a domain error.
  */
-export type Result<T, E extends DomainError> =
-  | { ok: true; value: T }
-  | { ok: false; error: E };
+export type Result<T, E extends DomainError> = { ok: true; value: T } | { ok: false; error: E };
 
 /**
  * Service for OKR regeneration business logic.
@@ -79,9 +84,12 @@ export class OkrRegenerationService {
         turns: session.steps.map((step) => ({
           questionId: step.id,
           optionId:
-            session.selectedOptions.find((sel) =>
-              step.options.some((opt) => opt.id === sel.optionId),
-            )?.optionId ?? '',
+            session.selectedOptions
+              .filter(
+                (sel) =>
+                  sel.promptId === step.id && step.options.some((opt) => opt.id === sel.optionId),
+              )
+              .at(-1)?.optionId ?? '',
           timestamp: step.context ?? new Date().toISOString(),
         })),
       };
@@ -89,20 +97,28 @@ export class OkrRegenerationService {
       // Step 2: Call LLM to generate new OKR draft
       let llmResponse: unknown;
       try {
+        this.okrAgent.clearCache();
         llmResponse = await this.okrAgent.generateDraft(context);
       } catch (error) {
         return { ok: false, error: new LLMError('Failed to generate OKR draft', error) };
       }
 
-      const newDraft = llmResponse as {
-        objective: string;
-        keyResults: Array<{
-          id: string;
-          statement: string;
-          successMetric?: string;
-          owner?: string;
-        }>;
-      };
+      const canonical = okrDraftResponseSchema.safeParse(llmResponse);
+      const first = canonical.success ? canonical.data.draft.objectives[0] : null;
+      const normalized = first
+        ? {
+            objective: first.title ?? first.description ?? '',
+            keyResults: first.keyResults.map((kr) => ({
+              id: kr.id,
+              statement: kr.statement,
+              successMetric: `${kr.target} ${kr.measurement}`,
+            })),
+          }
+        : llmResponse;
+      const parsed = llmOkrGenerationResponseSchema.safeParse(normalized);
+      if (!parsed.success)
+        return { ok: false, error: new LLMError('Invalid regeneration response') };
+      const newDraft = parsed.data;
 
       // Step 3: Generate new OKR document based on policy
       const timestamp = new Date().toISOString();
@@ -112,7 +128,7 @@ export class OkrRegenerationService {
         // Complete replacement - create new document
         newOkr = {
           id: currentOkr?.id ?? randomUUID(),
-          objective: newDraft.objective,
+          objective: currentOkr?.objective ?? newDraft.objective,
           keyResults: newDraft.keyResults.map((kr) => ({
             id: kr.id,
             statement: kr.statement,
@@ -139,7 +155,7 @@ export class OkrRegenerationService {
 
         newOkr = {
           id: currentOkr?.id ?? randomUUID(),
-          objective: newDraft.objective,
+          objective: currentOkr?.objective ?? newDraft.objective,
           keyResults: mergedKeyResults,
           sourceSessionId: sessionId,
           generatedAt: timestamp,
@@ -150,6 +166,7 @@ export class OkrRegenerationService {
 
       // Step 4: Save to OKRRepository
       try {
+        newOkr = okrDocumentSchema.parse(newOkr);
         await this.okrRepo.save(newOkr);
       } catch (error) {
         return {

@@ -1,6 +1,8 @@
 import type { ClarificationSession, ClarificationStatus } from '@clarityokr/contracts';
-import { ClarificationStateMachine } from '@clarityokr/main/clarification/clarification-state-machine';
-import { StateTransitionError } from '@clarityokr/main/clarification/types';
+import {
+  ClarificationStateMachine,
+  StateTransitionError,
+} from '@clarityokr/main/clarification/index';
 
 /**
  * Factory function to create a test ClarificationSession
@@ -67,16 +69,18 @@ describe('ClarificationStateMachine (Main Process)', () => {
         await stateMachine.transition(session, 'ready');
 
         expect(session.status).toBe('ready');
-        expect(new Date(session.updatedAt).getTime()).toBeGreaterThanOrEqual(new Date(originalUpdatedAt).getTime());
+        expect(new Date(session.updatedAt).getTime()).toBeGreaterThanOrEqual(
+          new Date(originalUpdatedAt).getTime(),
+        );
       });
 
       it('should update updatedAt timestamp on transition', async () => {
         const session = createMockSession({ status: 'collecting' });
         const beforeTransition = new Date().toISOString();
-        
-        await new Promise(resolve => setTimeout(resolve, 10));
+
+        await new Promise((resolve) => setTimeout(resolve, 10));
         await stateMachine.transition(session, 'ready');
-        
+
         expect(new Date(session.updatedAt).getTime()).toBeGreaterThanOrEqual(
           new Date(beforeTransition).getTime(),
         );
@@ -123,7 +127,9 @@ describe('ClarificationStateMachine (Main Process)', () => {
         const session = createMockSession({ status: 'completed' });
         const expectedMessage = 'Invalid state transition from "completed" to "collecting"';
 
-        await expect(stateMachine.transition(session, 'collecting')).rejects.toThrow(expectedMessage);
+        await expect(stateMachine.transition(session, 'collecting')).rejects.toThrow(
+          expectedMessage,
+        );
       });
 
       it('should throw StateTransitionError when trying to transition from completed to ready', async () => {
@@ -137,7 +143,9 @@ describe('ClarificationStateMachine (Main Process)', () => {
         const session = createMockSession({ status: 'completed' });
         const expectedMessage = 'Invalid state transition from "completed" to "completed"';
 
-        await expect(stateMachine.transition(session, 'completed')).rejects.toThrow(expectedMessage);
+        await expect(stateMachine.transition(session, 'completed')).rejects.toThrow(
+          expectedMessage,
+        );
       });
     });
 
@@ -146,7 +154,9 @@ describe('ClarificationStateMachine (Main Process)', () => {
         const session = createMockSession({ status: 'collecting' });
         const expectedMessage = 'Invalid state transition from "collecting" to "collecting"';
 
-        await expect(stateMachine.transition(session, 'collecting')).rejects.toThrow(expectedMessage);
+        await expect(stateMachine.transition(session, 'collecting')).rejects.toThrow(
+          expectedMessage,
+        );
       });
 
       it('should throw StateTransitionError when trying to transition from ready to ready', async () => {
@@ -190,9 +200,9 @@ describe('ClarificationStateMachine (Main Process)', () => {
 
       for (const [fromState, toState] of testCases) {
         const session = createMockSession({ status: fromState });
-        
+
         expect(stateMachine.canTransition(fromState, toState)).toBe(true);
-        
+
         // Should not throw
         await expect(stateMachine.transition(session, toState)).resolves.not.toThrow();
         expect(session.status).toBe(toState);
@@ -210,12 +220,12 @@ describe('ClarificationStateMachine (Main Process)', () => {
 
       for (const [fromState, toState] of invalidCases) {
         const session = createMockSession({ status: fromState });
-        
+
         expect(stateMachine.canTransition(fromState, toState)).toBe(false);
-        
-        await expect(
-          stateMachine.transition(session, toState),
-        ).rejects.toThrow(StateTransitionError);
+
+        await expect(stateMachine.transition(session, toState)).rejects.toThrow(
+          StateTransitionError,
+        );
       }
     });
   });
@@ -226,10 +236,10 @@ describe('ClarificationStateMachine (Main Process)', () => {
   describe('getAllowedTransitions() Method', () => {
     it('should return mutable copy of allowed transitions (defensive copy)', () => {
       const allowed = stateMachine.getAllowedTransitions('collecting');
-      
+
       // Modify the returned array
       allowed.push('completed' as ClarificationStatus);
-      
+
       // Original should be unaffected
       expect(stateMachine.getAllowedTransitions('collecting')).toEqual(['ready', 'completed']);
     });
@@ -260,7 +270,9 @@ describe('ClarificationStateMachine (Main Process)', () => {
     it('should be instance of ClarificationError', async () => {
       const session = createMockSession({ status: 'completed' });
 
-      await expect(stateMachine.transition(session, 'collecting')).rejects.toBeInstanceOf(StateTransitionError);
+      await expect(stateMachine.transition(session, 'collecting')).rejects.toBeInstanceOf(
+        StateTransitionError,
+      );
     });
 
     it('should preserve session state when transition fails', async () => {
@@ -319,7 +331,7 @@ describe('ClarificationStateMachine (Main Process)', () => {
 
       await stateMachine.transition(complexSession, 'ready');
       await stateMachine.transition(complexSession, 'completed');
-      
+
       expect(complexSession.status).toBe('completed');
     });
 
@@ -410,7 +422,7 @@ describe('ClarificationStateMachine (Main Process)', () => {
     it('should return Promise<void> from transition', async () => {
       const session = createMockSession({ status: 'collecting' });
       const result = stateMachine.transition(session, 'ready');
-      
+
       expect(result).toBeInstanceOf(Promise);
       await expect(result).resolves.toBeUndefined();
     });

@@ -1,6 +1,11 @@
 {
   "app": {
-    "title": "ClarityOKR"
+    "title": "ClarityOKR",
+    "intentLabel": "你希望实现什么目标？",
+    "intentPlaceholder": "例如：提高团队交付效率",
+    "startClarification": "开始澄清",
+    "intentRequired": "请输入至少3个字符",
+    "reopenSticky": "重新打开目标便签"
   },
   "common": {
     "loading": "正在加载...",
@@ -16,7 +21,10 @@
     "generate": "生成",
     "success": "成功",
     "dismiss": "关闭",
-    "theme": "主题"
+    "theme": "主题",
+    "skipToContent": "跳转到正文",
+    "copy": "复制",
+    "copied": "已复制"
   },
   "theme": {
     "light": "浅色",
@@ -68,7 +76,10 @@
     },
     "actions": {
       "edit": "编辑",
-      "addKeyResult": "添加关键结果"
+      "addKeyResult": "添加关键结果",
+      "regenerate": "重新生成",
+      "overwrite": "替换关键结果",
+      "append": "追加关键结果"
     }
   },
   "validation": {

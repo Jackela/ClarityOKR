@@ -66,8 +66,8 @@
  */
 
 /* eslint-disable @typescript-eslint/consistent-type-imports */
-import { type NgZone } from '@angular/core';
-import { Injectable } from '@angular/core';
+import { NgZone } from '@angular/core';
+import { Inject, Injectable } from '@angular/core';
 import {
   ClarityOkrError,
   getErrorSeverity,
@@ -129,7 +129,7 @@ export class ErrorBoundaryService {
 
   constructor(
     private logger: Logger,
-    private ngZone: NgZone,
+    @Inject(NgZone) private ngZone: NgZone,
   ) {
     this.config = {
       sendToMain: true,

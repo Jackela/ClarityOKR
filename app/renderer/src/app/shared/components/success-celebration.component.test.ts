@@ -15,6 +15,48 @@ describe('SuccessCelebrationComponent', () => {
     component = fixture.componentInstance;
   });
 
+  afterEach(() => {
+    fixture.destroy();
+    jest.useRealTimers();
+  });
+
+  it('preserves the remaining dismissal time while the user hovers, then emits once', () => {
+    jest.useFakeTimers();
+    component.duration = 1000;
+    const dismissed = jest.fn();
+    component.dismissed.subscribe(dismissed);
+    fixture.detectChanges();
+    const button: HTMLButtonElement = fixture.nativeElement.querySelector('.dismiss-button');
+    jest.advanceTimersByTime(400);
+    button.dispatchEvent(new MouseEvent('mouseenter'));
+    jest.advanceTimersByTime(2000);
+    expect(component.isDismissing).toBe(false);
+    expect(dismissed).not.toHaveBeenCalled();
+    button.dispatchEvent(new MouseEvent('mouseleave'));
+    jest.advanceTimersByTime(599);
+    expect(component.isDismissing).toBe(false);
+    jest.advanceTimersByTime(1);
+    expect(component.isDismissing).toBe(true);
+    button.click();
+    jest.advanceTimersByTime(300);
+    expect(dismissed).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not schedule another dismissal after destruction or repeated hover events', () => {
+    jest.useFakeTimers();
+    component.duration = 1000;
+    component.showConfetti = false;
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.confetti-container')).toBeNull();
+    component.pause();
+    component.pause();
+    component.resume();
+    component.resume();
+    fixture.destroy();
+    jest.advanceTimersByTime(3000);
+    expect(component.isDismissing).toBe(false);
+  });
+
   it('should create', () => {
     expect(component).toBeTruthy();
   });
@@ -70,10 +112,10 @@ describe('SuccessCelebrationComponent', () => {
     const dismissButton = fixture.debugElement.query(By.css('.dismiss-button'));
     expect(dismissButton).toBeTruthy();
     dismissButton.triggerEventHandler('click', {});
-    
+
     // Fast-forward past the animation delay
     jest.advanceTimersByTime(400);
-    
+
     expect(closeSpy).toHaveBeenCalled();
     jest.useRealTimers();
   });

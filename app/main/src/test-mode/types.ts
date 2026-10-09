@@ -193,9 +193,11 @@ export interface TestModeDependencies {
     getCurrentSessionId(): string | null;
   };
   sessionRepo: {
+    clear(): Promise<void>;
     saveSession(session: ClarificationSession | null): Promise<void>;
   };
   okrRepo: {
+    clear(): Promise<void>;
     loadLatest(): Promise<OKRDocument | null>;
     save(okr: OKRDocument): Promise<void>;
   };

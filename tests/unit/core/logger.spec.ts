@@ -1,7 +1,7 @@
 import { jest } from '@jest/globals';
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 
-import { Logger, LogLevel } from '@clarityokr/main/core/logger';
+import { Logger, LogLevel } from '@clarityokr/main/core/index';
 
 describe('Logger', () => {
   let consoleLogSpy: ReturnType<typeof jest.spyOn>;

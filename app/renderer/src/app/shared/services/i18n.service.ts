@@ -32,7 +32,7 @@
  */
 
 import { Injectable, signal, type Signal } from '@angular/core';
-import type zhCNMessages from '../i18n/messages.zh-CN.json';
+import zhCNMessages from '../i18n/messages.zh-CN.json';
 
 /**
  * Type definition for message keys based on zh-CN messages structure
@@ -107,8 +107,8 @@ export class I18nService {
 
   constructor() {
     this.currentLocale = this._locale.asReadonly();
-    // Load default locale
-    this.loadLocale('zh-CN');
+    // The first render must have translations before pure pipes evaluate.
+    this.messages.set('zh-CN', zhCNMessages);
   }
 
   /**

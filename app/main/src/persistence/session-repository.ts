@@ -5,7 +5,12 @@ import type { ClarificationSession, OKRDocument, UserActionLogEntry } from '@cla
 
 import { Logger } from '../core/logger.js';
 import type { IEncryptionService } from '../core/encryption-port.js';
-import { ensureDataDir, readEncryptedJson, writeEncryptedJson } from './encrypted-persistence.js';
+import {
+  ensureDataDir,
+  readEncryptedJson,
+  writeEncryptedJson,
+  EncryptedPersistenceError,
+} from './encrypted-persistence.js';
 
 export interface PersistedState {
   session: ClarificationSession | null;
@@ -274,7 +279,11 @@ export class SessionRepository {
 
   private async writeEncrypted<T>(file: string, value: T): Promise<void> {
     if (this.encryptionService && this.key) {
-      await writeEncryptedJson(file, value, this.encryptionService, this.key);
+      const result = await writeEncryptedJson(file, value, this.encryptionService, this.key);
+      if (!result.success)
+        throw new EncryptedPersistenceError('Failed to persist encrypted state', result.error);
+      return;
     }
+    throw new EncryptedPersistenceError('Encryption service and key are required to persist state');
   }
 }

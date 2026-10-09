@@ -27,7 +27,17 @@ export class SqliteSessionRepository implements ISessionRepository {
   async getById(id: string): Promise<ClarificationSession | null> {
     const db = this.connectionManager.getDb();
     const row = db.prepare(SQL_QUERIES.getSession).get(id) as
-      | { id: string; initial_intent: string; status: string; created_at: string; updated_at: string; steps: string; selected_options: string; confidence: number; pending_question_id: string | null }
+      | {
+          id: string;
+          initial_intent: string;
+          status: string;
+          created_at: string;
+          updated_at: string;
+          steps: string;
+          selected_options: string;
+          confidence: number;
+          pending_question_id: string | null;
+        }
       | undefined;
 
     if (!row) return null;
@@ -37,8 +47,17 @@ export class SqliteSessionRepository implements ISessionRepository {
 
   async getAll(): Promise<ClarificationSession[]> {
     const db = this.connectionManager.getDb();
-    const rows = db.prepare(SQL_QUERIES.getAllSessions).all() as
-      Array<{ id: string; initial_intent: string; status: string; created_at: string; updated_at: string; steps: string; selected_options: string; confidence: number; pending_question_id: string | null }>;
+    const rows = db.prepare(SQL_QUERIES.getAllSessions).all() as Array<{
+      id: string;
+      initial_intent: string;
+      status: string;
+      created_at: string;
+      updated_at: string;
+      steps: string;
+      selected_options: string;
+      confidence: number;
+      pending_question_id: string | null;
+    }>;
 
     return rows.map(parseSessionRow);
   }
@@ -46,6 +65,10 @@ export class SqliteSessionRepository implements ISessionRepository {
   async delete(id: string): Promise<void> {
     const db = this.connectionManager.getDb();
     db.prepare(SQL_QUERIES.deleteSession).run(id);
+  }
+
+  async clear(): Promise<void> {
+    this.connectionManager.getDb().prepare('DELETE FROM sessions').run();
   }
 
   /**

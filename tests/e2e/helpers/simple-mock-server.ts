@@ -110,9 +110,10 @@ export class SimpleMockServer {
 
           // Handle draft
           if (isDraftRequest) {
-            if (this.responseConfig.draft) {
+            const draft = this.responseConfig.regenerate ?? this.responseConfig.draft;
+            if (draft) {
               res.writeHead(200, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify(this.responseConfig.draft));
+              res.end(JSON.stringify(draft));
               return;
             }
             // Default draft response

@@ -1,17 +1,13 @@
-/**
- * Async Control Module
- *
- * Manages async operation pausing, resuming, and queueing.
- */
-
+/** Controls completion of real queued asynchronous operations. */
 import { Logger } from '../core/logger.js';
 import type { IAsyncControl } from './types.js';
 import type { StateObservationModule } from './state-observation.js';
 
 export class AsyncControlModule implements IAsyncControl {
   private asyncPaused = false;
+  private draining = false;
   private asyncQueue: Array<() => Promise<void>> = [];
-  private asyncResolvers: Array<() => void> = [];
+  private asyncResolvers = new Set<() => void>();
 
   constructor(private readonly stateObserver: StateObservationModule) {}
 
@@ -28,48 +24,49 @@ export class AsyncControlModule implements IAsyncControl {
     Logger.info('[testMode] Async operations resumed');
   }
 
-  async waitForAsyncOperations(timeout = 30000): Promise<void> {
-    if (!this.asyncPaused && this.asyncQueue.length === 0) {
-      return;
-    }
+  private isIdle(): boolean {
+    return !this.asyncPaused && !this.draining && this.asyncQueue.length === 0;
+  }
 
+  async waitForAsyncOperations(timeout = 30000): Promise<void> {
+    if (this.isIdle()) return;
     return new Promise((resolve, reject) => {
+      const cleanup = () => {
+        clearTimeout(timeoutId);
+        this.asyncResolvers.delete(finish);
+      };
+      const finish = () => {
+        if (this.isIdle()) {
+          cleanup();
+          resolve();
+        }
+      };
       const timeoutId = setTimeout(() => {
+        cleanup();
         reject(new Error(`Timeout waiting for async operations after ${timeout}ms`));
       }, timeout);
-
-      const checkInterval = setInterval(() => {
-        if (!this.asyncPaused && this.asyncQueue.length === 0) {
-          clearInterval(checkInterval);
-          clearTimeout(timeoutId);
-          resolve();
-        }
-      }, 100);
-
-      this.asyncResolvers.push(() => {
-        if (this.asyncQueue.length === 0) {
-          clearInterval(checkInterval);
-          clearTimeout(timeoutId);
-          resolve();
-        }
-      });
+      this.asyncResolvers.add(finish);
     });
   }
 
   private async drainAsyncQueue(): Promise<void> {
-    while (this.asyncQueue.length > 0) {
-      const op = this.asyncQueue.shift();
-      if (op) {
-        try {
-          await op();
-        } catch (error) {
-          Logger.error('[testMode] Error in async operation:', error);
+    if (this.draining) return;
+    this.draining = true;
+    try {
+      while (!this.asyncPaused && this.asyncQueue.length > 0) {
+        const op = this.asyncQueue.shift();
+        if (op) {
+          try {
+            await op();
+          } catch (error) {
+            Logger.error('[testMode] Error in async operation:', error);
+          }
         }
       }
+    } finally {
+      this.draining = false;
+      [...this.asyncResolvers].forEach((finish) => finish());
     }
-
-    this.asyncResolvers.forEach((resolve) => resolve());
-    this.asyncResolvers = [];
   }
 
   enqueueIfPaused(operation: () => Promise<void>): boolean {

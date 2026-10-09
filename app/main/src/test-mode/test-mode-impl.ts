@@ -76,11 +76,15 @@ export class TestMode implements TestModeAPI {
   }
 
   getCurrentState(): AppState {
-    return this.stateObserver.getCurrentState();
+    return {
+      ...this.stateObserver.getCurrentState(),
+      mockResponses: this.mockControl.getMockResponseConfig(),
+      asyncPaused: this.asyncControl.isPaused(),
+    };
   }
 
   subscribeToStateChanges(callback: (state: AppState) => void): () => void {
-    return this.stateObserver.subscribeToStateChanges(callback);
+    return this.stateObserver.subscribeToStateChanges(() => callback(this.getCurrentState()));
   }
 
   pauseAsyncOperations(): void {

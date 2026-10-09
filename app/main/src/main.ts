@@ -40,15 +40,22 @@ import { OkrRegenerationService } from './services/okr-regeneration.service.js';
 
 import { ClarificationController } from './windows/clarification-controller.js';
 import { StickyWindowManager } from './windows/sticky-window-manager.js';
+import { registerRendererProtocol } from './windows/renderer-protocol.js';
 
 const { app, BrowserWindow, ipcMain } = electron;
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
-const preloadPath = path.resolve(currentDir, 'bootstrap', 'preload.js');
-const rendererDistPath = path.resolve(currentDir, '../../renderer/dist');
+const preloadPath = path.resolve(currentDir, 'bootstrap', 'preload.cjs');
+const rendererDistPath =
+  process.env.E2E_TEST === '1' && process.env.E2E_RENDERER_DIR
+    ? path.resolve(process.env.E2E_RENDERER_DIR)
+    : path.resolve(currentDir, '../../renderer/dist');
 
 const connectionManager = new ConnectionManager({
-  dbPath: path.resolve(currentDir, '../../data/clarityokr.db'),
+  dbPath:
+    process.env.E2E_TEST && process.env.E2E_DB_PATH
+      ? process.env.E2E_DB_PATH
+      : path.resolve(currentDir, '../../data/clarityokr.db'),
 });
 connectionManager.initialize();
 
@@ -159,6 +166,7 @@ async function createWindow(): Promise<void> {
 }
 
 void app.whenReady().then(() => {
+  registerRendererProtocol(rendererDistPath, electron.protocol, electron.net);
   void createWindow();
 
   app.on('activate', () => {

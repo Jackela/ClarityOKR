@@ -65,7 +65,7 @@ export class StateResetModule implements IStateReset {
     Logger.info('[testMode] Resetting all state...');
 
     this.deps.controller.resetSessions();
-    await this.deps.sessionRepo.saveSession(null);
+    await this.deps.sessionRepo.clear();
     await this.okrControl.clearOKRs();
 
     await this.deps.actionLogWriter.append({
@@ -90,7 +90,7 @@ export class StateResetModule implements IStateReset {
 
   async resetPersistence(): Promise<void> {
     Logger.info('[testMode] Resetting persistence...');
-    await this.deps.sessionRepo.saveSession(null);
+    await this.deps.sessionRepo.clear();
     await this.okrControl.clearOKRs();
   }
 }

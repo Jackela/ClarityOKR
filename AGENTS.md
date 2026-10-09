@@ -6,14 +6,14 @@
 
 ## Overview
 
-Desktop AI assistant (Electron 30 + Angular 17) that turns fuzzy intent into actionable OKRs. pnpm monorepo, strict TypeScript ESM, Domain-Driven Design.
+Desktop AI assistant (Electron 44 + Angular 20) that turns fuzzy intent into actionable OKRs. pnpm monorepo, strict TypeScript ESM, Domain-Driven Design.
 
 ## Active Technologies
 
 - TypeScript 5.x (`strict: true`, ESM-only)
-- Node.js 20.x runtime
-- Angular 17 renderer with standalone components
-- Electron 30 main process (NodeNext)
+- Node.js 24 LTS runtime (see package.json and .nvmrc; CI uses Node 24)
+- Angular 20 renderer with standalone components
+- Electron 44 main process (NodeNext)
 - Electron IPC + contextBridge for secure communication
 - Angular Signals (migrating from RxJS)
 - `@ngrx/component-store` for state management
@@ -33,7 +33,7 @@ app/
 │   ├── persistence/   # SQLite repositories, database service
 │   ├── services/      # Business services (LLM, encryption, storage)
 │   └── windows/       # Window management (clarification, sticky)
-├── renderer/          # Angular 17 application → see app/renderer/AGENTS.md
+├── renderer/          # Angular 20 application → see app/renderer/AGENTS.md
 │   ├── clarification/ # Feature: wizard, state services
 │   ├── core/          # Error handling, logging
 │   ├── okr-sticky/    # Feature: sticky note component
@@ -84,7 +84,7 @@ data/                  # Runtime storage (sessions, OKR snapshots, logs)
 
 ```
 Electron launches → app/main/dist/main.js
-  ├── Creates BrowserWindow with preload.js (context isolation)
+  ├── Creates BrowserWindow with preload.cjs (context isolation)
   ├── Registers 7 IPC handlers via ClarificationController (facade)
   └── Loads app/renderer/dist/index.html
       └── Angular bootstrapApplication() → AppComponent
@@ -169,7 +169,7 @@ pwsh scripts/act-run-ci.ps1     # Local CI simulation with act
 - E2E tests: `*.spec.ts` in `tests/e2e/specs/`
 - Mocks in `tests/unit/__mocks__/`
 - **NEVER** use `waitForTimeout` in E2E tests - use deterministic waits from `helpers/native-dom.ts`
-- Coverage threshold: 80% (branches, functions, lines, statements)
+- Coverage threshold: 80% on all four metrics, enforced by `pnpm run test:coverage` over the complete main/renderer source set and actual Jest/Electron executions. When changing collection, source mapping, or native runtime setup, read `docs/maintenance/dependency-repair.md` for the evidence contract and reproduction steps.
 - E2E retries: 0 (fix root causes, don't mask with retries)
 
 ### State Management
@@ -253,4 +253,13 @@ pwsh scripts/act-run-ci.ps1     # Local CI simulation with act
 | `tests/AGENTS.md` | Test pyramid (Jest unit/integration, Playwright E2E) |
 
 <!-- MANUAL ADDITIONS START -->
+### Maintenance evidence and AI-first workflow
+
+- `package.json`, workspace manifests, `pnpm-lock.yaml`, and `.github/workflows/ci.yml` own executable versions and checks; descriptive historical notes do not override them.
+- Keep requirements, decisions, and maintenance handoffs in Markdown; keep dependency evidence in JSON. Do not check in local agent authentication, logs, histories, or session dumps. `.codex/prompts/` remains reusable source.
+- Renderer tests use Jest. The unused Vitest/Analog configuration and Karma target were removed; use `pnpm run test:component`.
+- `pnpm run audit:security` fails on every high/critical advisory and on invalid audit responses. Never add title-based exceptions or silently lower thresholds.
+- Use frozen installs when verifying a candidate. Run lint, typecheck, build, full merged source coverage, dependency security regressions, and real Electron E2E tests before claiming compatibility. `test:coverage` switches native SQLite ABI for Electron and restores the host ABI afterwards. Report local and GitHub checks separately; CI running or failing is not acceptance.
+- `tests/e2e/specs/review/` is an interactive screenshot/review task, not a functional E2E gate. Functional specs run without retries; the former placeholder is removed.
+
 <!-- MANUAL ADDITIONS END -->

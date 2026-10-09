@@ -136,6 +136,12 @@ test.describe('Edit, Regenerate, and Copy OKR Workflow', () => {
                 target: '95%',
                 measurement: 'percentage',
               },
+              {
+                id: 'kr-new-003',
+                statement: '新增培训覆盖率',
+                target: '100%',
+                measurement: 'percentage',
+              },
             ],
           },
         ],
@@ -285,7 +291,7 @@ test.describe('Edit, Regenerate, and Copy OKR Workflow', () => {
 
     // Wait for regeneration to complete
     await waitForStateChange(stickyWindowPage, {
-      from: '[data-testid="regenerate-button"]',
+      from: '[data-testid="policy-overwrite"]',
       to: '[data-testid="sticky-objective"]',
       timeout: 15000,
     });
@@ -293,6 +299,7 @@ test.describe('Edit, Regenerate, and Copy OKR Workflow', () => {
     // ==========================================
     // Step 8: Verify OKR regenerated (overwrite)
     // ==========================================
+    await expect(stickyWindowPage.getByTestId('sticky-key-result').first()).toContainText('1天');
     const regeneratedObjective = await stickyPage.getObjective();
     expect(regeneratedObjective).toContain('优化团队开发效率'); // Title should remain
 
@@ -325,7 +332,7 @@ test.describe('Edit, Regenerate, and Copy OKR Workflow', () => {
 
     // Wait for regeneration to complete
     await waitForStateChange(stickyWindowPage, {
-      from: '[data-testid="regenerate-button"]',
+      from: '[data-testid="policy-append"]',
       to: '[data-testid="sticky-key-result"]',
       timeout: 15000,
     });
@@ -333,9 +340,10 @@ test.describe('Edit, Regenerate, and Copy OKR Workflow', () => {
     // ==========================================
     // Step 11: Verify KRs appended
     // ==========================================
+    await expect(stickyWindowPage.getByTestId('sticky-key-result')).toHaveCount(6);
     const appendedKeyResults = await stickyPage.getKeyResults();
     // Should have 3 original + 2 appended = 5 KRs
-    expect(appendedKeyResults.length).toBe(5);
+    expect(appendedKeyResults.length).toBe(6);
 
     // Verify original KRs still exist
     expect(appendedKeyResults[0]).toContain('1天');
@@ -352,20 +360,6 @@ test.describe('Edit, Regenerate, and Copy OKR Workflow', () => {
       timeout: 5000,
     });
     expect(copyBtnVisible).toBe(true);
-
-    // Grant clipboard permissions and click copy
-    await stickyWindowPage.evaluate(() => {
-      // Mock clipboard API if not available in test environment
-      if (!navigator.clipboard) {
-        (navigator as any).clipboard = {
-          writeText: async (text: string) => {
-            (window as any).__clipboardText = text;
-            return Promise.resolve();
-          },
-          readText: async () => (window as any).__clipboardText || '',
-        };
-      }
-    });
 
     await forceClick(stickyWindowPage, '[data-testid="copy-button"]');
 
@@ -384,13 +378,11 @@ test.describe('Edit, Regenerate, and Copy OKR Workflow', () => {
     // ==========================================
     // Step 13: Verify clipboard contains markdown
     // ==========================================
-    const clipboardText = await stickyWindowPage.evaluate(() => {
-      return (window as any).__clipboardText || '';
-    });
+    const clipboardText = await electronApp.evaluate(({ clipboard }) => clipboard.readText());
 
     expect(clipboardText).toContain('优化团队开发效率');
-    expect(clipboardText).toContain('## 目标');
-    expect(clipboardText).toContain('## 关键结果');
+    expect(clipboardText).toContain('## Objective');
+    expect(clipboardText).toContain('## Key Results');
 
     // Verify all KRs are in the markdown
     expect(clipboardText).toContain('代码审查时间');

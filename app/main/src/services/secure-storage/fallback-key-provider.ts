@@ -1,7 +1,5 @@
 import { createHash, pbkdf2Sync, randomBytes } from 'node:crypto';
 
-import { safeStorage } from 'electron';
-
 import type { SecureLlmConfig } from './secure-llm-config.js';
 
 /**
@@ -14,16 +12,14 @@ export class FallbackKeyProvider {
   /**
    * Checks if we should use a fallback encryption key instead of safeStorage.
    *
-   * Returns true in CI/E2E environments where safeStorage is unavailable
-   * or when explicitly configured via environment variables.
+   * Test fallback is explicit. Production must report unavailable OS encryption
+   * instead of persisting data under a disposable or public test key.
    *
    * @returns True if fallback key should be used
    */
   shouldUseFallbackKey(): boolean {
     return (
-      !safeStorage.isEncryptionAvailable() ||
-      process.env.E2E_TEST === 'true' ||
-      process.env.CI === 'true'
+      process.env.E2E_TEST === 'true' || process.env.E2E_TEST === '1' || process.env.CI === 'true'
     );
   }
 
@@ -45,7 +41,11 @@ export class FallbackKeyProvider {
     let seed: string;
     if (process.env.E2E_FALLBACK_KEY_SEED) {
       seed = process.env.E2E_FALLBACK_KEY_SEED;
-    } else if (process.env.CI === 'true' || process.env.E2E_TEST === 'true') {
+    } else if (
+      process.env.CI === 'true' ||
+      process.env.E2E_TEST === 'true' ||
+      process.env.E2E_TEST === '1'
+    ) {
       seed = 'ci-test-deterministic-seed-v1';
     } else {
       seed = randomBytes(32).toString('hex');

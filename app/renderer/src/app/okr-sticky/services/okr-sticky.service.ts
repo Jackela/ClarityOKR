@@ -1,4 +1,4 @@
-import { Injectable, type OnDestroy, signal, computed } from '@angular/core';
+import { Inject, Injectable, type OnDestroy, signal, computed } from '@angular/core';
 import type { GenerateOKRRequest, OKRDocument, RegenerationPolicy } from '@clarityokr/contracts';
 import {
   BridgeUnavailableError,
@@ -7,7 +7,7 @@ import {
   okrDocumentSchema,
 } from '@clarityokr/contracts';
 
-import type { Logger } from '../../core/services/logger.service';
+import { Logger } from '../../core/services/logger.service';
 import { IPC_CHANNELS } from '../../shared/ipc-channel.tokens';
 import type { ClarifyOkrApi } from '../../shared/window';
 
@@ -56,6 +56,8 @@ export interface OkrStickyViewModel {
 @Injectable({ providedIn: 'root' })
 export class OkrStickyService implements OnDestroy {
   /** Internal signal for view model state */
+  private document: OKRDocument | null = null;
+
   private readonly _viewModel = signal<OkrStickyViewModel | null>(null);
 
   /** IPC listener cleanup function */
@@ -70,7 +72,7 @@ export class OkrStickyService implements OnDestroy {
   /** Computed signal for current view model value (null-safe) */
   readonly currentViewModel = computed(() => this._viewModel());
 
-  constructor(private readonly logger: Logger) {
+  constructor(@Inject(Logger) private readonly logger: Logger) {
     this.registerListeners();
     void this.hydrateFromMain();
   }
@@ -157,6 +159,32 @@ export class OkrStickyService implements OnDestroy {
    * @returns Promise 在窗口重新打开后解析
    * @throws 当 IPC 桥不可用时抛出错误
    */
+  async saveEdits(changes: Pick<OKRDocument, 'objective' | 'keyResults'>): Promise<void> {
+    if (!this.document) throw new Error('No OKR to edit');
+    const result = await this.ensureBridge().invoke(IPC_CHANNELS.OKR_UPDATE, {
+      id: this.document.id,
+      ...changes,
+    });
+    this.storeDocument(okrDocumentSchema.parse(result));
+  }
+
+  async regenerate(policy: RegenerationPolicy): Promise<void> {
+    if (!this.document) throw new Error('No OKR to regenerate');
+    const result = await this.ensureBridge().invoke(IPC_CHANNELS.OKR_REGENERATE, {
+      sessionId: this.document.sourceSessionId,
+      policy,
+    });
+    this.storeDocument(okrDocumentSchema.parse(result));
+  }
+
+  async copy(): Promise<void> {
+    if (!this.document) throw new Error('No OKR to copy');
+    const copied = await this.ensureBridge().invoke(IPC_CHANNELS.CLIPBOARD_EXPORT, {
+      okrId: this.document.id,
+    });
+    if (copied !== true) throw new Error('Clipboard export failed');
+  }
+
   async reopenSticky(): Promise<void> {
     const bridge = this.ensureBridge();
     await bridge.invoke(IPC_CHANNELS.STICKY_REOPEN, undefined);
@@ -237,6 +265,7 @@ export class OkrStickyService implements OnDestroy {
    * Store document and project to view model
    */
   private storeDocument(document: OKRDocument): OkrStickyViewModel {
+    this.document = document;
     const viewModel = this.project(document);
     this._viewModel.set(viewModel);
     return viewModel;
@@ -275,7 +304,7 @@ export class OkrStickyService implements OnDestroy {
   private ensureBridge(): ClarifyOkrApi {
     const bridge = this.bridgeOrUndefined();
     if (!bridge) {
-        throw new BridgeUnavailableError();
+      throw new BridgeUnavailableError();
     }
     return bridge;
   }
@@ -294,6 +323,7 @@ export class OkrStickyService implements OnDestroy {
    * Clear the current view model
    */
   clear(): void {
+    this.document = null;
     this._viewModel.set(null);
     this.logger.debug('[OKR-STICKY] View model cleared');
   }

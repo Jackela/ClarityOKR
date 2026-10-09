@@ -20,5 +20,9 @@ export interface IClarificationResponseHandler {
    * @param session - 当前会话
    * @param optionId - 选项ID
    */
-  recordSelection(session: ClarificationSession, optionId: string): Promise<void>;
+  recordSelection(
+    session: ClarificationSession,
+    optionId: string,
+    promptId?: string | null,
+  ): Promise<void>;
 }

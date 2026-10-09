@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto';
-
 import type { ClarificationSession } from '@clarityokr/contracts';
 
 import { Logger } from '../core/logger.js';
@@ -66,13 +64,5 @@ export class ClarificationPersistenceHandler implements IClarificationPersistenc
       Logger.error(`[Persistence] Failed to clear persistence:`, errorMsg);
       throw new PersistenceError(`Failed to clear persistence: ${errorMsg}`);
     }
-  }
-
-  /**
-   * 计算会话数据的校验和
-   */
-  private calculateChecksum(session: ClarificationSession): string {
-    const data = JSON.stringify(session);
-    return createHash('sha256').update(data).digest('hex').slice(0, 16);
   }
 }

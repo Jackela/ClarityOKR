@@ -4,7 +4,6 @@ import {
   OkrStickyPage,
   waitForStickyWindow,
   debugWindows,
-  findStickyWindow,
 } from '../../page-objects';
 import { waitForElement, forceClick } from '../../helpers/native-dom';
 import type { MockResponseConfig } from '@clarityokr/contracts';
@@ -129,63 +128,13 @@ test('user can reopen sticky window after closing it', async ({
   expect(reopenedKeyResults).toEqual(initialKeyResults); // Exact match
 });
 
-test('reopening sticky window without OKR shows appropriate message', async ({
+test('without an OKR the app does not offer a sticky reopen action', async ({
   electronApp,
   mainWindow,
 }) => {
-  // Start app but don't generate OKR - just wait for app to be ready
-  await mainWindow.waitForLoadState('domcontentloaded');
-
-  // Wait for reopen button to be visible using deterministic wait
-  const reopenBtnVisible = await waitForElement(mainWindow, '[data-testid="sticky-reopen"]', {
-    timeout: 10000,
-  });
-  expect(reopenBtnVisible).toBe(true);
-
-  // Click reopen button without any OKR generated
-  await forceClick(mainWindow, '[data-testid="sticky-reopen"]');
-
-  // In the absence of an OKR, the app should handle gracefully.
-  // The expected behavior (to be implemented in T033):
-  // - Show an error/toast message, OR
-  // - Show the sticky window with empty/no data state
-
-  // Use deterministic wait pattern: poll for expected states
-  const startTime = Date.now();
-  const timeout = 8000;
-  let errorVisible = false;
-  let stickyWindow = null;
-
-  while (Date.now() - startTime < timeout) {
-    // Check if error message appeared
-    errorVisible = await waitForElement(mainWindow, '[data-testid="error-message"]', {
-      timeout: 500,
-    }).catch(() => false);
-    if (errorVisible) break;
-
-    // Check if sticky window opened
-    stickyWindow = await findStickyWindow(electronApp, { timeout: 500 }).catch(() => null);
-    if (stickyWindow) break;
-
-    // Small poll interval
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-
-  if (stickyWindow) {
-    // If sticky opened, verify it shows empty/no data state
-    const stickyPage = new OkrStickyPage(stickyWindow);
-    const objective = await stickyPage.getObjective().catch(() => '');
-    // Should show placeholder or empty message
-    expect(objective.length === 0 || objective.includes('无') || objective.includes('请')).toBe(
-      true,
-    );
-  } else if (!errorVisible) {
-    // If no sticky and no error, the reopen handler should handle gracefully
-    // This is the expected behavior - the handler will be implemented in T033
-    // For now, this test documents the expected behavior and will fail until implemented
-    throw new Error(
-      'Expected error message or sticky window with empty state. ' +
-        'The sticky:reopen handler needs to be implemented (T033).',
-    );
-  }
+  await expect(mainWindow.getByTestId('intent-input')).toBeVisible();
+  await expect(mainWindow.getByTestId('sticky-reopen')).toHaveCount(0);
+  expect(
+    await electronApp.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length),
+  ).toBe(1);
 });

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/ban-types */
 import nock from 'nock';
 import { jest } from '@jest/globals';
 

@@ -1,6 +1,6 @@
 import type { OnDestroy } from '@angular/core';
-import { Injectable, inject, signal } from '@angular/core';
-import type { Logger } from '@core/services/logger.service';
+import { Inject, Injectable, inject, signal } from '@angular/core';
+import { Logger } from '@core/services/logger.service';
 import { TelemetryService } from '@services/telemetry.service';
 import { ClarificationStateMachine } from './clarification-state-machine.service';
 import {
@@ -109,7 +109,7 @@ export class ClarificationTelemetryService implements OnDestroy {
   /** 当前会话ID */
   readonly currentSessionId = signal<string | null>(null);
 
-  constructor(logger: Logger) {
+  constructor(@Inject(Logger) logger: Logger) {
     this.logger = logger;
     this.config = this.loadConfig();
     this.isOptedOut.set(this.checkOptOutStatus());

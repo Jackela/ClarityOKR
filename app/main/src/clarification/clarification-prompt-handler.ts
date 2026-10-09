@@ -1,16 +1,16 @@
 /**
  * ClarificationPromptHandler - Processes user intent inputs
- * 
+ *
  * Responsibilities:
  * - Validates user intent input (minimum 3 characters)
  * - Creates or retrieves clarification sessions
  * - Generates initial clarification prompts via LLM
  * - Fetches next questions based on user context
- * 
+ *
  * This handler coordinates between the session manager, state machine,
  * and LLM service to provide a seamless clarification experience.
  */
-  import {
+import {
   clarificationPromptResponseSchema,
   llmQuestionSchema,
   type ClarificationPrompt,
@@ -42,14 +42,13 @@ export class ClarificationPromptHandler implements IClarificationPromptHandler {
 
   /**
    * Handles user intent input and generates the first clarification prompt.
-   * 
+   *
    * @param sessionId - The unique session identifier
    * @param intent - The user's initial intent description
    * @returns Promise resolving to the generated clarification prompt
    * @throws {ValidationError} If intent is too short
    * @throws {LLMError} If LLM service fails or returns invalid response
    */
-
 
   async handlePrompt(sessionId: string, intent: string): Promise<ClarificationPrompt> {
     // 验证输入
@@ -115,6 +114,7 @@ export class ClarificationPromptHandler implements IClarificationPromptHandler {
 
     // 更新会话
     session.steps.push(prompt);
+    session.pendingQuestionId = prompt.id;
     await this.sessionManager.saveSession(session);
 
     // 状态转换：collecting -> ready
@@ -132,11 +132,10 @@ export class ClarificationPromptHandler implements IClarificationPromptHandler {
 
   /**
    * Validates user intent meets minimum requirements.
-   * 
+   *
    * @param intent - The intent string to validate
    * @returns True if intent is at least 3 characters
    */
-
 
   validateIntent(intent: string): boolean {
     return Boolean(intent && intent.trim().length >= 3);
@@ -144,7 +143,7 @@ export class ClarificationPromptHandler implements IClarificationPromptHandler {
 
   /**
    * Gets the next clarification question based on current context.
-   * 
+   *
    * @param sessionId - The active session identifier
    * @param currentQuestionId - ID of the question being answered
    * @param context - Current clarification context with turn history
@@ -152,7 +151,6 @@ export class ClarificationPromptHandler implements IClarificationPromptHandler {
    * @throws {ValidationError} If session not found
    * @throws {LLMError} If LLM service fails or returns invalid response
    */
-
 
   async getNextQuestion(
     sessionId: string,
@@ -168,7 +166,9 @@ export class ClarificationPromptHandler implements IClarificationPromptHandler {
     try {
       data = await this.okrAgentService.getNextQuestion(context, {
         questionId: currentQuestionId,
-        optionId: '',
+        optionId:
+          context.turns.filter((turn) => turn.questionId === currentQuestionId).at(-1)?.optionId ??
+          '',
       });
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
@@ -203,6 +203,7 @@ export class ClarificationPromptHandler implements IClarificationPromptHandler {
     };
 
     session.steps.push(prompt);
+    session.pendingQuestionId = prompt.id;
     await this.sessionManager.saveSession(session);
 
     return clarificationPromptResponseSchema.parse({ prompt }).prompt;

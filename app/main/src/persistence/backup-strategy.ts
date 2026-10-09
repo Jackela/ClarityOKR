@@ -2,6 +2,7 @@ import { promises as fs } from 'node:fs';
 import { dirname, basename, extname, join } from 'node:path';
 
 import { Logger } from '../core/logger.js';
+import { backupFilePattern, createBackup } from './atomic-persistence.utils.js';
 
 /**
  * Backup rotation configuration
@@ -46,10 +47,7 @@ export class BackupStrategy {
   async createBackup(filePath: string): Promise<BackupResult> {
     const baseName = basename(filePath, extname(filePath));
     const dir = dirname(filePath);
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const backupPath = join(dir, `${baseName}${this.config.backupSuffix}.${timestamp}.json`);
-
-    await fs.copyFile(filePath, backupPath);
+    const backupPath = await createBackup(filePath, this.config.backupSuffix);
     const rotatedCount = await this.rotateBackups(dir, baseName);
 
     Logger.debug('[BackupStrategy] Created backup:', backupPath);
@@ -64,7 +62,7 @@ export class BackupStrategy {
    * @returns Array of backup file paths sorted by age (oldest first)
    */
   async findBackups(dir: string, baseName: string): Promise<string[]> {
-    const pattern = new RegExp(`^${baseName}\\${this.config.backupSuffix}\\.[^\\.]+\\.json$`);
+    const pattern = backupFilePattern(baseName, this.config.backupSuffix);
 
     try {
       const entries = await fs.readdir(dir);

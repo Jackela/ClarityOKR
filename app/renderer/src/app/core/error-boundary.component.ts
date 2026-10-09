@@ -7,6 +7,8 @@
 
 /* eslint-disable @typescript-eslint/consistent-type-imports */
 import { Component, Input } from '@angular/core';
+import type { TemplateRef } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { ClarityOkrError, getRecoverySuggestion, isClarityOkrError } from '@clarityokr/contracts';
 
 import { ErrorBoundaryService } from './error-boundary.service.js';
@@ -34,6 +36,8 @@ import { ErrorBoundaryService } from './error-boundary.service.js';
  */
 @Component({
   selector: 'app-error-boundary',
+  standalone: true,
+  imports: [NgTemplateOutlet],
   template: `
     @if (hasError) {
       @if (fallbackTemplate) {
@@ -96,7 +100,7 @@ import { ErrorBoundaryService } from './error-boundary.service.js';
   ],
 })
 export class ErrorBoundaryComponent {
-  @Input() fallbackTemplate: unknown;
+  @Input() fallbackTemplate: TemplateRef<unknown> | null = null;
   @Input() onError?: (error: ClarityOkrError) => void;
   @Input() onRecover?: () => void;
 
@@ -135,10 +139,10 @@ export class ErrorBoundaryComponent {
   /**
    * Recover from error and retry
    */
-  recover(): void {
+  readonly recover = (): void => {
     this.hasError = false;
     this.error = null;
     this.recoverySuggestion = null;
     this.onRecover?.();
-  }
+  };
 }

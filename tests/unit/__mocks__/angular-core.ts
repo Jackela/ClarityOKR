@@ -26,6 +26,11 @@ export function Injectable(_config?: unknown) {
   return (target: unknown) => target;
 }
 
+// Angular's parameter decorator carries metadata; unit doubles do not resolve DI.
+export function Inject(_token: unknown): ParameterDecorator {
+  return () => {};
+}
+
 // Effect - just executes once
 export function effect(fn: () => void) {
   fn();

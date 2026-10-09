@@ -37,14 +37,14 @@
  * ```
  */
 
-import { Injectable } from '@angular/core';
+import { Inject, Injectable } from '@angular/core';
 import { defer } from 'rxjs';
 import type { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { BridgeUnavailableError } from '@clarityokr/contracts';
 import type { ClarificationContext, LastChoice } from '@clarityokr/contracts';
 
-import type { TelemetryService } from '../../services/telemetry.service';
+import { TelemetryService } from '../../services/telemetry.service';
 import { IPC_CHANNELS } from '../../shared/ipc-channel.tokens';
 import type { ClarifyOkrApi } from '../../shared/window';
 
@@ -100,7 +100,7 @@ export class LlmGatewayService {
    *
    * @param telemetry - Service for recording performance metrics and call statistics
    */
-  constructor(private readonly telemetry: TelemetryService) {}
+  constructor(@Inject(TelemetryService) private readonly telemetry: TelemetryService) {}
 
   /**
    * Requests the next clarification question from the LLM via IPC.

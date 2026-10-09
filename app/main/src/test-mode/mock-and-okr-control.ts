@@ -48,15 +48,6 @@ export class OkrControlModule implements IOkrControl {
   }
 
   async clearOKRs(): Promise<void> {
-    const { promises: fsPromises } = await import('node:fs');
-    const path = await import('node:path');
-    const dataDir = process.env.CLARITY_OKR_DATA_DIR ?? path.join(process.cwd(), 'data');
-    const okrFile = path.join(dataDir, 'okr-document.json');
-
-    try {
-      await fsPromises.unlink(okrFile);
-    } catch {
-      // File may not exist, that's fine
-    }
+    await this.deps.okrRepo.clear();
   }
 }

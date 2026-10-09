@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  NODE_VERSION: '20'
+  NODE_VERSION: '24'
   PNPM_VERSION: '9'
   CI: 'true'
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
@@ -50,7 +50,7 @@ jobs:
       - name: Get pnpm store directory
         id: pnpm-cache
         run: |
-          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+          echo "STORE_PATH=$(pnpm store path)" >> "$GITHUB_OUTPUT"
 
       - name: Setup pnpm cache
         uses: actions/cache@v4
@@ -67,37 +67,9 @@ jobs:
       - name: Run npm audit security scan
         timeout-minutes: 5
         run: |
-          echo "🔒 Running npm audit security scan..."
-          pnpm audit --audit-level=high --json > audit-report.json 2>/dev/null || true
-          HIGH_VULNS=$(cat audit-report.json 2>/dev/null | jq '.metadata.vulnerabilities.high // 0' || echo "0")
-          CRITICAL_VULNS=$(cat audit-report.json 2>/dev/null | jq '.metadata.vulnerabilities.critical // 0' || echo "0")
-          echo "Security scan results:"
-          echo "  - High vulnerabilities: $HIGH_VULNS"
-          echo "  - Critical vulnerabilities: $CRITICAL_VULNS"
-          # Filter out known dev-only vulnerabilities (require major version upgrades)
-          # Angular 17.x requires 19 (breaking), webpack-dev-server needs node-forge fix, glob/tar need major updates
-          DEV_ONLY_VULNS=$(cat audit-report.json 2>/dev/null | jq '[.advisories | to_entries[] | select(.value.severity == "high" and (
-            .value.title | test("(?i)angular") or
-            test("(?i)(xsrf|xss)") or
-            test("(?i)(glob|tar|minimatch)") or
-            test("(?i)(webpack|node-forge)") or
-            test("(?i)(svg|animation)") or
-            test("(?i)(undici|serializejavascript|serialize javascript|picomatch)") or
-            test("(?i)(lodash|electron)")
-          )) | .value.id] | length' 2>/dev/null || echo "0")
-          echo "Known dev-only vulnerabilities (ignoring): $DEV_ONLY_VULNS"
-          ACTUAL_HIGH_VULNS=$((HIGH_VULNS - DEV_ONLY_VULNS))
-          echo "Actual high vulnerabilities after filtering: $ACTUAL_HIGH_VULNS"
-          if [ "$CRITICAL_VULNS" -gt 0 ]; then
-            echo "❌ CRITICAL vulnerabilities found! Failing build."
-            cat audit-report.json | jq '.advisories | to_entries[] | select(.value.severity == "critical") | {id: .value.id, title: .value.title, severity: .value.severity}' 2>/dev/null || true
-            exit 1
-          fi
-          if [ "$ACTUAL_HIGH_VULNS" -gt 0 ]; then
-            echo "⚠️ HIGH vulnerabilities found ($ACTUAL_HIGH_VULNS > 0)! Failing build."
-            exit 1
-          fi
-          echo "✅ Security scan passed (dev-only vulnerabilities ignored)"
+          pnpm run test:audit
+          pnpm run test:dependency-security
+          pnpm run audit:security
 
       - name: Build contracts
         run: pnpm run build:contracts
@@ -117,37 +89,12 @@ jobs:
           NODE_OPTIONS: '--max-old-space-size=4096'
         run: pnpm run build:ci
 
-      - name: Unit tests with coverage
-        timeout-minutes: 20
-        run: COVERAGE=true pnpm run test:unit
-
-      - name: Check test coverage (minimum 80%)
+      - name: Collect unit, component and integration coverage for final combined gate
         id: coverage
+        timeout-minutes: 30
         run: |
-          echo "📊 Checking test coverage..."
-          COVERAGE_FILE="coverage/lcov-report/index.html"
-          if [ -f "$COVERAGE_FILE" ]; then
-            echo "Coverage report generated at $COVERAGE_FILE"
-            echo "path=coverage" >> $GITHUB_OUTPUT
-          fi
-          echo "✅ Coverage check passed"
-
-      - name: Component tests
-        timeout-minutes: 10
-        run: pnpm run test:component
-
-      - name: Integration tests
-        timeout-minutes: 10
-        run: pnpm run test:integration
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        if: ${{ !cancelled() }}
-        with:
-          files: ./coverage/lcov.info
-          fail_ci_if_error: false
-          verbose: true
-          token: ${{ secrets.CODECOV_TOKEN }}
+          pnpm run coverage:collect
+          echo "path=coverage" >> "$GITHUB_OUTPUT"
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -167,7 +114,10 @@ jobs:
         with:
           name: test-results
           path: |
+            coverage/
             tests/unit/coverage/
+            app/renderer/coverage/
+            tests/integration/coverage/
             tests/unit/junit.xml
           retention-days: 7
           if-no-files-found: ignore
@@ -188,6 +138,7 @@ jobs:
       ELECTRON_ENABLE_LOGGING: 'true'
       CI_DEBUG_SCREENSHOTS: 'true'
       DEBUG: 'pw:api'
+      E2E_COVERAGE: 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -205,7 +156,7 @@ jobs:
       - name: Get pnpm store directory
         id: pnpm-cache
         run: |
-          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+          echo "STORE_PATH=$(pnpm store path)" >> "$GITHUB_OUTPUT"
 
       - name: Setup pnpm cache
         uses: actions/cache@v4
@@ -216,19 +167,32 @@ jobs:
             ${{ runner.os }}-pnpm-store-
 
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile --prefer-offline
+        run: pnpm install --frozen-lockfile --prefer-offline
 
       - name: Run npm audit security scan
         timeout-minutes: 5
         run: |
           echo "🔒 Running npm audit security scan..."
-          pnpm audit --audit-level=high 2>/dev/null || echo "Audit completed"
+          pnpm run test:dependency-security
+          pnpm run audit:security
+
+      - name: Rebuild native modules for Electron
+        run: pnpm run rebuild:electron
 
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
           name: build-artifacts
           path: .
+
+      - name: Download coverage from the same workflow head
+        uses: actions/download-artifact@v4
+        with:
+          name: test-results
+          path: .
+
+      - name: Build instrumented main, sandboxed preload and Angular renderer
+        run: pnpm run build:coverage
 
       - name: Cache Playwright browsers
         uses: actions/cache@v4
@@ -321,6 +285,29 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+      - name: Map real Electron coverage to source and enforce 80% across every metric
+        run: |
+          pnpm run coverage:remap:e2e
+          pnpm run coverage:check
+
+      - name: Upload combined source coverage
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: combined-source-coverage
+          path: |
+            coverage/
+            tests/e2e/coverage/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage/lcov.info
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
       - name: Upload Playwright HTML report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
@@ -367,21 +354,10 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: powershell
         run: |
-          # Configure npm for Windows build BEFORE installing dependencies
-          # This is critical for node-gyp to compile native modules
-          npm config set msvs_version 2022
-          npm config set python python3
-
-          # Also configure pnpm to use the same settings
-          pnpm config set msvs_version 2022
-          pnpm config set python python3
-
-          # Display configurations for debugging
-          Write-Host "=== Build Environment Configuration ==="
-          Write-Host "npm msvs_version: $(npm config get msvs_version)"
-          Write-Host "npm python: $(npm config get python)"
-          Write-Host "pnpm msvs_version: $(pnpm config get msvs_version)"
-          Write-Host "pnpm python: $(pnpm config get python)"
+          # node-gyp options are process environment, not unsupported npm config keys.
+          $pythonPath = (Get-Command python).Source
+          "NODE_GYP_FORCE_PYTHON=$pythonPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "npm_package_config_node_gyp_msvs_version=2022" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
           # Verify Visual Studio installation
           $vsPaths = @(
@@ -406,14 +382,10 @@ jobs:
             Write-Host "::warning::Visual Studio 2022 not found in expected locations"
           }
 
-          # Set environment variables for node-gyp
-          [Environment]::SetEnvironmentVariable('GYP_MSVS_VERSION', '2022', 'User')
-          Write-Host "GYP_MSVS_VERSION set to 2022"
-
       - name: Get pnpm store directory
         id: pnpm-cache
         run: |
-          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+          echo "STORE_PATH=$(pnpm store path)" >> "$GITHUB_OUTPUT"
 
       - name: Setup pnpm cache
         uses: actions/cache@v4
@@ -424,7 +396,7 @@ jobs:
             ${{ runner.os }}-pnpm-store-
 
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile --prefer-offline
+        run: pnpm install --frozen-lockfile --prefer-offline
 
       - name: Build contracts
         run: pnpm run build:contracts
@@ -519,7 +491,7 @@ jobs:
 
   coverage-report:
     name: Coverage Report
-    needs: build-and-test
+    needs: e2e
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -531,46 +503,32 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - name: Install pnpm
-        run: |
-          npm install -g pnpm@${{ env.PNPM_VERSION }}
-          pnpm --version
+      - name: Download combined source coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: combined-source-coverage
+          path: .
 
-      - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile --prefer-offline
-
-      - name: Generate coverage report
-        run: |
-          pnpm run test:unit --coverage --coverageReporters=text-summary --coverageReporters=lcov --coverageReporters=html
-
-          COVERAGE_FILE="tests/unit/coverage/coverage-summary.json"
-          if [ -f "$COVERAGE_FILE" ]; then
-            COVERAGE=$(cat "$COVERAGE_FILE" | jq -r '.total.lines.pct // 0')
-            echo "Overall coverage: ${COVERAGE}%"
-            echo "coverage=$COVERAGE" >> $GITHUB_ENV
-            
-            if (( $(echo "$COVERAGE < 80" | bc -l) )); then
-              echo "❌ Coverage is below 80% threshold!"
-              exit 1
-            fi
-            echo "✅ Coverage meets 80% threshold"
-          else
-            echo "⚠️ Coverage summary not found at $COVERAGE_FILE"
-          fi
+      - name: Verify reported coverage retains the 80% contract
+        run: >-
+          node --input-type=module -e "import fs from 'node:fs';
+          const {total}=JSON.parse(fs.readFileSync('coverage/coverage-summary.json'));
+          for(const metric of ['lines','statements','functions','branches'])
+          if(!total[metric]?.total || total[metric].pct<80) throw new Error('Coverage below 80%: '+metric);"
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
           name: coverage-report
-          path: tests/unit/coverage/
+          path: coverage/
           retention-days: 30
           if-no-files-found: error
 
   # 汇总状态检查
   ci-status:
     name: CI Status
-    needs: [build-and-test, e2e]
+    needs: [build-and-test, e2e, coverage-report]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -584,7 +542,7 @@ jobs:
             exit 1
           fi
 
-          if [ "${{ needs.e2e.result }}" != "success" ] && [ "${{ needs.e2e.result }}" != "skipped" ]; then
+          if [ "${{ needs.e2e.result }}" != "success" ] || [ "${{ needs.coverage-report.result }}" != "success" ]; then
             echo "❌ E2E tests failed"
             exit 1
           fi

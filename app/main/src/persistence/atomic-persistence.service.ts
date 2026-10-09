@@ -3,7 +3,6 @@ import { dirname, join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 
-
 import { Logger } from '../core/logger.js';
 import { BackupStrategy } from './backup-strategy.js';
 import { PersistenceMetricsCollector, type PersistenceMetrics } from './persistence-metrics.js';
@@ -52,13 +51,25 @@ export class AtomicPersistenceService {
       await fs.mkdir(dirname(filePath), { recursive: true });
 
       let backupCreated = false;
+      let fileExists = true;
       try {
         await fs.access(filePath);
+      } catch (error) {
+        if (
+          typeof error === 'object' &&
+          error !== null &&
+          'code' in error &&
+          error.code === 'ENOENT'
+        ) {
+          fileExists = false;
+        } else {
+          throw error;
+        }
+      }
+      if (fileExists) {
         await this.backupStrategy.createBackup(filePath);
         backupCreated = true;
         this.metrics.recordBackup();
-      } catch {
-        Logger.debug('[AtomicPersistenceService] File does not exist, no backup needed');
       }
 
       const tempPath = filePath + this.tempSuffix;
@@ -184,14 +195,14 @@ export class AtomicPersistenceService {
       const content = await fs.readFile(filePath, 'utf-8');
       const parsed = JSON.parse(content) as PersistedPayload;
 
-      if (!parsed.checksum || !parsed.data) {
+      if (!parsed.checksum || !Object.prototype.hasOwnProperty.call(parsed, 'data')) {
         return false;
       }
 
       const jsonData = JSON.stringify(parsed.data, null, 2);
       const actualChecksum = this.calculateChecksum(jsonData);
 
-      return actualChecksum === expectedChecksum;
+      return actualChecksum === expectedChecksum && parsed.checksum === expectedChecksum;
     } catch (error) {
       Logger.debug(
         '[AtomicPersistenceService] File verification failed',
@@ -206,7 +217,7 @@ export class AtomicPersistenceService {
       const content = await fs.readFile(filePath, 'utf-8');
       const parsed = JSON.parse(content) as PersistedPayload<T>;
 
-      if (!parsed.checksum || !parsed.data) {
+      if (!parsed.checksum || !Object.prototype.hasOwnProperty.call(parsed, 'data')) {
         this.metrics.recordChecksumFailure();
         return { success: false };
       }
@@ -231,12 +242,12 @@ export class AtomicPersistenceService {
 
   private async recoverFromBackup<T>(filePath: string): Promise<RecoveryResult<T>> {
     const { baseName, dir } = this.backupStrategy.parseFilePath(filePath);
-    const latestBackup = await this.backupStrategy.getLatestBackup(dir, baseName);
+    const backups = (await this.backupStrategy.findBackups(dir, baseName)).reverse();
 
-    if (latestBackup) {
+    for (const latestBackup of backups) {
       try {
         const result = await this.readAndVerify<T>(latestBackup);
-        if (result.success && result.data) {
+        if (result.success) {
           await fs.copyFile(latestBackup, filePath);
           this.metrics.recordRecovery();
           return {
@@ -262,7 +273,7 @@ export class AtomicPersistenceService {
       const content = await fs.readFile(tempPath, 'utf-8');
       const parsed = JSON.parse(content) as PersistedPayload;
 
-      if (parsed.checksum && parsed.data) {
+      if (parsed.checksum && Object.prototype.hasOwnProperty.call(parsed, 'data')) {
         const jsonData = JSON.stringify(parsed.data, null, 2);
         const actualChecksum = this.calculateChecksum(jsonData);
 

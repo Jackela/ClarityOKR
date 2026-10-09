@@ -9,6 +9,7 @@ pnpm-debug.log*
 
 # Build outputs
 dist/
+dist-coverage/
 build/
 tmp-dist/
 tmp/
@@ -54,3 +55,10 @@ CLAUDE.md
 
 # ULTRAWORK system tracking files
 .sisyphus/
+
+# Machine-readable dependency scan output
+audit-report.json
+html-report/
+
+# Temporary instrumented source copies for strict desktop coverage builds.
+coverage-work/

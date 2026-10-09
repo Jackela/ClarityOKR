@@ -16,6 +16,36 @@ describe('InputComponent', () => {
     component = fixture.componentInstance;
   });
 
+  it('connects form value, touch and keyboard callbacks to actual input events', () => {
+    const changed = jest.fn();
+    const touched = jest.fn();
+    const keyboard = jest.fn();
+    component.registerOnChange(changed);
+    component.registerOnTouched(touched);
+    component.onKeydown.subscribe(keyboard);
+    component.writeValue('initial');
+    fixture.detectChanges();
+    const input: HTMLInputElement = fixture.nativeElement.querySelector('input');
+    expect(input.value).toBe('initial');
+    input.value = 'typed';
+    input.dispatchEvent(new Event('input'));
+    input.dispatchEvent(new Event('blur'));
+    const enter = new KeyboardEvent('keydown', { key: 'Enter' });
+    input.dispatchEvent(enter);
+    expect(component.value).toBe('typed');
+    expect(changed).toHaveBeenCalledWith('typed');
+    expect(touched).toHaveBeenCalledTimes(1);
+    expect(keyboard).toHaveBeenCalledWith(enter);
+    component.setDisabledState(true);
+    fixture.detectChanges();
+    expect(input.disabled).toBe(true);
+    component.setDisabledState(false);
+    component.writeValue('');
+    fixture.detectChanges();
+    expect(input.disabled).toBe(false);
+    expect(input.value).toBe('');
+  });
+
   it('should create', () => {
     expect(component).toBeTruthy();
   });

@@ -1,3 +1,5 @@
+import { mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
 import type { Database } from 'better-sqlite3';
 import BetterSqlite3 from 'better-sqlite3';
 
@@ -29,6 +31,9 @@ export class ConnectionManager {
       return this.db;
     }
 
+    if (this.dbPath !== ':memory:') {
+      mkdirSync(dirname(this.dbPath), { recursive: true });
+    }
     this.db = new BetterSqlite3(this.dbPath);
     this.db.pragma('journal_mode = WAL');
     this.db.pragma('foreign_keys = ON');

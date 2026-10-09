@@ -8,13 +8,13 @@
  * Key Responsibilities:
  * - Manages clarification session lifecycle through IPC
  * - Validates and transforms user input using Zod schemas
- * - Synchronizes state with SyncClarificationState service
+ * - Synchronizes state with ClarificationStateMachine service
  * - Registers and manages IPC event listeners for real-time updates
  * - Handles loading states and error recovery
  *
  * Dependencies:
  * - @clarityokr/contracts: Zod schemas and type definitions
- * - SyncClarificationState: State management for clarification sessions
+ * - ClarificationStateMachine: State management for clarification sessions
  * - Electron IPC bridge (exposed via window.clarifyOkr)
  *
  * @module clarification/services/clarification-orchestrator.service
@@ -37,8 +37,8 @@
  * ```
  */
 
-import { Injectable } from '@angular/core';
-import type { OnDestroy, NgZone } from '@angular/core';
+import { Inject, Injectable, NgZone } from '@angular/core';
+import type { OnDestroy } from '@angular/core';
 import {
   BridgeUnavailableError,
   clarificationOptionSelectionSchema,
@@ -46,22 +46,22 @@ import {
   clarificationPromptResponseSchema,
 } from '@clarityokr/contracts';
 import type { ClarificationContext, LastChoice } from '@clarityokr/contracts';
-import { from, of, throwError } from 'rxjs';
+import { defer, of, throwError } from 'rxjs';
 import type { Observable } from 'rxjs';
 import { catchError, map, tap } from 'rxjs/operators';
 
-import type { Logger } from '../../core/services/logger.service';
+import { Logger } from '../../core/services/logger.service';
 import { IPC_CHANNELS } from '../../shared/ipc-channel.tokens';
 import type { ClarifyOkrApi } from '../../shared/window';
 
-import type { ClarificationStateMachine } from './clarification-state-machine.service';
+import { ClarificationStateMachine } from './clarification-state-machine.service';
 
 /**
  * Service that orchestrates the clarification flow between renderer and main process.
  *
  * This service acts as the primary coordinator for the OKR clarification wizard.
  * It manages IPC communication, validates all inputs using Zod schemas, and keeps
- * the UI state synchronized with the main process through the SyncClarificationState
+ * the UI state synchronized with the main process through the ClarificationStateMachine
  * service. The service automatically registers IPC listeners on construction and
  * cleans them up on destruction.
  *
@@ -100,9 +100,9 @@ export class ClarificationOrchestratorService implements OnDestroy {
    * @param logger - Logger service for debugging and error reporting
    */
   constructor(
-    private readonly state: ClarificationStateMachine,
-    private readonly zone: NgZone,
-    private readonly logger: Logger,
+    @Inject(ClarificationStateMachine) private readonly state: ClarificationStateMachine,
+    @Inject(NgZone) private readonly zone: NgZone,
+    @Inject(Logger) private readonly logger: Logger,
   ) {
     this.registerPromptListener();
   }
@@ -154,11 +154,11 @@ export class ClarificationOrchestratorService implements OnDestroy {
       return throwError(() => new Error(message));
     }
 
-    this.state.setSessionId(sessionId);
     this.logger.debug('[ORCHESTRATOR] Setting loading state with intent:', intent);
     this.state.start(intent);
+    this.state.setSessionId(sessionId);
 
-    return from(bridge.invoke(IPC_CHANNELS.CLARIFICATION_PROMPT, parsed.data)).pipe(
+    return defer(() => bridge.invoke(IPC_CHANNELS.CLARIFICATION_PROMPT, parsed.data)).pipe(
       map((response) => clarificationPromptResponseSchema.safeParse(response)),
       tap((result) => {
         if (!result.success) {
@@ -168,24 +168,15 @@ export class ClarificationOrchestratorService implements OnDestroy {
         this.state.setPrompt(result.data.prompt);
       }),
       map(() => void 0),
-      catchError((error) => {
-        const message = error instanceof Error ? error.message : String(error);
-        const safeError = error instanceof Error ? error : new Error(String(error));
-        this.logger.debug('[ORCHESTRATOR] Caught error in requestPrompt:', message, {
-          error: safeError,
-        });
-        // Set error state synchronously
-        this.state.setError({ message, recoverable: true });
-        return throwError(() => (error instanceof Error ? error : new Error(message)));
-      }),
+      catchError((error: unknown) => this.recoverOperation(error, 'requestPrompt')),
     );
   }
 
   /**
    * Handles user selection of a clarification prompt option.
    *
-   * Updates state synchronously to record the user's selection, then sends the
-   * selection to the main process via the IPC channel. The main process decides
+   * Validates and sends the selection, then records it locally after send returns.
+   * The void IPC send does not acknowledge backend processing. The main process decides
    * the next prompt or triggers OKR generation based on the selection.
    *
    * @param sessionId - Unique identifier for the current session
@@ -203,9 +194,6 @@ export class ClarificationOrchestratorService implements OnDestroy {
   recordSelection(sessionId: string, promptId: string, optionId: string): Observable<void> {
     const bridge = this.ensureBridge();
 
-    // Update state synchronously first
-    this.state.recordSelection(promptId, optionId);
-
     const parsed = clarificationOptionSelectionSchema.safeParse({ sessionId, promptId, optionId });
     if (!parsed.success) {
       const message = parsed.error.message;
@@ -213,8 +201,11 @@ export class ClarificationOrchestratorService implements OnDestroy {
       return throwError(() => new Error(message));
     }
 
-    bridge.send(IPC_CHANNELS.CLARIFICATION_RESPOND, parsed.data);
-    return of(void 0);
+    return defer(() => {
+      bridge.send(IPC_CHANNELS.CLARIFICATION_RESPOND, parsed.data);
+      this.state.recordSelection(promptId, optionId);
+      return of(void 0);
+    }).pipe(catchError((error: unknown) => this.recoverOperation(error, 'recordSelection')));
   }
 
   requestNextQuestion(_questionId: string, _optionId: string): Observable<void> {
@@ -236,7 +227,7 @@ export class ClarificationOrchestratorService implements OnDestroy {
 
     this.state.setLoading(true);
 
-    return from(bridge.invoke(IPC_CHANNELS.LLM_NEXT_QUESTION, { context, lastChoice })).pipe(
+    return defer(() => bridge.invoke(IPC_CHANNELS.LLM_NEXT_QUESTION, { context, lastChoice })).pipe(
       map((response) => clarificationPromptResponseSchema.safeParse(response)),
       tap((result) => {
         if (!result.success) {
@@ -246,15 +237,7 @@ export class ClarificationOrchestratorService implements OnDestroy {
         this.state.setPrompt(result.data.prompt);
       }),
       map(() => void 0),
-      catchError((error) => {
-        const message = error instanceof Error ? error.message : String(error);
-        const safeError = error instanceof Error ? error : new Error(String(error));
-        this.logger.debug('[ORCHESTRATOR] Caught error in requestNextQuestion:', message, {
-          error: safeError,
-        });
-        this.state.setError({ message, recoverable: true });
-        return throwError(() => (error instanceof Error ? error : new Error(message)));
-      }),
+      catchError((error: unknown) => this.recoverOperation(error, 'requestNextQuestion')),
     );
   }
 
@@ -274,6 +257,15 @@ export class ClarificationOrchestratorService implements OnDestroy {
     this.logger.debug('[ORCHESTRATOR] clearError called');
     this.state.clearError();
     this.logger.debug('[ORCHESTRATOR] clearError completed');
+  }
+
+  private recoverOperation(error: unknown, operation: string): Observable<never> {
+    const safeError = error instanceof Error ? error : new Error(String(error));
+    this.logger.debug(`[ORCHESTRATOR] Caught error in ${operation}:`, safeError.message, {
+      error: safeError,
+    });
+    this.state.setError({ message: safeError.message, recoverable: true });
+    return throwError(() => safeError);
   }
 
   private registerPromptListener(): void {
@@ -312,7 +304,7 @@ export class ClarificationOrchestratorService implements OnDestroy {
     const bridge = this.bridgeOrUndefined();
     if (!bridge) {
       this.logger.error('[renderer] clarifyOkr bridge missing');
-        throw new BridgeUnavailableError();
+      throw new BridgeUnavailableError();
     }
     this.logger.info('[renderer] clarifyOkr bridge established');
     return bridge;

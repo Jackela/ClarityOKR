@@ -116,7 +116,10 @@ describe('ClarificationPromptHandler', () => {
       const result = await handler.handlePrompt('test-session', 'Improve efficiency');
 
       expect(mockSessionManager.getSession).toHaveBeenCalledWith('test-session');
-      expect(mockSessionManager.createSession).toHaveBeenCalledWith('test-session', 'Improve efficiency');
+      expect(mockSessionManager.createSession).toHaveBeenCalledWith(
+        'test-session',
+        'Improve efficiency',
+      );
       expect(result).toBeDefined();
       expect(result.id).toBe('q1');
       expect(result.question).toBe('What is your primary goal?');
@@ -303,7 +306,14 @@ describe('ClarificationPromptHandler', () => {
       mockSessionManager.getSession.mockResolvedValue(null);
       mockSessionManager.createSession.mockReturnValue(session);
       mockOkrAgentService.getNextQuestion.mockResolvedValue({
-        question: { id: '', text: '', options: [{ id: 'opt1', label: 'L1' }, { id: 'opt2', label: 'L2' }] },
+        question: {
+          id: '',
+          text: '',
+          options: [
+            { id: 'opt1', label: 'L1' },
+            { id: 'opt2', label: 'L2' },
+          ],
+        },
       });
 
       await expect(handler.handlePrompt('session-1', 'Test intent')).rejects.toThrow(
@@ -352,7 +362,7 @@ describe('ClarificationPromptHandler', () => {
       expect(result.options).toHaveLength(2);
     });
 
-    it('should call LLM with context and current question ID', async () => {
+    it('should pass the latest selected option for the current question to the LLM', async () => {
       const session = createMockSession();
       mockSessionManager.getSession.mockResolvedValue(session);
       mockSessionManager.saveSession.mockResolvedValue(undefined);
@@ -370,14 +380,17 @@ describe('ClarificationPromptHandler', () => {
       mockOkrAgentService.getNextQuestion.mockResolvedValue(llmResponse);
 
       const context = {
-        turns: [{ questionId: 'q1', optionId: 'opt1', timestamp: '2024-01-01T00:00:00Z' }],
+        turns: [
+          { questionId: 'q1', optionId: 'opt1', timestamp: '2024-01-01T00:00:00Z' },
+          { questionId: 'q1', optionId: 'opt2', timestamp: '2024-01-01T00:01:00Z' },
+        ],
       };
 
       await handler.getNextQuestion('session-1', 'q1', context);
 
       expect(mockOkrAgentService.getNextQuestion).toHaveBeenCalledWith(context, {
         questionId: 'q1',
-        optionId: '',
+        optionId: 'opt2',
       });
     });
 
@@ -413,12 +426,12 @@ describe('ClarificationPromptHandler', () => {
     it('should throw ValidationError when session not found', async () => {
       mockSessionManager.getSession.mockResolvedValue(null);
 
-      await expect(
-        handler.getNextQuestion('missing-session', 'q1', { turns: [] }),
-      ).rejects.toThrow(ValidationError);
-      await expect(
-        handler.getNextQuestion('missing-session', 'q1', { turns: [] }),
-      ).rejects.toThrow('Session not found: missing-session');
+      await expect(handler.getNextQuestion('missing-session', 'q1', { turns: [] })).rejects.toThrow(
+        ValidationError,
+      );
+      await expect(handler.getNextQuestion('missing-session', 'q1', { turns: [] })).rejects.toThrow(
+        'Session not found: missing-session',
+      );
     });
 
     it('should throw LLMError when LLM service fails', async () => {
@@ -426,12 +439,12 @@ describe('ClarificationPromptHandler', () => {
       mockSessionManager.getSession.mockResolvedValue(session);
       mockOkrAgentService.getNextQuestion.mockRejectedValue(new Error('Service unavailable'));
 
-      await expect(
-        handler.getNextQuestion('session-1', 'q1', { turns: [] }),
-      ).rejects.toThrow(LLMError);
-      await expect(
-        handler.getNextQuestion('session-1', 'q1', { turns: [] }),
-      ).rejects.toThrow('Failed to get next question');
+      await expect(handler.getNextQuestion('session-1', 'q1', { turns: [] })).rejects.toThrow(
+        LLMError,
+      );
+      await expect(handler.getNextQuestion('session-1', 'q1', { turns: [] })).rejects.toThrow(
+        'Failed to get next question',
+      );
     });
 
     it('should throw LLMError for empty response', async () => {
@@ -439,21 +452,28 @@ describe('ClarificationPromptHandler', () => {
       mockSessionManager.getSession.mockResolvedValue(session);
       mockOkrAgentService.getNextQuestion.mockResolvedValue(undefined);
 
-      await expect(
-        handler.getNextQuestion('session-1', 'q1', { turns: [] }),
-      ).rejects.toThrow('Empty or invalid response from LLM service');
+      await expect(handler.getNextQuestion('session-1', 'q1', { turns: [] })).rejects.toThrow(
+        'Empty or invalid response from LLM service',
+      );
     });
 
     it('should throw LLMError for response missing question fields', async () => {
       const session = createMockSession();
       mockSessionManager.getSession.mockResolvedValue(session);
       mockOkrAgentService.getNextQuestion.mockResolvedValue({
-        question: { id: '', text: '', options: [{ id: 'opt1', label: 'L1' }, { id: 'opt2', label: 'L2' }] },
+        question: {
+          id: '',
+          text: '',
+          options: [
+            { id: 'opt1', label: 'L1' },
+            { id: 'opt2', label: 'L2' },
+          ],
+        },
       });
 
-      await expect(
-        handler.getNextQuestion('session-1', 'q1', { turns: [] }),
-      ).rejects.toThrow('LLM response validation failed');
+      await expect(handler.getNextQuestion('session-1', 'q1', { turns: [] })).rejects.toThrow(
+        'LLM response validation failed',
+      );
     });
   });
 

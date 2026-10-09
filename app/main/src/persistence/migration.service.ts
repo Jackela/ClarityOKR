@@ -1,7 +1,12 @@
 import { existsSync, promises as fs } from 'node:fs';
 import { join, basename } from 'node:path';
 
-import type { ClarificationSession, ClarificationSelection, OKRDocument, UserActionLogEntry } from '@clarityokr/contracts';
+import type {
+  ClarificationSession,
+  ClarificationSelection,
+  OKRDocument,
+  UserActionLogEntry,
+} from '@clarityokr/contracts';
 
 import { Logger } from '../core/logger.js';
 import type { ConnectionManager } from './connection-manager.js';
@@ -89,6 +94,7 @@ export class MigrationService {
     };
 
     Logger.info('[MigrationService] Starting migration from JSON to SQLite');
+    let transactionStarted = false;
 
     try {
       this.connectionManager.initialize();
@@ -101,6 +107,8 @@ export class MigrationService {
 
       // Create backup before migration
       await this.createBackup();
+      this.connectionManager.getDb().exec('BEGIN');
+      transactionStarted = true;
 
       // Migrate multi-session data first
       if (existsSync(this.jsonFiles.multiSession)) {
@@ -112,8 +120,13 @@ export class MigrationService {
         await this.migrateLegacyData(result);
       }
 
-      // Record migration
+      if (result.errors.length)
+        throw new Error('Migration aborted because one or more records failed');
+
+      // Record the migration and imported data in one transaction.
       this.recordMigration('json-to-sqlite-v1', 'json-files');
+      this.connectionManager.getDb().exec('COMMIT');
+      transactionStarted = false;
 
       Logger.info('[MigrationService] Migration completed', {
         sessions: result.sessionsMigrated,
@@ -121,6 +134,17 @@ export class MigrationService {
         actions: result.actionsMigrated,
       });
     } catch (error) {
+      if (transactionStarted) {
+        try {
+          this.connectionManager.getDb().exec('ROLLBACK');
+        } catch (rollbackError) {
+          result.errors.push(`Migration rollback failed: ${String(rollbackError)}`);
+          Logger.error('[MigrationService] Rollback failed', rollbackError);
+        }
+        result.sessionsMigrated = 0;
+        result.okrsMigrated = 0;
+        result.actionsMigrated = 0;
+      }
       result.success = false;
       const errorMsg = error instanceof Error ? error.message : String(error);
       result.errors.push(errorMsg);
@@ -153,7 +177,8 @@ export class MigrationService {
 
     const selectedOptions: ClarificationSelection[] = [];
     const selectedOptionIds = session.selectedOptionIds as string[] | undefined;
-    const steps = session.steps as Array<{ id: string; options?: Array<{ id: string }> }> | undefined;
+    const steps = session.steps as
+      Array<{ id: string; options?: Array<{ id: string }> }> | undefined;
 
     if (selectedOptionIds && Array.isArray(selectedOptionIds)) {
       for (const optionId of selectedOptionIds) {
@@ -180,6 +205,7 @@ export class MigrationService {
     const data = await readJson<MultiSessionState>(this.jsonFiles.multiSession);
 
     if (!data) {
+      result.errors.push('Cannot read multi-session data');
       Logger.warn('[MigrationService] No multi-session data found');
       return;
     }
@@ -233,6 +259,10 @@ export class MigrationService {
     const rawSession = await readJson<ClarificationSession>(this.jsonFiles.session);
     const okr = await readJson<OKRDocument>(this.jsonFiles.okr);
     const actions = await readJson<UserActionLogEntry[]>(this.jsonFiles.actionLog);
+    if (!rawSession) result.errors.push('Cannot read legacy session data');
+    if (existsSync(this.jsonFiles.okr) && !okr) result.errors.push('Cannot read legacy OKR data');
+    if (existsSync(this.jsonFiles.actionLog) && !actions)
+      result.errors.push('Cannot read legacy action log data');
 
     if (rawSession) {
       try {

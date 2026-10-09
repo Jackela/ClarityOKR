@@ -22,6 +22,18 @@ describe('ConnectionManager', () => {
   });
 
   describe('connect', () => {
+    it('creates missing parent directories on a fresh installation', () => {
+      manager = new ConnectionManager({ dbPath: join(tempDir, 'nested', 'data', 'test.db') });
+      manager.initialize();
+      expect(manager.getDb().prepare('SELECT 1 AS ready').get()).toEqual({ ready: 1 });
+    });
+
+    it('keeps in-memory databases usable without a filesystem path', () => {
+      manager = new ConnectionManager({ dbPath: ':memory:' });
+      manager.initialize();
+      expect(manager.getDb().prepare('SELECT 1 AS ready').get()).toEqual({ ready: 1 });
+    });
+
     it('should return a Database instance', () => {
       const db = manager.connect();
       expect(db).toBeDefined();
@@ -104,16 +116,20 @@ describe('ConnectionManager', () => {
       const db = manager.getDb();
 
       manager.transaction(() => {
-        db.prepare('INSERT INTO sessions (id, initial_intent, status, created_at, updated_at, steps, selected_options, confidence) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(
-          'session-1', 'intent', 'collecting', '2024-01-01', '2024-01-01', '[]', '[]', 0.5,
-        );
-        db.prepare('INSERT INTO action_logs (id, action_type, session_id, payload_summary, occurred_at) VALUES (?, ?, ?, ?, ?)').run(
-          'log-1', 'generate', 'session-1', 'summary', '2024-01-01',
-        );
+        db.prepare(
+          'INSERT INTO sessions (id, initial_intent, status, created_at, updated_at, steps, selected_options, confidence) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        ).run('session-1', 'intent', 'collecting', '2024-01-01', '2024-01-01', '[]', '[]', 0.5);
+        db.prepare(
+          'INSERT INTO action_logs (id, action_type, session_id, payload_summary, occurred_at) VALUES (?, ?, ?, ?, ?)',
+        ).run('log-1', 'generate', 'session-1', 'summary', '2024-01-01');
       });
 
-      const sessionCount = db.prepare('SELECT COUNT(*) as count FROM sessions').get() as { count: number };
-      const logCount = db.prepare('SELECT COUNT(*) as count FROM action_logs').get() as { count: number };
+      const sessionCount = db.prepare('SELECT COUNT(*) as count FROM sessions').get() as {
+        count: number;
+      };
+      const logCount = db.prepare('SELECT COUNT(*) as count FROM action_logs').get() as {
+        count: number;
+      };
 
       expect(sessionCount.count).toBe(1);
       expect(logCount.count).toBe(1);
@@ -124,9 +140,9 @@ describe('ConnectionManager', () => {
 
       expect(() => {
         manager.transaction(() => {
-          db.prepare('INSERT INTO sessions (id, initial_intent, status, created_at, updated_at, steps, selected_options, confidence) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(
-            'session-2', 'intent', 'collecting', '2024-01-01', '2024-01-01', '[]', '[]', 0.5,
-          );
+          db.prepare(
+            'INSERT INTO sessions (id, initial_intent, status, created_at, updated_at, steps, selected_options, confidence) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          ).run('session-2', 'intent', 'collecting', '2024-01-01', '2024-01-01', '[]', '[]', 0.5);
           throw new Error('Intentional failure');
         });
       }).toThrow('Intentional failure');

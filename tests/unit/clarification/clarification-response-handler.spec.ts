@@ -77,6 +77,15 @@ describe('ClarificationResponseHandler', () => {
   // handleResponse - Happy Path
   // ============================================================================
   describe('handleResponse - Happy Path', () => {
+    it('records the validated prompt ID even if no pending ID is stored', async () => {
+      const session = createMockSession({ pendingQuestionId: null });
+      mockSessionManager.getSession.mockResolvedValue(session);
+      mockSessionManager.saveSession.mockResolvedValue(undefined);
+      mockStateMachine.canTransition.mockReturnValue(false);
+      await handler.handleResponse('test-session-001', 'prompt-1', 'opt-1');
+      expect(session.selectedOptions[0].promptId).toBe('prompt-1');
+    });
+
     it('should record selection for valid prompt and option', async () => {
       const session = createMockSession({ pendingQuestionId: 'prompt-1' });
       mockSessionManager.getSession.mockResolvedValue(session);
@@ -252,14 +261,16 @@ describe('ClarificationResponseHandler', () => {
       expect(mockStateMachine.transition).not.toHaveBeenCalled();
     });
 
-    it('should use empty string when pendingQuestionId is null', async () => {
+    it('rejects a selection without a prompt ID', async () => {
       const session = createMockSession({ pendingQuestionId: null });
       mockSessionManager.saveSession.mockResolvedValue(undefined);
       mockStateMachine.canTransition.mockReturnValue(false);
 
-      await handler.recordSelection(session, 'opt-1');
-
-      expect(session.selectedOptions[0].promptId).toBe('');
+      await expect(handler.recordSelection(session, 'opt-1')).rejects.toThrow(
+        InvalidSelectionError,
+      );
+      expect(session.selectedOptions).toHaveLength(0);
+      expect(mockSessionManager.saveSession).not.toHaveBeenCalled();
     });
   });
 
@@ -271,9 +282,9 @@ describe('ClarificationResponseHandler', () => {
       const session = createMockSession({ steps: [], pendingQuestionId: null });
       mockSessionManager.getSession.mockResolvedValue(session);
 
-      await expect(
-        handler.handleResponse('test-session-001', 'prompt-1', 'opt-1'),
-      ).rejects.toThrow('Prompt prompt-1 not found in session');
+      await expect(handler.handleResponse('test-session-001', 'prompt-1', 'opt-1')).rejects.toThrow(
+        'Prompt prompt-1 not found in session',
+      );
     });
 
     it('should handle session with single step', async () => {
