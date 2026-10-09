@@ -1,17 +1,21 @@
-export async function withTimeout<T>(promise: Promise<T>, ms: number, onTimeout?: () => void): Promise<T> {
+export async function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  onTimeout?: () => void,
+): Promise<T> {
   return await Promise.race([
     promise,
     new Promise<T>((_resolve, reject) => {
       const timer = setTimeout(() => {
         try {
-          onTimeout && onTimeout();
+          onTimeout?.();
         } finally {
           reject(new Error('Operation timed out'));
         }
       }, ms);
       // Clear the timer when original settles
       promise.finally(() => clearTimeout(timer)).catch(() => clearTimeout(timer));
-    })
+    }),
   ]);
 }
 
@@ -29,4 +33,3 @@ export async function retryOnce<T>(fn: () => Promise<T>, validate?: (x: T) => bo
   }
   return second;
 }
-

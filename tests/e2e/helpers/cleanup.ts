@@ -61,9 +61,6 @@ export async function extraCleanupOnRetry(
     // 4. Clean up data directory JSON files
     await cleanupDataDirectory();
 
-    // 5. Reset mock server state if available
-    await resetMockServer().catch(() => {});
-
     console.log(`[retry ${retry}] Extra cleanup done`);
   } catch (error) {
     console.log(`[retry ${retry}] Cleanup warning (non-fatal):`, error);
@@ -95,19 +92,6 @@ export async function cleanupDataDirectory(): Promise<void> {
     await Promise.all(cleanupPromises);
   } catch {
     // Ignore directory read errors
-  }
-}
-
-/**
- * Reset global mock server state
- * Note: This requires the mock server to be accessible
- */
-async function resetMockServer(): Promise<void> {
-  // Import dynamically to avoid circular dependencies
-  const { globalMockServer } = await import('../global-setup');
-  if (globalMockServer && typeof globalMockServer.setResponses === 'function') {
-    await globalMockServer.waitForPendingRequests();
-    globalMockServer.setResponses({});
   }
 }
 

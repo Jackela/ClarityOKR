@@ -9,6 +9,11 @@
  * @module windows/clarification-ipc-router
  */
 
+import {
+  updateOKRRequestSchema,
+  regenerateOKRRequestSchema,
+  okrDocumentSchema,
+} from '@clarityokr/contracts';
 import type { IpcMain, IpcMainInvokeEvent, WebContents } from 'electron';
 
 import { IPC_CHANNELS } from '../bootstrap/ipc-channels.js';
@@ -141,7 +146,7 @@ export class ClarificationIpcRouter {
       }
 
       const question = await promptHandler.getNextQuestion(sessionId, currentQuestionId, context);
-      return question;
+      return { prompt: question };
     });
 
     // LLM_GENERATE_DRAFT: Generate OKR draft (supports both new and legacy payload formats)
@@ -178,6 +183,36 @@ export class ClarificationIpcRouter {
         return result;
       },
     );
+
+    ipcMain.handle(IPC_CHANNELS.OKR_UPDATE, async (_event, payload: unknown) => {
+      const changes = updateOKRRequestSchema.parse(payload);
+      const current = await okrRepository.findById(changes.id);
+      if (!current) throw new Error('OKR not found');
+      const updated = okrDocumentSchema.parse({ ...current, ...changes });
+      await okrRepository.save(updated);
+      getAllWebContents().forEach((wc) => wc.send(IPC_CHANNELS.OKR_GENERATE, { okr: updated }));
+      await actionLogService.logAction('edit', current.sourceSessionId, current.id, 'manual edit');
+      return updated;
+    });
+
+    ipcMain.handle(IPC_CHANNELS.OKR_REGENERATE, async (_event, payload: unknown) => {
+      const request = regenerateOKRRequestSchema.parse(payload);
+      const result = await deps.okrRegenerationService.regenerate(
+        request.sessionId,
+        request.policy,
+      );
+      if (!result.ok) throw result.error;
+      getAllWebContents().forEach((wc) =>
+        wc.send(IPC_CHANNELS.OKR_GENERATE, { okr: result.value }),
+      );
+      await actionLogService.logAction(
+        'regenerate',
+        request.sessionId,
+        result.value.id,
+        request.policy,
+      );
+      return result.value;
+    });
 
     // STICKY_REOPEN: Reopen the sticky window with the latest OKR
     ipcMain.handle(IPC_CHANNELS.STICKY_REOPEN, async () => {

@@ -42,6 +42,7 @@ import { ThemeToggleComponent } from './shared/components/theme-toggle.component
                 <button
                   type="button"
                   class="sticky-reopen"
+                  data-testid="sticky-reopen"
                   (click)="reopenSticky()"
                   [attr.aria-label]="'app.reopenSticky' | translate"
                 >
@@ -60,6 +61,7 @@ import { ThemeToggleComponent } from './shared/components/theme-toggle.component
               <div class="input-row">
                 <input
                   id="intent-input"
+                  data-testid="intent-input"
                   type="text"
                   [formControl]="intentControl"
                   class="intent-input"
@@ -72,6 +74,7 @@ import { ThemeToggleComponent } from './shared/components/theme-toggle.component
                 <button
                   type="submit"
                   class="submit-button"
+                  data-testid="start-clarification"
                   [disabled]="intentControl.invalid"
                   [attr.aria-disabled]="intentControl.invalid"
                 >
@@ -99,7 +102,7 @@ import { ThemeToggleComponent } from './shared/components/theme-toggle.component
         }
 
         @if (hasStickyNote()) {
-          <section class="result-panel" aria-live="polite">
+          <section class="result-panel" aria-live="polite" data-testid="okr-summary">
             <clarityokr-sticky-note
               [okr]="stickyViewModel()"
               (addKr)="onAddKeyResult()"
@@ -220,11 +223,13 @@ export class AppComponent implements OnDestroy {
   }
 
   onRetry(): void {
+    const selections = this.state.getStateSnapshot().selections;
+    const lastChoice = Object.entries(selections).at(-1);
     this.state.clearError();
-    const intent = this.intentControl.value;
-    this.currentSessionId = crypto.randomUUID();
-
-    this.orchestrator.requestPrompt(this.currentSessionId, intent).subscribe({
+    const request = lastChoice
+      ? this.orchestrator.requestNextQuestion(lastChoice[0], lastChoice[1])
+      : this.orchestrator.requestPrompt(this.currentSessionId, this.intentControl.value);
+    request.subscribe({
       error: (error: unknown) => {
         const message = error instanceof Error ? error.message : String(error);
         this.state.setError({ message, recoverable: true });

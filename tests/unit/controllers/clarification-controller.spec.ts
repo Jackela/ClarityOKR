@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/ban-types */
 import { jest } from '@jest/globals';
 import { ClarificationController } from '@clarityokr/main/windows/clarification-controller';
 import type { SessionRepository } from '@clarityokr/main/persistence/session-repository';
@@ -16,7 +15,7 @@ describe('ClarificationController', () => {
   let mockStickyWindowManager: jest.Mocked<StickyWindowManager>;
   let mockOkrAgentService: jest.Mocked<OkrAgentService>;
   let mockElectron: any;
-  let ipcHandlers: Record<string, Function>;
+  let ipcHandlers: Record<string, (...args: any[]) => any>;
 
   beforeEach(() => {
     mockSessionRepository = {
@@ -49,10 +48,10 @@ describe('ClarificationController', () => {
     ipcHandlers = {};
     mockElectron = {
       ipcMain: {
-        handle: (channel: string, handler: Function) => {
+        handle: (channel: string, handler: (...args: any[]) => any) => {
           ipcHandlers[channel] = handler;
         },
-        on: (channel: string, handler: Function) => {
+        on: (channel: string, handler: (...args: any[]) => any) => {
           ipcHandlers[channel] = handler;
         },
       },

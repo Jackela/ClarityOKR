@@ -37,7 +37,6 @@ export class ClarificationResponseHandler implements IClarificationResponseHandl
    * @throws {SessionNotFoundError} If session does not exist
    */
 
-
   async handleResponse(sessionId: string, promptId: string, optionId: string): Promise<void> {
     // 验证参数
     if (!sessionId || !promptId || !optionId) {
@@ -60,7 +59,7 @@ export class ClarificationResponseHandler implements IClarificationResponseHandl
     this.validateSelection(session, promptId, optionId);
 
     // 记录选择
-    await this.recordSelection(session, optionId);
+    await this.recordSelection(session, optionId, promptId);
 
     Logger.info('[ResponseHandler] Selection recorded', {
       sessionId,
@@ -76,11 +75,17 @@ export class ClarificationResponseHandler implements IClarificationResponseHandl
    * @returns Promise that resolves when selection is saved
    */
 
-
-  async recordSelection(session: ClarificationSession, optionId: string): Promise<void> {
+  async recordSelection(
+    session: ClarificationSession,
+    optionId: string,
+    promptId: string | null = session.pendingQuestionId ?? null,
+  ): Promise<void> {
+    if (!promptId) {
+      throw new InvalidSelectionError('Pending prompt ID is required to record a selection');
+    }
     session.selectedOptions = [
       ...session.selectedOptions,
-      { promptId: session.pendingQuestionId ?? '', optionId, selectedAt: new Date().toISOString() },
+      { promptId, optionId, selectedAt: new Date().toISOString() },
     ];
     session.pendingQuestionId = null;
     session.updatedAt = new Date().toISOString();
@@ -101,7 +106,6 @@ export class ClarificationResponseHandler implements IClarificationResponseHandl
    * @param optionId - ID of the selected option
    * @throws {InvalidSelectionError} If prompt or option not found
    */
-
 
   private validateSelection(
     session: ClarificationSession,

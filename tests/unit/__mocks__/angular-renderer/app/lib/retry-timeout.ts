@@ -8,7 +8,7 @@ export async function withTimeout<T>(
     new Promise<T>((_resolve, reject) => {
       const timer = setTimeout(() => {
         try {
-          onTimeout && onTimeout();
+          onTimeout?.();
         } finally {
           reject(new Error('Operation timed out'));
         }

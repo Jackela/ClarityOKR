@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-empty-object-type, no-empty-pattern */
+import { join } from 'node:path';
 import type { TestInfo } from '@playwright/test';
 import { test as base, expect } from '@playwright/test';
 
@@ -244,7 +245,14 @@ export const workerTest = base.extend<TestFixtures, WorkerFixtures>({
         workerElectronApp = await electron.launch({
           args: ['.', ...extraElectronArgs()],
           cwd: ROOT,
-          env: getElectronEnv(mockServer.url),
+          env: {
+            ...getElectronEnv(mockServer.url),
+            E2E_DB_PATH: join(
+              testInfo.project.outputDir,
+              `worker-${process.pid}-${testInfo.workerIndex}`,
+              'clarityokr.db',
+            ),
+          },
         });
 
         console.log(`[worker ${workerId}] Electron started with mock server at ${mockServer.url}`);

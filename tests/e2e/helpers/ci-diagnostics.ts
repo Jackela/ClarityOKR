@@ -44,8 +44,6 @@ export function getElectronArgs(): string[] {
     '--disable-dev-shm-usage',
     '--disable-accelerated-2d-canvas',
     '--no-first-run',
-    '--no-zygote',
-    '--single-process', // 如果适用
     '--disable-extensions',
   ];
 
@@ -113,6 +111,6 @@ export function printDiagnostics(info: DiagnosticsInfo): void {
     console.log(`  ${key}: ${value || 'not set'}`);
   });
   console.log('\nElectron Args:');
-  info.electronArgs.forEach(arg => console.log(`  ${arg}`));
+  info.electronArgs.forEach((arg) => console.log(`  ${arg}`));
   console.log('========================================\n');
 }

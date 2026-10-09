@@ -3,9 +3,9 @@
 [![Version](https://img.shields.io/badge/version-0.1.0-blue)](./package.json)
 [![CI](https://github.com/Jackela/ClarityOKR/actions/workflows/ci.yml/badge.svg)](https://github.com/Jackela/ClarityOKR/actions/workflows/ci.yml)
 [![Clarify OKR CI](https://github.com/Jackela/ClarityOKR/actions/workflows/clarify-okr.yml/badge.svg)](https://github.com/Jackela/ClarityOKR/actions/workflows/clarify-okr.yml)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.4-blue)](https://www.typescriptlang.org/)
-[![Angular](https://img.shields.io/badge/Angular-17-red)](https://angular.io/)
-[![Electron](https://img.shields.io/badge/Electron-30-47848F)](https://www.electronjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue)](https://www.typescriptlang.org/)
+[![Angular](https://img.shields.io/badge/Angular-20-red)](https://angular.io/)
+[![Electron](https://img.shields.io/badge/Electron-44-47848F)](https://www.electronjs.org/)
 
 ClarityOKR is a desktop AI assistant that turns fuzzy intent into actionable Objectives and Key Results (OKRs).  
 The app runs on an Electron + Angular stack written in strict TypeScript (ESM-only) and follows SOLID, Domain-Driven Design, and Fail-Fast principles across the main process, renderer, and shared contracts.
@@ -126,7 +126,7 @@ data/                # Runtime storage (sessions, OKR snapshots, logs)
 
 ## Prerequisites
 
-- Node.js ≥ 20.19.x (LTS recommended) - see `.nvmrc` for exact version
+- Node.js ≥ 24.0.0 (LTS recommended) - see `.nvmrc` for exact version
 - pnpm 9 (managed via Corepack)
 - macOS, Linux, or Windows with a working Electron runtime
 
@@ -138,7 +138,7 @@ corepack enable
 corepack prepare pnpm@9.0.0 --activate
 
 # Verify versions
-node --version  # Should be v20.x.x
+node --version  # Should be v24.x.x
 pnpm --version  # Should be 9.x.x
 ```
 
@@ -220,14 +220,16 @@ openspec apply --change <name>
 
 ### Code Quality Gates
 
-| Gate        | Command                     | Threshold    |
-| ----------- | --------------------------- | ------------ |
-| Lint        | `pnpm run lint`             | Zero errors  |
-| Type Check  | `pnpm run typecheck`        | Zero errors  |
-| Unit Tests  | `pnpm run test:unit`        | 80% coverage |
-| Integration | `pnpm run test:integration` | All passing  |
-| E2E Tests   | `pnpm run test:e2e`         | All passing  |
-| Build       | `pnpm run build`            | Clean build  |
+| Gate          | Command                     | Threshold                                                |
+| ------------- | --------------------------- | -------------------------------------------------------- |
+| Lint          | `pnpm run lint`             | Zero errors                                              |
+| Type Check    | `pnpm run typecheck`        | Zero errors                                              |
+| Test coverage | `pnpm run test:coverage`    | 80% on merged unit/component/integration source coverage |
+| Integration   | `pnpm run test:integration` | All passing                                              |
+| E2E Tests     | `pnpm run test:e2e`         | All passing                                              |
+| Build         | `pnpm run build`            | Clean build                                              |
+
+Before desktop E2E, run `pnpm run rebuild:electron` to compile SQLite for Electron. Node tests require the host Node ABI; run `pnpm rebuild better-sqlite3` before returning to Node tests. The sandboxed preload is bundled as `preload.cjs`. Angular component styles receive a fresh document nonce; script policy and sandbox remain strict.
 
 ### Environment Configuration
 
@@ -247,11 +249,11 @@ API keys are automatically encrypted and stored in the OS keychain on first run.
 
 | Layer             | Technology     | Purpose                                |
 | ----------------- | -------------- | -------------------------------------- |
-| Desktop Framework | Electron 30    | Cross-platform main + renderer process |
-| UI Framework      | Angular 17     | Standalone components with Signals     |
-| Language          | TypeScript 5.4 | Strict mode, ESM-only                  |
+| Desktop Framework | Electron 44    | Cross-platform main + renderer process |
+| UI Framework      | Angular 20     | Standalone components with Signals     |
+| Language          | TypeScript 5.9 | Strict mode, ESM-only                  |
 | Package Manager   | pnpm 9         | Workspace monorepo                     |
-| Runtime           | Node.js 20.x   | LTS with native ESM support            |
+| Runtime           | Node.js 24.x   | LTS with native ESM support            |
 
 ### State Management
 
@@ -276,7 +278,7 @@ API keys are automatically encrypted and stored in the OS keychain on first run.
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                      RENDERER PROCESS (Angular 17)                   │   │
+│  │                      RENDERER PROCESS (Angular 20)                   │   │
 │  │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────┐  │   │
 │  │  │  Clarification  │  │   OKR Sticky    │  │    Shared UI        │  │   │
 │  │  │    Wizard       │  │     Window      │  │   Components        │  │   │
@@ -292,7 +294,7 @@ API keys are automatically encrypted and stored in the OS keychain on first run.
 │  └───────────────────────────┼──────────────────────────────────────────┘   │
 │                              │ IPC (Type-Safe)                               │
 │  ┌───────────────────────────▼──────────────────────────────────────────┐   │
-│  │                      MAIN PROCESS (Electron 30 / Node.js 20)           │   │
+│  │                      MAIN PROCESS (Electron 44 / Node.js 20)           │   │
 │  │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────┐  │   │
 │  │  │ Clarification   │  │   Window        │  │   Persistence       │  │   │
 │  │  │   Controller    │  │   Management    │  │    Layer            │  │   │
@@ -366,7 +368,7 @@ User Input → Clarification Wizard → State Machine → LLM Service → OKR Ge
 
 ### CI and Local Runners
 
-GitHub Actions workflows run on Node 20 + pnpm with Lint → Typecheck → Build → Tests. E2E tests run with Playwright + Xvfb for headless Electron testing.
+GitHub Actions workflows run on Node 24 + pnpm with Lint → Typecheck → Build → Tests. E2E tests run with Playwright + Xvfb for headless Electron testing.
 
 **Run CI locally using `act`:**
 

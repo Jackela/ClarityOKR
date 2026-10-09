@@ -37,8 +37,8 @@
  * ```
  */
 
-import { Injectable } from '@angular/core';
-import type { OnDestroy, NgZone } from '@angular/core';
+import { Inject, Injectable, NgZone } from '@angular/core';
+import type { OnDestroy } from '@angular/core';
 import {
   BridgeUnavailableError,
   clarificationOptionSelectionSchema,
@@ -50,11 +50,11 @@ import { from, of, throwError } from 'rxjs';
 import type { Observable } from 'rxjs';
 import { catchError, map, tap } from 'rxjs/operators';
 
-import type { Logger } from '../../core/services/logger.service';
+import { Logger } from '../../core/services/logger.service';
 import { IPC_CHANNELS } from '../../shared/ipc-channel.tokens';
 import type { ClarifyOkrApi } from '../../shared/window';
 
-import type { ClarificationStateMachine } from './clarification-state-machine.service';
+import { ClarificationStateMachine } from './clarification-state-machine.service';
 
 /**
  * Service that orchestrates the clarification flow between renderer and main process.
@@ -100,9 +100,9 @@ export class ClarificationOrchestratorService implements OnDestroy {
    * @param logger - Logger service for debugging and error reporting
    */
   constructor(
-    private readonly state: ClarificationStateMachine,
-    private readonly zone: NgZone,
-    private readonly logger: Logger,
+    @Inject(ClarificationStateMachine) private readonly state: ClarificationStateMachine,
+    @Inject(NgZone) private readonly zone: NgZone,
+    @Inject(Logger) private readonly logger: Logger,
   ) {
     this.registerPromptListener();
   }
@@ -312,7 +312,7 @@ export class ClarificationOrchestratorService implements OnDestroy {
     const bridge = this.bridgeOrUndefined();
     if (!bridge) {
       this.logger.error('[renderer] clarifyOkr bridge missing');
-        throw new BridgeUnavailableError();
+      throw new BridgeUnavailableError();
     }
     this.logger.info('[renderer] clarifyOkr bridge established');
     return bridge;

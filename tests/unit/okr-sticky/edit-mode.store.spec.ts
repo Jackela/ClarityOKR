@@ -1,4 +1,5 @@
 import type { KeyResult } from '@clarityokr/contracts';
+import { EditModeStore } from '@clarityokr/renderer/app/okr-sticky/stores/edit-mode.store';
 
 /**
  * Validation error structure for edit mode
@@ -100,8 +101,6 @@ describe('EditModeStore', () => {
   beforeEach(() => {
     // Store will be implemented in T038
     // This will fail until EditModeStore is implemented
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { EditModeStore } = require('@clarityokr/renderer/app/okr-sticky/stores/edit-mode.store');
     store = new EditModeStore();
   });
 

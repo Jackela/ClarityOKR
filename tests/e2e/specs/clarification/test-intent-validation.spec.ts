@@ -18,9 +18,14 @@ test.describe('意图输入验证', () => {
     await mainWindow.screenshot({ path: 'test-results/intent-single-char.png' });
   });
 
-  test('输入2个字符时提交按钮应被启用', async ({ mainWindow }) => {
+  test('输入2个字符仍不满足共享契约的最小长度', async ({ mainWindow }) => {
+    await mainWindow.locator('[data-testid="intent-input"]').fill('ab');
+    await expect(mainWindow.locator('[data-testid="start-clarification"]')).toBeDisabled();
+  });
+
+  test('输入3个字符时提交按钮应被启用', async ({ mainWindow }) => {
     const input = mainWindow.locator('[data-testid="intent-input"]');
-    await input.fill('ab');
+    await input.fill('abc');
 
     const submitButton = mainWindow.locator('[data-testid="start-clarification"]');
     await expect(submitButton).toBeEnabled();
@@ -53,7 +58,7 @@ test.describe('意图输入验证', () => {
 
   test('清除输入后提交按钮应被禁用', async ({ mainWindow }) => {
     const input = mainWindow.locator('[data-testid="intent-input"]');
-    await input.fill('测试');
+    await input.fill('测试目标');
 
     const submitButton = mainWindow.locator('[data-testid="start-clarification"]');
     await expect(submitButton).toBeEnabled();

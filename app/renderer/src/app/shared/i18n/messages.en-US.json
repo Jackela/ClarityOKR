@@ -1,6 +1,11 @@
 {
   "app": {
-    "title": "ClarityOKR"
+    "title": "ClarityOKR",
+    "intentLabel": "What goal would you like to achieve?",
+    "intentPlaceholder": "For example: improve team delivery efficiency",
+    "startClarification": "Start clarification",
+    "intentRequired": "Enter at least 3 characters",
+    "reopenSticky": "Reopen OKR note"
   },
   "common": {
     "loading": "Loading...",
@@ -16,7 +21,10 @@
     "generate": "Generate",
     "success": "Success",
     "dismiss": "Dismiss",
-    "theme": "Theme"
+    "theme": "Theme",
+    "skipToContent": "Skip to main content",
+    "copy": "Copy",
+    "copied": "Copied"
   },
   "theme": {
     "light": "Light",
@@ -68,7 +76,10 @@
     },
     "actions": {
       "edit": "Edit",
-      "addKeyResult": "Add Key Result"
+      "addKeyResult": "Add Key Result",
+      "regenerate": "Regenerate",
+      "overwrite": "Replace key results",
+      "append": "Append key results"
     }
   },
   "validation": {

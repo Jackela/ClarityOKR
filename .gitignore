@@ -54,3 +54,7 @@ CLAUDE.md
 
 # ULTRAWORK system tracking files
 .sisyphus/
+
+# Machine-readable dependency scan output
+audit-report.json
+html-report/

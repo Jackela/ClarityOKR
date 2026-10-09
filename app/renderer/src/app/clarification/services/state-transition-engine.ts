@@ -1,7 +1,7 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Inject, Injectable, signal, computed } from '@angular/core';
 import type { ClarificationPrompt } from '@clarityokr/contracts';
 
-import type { Logger } from '@core/services/logger.service';
+import { Logger } from '@core/services/logger.service';
 import type { ClarificationState, WorkflowState, StateAction, ErrorInfo } from './state-types.js';
 import { INITIAL_STATE } from './state-types.js';
 import { StateValidator } from './state-validator.js';
@@ -65,7 +65,7 @@ export class StateTransitionEngine {
   });
   readonly selectedOptionIds = computed(() => Object.values(this._state().selections));
 
-  constructor(private readonly logger: Logger) {
+  constructor(@Inject(Logger) private readonly logger: Logger) {
     this.validator = new StateValidator(logger);
     this.reducer = new ActionReducer(logger, this.validator);
     this.logger.debug('[STATE-MACHINE] Initialized');

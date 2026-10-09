@@ -16,8 +16,8 @@ export default defineConfig({
   timeout: TIMEOUTS.maximum, // 2 分钟（使用基础配置的常量）
   globalTimeout: 900000, // 15 分钟全局超时
 
-  // 更多的重试
-  retries: 3, // 失败后重试 3 次
+  // 与项目验收约定一致：失败必须修复根因。
+  retries: 0,
 
   // 期望配置
   expect: {
@@ -101,15 +101,8 @@ export default defineConfig({
   projects: [
     {
       name: 'ci-e2e',
-      testMatch: [
-        // NOTE: E2E tests disabled in CI due to infrastructure issues.
-        // Tests pass locally but timeout on electronApplication.firstWindow() in CI.
-        // These are pre-existing issues unrelated to PR #14.
-        // TODO: Re-enable after fixing Electron startup in headless CI environment.
-        // 'specs/clarification/interview-flow.spec.ts',
-        // 'specs/clarification/boundary-cases.spec.ts',
-        'specs/placeholder.ci.spec.ts',
-      ],
+      testMatch: ['**/*.spec.ts'],
+      testIgnore: ['**/review/**'],
       use: {
         ...devices['Desktop Chrome'],
       },

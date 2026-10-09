@@ -39,6 +39,7 @@ export function extraElectronArgs(): string[] {
 export function getElectronEnv(mockServerUrl: string): { [key: string]: string } {
   return {
     ...process.env,
+    E2E_TEST: '1',
     LLM_API_KEY: 'test',
     LLM_BASE_URL: mockServerUrl,
     LLM_MODEL: 'test',
@@ -60,7 +61,7 @@ export async function launchElectronApp(
   childProcess.stderr?.on('data', (data) => process.stderr.write(data));
   childProcess.stdout?.on('data', (data) => process.stdout.write(data));
 
-  const mainWindow = await electronApp.waitForEvent('window', { timeout: 60_000 });
+  const mainWindow = await electronApp.firstWindow({ timeout: 60_000 });
 
   mainWindow.on('console', (message) => {
     console.info('[renderer]', message.type(), message.text());
