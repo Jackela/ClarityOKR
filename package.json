@@ -64,7 +64,8 @@
     "test:dependency-security": "node --test scripts/dependency-security.test.mjs",
     "build:coverage": "node scripts/build-source-coverage.mjs",
     "coverage:remap:e2e": "node scripts/remap-source-coverage.mjs",
-    "coverage:collect": "node scripts/run-coverage.mjs --collect-only"
+    "coverage:collect": "node scripts/run-coverage.mjs --collect-only",
+    "test:coverage-integrity": "node --test scripts/coverage-integrity.test.mjs scripts/original-source-instrument.test.mjs"
   },
   "devDependencies": {
     "@ampproject/remapping": "^2.3.0",

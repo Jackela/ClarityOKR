@@ -84,9 +84,12 @@ export class OkrRegenerationService {
         turns: session.steps.map((step) => ({
           questionId: step.id,
           optionId:
-            session.selectedOptions.find((sel) =>
-              step.options.some((opt) => opt.id === sel.optionId),
-            )?.optionId ?? '',
+            session.selectedOptions
+              .filter(
+                (sel) =>
+                  sel.promptId === step.id && step.options.some((opt) => opt.id === sel.optionId),
+              )
+              .at(-1)?.optionId ?? '',
           timestamp: step.context ?? new Date().toISOString(),
         })),
       };

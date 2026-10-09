@@ -161,6 +161,17 @@ describe('Actual encrypted session lifecycle and failure propagation', () => {
     expect((await repository.load()).session).toEqual(session('a'));
   });
 
+  it.each([0, false, ''])(
+    'preserves the valid legacy JSON value %p when reading and encrypting it',
+    async (data) => {
+      const file = join(directory, 'falsy-legacy.json');
+      await atomicPersistence.atomicWrite(file, data);
+      expect(await readEncryptedJson(file, encryptionService, key)).toEqual(data);
+      expect(await migrateToEncrypted(file, encryptionService, key)).toBe(true);
+      expect(await readEncryptedJson(file, encryptionService, key)).toEqual(data);
+    },
+  );
+
   it('migrates a synthetic atomic plaintext record, preserves JSON data and rejects invalid crypto input', async () => {
     const file = join(directory, 'legacy.json');
     const data = { only: 'synthetic fixture' };

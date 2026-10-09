@@ -13,6 +13,7 @@
 
 import { randomUUID } from 'node:crypto';
 import type { OKRDocument } from '@clarityokr/contracts';
+import { okrDocumentSchema } from '@clarityokr/contracts';
 import { z } from 'zod';
 
 import { Logger } from '../core/logger.js';
@@ -68,7 +69,6 @@ export class ClarificationDraftHandler implements IClarificationDraftHandler {
    * @throws {DraftValidationError} If LLM response is invalid
    */
 
-
   async generateDraft(sessionId: string): Promise<OkrDraftResponse> {
     if (!sessionId) {
       throw new ValidationError('Session ID is required');
@@ -85,9 +85,11 @@ export class ClarificationDraftHandler implements IClarificationDraftHandler {
 
     // 构建上下文
     const context = {
-      turns: session.steps.map((p: { id: string; selectedOptionId?: string }) => ({
+      turns: session.steps.map((p) => ({
         questionId: p.id,
-        optionId: p.selectedOptionId ?? 'unknown',
+        optionId:
+          session.selectedOptions.filter((selection) => selection.promptId === p.id).at(-1)
+            ?.optionId ?? 'unknown',
         timestamp: new Date().toISOString(),
       })),
     };
@@ -109,11 +111,6 @@ export class ClarificationDraftHandler implements IClarificationDraftHandler {
 
     if (!llmDraft || typeof llmDraft !== 'object') {
       throw new LLMError('Empty or invalid response from LLM draft service');
-    }
-
-    // 验证草案
-    if (!this.validateDraft(llmDraft)) {
-      throw new DraftValidationError('LLM draft validation failed');
     }
 
     const parseResult = draftPayloadSchema.safeParse(llmDraft);
@@ -148,12 +145,17 @@ export class ClarificationDraftHandler implements IClarificationDraftHandler {
       manualEdits: [],
     };
 
+    const document = okrDocumentSchema.safeParse(okr);
+    if (!document.success) {
+      throw new DraftValidationError(`Invalid OKR document: ${document.error.message}`);
+    }
+
     Logger.info(`[DraftHandler] Draft generated`, {
       sessionId,
       okrId: okr.id,
     });
 
-    return { okr, session };
+    return { okr: document.data, session };
   }
 
   /**
@@ -163,11 +165,8 @@ export class ClarificationDraftHandler implements IClarificationDraftHandler {
    * @returns True if draft passes validation
    */
 
-
   validateDraft(draft: unknown): boolean {
     const result = draftPayloadSchema.safeParse(draft);
     return result.success;
   }
 }
-
-

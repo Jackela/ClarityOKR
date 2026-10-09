@@ -9,3 +9,6 @@ html-report/
 # Vendored MIT upstream syntax is preserved; security/semantics have dedicated executable tests.
 vendor/braces/**/*.js
 **/dist-coverage/**
+
+# Temporary instrumented source copies for strict desktop coverage builds.
+**/coverage-work/**

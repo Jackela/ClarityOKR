@@ -75,7 +75,7 @@ export async function readEncryptedJson<T>(
     // 首先尝试原子读取
     const result = await atomicPersistence.atomicRead<EncryptedEnvelope>(file);
 
-    if (!result.success || !result.data) {
+    if (!result.success) {
       return null;
     }
 
@@ -142,8 +142,8 @@ export async function writeEncryptedJson<T>(
  */
 async function readLegacyJson<T>(file: string): Promise<T | null> {
   const result = await atomicPersistence.atomicRead<T>(file);
-  if (result.success && result.data) {
-    return result.data;
+  if (result.success) {
+    return result.data ?? null;
   }
   return null;
 }

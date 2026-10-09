@@ -25,8 +25,9 @@ module.exports = {
   extensionsToTreatAsEsm: ['.ts'],
   transform: {
     '^.+\\.(ts|tsx)$': [
-      require.resolve('ts-jest'),
+      require.resolve('../../scripts/original-source-transformer.cjs'),
       {
+        delegatePath: require.resolve('ts-jest'),
         tsconfig: '<rootDir>/tests/unit/tsconfig.test.json',
         useESM: true,
         diagnostics: { ignoreCodes: ['TS151001'] },
@@ -46,5 +47,5 @@ module.exports = {
     '^electron$': '<rootDir>/tests/unit/__mocks__/electron.ts',
     '^.*secure-storage.service\\.js$': '<rootDir>/tests/unit/__mocks__/secure-storage.service.ts',
   },
-  ...require('../../scripts/coverage-config.cjs')('tests/unit/coverage'),
+  ...require('../../scripts/coverage-config.cjs')('tests/unit/coverage', 'unit'),
 };

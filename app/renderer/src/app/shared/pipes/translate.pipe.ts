@@ -28,8 +28,8 @@ import { I18nService } from '../services/i18n.service.js';
  * Pipe for translating message keys in templates.
  *
  * This pipe uses the I18nService to translate keys into the current locale.
- * It is pure for performance but will re-execute when locale changes
- * due to the service's signal-based reactivity.
+ * The pipe must re-evaluate stable keys when the service's locale signal changes.
+ * Pure-pipe input caching would otherwise retain the previous language.
  *
  * @example
  * ```html
@@ -43,7 +43,8 @@ import { I18nService } from '../services/i18n.service.js';
 @Pipe({
   name: 'translate',
   standalone: true,
-  pure: true,
+  // Re-evaluate when the locale signal changes even if the message key is unchanged.
+  pure: false,
 })
 export class TranslatePipe implements PipeTransform {
   constructor(private readonly i18n: I18nService) {}

@@ -610,7 +610,18 @@ export class ClarificationStateMachine {
    * ```
    */
   getStateSnapshot(): ClarificationState {
-    return { ...this._state() };
+    const state = this._state();
+    const copyPrompt = (prompt: ClarificationPrompt): ClarificationPrompt => ({
+      ...prompt,
+      options: prompt.options.map((option) => ({ ...option })),
+    });
+    return {
+      ...state,
+      selections: { ...state.selections },
+      history: state.history.map(copyPrompt),
+      currentPrompt: state.currentPrompt ? copyPrompt(state.currentPrompt) : null,
+      error: state.error ? { ...state.error } : null,
+    };
   }
 
   // === Private Methods: Reducer ===

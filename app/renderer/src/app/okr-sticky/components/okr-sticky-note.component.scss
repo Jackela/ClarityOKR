@@ -87,11 +87,21 @@
   animation: enter-up var(--duration-smooth) var(--ease-fluid) both;
 }
 
-.sticky-note__item:nth-child(1) { animation-delay: 0ms; }
-.sticky-note__item:nth-child(2) { animation-delay: 50ms; }
-.sticky-note__item:nth-child(3) { animation-delay: 100ms; }
-.sticky-note__item:nth-child(4) { animation-delay: 150ms; }
-.sticky-note__item:nth-child(5) { animation-delay: 200ms; }
+.sticky-note__item:nth-child(1) {
+  animation-delay: 0ms;
+}
+.sticky-note__item:nth-child(2) {
+  animation-delay: 50ms;
+}
+.sticky-note__item:nth-child(3) {
+  animation-delay: 100ms;
+}
+.sticky-note__item:nth-child(4) {
+  animation-delay: 150ms;
+}
+.sticky-note__item:nth-child(5) {
+  animation-delay: 200ms;
+}
 
 @keyframes enter-up {
   from {
@@ -145,4 +155,11 @@
     opacity: 1;
     transform: none;
   }
+}
+
+.sticky-note__edit-fields {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
 }

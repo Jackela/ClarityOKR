@@ -13,8 +13,9 @@ module.exports = {
   testPathIgnorePatterns: ['/node_modules/'],
   transform: {
     '^.+\\.(ts|tsx)$': [
-      require.resolve('ts-jest'),
+      require.resolve('../../scripts/original-source-transformer.cjs'),
       {
+        delegatePath: require.resolve('ts-jest'),
         tsconfig: '<rootDir>/tests/integration/tsconfig.test.json',
         useESM: true,
         diagnostics: { ignoreCodes: ['TS151001'] },
@@ -29,7 +30,7 @@ module.exports = {
     '^electron$': '<rootDir>/tests/integration/__mocks__/electron.ts',
   },
   setupFilesAfterEnv: ['<rootDir>/tests/integration/setup.cjs'],
-  ...require('../../scripts/coverage-config.cjs')('tests/integration/coverage'),
+  ...require('../../scripts/coverage-config.cjs')('tests/integration/coverage', 'integration'),
   testTimeout: 60000,
   maxWorkers: process.env.CI ? 1 : '50%',
 };

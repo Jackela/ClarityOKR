@@ -11,6 +11,7 @@ describe('root clarification recovery', () => {
     reset: jest.fn(),
     start: jest.fn(),
     clearError: jest.fn(),
+    setLoading: jest.fn(),
     setError: jest.fn(),
     getStateSnapshot: jest.fn(() => ({ selections: {} as Record<string, string> })),
   };

@@ -85,16 +85,23 @@ import { OkrActionsComponent } from './okr-actions.component';
   template: `
     <section class="sticky-note" *ngIf="okr as viewModel" role="region" aria-label="OKR 便利贴">
       @if (editor.isEditing()) {
-        <clarityokr-okr-edit-mode
-          [draftObjective]="editor.draftObjective()"
-          [draftKeyResults]="editor.draftKeyResults()"
-          [errors]="editor.errors()"
-          [canSave]="editor.isValid() && editor.isDirty() && !busy()"
-          (objectiveChange)="editor.updateObjective($event)"
-          (keyResultChange)="editor.updateKeyResult($event.id, { statement: $event.statement })"
-          (save)="save()"
-          (cancel)="editor.cancelEdits()"
-        />
+        <fieldset
+          [disabled]="busy()"
+          [attr.aria-busy]="busy()"
+          [attr.aria-label]="'common.edit' | translate"
+          class="sticky-note__edit-fields"
+        >
+          <clarityokr-okr-edit-mode
+            [draftObjective]="editor.draftObjective()"
+            [draftKeyResults]="editor.draftKeyResults()"
+            [errors]="editor.errors()"
+            [canSave]="editor.isValid() && editor.isDirty() && !busy()"
+            (objectiveChange)="editor.updateObjective($event)"
+            (keyResultChange)="editor.updateKeyResult($event.id, { statement: $event.statement })"
+            (save)="save()"
+            (cancel)="cancel()"
+          />
+        </fieldset>
       } @else {
         <header class="sticky-note__header">
           <h1 data-testid="sticky-objective">{{ viewModel.objective }}</h1>
@@ -199,7 +206,7 @@ export class OkrStickyNoteComponent {
   ) {}
 
   beginEdit(): void {
-    if (!this.okr) return;
+    if (!this.okr || this.busy()) return;
     this.editor.enterEditMode(
       this.okr.objective,
       this.okr.keyResults.map((kr) => ({
@@ -209,6 +216,12 @@ export class OkrStickyNoteComponent {
         owner: kr.ownerLabel ?? undefined,
       })),
     );
+  }
+
+  /** Cancel local edits only while no gateway operation is pending. */
+  cancel(): void {
+    if (!this.editor.isEditing() || this.busy()) return;
+    this.editor.cancelEdits();
   }
 
   async save(): Promise<void> {

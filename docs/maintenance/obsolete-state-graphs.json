@@ -1,0 +1,103 @@
+{
+  "mapsInspected": 24,
+  "runtimeSourceReferences": {
+    "state-transition-engine": [],
+    "action-reducer": [],
+    "state-validator": [],
+    "state-types": [],
+    "clarification-state-machine.reducer": [],
+    "clarification-state-machine.config": [],
+    "clarification-state-machine.types": [],
+    "clarification-state-machine.utils": []
+  },
+  "rendererPackageExports": null,
+  "schema": 1,
+  "decision": "remove_unreferenced_parallel_implementations",
+  "canonicalImplementation": "app/renderer/src/app/clarification/services/clarification-state-machine.service.ts",
+  "scope": "internal Angular workspace; runtime and project API graph",
+  "rootWorkspacePrivate": true,
+  "rendererPackageLibraryEntrypoints": {
+    "exports": null,
+    "main": null,
+    "types": null
+  },
+  "removedSources": [
+    {
+      "path": "app/renderer/src/app/clarification/services/state-transition-engine.ts",
+      "sha256": "db4eb345409a1feaabb8458c34654a34f4700180b30f679c00098b84c668740c"
+    },
+    {
+      "path": "app/renderer/src/app/clarification/services/action-reducer.ts",
+      "sha256": "dff901ec9e8c3b5d1dab154e009d5ebbe993fa69408356e152b8ebc4559e8fe1"
+    },
+    {
+      "path": "app/renderer/src/app/clarification/services/state-validator.ts",
+      "sha256": "addbb95d32adfcce805224a4d823fcc4e06533d653586266be1eeb5e68e30c4e"
+    },
+    {
+      "path": "app/renderer/src/app/clarification/services/state-types.ts",
+      "sha256": "fa37eaa102141934dea26dc8576cb881e8f035077606fd38d6084053a7f0015f"
+    },
+    {
+      "path": "app/renderer/src/app/clarification/services/clarification-state-machine.reducer.ts",
+      "sha256": "ebea557ddebc2df6ff0352faa5042bda5c96d008390c475afc509d8f437a5791"
+    },
+    {
+      "path": "app/renderer/src/app/clarification/services/clarification-state-machine.config.ts",
+      "sha256": "58e2226bcd012deb25102419d20f15561ce35482bb861240abc89940f0674380"
+    },
+    {
+      "path": "app/renderer/src/app/clarification/services/clarification-state-machine.types.ts",
+      "sha256": "cce35ce7431f27727a1e17d1b69a1e8af2a80e949e16b61c7fa975fcb3243a7d"
+    },
+    {
+      "path": "app/renderer/src/app/clarification/services/clarification-state-machine.utils.ts",
+      "sha256": "a8c02aed76d831aeec9e0f46af9f1f42bd4184bc81b5acd3925a93cd16b03a42"
+    }
+  ],
+  "productionConsumers": [],
+  "projectApiExports": [],
+  "testConsumers": [
+    "clarification-state-machine.service.test.ts: transition engine cases added during this repair",
+    "clarification-reducer-contract.test.ts: added during this repair"
+  ],
+  "validation": "Full repository identifier/path search found only the parallel graphs and repair-added tests; no runtime source in 24 Angular source maps. Current canonical state-machine tests and all prior user-flow tests retained.",
+  "otherUnconsumedDefinitions": [
+    {
+      "path": "app/renderer/src/app/validators/okr-validators.ts",
+      "sha256": "4ca843fa3731078b9cbe42d8f6abc35a4b29d53765d898c7e9965b6609b98e7a",
+      "consumers": [],
+      "projectApiExports": []
+    },
+    {
+      "path": "app/renderer/src/app/validators/clarification-validators.ts",
+      "sha256": "9a97321ca1f026f285919ea7f4c0f0be91f7345de2fd99b4996ddb89fe8f79bf",
+      "consumers": [],
+      "projectApiExports": []
+    },
+    {
+      "path": "app/renderer/src/app/shared/type-guards/llm-response.guards.ts",
+      "sha256": "339ce1cef0bbb1cf672ff15d38d4dd9f5f8f26050374b2e0a5eb3662237a60e9",
+      "consumers": [],
+      "projectApiExports": []
+    },
+    {
+      "path": "app/renderer/src/app/app.component.types.ts",
+      "sha256": "d9c179229866f468d4c6199288f2f239a92f753a731118a795ca6d86d79ba5e4",
+      "consumers": [],
+      "projectApiExports": []
+    }
+  ],
+  "removedPrivateHelpers": [
+    {
+      "path": "app/main/src/clarification/clarification-persistence-handler.ts",
+      "name": "calculateChecksum",
+      "consumers": []
+    },
+    {
+      "path": "app/renderer/src/app/shared/components/success-celebration.animations.ts",
+      "name": "generateConfettiPiece",
+      "consumers": []
+    }
+  ]
+}

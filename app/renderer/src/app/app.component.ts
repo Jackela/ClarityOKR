@@ -2,7 +2,8 @@ import { CommonModule } from '@angular/common';
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { Component, computed, type OnDestroy, Renderer2 } from '@angular/core';
 import { ReactiveFormsModule, FormControl, Validators } from '@angular/forms';
-import { Subject } from 'rxjs';
+import { Subject, defer } from 'rxjs';
+import { finalize, switchMap, takeUntil } from 'rxjs/operators';
 
 import { ClarificationWizardComponent } from './clarification/components/clarification-wizard.component';
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
@@ -161,12 +162,14 @@ export class AppComponent implements OnDestroy {
     this.state.start(intent);
 
     this.currentSessionId = crypto.randomUUID();
-    this.orchestrator.requestPrompt(this.currentSessionId, intent).subscribe({
-      error: (error: unknown) => {
-        const message = error instanceof Error ? error.message : String(error);
-        this.state.setError({ message, recoverable: true });
-      },
-    });
+    defer(() => this.orchestrator.requestPrompt(this.currentSessionId, intent))
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        error: (error: unknown) => {
+          const message = error instanceof Error ? error.message : String(error);
+          this.state.setError({ message, recoverable: true });
+        },
+      });
 
     // Move focus to the wizard container for screen reader users
     setTimeout(() => {
@@ -191,25 +194,21 @@ export class AppComponent implements OnDestroy {
     this.llmBusy = true;
     this.state.setLoading(true);
 
-    this.orchestrator.recordSelection(this.currentSessionId, prompt.id, optionId).subscribe({
-      error: () => {
-        this.llmBusy = false;
-        this.state.setLoading(false);
-      },
-    });
-
-    this.orchestrator.requestNextQuestion(prompt.id, optionId).subscribe({
-      next: () => {
-        this.llmBusy = false;
-        this.state.setLoading(false);
-      },
-      error: (err: unknown) => {
-        const errorMessage = err instanceof Error ? err.message : String(err);
-        this.state.setError({ message: errorMessage, recoverable: true });
-        this.llmBusy = false;
-        this.state.setLoading(false);
-      },
-    });
+    defer(() => this.orchestrator.recordSelection(this.currentSessionId, prompt.id, optionId))
+      .pipe(
+        switchMap(() => this.orchestrator.requestNextQuestion(prompt.id, optionId)),
+        finalize(() => {
+          this.llmBusy = false;
+          this.state.setLoading(false);
+        }),
+        takeUntil(this.destroy$),
+      )
+      .subscribe({
+        error: (error: unknown) => {
+          const message = error instanceof Error ? error.message : String(error);
+          this.state.setError({ message, recoverable: true });
+        },
+      });
   }
 
   async onGenerate(): Promise<void> {
@@ -226,10 +225,13 @@ export class AppComponent implements OnDestroy {
     const selections = this.state.getStateSnapshot().selections;
     const lastChoice = Object.entries(selections).at(-1);
     this.state.clearError();
-    const request = lastChoice
-      ? this.orchestrator.requestNextQuestion(lastChoice[0], lastChoice[1])
-      : this.orchestrator.requestPrompt(this.currentSessionId, this.intentControl.value);
-    request.subscribe({
+    this.state.setLoading(true);
+    const request = defer(() =>
+      lastChoice
+        ? this.orchestrator.requestNextQuestion(lastChoice[0], lastChoice[1])
+        : this.orchestrator.requestPrompt(this.currentSessionId, this.intentControl.value),
+    );
+    request.pipe(takeUntil(this.destroy$)).subscribe({
       error: (error: unknown) => {
         const message = error instanceof Error ? error.message : String(error);
         this.state.setError({ message, recoverable: true });

@@ -8,6 +8,7 @@ jest.unstable_mockModule('@clarityokr/main/services/secure-storage/secure-storag
   ensureConfigDir: () => mkdirSync(directory, { recursive: true, mode: 0o700 }),
   getKeyFilePath: () => join(directory, 'key.enc'),
   getConfigFilePath: () => join(directory, 'config.enc'),
+  getConfigDir: () => directory,
   isSafeStorageAvailable: () => safeStorage.isEncryptionAvailable(),
 }));
 const { FallbackKeyProvider } =
@@ -16,7 +17,7 @@ const { LlmConfigStore } =
   await import('@clarityokr/main/services/secure-storage/llm-config-store');
 const { MasterKeyManager } =
   await import('@clarityokr/main/services/secure-storage/master-key-manager');
-const facade = await import('@clarityokr/main/services/secure-storage/secure-storage-facade');
+const facade = await import('@clarityokr/main/services/secure-storage.service');
 const originalEnvironment = process.env;
 const synthetic = {
   apiKey: 'only-synthetic-fixture',

@@ -16,6 +16,9 @@
  */
 
 import { CommonModule } from '@angular/common';
+// Angular constructor injection requires this runtime token.
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { ChangeDetectorRef } from '@angular/core';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -153,6 +156,8 @@ export class InputComponent implements ControlValueAccessor {
   inputId = `input-${Math.random().toString(36).substr(2, 9)}`;
   errorId = `error-${Math.random().toString(36).substr(2, 9)}`;
 
+  constructor(private readonly cdr: ChangeDetectorRef) {}
+
   private onChange: (value: string) => void = () => {};
   private onTouched: () => void = () => {};
 
@@ -168,6 +173,7 @@ export class InputComponent implements ControlValueAccessor {
 
   writeValue(value: string): void {
     this.value = value || '';
+    this.cdr.markForCheck();
   }
 
   registerOnChange(fn: (value: string) => void): void {
@@ -180,5 +186,6 @@ export class InputComponent implements ControlValueAccessor {
 
   setDisabledState(isDisabled: boolean): void {
     this.disabled = isDisabled;
+    this.cdr.markForCheck();
   }
 }

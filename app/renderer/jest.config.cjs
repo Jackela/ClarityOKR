@@ -9,8 +9,9 @@ module.exports = {
   testMatch: ['<rootDir>/app/renderer/src/**/*.test.ts', '<rootDir>/app/renderer/src/**/*.spec.ts'],
   transform: {
     '^.+\\.(ts|js|mjs|html)$': [
-      require.resolve('jest-preset-angular'),
+      require.resolve('../../scripts/original-source-transformer.cjs'),
       {
+        delegatePath: require.resolve('jest-preset-angular'),
         tsconfig: '<rootDir>/app/renderer/tsconfig.spec.json',
         stringifyContentPathRegex: '\\.html$',
       },
@@ -28,7 +29,7 @@ module.exports = {
     '^@clarityokr/main/(.*)$': '<rootDir>/app/main/src/$1',
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
-  ...require('../../scripts/coverage-config.cjs')('app/renderer/coverage'),
+  ...require('../../scripts/coverage-config.cjs')('app/renderer/coverage', 'component'),
   verbose: true,
   testTimeout: 10000,
   maxWorkers: '50%',

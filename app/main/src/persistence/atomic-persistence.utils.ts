@@ -94,7 +94,7 @@ export async function verifyFile(filePath: string, expectedChecksum: string): Pr
     const content = await fs.readFile(filePath, 'utf-8');
     const parsed = JSON.parse(content) as PersistedPayload;
 
-    if (!parsed.checksum || !parsed.data) {
+    if (!parsed.checksum || !Object.prototype.hasOwnProperty.call(parsed, 'data')) {
       return false;
     }
 
@@ -121,7 +121,7 @@ export async function readAndVerify<T>(
     const content = await fs.readFile(filePath, 'utf-8');
     const parsed = JSON.parse(content) as PersistedPayload<T>;
 
-    if (!parsed.checksum || !parsed.data) {
+    if (!parsed.checksum || !Object.prototype.hasOwnProperty.call(parsed, 'data')) {
       return { success: false, checksumFailures: 1 };
     }
 
@@ -167,7 +167,7 @@ export async function recoverFromBackup<T>(
     for (const backupPath of backups) {
       try {
         const result = await readAndVerify<T>(backupPath);
-        if (result.success && result.data) {
+        if (result.success) {
           await fs.copyFile(backupPath, filePath);
 
           return {
@@ -210,7 +210,7 @@ export async function recoverFromTempFile(tempPath: string, tempSuffix: string):
     const content = await fs.readFile(tempPath, 'utf-8');
     const parsed = JSON.parse(content) as PersistedPayload;
 
-    if (parsed.checksum && parsed.data) {
+    if (parsed.checksum && Object.prototype.hasOwnProperty.call(parsed, 'data')) {
       const jsonData = JSON.stringify(parsed.data, null, 2);
       const actualChecksum = calculateChecksum(jsonData);
 

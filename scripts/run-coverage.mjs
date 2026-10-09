@@ -1,4 +1,10 @@
-import { rmSync } from 'node:fs';
+import { rmSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  productInventory,
+  validateLayerCoverage,
+  layerOwners,
+  reportFingerprint,
+} from './coverage-integrity.mjs';
 import { spawnSync } from 'node:child_process';
 
 for (const directory of [
@@ -9,7 +15,13 @@ for (const directory of [
 ]) {
   rmSync(directory, { recursive: true, force: true });
 }
-const scripts = ['rebuild:node', 'test:unit', 'test:component', 'test:integration'];
+const scripts = [
+  'test:coverage-integrity',
+  'rebuild:node',
+  'test:unit',
+  'test:component',
+  'test:integration',
+];
 if (!process.argv.includes('--collect-only')) {
   scripts.push(
     'build:coverage',
@@ -19,6 +31,7 @@ if (!process.argv.includes('--collect-only')) {
     'coverage:check',
   );
 }
+const sourceInventory = productInventory();
 let electronRebuilt = false;
 for (const script of scripts) {
   if (script === 'rebuild:electron') electronRebuilt = true;
@@ -30,6 +43,28 @@ for (const script of scripts) {
   if (result.status !== 0) {
     process.exitCode = result.status ?? 1;
     break;
+  }
+  const layer = {
+    'test:unit': 'unit',
+    'test:component': 'component',
+    'test:integration': 'integration',
+  }[script];
+  if (layer) {
+    const directory = {
+      unit: 'tests/unit',
+      component: 'app/renderer',
+      integration: 'tests/integration',
+    }[layer];
+    const report = JSON.parse(readFileSync(`${directory}/coverage/coverage-final.json`, 'utf8'));
+    const evidence = {
+      schema: 1,
+      layer,
+      owner: layerOwners[layer],
+      sources: sourceInventory,
+      reportSha256: reportFingerprint(report),
+    };
+    validateLayerCoverage(layer, report, evidence, productInventory());
+    writeFileSync(`${directory}/coverage/evidence.json`, JSON.stringify(evidence, null, 2));
   }
 }
 if (electronRebuilt) {

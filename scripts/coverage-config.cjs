@@ -1,9 +1,8 @@
-// Each test layer measures the same product sources; the gate uses their merged hits.
-module.exports = (directory) => ({
+// Instrument each product in its real execution layer. The final gate owns the full union.
+module.exports = (directory, layer) => ({
   collectCoverage: process.env.COVERAGE === 'true',
   collectCoverageFrom: [
-    'app/main/src/**/*.ts',
-    'app/renderer/src/**/*.ts',
+    layer === 'component' ? 'app/renderer/src/**/*.ts' : 'app/main/src/**/*.ts',
     '!**/*.spec.ts',
     '!**/*.test.ts',
     '!**/*.d.ts',
