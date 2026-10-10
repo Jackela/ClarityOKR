@@ -417,7 +417,6 @@ npm install --global windows-build-tools
 
 ### Join the Community
 
-- Review open tasks in `openspec/changes/`
 - Check existing issues and PRs
 - Follow the contributing guidelines in [README.md](README.md)
 

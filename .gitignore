@@ -62,3 +62,10 @@ html-report/
 
 # Temporary instrumented source copies for strict desktop coverage builds.
 coverage-work/
+
+# Accidental shell/editor artifacts and scratch commit messages
+/EOF
+/%1
+/.bashrc
+/.envrc
+/COMMIT_MSG*.txt

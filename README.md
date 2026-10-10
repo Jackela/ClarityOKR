@@ -105,7 +105,7 @@ app/
     bootstrap/       # IPC channel registration, preload scripts
     clarification/   # Domain module (handlers, state machine)
     core/            # Logger, base services
-    persistence/     # SQLite repositories, database service
+    persistence/     # SQLite repositories, connection manager, migrations
     services/        # Business services (LLM, encryption, storage)
     windows/         # Window management (clarification, sticky)
   renderer/    # Angular renderer application
@@ -119,7 +119,6 @@ tests/
   integration/ # Jest integration tests (SQLite :memory:)
   e2e/         # Playwright Electron E2E tests
   performance/ # Benchmarks
-openspec/            # OpenSpec change tracking
 specs/               # Feature specifications (Speckit)
 data/                # Runtime storage (sessions, OKR snapshots, logs)
 ```
@@ -200,23 +199,11 @@ pnpm run test:unit
 
 ### Creating a New Feature
 
-1. Review open tasks in `openspec/changes/`
+1. Check open issues or propose the change via an issue
 2. Write failing tests first (unit/component/E2E)
 3. Implement code using strict TypeScript and DDD boundaries
 4. Update documentation (README, quickstart, specs)
 5. Run quality gates before opening a PR
-
-### OpenSpec Workflow
-
-We use OpenSpec for structured change management:
-
-```bash
-# List active changes
-openspec list
-
-# Start implementation
-openspec apply --change <name>
-```
 
 ### Code Quality Gates
 
@@ -294,7 +281,7 @@ API keys are automatically encrypted and stored in the OS keychain on first run.
 │  └───────────────────────────┼──────────────────────────────────────────┘   │
 │                              │ IPC (Type-Safe)                               │
 │  ┌───────────────────────────▼──────────────────────────────────────────┐   │
-│  │                      MAIN PROCESS (Electron 44 / Node.js 20)           │   │
+│  │                      MAIN PROCESS (Electron 44 / Node.js 24)           │   │
 │  │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────┐  │   │
 │  │  │ Clarification   │  │   Window        │  │   Persistence       │  │   │
 │  │  │   Controller    │  │   Management    │  │    Layer            │  │   │
@@ -421,7 +408,7 @@ We welcome contributions! Please follow these guidelines:
 
 ### Development Process
 
-1. **Review Tasks**: Check `openspec/changes/` for open tasks or propose new features via issues
+1. **Review Tasks**: Check open issues or propose new features via issues
 2. **Write Tests First**: Follow TDD/BDD approach with failing tests before implementation
 3. **Follow Code Standards**:
    - Use ESM imports (no CommonJS modules)
