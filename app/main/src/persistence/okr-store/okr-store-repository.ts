@@ -3,7 +3,7 @@ import { PersistenceError } from '@clarityokr/contracts';
 
 import { Logger } from '../../core/logger.js';
 import type { OKRRepository } from '../okr-repository.types.js';
-import type { OkrStore } from './okr-store.js';
+import { normalizeSuccessMetric, type OkrStore } from './okr-store.js';
 import type { ObjectiveWithKeyResults } from '@clarityokr/contracts';
 
 function toDocument(objective: ObjectiveWithKeyResults): OKRDocument {
@@ -43,7 +43,7 @@ export class OkrStoreRepository implements OKRRepository {
         keyResults: okr.keyResults.map((kr) => ({
           id: kr.id,
           statement: kr.statement,
-          successMetric: kr.successMetric ?? null,
+          successMetric: normalizeSuccessMetric(kr.successMetric),
         })),
       });
     } catch (error) {

@@ -139,6 +139,14 @@ function assertTextWithinLimit(label: string, text: string, max: number): void {
   }
 }
 
+/** Empty or whitespace-only text means "no value" and is stored as NULL; real text is kept as typed. */
+export function normalizeSuccessMetric(value: string | null | undefined): string | null {
+  if (value === null || value === undefined || value.trim().length === 0) {
+    return null;
+  }
+  return value;
+}
+
 /** Rounded average of non-removed KRs that have a progress value; null when none do. */
 export function computeOverallProgress(keyResults: readonly KeyResultRecord[]): number | null {
   const values = keyResults
@@ -174,8 +182,9 @@ export class OkrStore {
     }
     for (const kr of input.keyResults) {
       requireText('Key result', kr.statement, TEXT_LIMITS.keyResult);
-      if (kr.successMetric) {
-        assertTextWithinLimit('Success metric', kr.successMetric, TEXT_LIMITS.successMetric);
+      const metric = normalizeSuccessMetric(kr.successMetric);
+      if (metric !== null) {
+        assertTextWithinLimit('Success metric', metric, TEXT_LIMITS.successMetric);
       }
     }
 
@@ -199,7 +208,7 @@ export class OkrStore {
           id,
           index,
           kr.statement,
-          kr.successMetric ?? null,
+          normalizeSuccessMetric(kr.successMetric),
           at,
           at,
         );
@@ -281,9 +290,17 @@ export class OkrStore {
       );
       input.keyResults.forEach((kr, index) => {
         if (known.has(kr.id)) {
-          update.run(index, kr.statement, kr.successMetric ?? null, at, kr.id);
+          update.run(index, kr.statement, normalizeSuccessMetric(kr.successMetric), at, kr.id);
         } else {
-          insert.run(kr.id, input.id, index, kr.statement, kr.successMetric ?? null, at, at);
+          insert.run(
+            kr.id,
+            input.id,
+            index,
+            kr.statement,
+            normalizeSuccessMetric(kr.successMetric),
+            at,
+            at,
+          );
         }
       });
       for (const row of rows) {
@@ -394,9 +411,43 @@ export class OkrStore {
    */
   revertLastProgress(krId: string): KeyResultRecord {
     const kr = this.requireKeyResult(krId);
+    if (kr.removedAt !== null) {
+      throw new ValidationError('Cannot revert progress of a removed key result');
+    }
+    this.db.transaction(() => {
+      this.appendRevert(kr);
+    })();
+    return this.requireKeyResult(krId);
+  }
+
+  /**
+   * "Edit this one": reverts the latest progress entry and writes the corrected value as a
+   * new entry, both in one transaction. If the new write is rejected or fails, the revert is
+   * rolled back too and the key result is unchanged. Nothing is deleted.
+   */
+  replaceLastProgress(krId: string, input: SetProgressInput): KeyResultRecord {
+    if (input.value !== null && !isValidProgress(input.value)) {
+      throw new ValidationError('Progress must be an integer between 0 and 100');
+    }
+    if (!isKrStatus(input.status)) {
+      throw new ValidationError('Unknown status');
+    }
+    const kr = this.requireKeyResult(krId);
+    if (kr.removedAt !== null) {
+      throw new ValidationError('Cannot update progress of a removed key result');
+    }
+    this.db.transaction(() => {
+      this.appendRevert(kr);
+      this.insertEntry(krId, 'set', input.value, input.status, null);
+      this.applyState(kr, input.value, input.status);
+    })();
+    return this.requireKeyResult(krId);
+  }
+
+  private appendRevert(kr: KeyResultRecord): void {
     const latest = this.db
       .prepare('SELECT * FROM progress_entries WHERE kr_id = ? ORDER BY id DESC LIMIT 2')
-      .all(krId) as ProgressEntryRow[];
+      .all(kr.id) as ProgressEntryRow[];
     const last = latest[0];
     if (!last || last.kind === 'revert') {
       throw new ValidationError('Nothing to revert');
@@ -404,11 +455,8 @@ export class OkrStore {
     const previous = latest[1];
     const restoredValue = previous ? previous.value : null;
     const restoredStatus = previous ? (previous.status as KrStatus) : 'not_started';
-    this.db.transaction(() => {
-      this.insertEntry(krId, 'revert', restoredValue, restoredStatus, last.id);
-      this.applyState(kr, restoredValue, restoredStatus);
-    })();
-    return this.requireKeyResult(krId);
+    this.insertEntry(kr.id, 'revert', restoredValue, restoredStatus, last.id);
+    this.applyState(kr, restoredValue, restoredStatus);
   }
 
   listProgressEntries(krId: string): ProgressEntryRecord[] {
@@ -456,9 +504,10 @@ export class OkrStore {
       removed: kr.removedAt !== null,
     }));
     const savedAt = this.timestamp();
-    this.db
-      .prepare(
-        `INSERT INTO reviews (objective_id, went_well, fell_short, next_steps, snapshot, saved_at)
+    const save = this.db.transaction(() => {
+      this.db
+        .prepare(
+          `INSERT INTO reviews (objective_id, went_well, fell_short, next_steps, snapshot, saved_at)
          VALUES (?, ?, ?, ?, ?, ?)
          ON CONFLICT (objective_id) DO UPDATE SET
            went_well = excluded.went_well,
@@ -466,15 +515,20 @@ export class OkrStore {
            next_steps = excluded.next_steps,
            snapshot = excluded.snapshot,
            saved_at = excluded.saved_at`,
-      )
-      .run(
-        objectiveId,
-        input.wentWell,
-        input.fellShort,
-        input.nextSteps,
-        JSON.stringify(snapshot),
-        savedAt,
-      );
+        )
+        .run(
+          objectiveId,
+          input.wentWell,
+          input.fellShort,
+          input.nextSteps,
+          JSON.stringify(snapshot),
+          savedAt,
+        );
+      this.db
+        .prepare('UPDATE objectives SET updated_at = ? WHERE id = ?')
+        .run(savedAt, objectiveId);
+    });
+    save();
     return this.getReview(objectiveId) as ReviewRecord;
   }
 
