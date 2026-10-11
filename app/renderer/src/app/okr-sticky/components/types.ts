@@ -24,6 +24,7 @@ export interface KeyResultViewModel {
  * Transforms domain model into UI-friendly format.
  */
 export interface OkrStickyViewModel {
+  id: string;
   objective: string;
   keyResults: KeyResultViewModel[];
   generatedAt: string;

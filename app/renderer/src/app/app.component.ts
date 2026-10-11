@@ -14,6 +14,7 @@ import { ClarificationStateMachine } from './clarification/services/clarificatio
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { OkrStickyService } from './okr-sticky/services/okr-sticky.service';
+import { StickyShellComponent } from './closed-loop/sticky-shell.component';
 import { OkrStickyNoteComponent } from './okr-sticky/components/okr-sticky-note.component';
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { Logger } from './core/services/logger.service';
@@ -28,6 +29,7 @@ import { ThemeToggleComponent } from './shared/components/theme-toggle.component
     ReactiveFormsModule,
     ClarificationWizardComponent,
     OkrStickyNoteComponent,
+    StickyShellComponent,
     TranslatePipe,
     ThemeToggleComponent,
   ],
@@ -103,7 +105,7 @@ import { ThemeToggleComponent } from './shared/components/theme-toggle.component
         }
 
         @if (hasStickyNote()) {
-          <section class="result-panel" aria-live="polite" data-testid="okr-summary">
+          <section class="result-panel" data-testid="okr-summary" aria-label="OKR">
             <clarityokr-sticky-note
               [okr]="stickyViewModel()"
               (addKr)="onAddKeyResult()"
@@ -112,10 +114,10 @@ import { ThemeToggleComponent } from './shared/components/theme-toggle.component
         }
       </main>
     } @else {
-      <clarityokr-sticky-note
+      <clarityokr-sticky-shell
         [okr]="stickyViewModel()"
         (addKr)="onAddKeyResult()"
-      ></clarityokr-sticky-note>
+      ></clarityokr-sticky-shell>
     }
   `,
   styleUrls: ['./app.component.scss'],

@@ -3,6 +3,7 @@ import { By } from '@angular/platform-browser';
 import type { OKRDocument } from '@clarityokr/contracts';
 import { Logger } from '../../core/services/logger.service';
 import { IPC_CHANNELS } from '../../shared/ipc-channel.tokens';
+import { makeDetail, makeKr } from '../../closed-loop/testing/fixtures';
 import { EditModeStore } from '../state/edit-mode.store';
 import { OkrStickyService } from '../services/okr-sticky.service';
 import { TestBed } from '@angular/core/testing';
@@ -12,10 +13,14 @@ import type { OkrStickyViewModel } from '../services/okr-sticky.service';
 
 import { OkrStickyNoteComponent } from './okr-sticky-note.component';
 
+/** Lets the promise chain of a mocked IPC call (bridge → api → store) finish. */
+const settle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+
 describe('OkrStickyNoteComponent', () => {
   let fixture: ComponentFixture<OkrStickyNoteComponent>;
 
   const viewModel: OkrStickyViewModel = {
+    id: 'okr-1',
     objective: '提升团队交付节奏',
     keyResults: [
       {
@@ -38,15 +43,43 @@ describe('OkrStickyNoteComponent', () => {
   };
 
   beforeEach(async () => {
+    window.clarifyOkr = {
+      invoke: jest.fn().mockResolvedValue({
+        ok: true,
+        data: makeDetail([
+          makeKr({
+            id: 'kr-1',
+            statement: '将迭代周期缩短到 3 周',
+            successMetric: '周期 <= 21 天',
+          }),
+          makeKr({ id: 'kr-2', position: 1, statement: '将上线缺陷率控制在 0.5%' }),
+        ]),
+      }),
+      send: jest.fn(),
+      on: () => jest.fn(),
+    };
     await TestBed.configureTestingModule({
       imports: [OkrStickyNoteComponent],
+      providers: [
+        {
+          provide: Logger,
+          useValue: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() },
+        },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(OkrStickyNoteComponent);
   });
 
-  it('renders objective and key results with metadata badges', () => {
+  afterEach(() => {
+    delete window.clarifyOkr;
+  });
+
+  it('renders objective and key results with their metric and no owner / metric badges', async () => {
     fixture.componentInstance.okr = viewModel;
+    fixture.componentInstance.ngOnChanges();
+    fixture.detectChanges();
+    await settle();
     fixture.detectChanges();
 
     const objective = fixture.nativeElement.querySelector('[data-testid="sticky-objective"]');
@@ -57,12 +90,14 @@ describe('OkrStickyNoteComponent', () => {
     expect(keyResults.length).toBe(2);
     expect(keyResults.item(0).textContent).toContain('将迭代周期缩短到 3 周');
 
-    const badgeElements = Array.from<Element>(
-      fixture.nativeElement.querySelectorAll('[data-testid="sticky-kr-badge"]'),
+    expect(fixture.nativeElement.querySelectorAll('[data-testid="sticky-kr-badge"]').length).toBe(
+      0,
     );
-    const badges = badgeElements.map((element) => element.textContent?.trim());
-    expect(badges).toContain('周期 <= 21 天');
-    expect(badges).toContain('运营团队');
+    expect(fixture.nativeElement.textContent).not.toContain('运营团队');
+    const metric = fixture.nativeElement.querySelector('[data-testid="kr-metric"]');
+    expect(metric.textContent.trim()).toBe('度量：周期 <= 21 天');
+    // The second key result has no metric: an "add metric" button instead of an empty line.
+    expect(fixture.nativeElement.querySelectorAll('[data-testid="kr-add-metric"]').length).toBe(1);
   });
 
   it('hides content when no OKR is provided', () => {
@@ -106,6 +141,11 @@ describe('Sticky note DOM with actual edit store and gateway', () => {
   let note: OkrStickyNoteComponent;
   let invoke: jest.Mock;
 
+  /** Calls of the legacy channels only (the closed-loop reads are asserted elsewhere). */
+  function legacyCalls(): unknown[][] {
+    return invoke.mock.calls.filter(([channel]) => channel !== IPC_CHANNELS.OKR_OPEN);
+  }
+
   function element<T extends HTMLElement = HTMLElement>(testId: string): T {
     const result = fixture.nativeElement.querySelector(`[data-testid="${testId}"]`);
     if (!result) throw new Error(`Missing actual DOM control: ${testId}`);
@@ -114,6 +154,7 @@ describe('Sticky note DOM with actual edit store and gateway', () => {
 
   async function render(): Promise<void> {
     await fixture.whenStable();
+    await settle();
     fixture.detectChanges();
   }
 
@@ -165,17 +206,40 @@ describe('Sticky note DOM with actual edit store and gateway', () => {
   }
 
   beforeEach(async () => {
-    invoke = jest.fn().mockResolvedValue(original);
+    invoke = jest.fn().mockImplementation(async (channel: string) => {
+      if (channel === IPC_CHANNELS.OKR_OPEN) {
+        return {
+          ok: true,
+          data: makeDetail(
+            [
+              makeKr({ id: 'first', objectiveId: original.id, statement: 'First result' }),
+              makeKr({
+                id: 'second',
+                objectiveId: original.id,
+                position: 1,
+                statement: 'Second result',
+              }),
+            ],
+            { id: original.id },
+          ),
+        };
+      }
+      return original;
+    });
     window.clarifyOkr = { invoke, send: jest.fn(), on: () => jest.fn() };
     await TestBed.configureTestingModule({
       imports: [StickyInteractionHost],
       providers: [
-        { provide: Logger, useValue: { debug: jest.fn(), info: jest.fn(), error: jest.fn() } },
+        {
+          provide: Logger,
+          useValue: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() },
+        },
       ],
     }).compileComponents();
     fixture = TestBed.createComponent(StickyInteractionHost);
     fixture.detectChanges();
-    await render();
+    await render(); // hydrates the document
+    await render(); // loads the closed-loop detail for it
     store = TestBed.inject(EditModeStore);
     note = fixture.debugElement.query(By.directive(OkrStickyNoteComponent)).componentInstance;
     invoke.mockClear();
@@ -186,10 +250,11 @@ describe('Sticky note DOM with actual edit store and gateway', () => {
     delete window.clarifyOkr;
   });
 
-  it('edits actual inputs, cancels without IPC, and emits both add-key-result controls', async () => {
+  it('edits actual inputs, cancels without IPC, and emits the single add-key-result control', async () => {
     const additions = fixture.nativeElement.querySelectorAll('[data-testid="sticky-add-kr"]');
+    expect(additions.length).toBe(1);
     additions.forEach((button: HTMLButtonElement) => button.click());
-    expect(fixture.componentInstance.additions).toBe(2);
+    expect(fixture.componentInstance.additions).toBe(1);
     await enterEdit();
     expect(element<HTMLInputElement>('objective-input').value).toBe(original.objective);
     expect(element<HTMLButtonElement>('save-button').disabled).toBe(true);
@@ -201,19 +266,19 @@ describe('Sticky note DOM with actual edit store and gateway', () => {
     await render();
     expect(store.isEditing()).toBe(false);
     expect(element('sticky-objective').textContent).toBe(original.objective);
-    expect(invoke).not.toHaveBeenCalled();
+    expect(legacyCalls()).toEqual([]);
   });
 
   it('disables invalid and clean saves, then saves real acknowledged data with metadata preserved', async () => {
     await enterEdit();
     await note.save();
-    expect(invoke).not.toHaveBeenCalled();
+    expect(legacyCalls()).toEqual([]);
     await input('objective-input', ' ');
     expect(store.isValid()).toBe(false);
     expect(element<HTMLButtonElement>('save-button').disabled).toBe(true);
     expect(fixture.nativeElement.querySelector('[role="alert"]')).not.toBeNull();
     await note.save();
-    expect(invoke).not.toHaveBeenCalled();
+    expect(legacyCalls()).toEqual([]);
     await input('objective-input', 'Edited objective');
     await input('kr-input-1', 'Edited second result');
     const acknowledged = {
@@ -277,7 +342,7 @@ describe('Sticky note DOM with actual edit store and gateway', () => {
       expect(element('cancel-button').matches(':disabled')).toBe(true);
       expect(element('objective-input').matches(':disabled')).toBe(true);
       await note.save();
-      expect(invoke).toHaveBeenCalledTimes(1);
+      expect(legacyCalls()).toHaveLength(1);
       note.cancel();
       element('cancel-button').click();
       fixture.detectChanges();
@@ -289,13 +354,13 @@ describe('Sticky note DOM with actual edit store and gateway', () => {
     expect(store.isEditing()).toBe(false);
     expect(element('sticky-objective').textContent).toBe('Edited objective');
     expect(note.error()).toBeNull();
-    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(legacyCalls()).toHaveLength(1);
   });
 
   it('copies through the actual service and reports both success and permission failure', async () => {
     invoke.mockResolvedValueOnce(true);
     await clickAndWait('copy-button', 'copy');
-    expect(invoke).toHaveBeenLastCalledWith(IPC_CHANNELS.CLIPBOARD_EXPORT, { okrId: original.id });
+    expect(invoke).toHaveBeenCalledWith(IPC_CHANNELS.CLIPBOARD_EXPORT, { okrId: original.id });
     expect(element('copy-success').textContent).toContain('已复制');
     invoke.mockImplementationOnce(async () => {
       throw 'Permission denied';
@@ -317,7 +382,7 @@ describe('Sticky note DOM with actual edit store and gateway', () => {
         regenerationPolicy: policy,
       });
       await clickAndWait(`policy-${policy}`, 'regenerate');
-      expect(invoke).toHaveBeenLastCalledWith(IPC_CHANNELS.OKR_REGENERATE, {
+      expect(invoke).toHaveBeenCalledWith(IPC_CHANNELS.OKR_REGENERATE, {
         sessionId: original.sourceSessionId,
         policy,
       });
@@ -352,7 +417,7 @@ describe('Sticky note DOM with actual edit store and gateway', () => {
     );
     const copying = note.copy();
     await note.copy();
-    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(legacyCalls()).toHaveLength(1);
     resolve(true);
     await copying;
     await render();

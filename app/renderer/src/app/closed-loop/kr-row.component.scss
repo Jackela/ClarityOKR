@@ -1,0 +1,230 @@
+:host {
+  display: block;
+  padding: 12px 16px;
+  border-top: 1px solid var(--color-border);
+  /* rows must not touch: neighbouring boxes sharing an edge count as overlapping in the layout e2e */
+  margin-top: 2px;
+}
+
+:host(:first-child) {
+  border-top: 0;
+  margin-top: 0;
+}
+
+.kr__top {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.kr__num {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.kr__text {
+  font-size: var(--font-size-sm);
+  line-height: 21px;
+  font-weight: var(--font-weight-medium);
+  overflow-wrap: anywhere;
+}
+
+.kr__indent {
+  margin-left: 36px;
+}
+
+.kr__metric {
+  margin-top: 4px;
+  font-size: var(--font-size-xs);
+  line-height: 16px;
+  color: var(--color-text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.kr__controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  margin-top: 8px;
+}
+
+/* DOM (= Tab) order is value → status (spec T1); visual order is status, bar, value. */
+.kr__controls > clarityokr-popup-select {
+  order: 0;
+}
+
+.kr__controls > clarityokr-meter-bar {
+  order: 1;
+}
+
+.kr__controls > .kr__value,
+.kr__controls > .kr__input-wrap {
+  order: 2;
+}
+
+.kr__caret {
+  font-size: 10px;
+}
+
+.kr__value {
+  min-width: 56px;
+  min-height: 32px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  text-decoration: underline dotted var(--color-text-secondary);
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+
+.kr__value:hover {
+  background: var(--color-bg-secondary);
+  text-decoration-style: solid;
+}
+
+.kr__value:active {
+  background: var(--color-bg-tertiary);
+}
+
+.kr__value[aria-disabled='true'],
+.kr__link[aria-disabled='true'] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.kr__spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-left: 4px;
+  border: 2px solid var(--color-border-control);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: kr-spin 0.8s linear infinite;
+}
+
+@keyframes kr-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.kr__input-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.kr__input {
+  width: 72px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--color-border-control);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.kr__input--invalid {
+  border: 2px solid var(--notice-error-fg);
+}
+
+.kr__suffix {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.kr__error {
+  margin-top: 4px;
+  font-size: var(--font-size-xs);
+  line-height: 16px;
+  color: var(--notice-error-fg);
+}
+
+.kr__failure {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.kr__update {
+  margin-top: 4px;
+  font-size: var(--font-size-xs);
+  line-height: 16px;
+  color: var(--color-text-secondary);
+}
+
+.kr__update-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.kr__link {
+  min-height: 32px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--notice-info-fg);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.kr__link:hover {
+  text-decoration: underline;
+}
+
+.kr__link--action {
+  color: var(--color-text-primary);
+  text-decoration: underline;
+}
+
+.kr__link--hint {
+  color: var(--notice-warn-fg);
+  text-decoration: underline;
+}
+
+.kr__hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 6px 8px;
+  border-radius: var(--radius-md);
+  background: var(--notice-warn-bg);
+  color: var(--notice-warn-fg);
+  font-size: var(--font-size-xs);
+  line-height: 16px;
+}
+
+.kr__hint-text {
+  flex: 1;
+}
