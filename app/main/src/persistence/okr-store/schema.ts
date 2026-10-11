@@ -5,7 +5,7 @@ import type { Database } from 'better-sqlite3';
  * Each step runs inside a transaction together with its version bump, so a
  * failure leaves the database at the previous version.
  */
-const MIGRATIONS: readonly string[] = [
+export const SCHEMA_MIGRATIONS: readonly string[] = [
   // v1
   `
   CREATE TABLE sessions (
@@ -76,9 +76,14 @@ const MIGRATIONS: readonly string[] = [
     occurred_at TEXT NOT NULL
   );
   `,
+  // v2: the review snapshot is frozen by the first save only; saved_at follows later text edits.
+  `
+  ALTER TABLE reviews ADD COLUMN snapshot_at TEXT NOT NULL DEFAULT '';
+  UPDATE reviews SET snapshot_at = saved_at;
+  `,
 ];
 
-export const LATEST_SCHEMA_VERSION = MIGRATIONS.length;
+export const LATEST_SCHEMA_VERSION = SCHEMA_MIGRATIONS.length;
 
 export class SchemaVersionError extends Error {
   constructor(
@@ -105,7 +110,7 @@ export function applySchema(db: Database): number {
     throw new SchemaVersionError(current, LATEST_SCHEMA_VERSION);
   }
   for (let version = current; version < LATEST_SCHEMA_VERSION; version += 1) {
-    const sql = MIGRATIONS[version] as string;
+    const sql = SCHEMA_MIGRATIONS[version] as string;
     const step = db.transaction(() => {
       db.exec(sql);
       db.pragma(`user_version = ${version + 1}`);

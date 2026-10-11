@@ -59,6 +59,7 @@ interface ReviewRow {
   next_steps: string;
   snapshot: string;
   saved_at: string;
+  snapshot_at: string;
 }
 
 export interface SetProgressInput {
@@ -74,6 +75,30 @@ export interface SyncObjectiveInput {
   sourceSessionId?: string | null;
   createdAt?: string;
   keyResults: Array<{ id: string; statement: string; successMetric?: string | null }>;
+}
+
+export interface ObjectiveSummary {
+  id: string;
+  title: string;
+  period: Period | null;
+  pinned: boolean;
+  createdAt: string;
+  updatedAt: string;
+  overallProgress: number | null;
+  /** Key results that are not removed. */
+  keyResultCount: number;
+  filledKeyResultCount: number;
+  /** Every non-removed key result has status `done` (and there is at least one). */
+  allDone: boolean;
+  reviewed: boolean;
+}
+
+export interface KrProgressSummary {
+  latest: ProgressEntryRecord | null;
+  /** Value and status before the latest entry; null when there is no entry. */
+  before: { value: number | null; status: KrStatus } | null;
+  /** True when the latest entry is a `set` (a `revert` cannot be reverted again). */
+  canRevert: boolean;
 }
 
 export interface ReviewInput {
@@ -484,8 +509,9 @@ export class OkrStore {
   }
 
   /**
-   * Saves (or replaces) the objective's review. At least one section must have
-   * text. The snapshot freezes every key result as it is right now.
+   * Saves the objective's review (one per objective). At least one section must have
+   * text. The first save freezes every key result as it is right now; later saves only
+   * replace the three texts and `savedAt`, so the snapshot never drifts.
    */
   saveReview(objectiveId: string, input: ReviewInput): ReviewRecord {
     const objective = this.requireObjective(objectiveId);
@@ -512,14 +538,13 @@ export class OkrStore {
     const save = this.db.transaction(() => {
       this.db
         .prepare(
-          `INSERT INTO reviews (objective_id, went_well, fell_short, next_steps, snapshot, saved_at)
-         VALUES (?, ?, ?, ?, ?, ?)
-         ON CONFLICT (objective_id) DO UPDATE SET
-           went_well = excluded.went_well,
-           fell_short = excluded.fell_short,
-           next_steps = excluded.next_steps,
-           snapshot = excluded.snapshot,
-           saved_at = excluded.saved_at`,
+          `INSERT INTO reviews (objective_id, went_well, fell_short, next_steps, snapshot, saved_at, snapshot_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT (objective_id) DO UPDATE SET
+             went_well = excluded.went_well,
+             fell_short = excluded.fell_short,
+             next_steps = excluded.next_steps,
+             saved_at = excluded.saved_at`,
         )
         .run(
           objectiveId,
@@ -527,6 +552,7 @@ export class OkrStore {
           input.fellShort,
           input.nextSteps,
           JSON.stringify(snapshot),
+          savedAt,
           savedAt,
         );
       this.db
@@ -550,6 +576,63 @@ export class OkrStore {
       nextSteps: row.next_steps,
       snapshot: JSON.parse(row.snapshot) as ReviewKrSnapshot[],
       savedAt: row.saved_at,
+      snapshotAt: row.snapshot_at,
+    };
+  }
+
+  /** True when any objective or saved review exists (used for the in-memory quit/restart rule). */
+  hasAnyData(): boolean {
+    const row = this.db
+      .prepare(`SELECT (SELECT COUNT(*) FROM objectives) + (SELECT COUNT(*) FROM reviews) AS n`)
+      .get() as { n: number };
+    return row.n > 0;
+  }
+
+  /** History list: every objective, most recently updated first, with the fields the list shows. */
+  listObjectiveSummaries(): ObjectiveSummary[] {
+    const reviewed = new Set(
+      (
+        this.db.prepare('SELECT objective_id AS id FROM reviews').all() as Array<{ id: string }>
+      ).map((row) => row.id),
+    );
+    return this.listObjectives().map((objective) => {
+      const active = objective.keyResults.filter((kr) => kr.removedAt === null);
+      return {
+        id: objective.id,
+        title: objective.title,
+        period: objective.period,
+        pinned: objective.pinned,
+        createdAt: objective.createdAt,
+        updatedAt: objective.updatedAt,
+        overallProgress: objective.overallProgress,
+        keyResultCount: active.length,
+        filledKeyResultCount: active.filter((kr) => kr.progress !== null).length,
+        allDone: active.length > 0 && active.every((kr) => kr.status === 'done'),
+        reviewed: reviewed.has(objective.id),
+      };
+    });
+  }
+
+  /**
+   * What the "latest update" row needs: the newest entry, the state before it, and
+   * whether it can be reverted or edited (only when the newest entry is a `set`).
+   */
+  getProgressSummary(krId: string): KrProgressSummary {
+    this.requireKeyResult(krId);
+    const entries = this.db
+      .prepare('SELECT * FROM progress_entries WHERE kr_id = ? ORDER BY id DESC LIMIT 2')
+      .all(krId) as ProgressEntryRow[];
+    const latest = entries[0];
+    if (!latest) {
+      return { latest: null, before: null, canRevert: false };
+    }
+    const previous = entries[1];
+    return {
+      latest: toProgressEntry(latest),
+      before: previous
+        ? { value: previous.value, status: previous.status as KrStatus }
+        : { value: null, status: 'not_started' },
+      canRevert: latest.kind === 'set',
     };
   }
 
@@ -582,6 +665,13 @@ export class OkrStore {
       throw new ValidationError(`Objective not found: ${id}`);
     }
     return objective;
+  }
+
+  /** Public lookup that returns null instead of throwing. */
+  findKeyResult(id: string): KeyResultRecord | null {
+    const row = this.db.prepare('SELECT * FROM key_results WHERE id = ?').get(id) as
+      KeyResultRow | undefined;
+    return row ? toKeyResult(row) : null;
   }
 
   private requireKeyResult(id: string): KeyResultRecord {

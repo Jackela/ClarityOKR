@@ -21,7 +21,11 @@ interface NoticeState {
 export class LegacyDatabaseNotice {
   private readonly filePath: string;
 
-  constructor(dir: string) {
+  /** `writeFile` is injectable so tests can simulate a state file that cannot be saved. */
+  constructor(
+    dir: string,
+    private readonly writeFile: (path: string, content: string) => void = writeFileSync,
+  ) {
     this.filePath = join(dir, LEGACY_NOTICE_FILE_NAME);
   }
 
@@ -35,11 +39,15 @@ export class LegacyDatabaseNotice {
     return this.read().pending;
   }
 
-  /** The user clicked "知道了": never show it again. */
-  acknowledge(): void {
-    if (this.read().pending) {
-      this.write({ pending: false });
+  /**
+   * The user clicked "知道了": never show it again. Returns false when the state could not be
+   * saved; the notice then stays pending and the user can try again.
+   */
+  acknowledge(): boolean {
+    if (!this.read().pending) {
+      return true;
     }
+    return this.write({ pending: false });
   }
 
   private read(): NoticeState {
@@ -55,12 +63,14 @@ export class LegacyDatabaseNotice {
     }
   }
 
-  private write(state: NoticeState): void {
+  private write(state: NoticeState): boolean {
     try {
       mkdirSync(dirname(this.filePath), { recursive: true });
-      writeFileSync(this.filePath, JSON.stringify(state));
+      this.writeFile(this.filePath, JSON.stringify(state));
+      return true;
     } catch (error) {
       Logger.warn('[legacy-notice] Could not persist notice state', error);
+      return false;
     }
   }
 }
@@ -73,8 +83,9 @@ export function registerLegacyNoticeHandlers(
   ipcMain.handle(IPC_CHANNELS.LEGACY_NOTICE_GET, () => ({
     legacyDatabaseRetired: notice.shouldShow(),
   }));
-  ipcMain.handle(IPC_CHANNELS.LEGACY_NOTICE_ACK, () => {
-    notice.acknowledge();
-    return { acknowledged: true };
-  });
+  // `acknowledged: false` means the state could not be saved: the notice stays and the
+  // renderer may call ack again.
+  ipcMain.handle(IPC_CHANNELS.LEGACY_NOTICE_ACK, () => ({
+    acknowledged: notice.acknowledge(),
+  }));
 }

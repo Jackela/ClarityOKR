@@ -39,12 +39,13 @@ import { OkrRegenerationService } from './services/okr-regeneration.service.js';
 import { resolveDbPath } from './startup/db-path.js';
 import { LegacyDatabaseNotice, registerLegacyNoticeHandlers } from './startup/legacy-notice.js';
 import { openDatabaseSafely } from './startup/open-database.js';
+import { wireClosedLoop } from './startup/closed-loop.js';
 import { registerStorageStateHandler } from './startup/storage-state.js';
 import { ClarificationController } from './windows/clarification-controller.js';
 import { StickyWindowManager } from './windows/sticky-window-manager.js';
 import { registerRendererProtocol } from './windows/renderer-protocol.js';
 
-const { app, BrowserWindow, ipcMain } = electron;
+const { app, BrowserWindow, ipcMain, dialog, shell } = electron;
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const preloadPath = path.resolve(currentDir, 'bootstrap', 'preload.cjs');
@@ -80,8 +81,24 @@ registerStorageStateHandler(ipcMain, openedDatabase.storageMode);
 const connectionManager = openedDatabase.connectionManager;
 
 const sessionRepository = new SqliteSessionRepository(connectionManager);
-const okrRepository = new OkrStoreRepository(new OkrStore(connectionManager.getDb()));
+const okrStore = new OkrStore(connectionManager.getDb());
+const okrRepository = new OkrStoreRepository(okrStore);
 const actionLogWriter = new SQLiteActionLogWriter(connectionManager);
+
+wireClosedLoop({
+  ipcMain,
+  store: okrStore,
+  storageMode: openedDatabase.storageMode,
+  dialog,
+  shell,
+  getDownloadsDir: () => app.getPath('downloads'),
+  getFocusedWindow: () => BrowserWindow.getFocusedWindow(),
+  relaunch: () => {
+    isQuitting = true;
+    app.relaunch();
+    app.quit();
+  },
+});
 
 const okrAgentService = new OkrAgentService();
 const okrRegenerationService = new OkrRegenerationService(

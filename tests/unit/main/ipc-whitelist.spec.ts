@@ -23,3 +23,40 @@ describe('legacy notice and storage state IPC channels', () => {
     expect(isAllowedChannel('clarityokr:app:legacy-notice:path')).toBe(false);
   });
 });
+
+describe('closed-loop IPC channels (PR-C2)', () => {
+  const channels = [
+    ['OKR_LIST', 'clarityokr:okr:list'],
+    ['OKR_OPEN', 'clarityokr:okr:open'],
+    ['OKR_PIN', 'clarityokr:okr:pin'],
+    ['OKR_SET_PERIOD', 'clarityokr:okr:set-period'],
+    ['KR_SET_PROGRESS', 'clarityokr:kr:set-progress'],
+    ['KR_REVERT_PROGRESS', 'clarityokr:kr:revert-progress'],
+    ['KR_REPLACE_PROGRESS', 'clarityokr:kr:replace-progress'],
+    ['REVIEW_GET', 'clarityokr:review:get'],
+    ['REVIEW_SAVE', 'clarityokr:review:save'],
+    ['EXPORT_SAVE', 'clarityokr:export:save'],
+    ['EXPORT_REVEAL', 'clarityokr:export:reveal'],
+    ['APP_RESTART', 'clarityokr:app:restart'],
+  ] as const;
+
+  it.each(channels)('%s is %s, allowlisted and reachable through validateChannel', (key, name) => {
+    expect(IPC_CHANNELS[key]).toBe(name);
+    expect(ALLOWED_CHANNELS).toContain(name);
+    expect(isAllowedChannel(name)).toBe(true);
+    expect(() => validateChannel(name)).not.toThrow();
+  });
+
+  it('look-alike channels are not allowlisted', () => {
+    for (const bad of [
+      'clarityokr:okr:delete',
+      'clarityokr:export:save-all',
+      'clarityokr:export:reveal:any',
+      'clarityokr:app:quit',
+      'clarityokr:kr:remove',
+    ]) {
+      expect(isAllowedChannel(bad)).toBe(false);
+      expect(() => validateChannel(bad)).toThrow();
+    }
+  });
+});

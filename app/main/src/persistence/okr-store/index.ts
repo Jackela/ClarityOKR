@@ -1,7 +1,14 @@
 export { OkrStore, computeOverallProgress, normalizeSuccessMetric } from './okr-store.js';
-export type { ReviewInput, SetProgressInput, SyncObjectiveInput } from './okr-store.js';
+export type {
+  KrProgressSummary,
+  ObjectiveSummary,
+  ReviewInput,
+  SetProgressInput,
+  SyncObjectiveInput,
+} from './okr-store.js';
 export {
   LATEST_SCHEMA_VERSION,
+  SCHEMA_MIGRATIONS,
   SchemaVersionError,
   applySchema,
   getSchemaVersion,

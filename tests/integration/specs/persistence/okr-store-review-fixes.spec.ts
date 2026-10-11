@@ -17,12 +17,19 @@ function openDb(): Database {
 describe('OkrStore review fixes', () => {
   let db: Database;
   let store: OkrStore;
-  let clock: number;
+  // Injected clock: every timestamp the store writes is exactly what the test set.
+  const T0 = '2026-10-11T00:00:00.000Z';
+  const T1 = '2026-10-11T01:00:00.000Z';
+  const T2 = '2026-10-11T02:00:00.000Z';
+  let now: Date;
+  const setNow = (iso: string): void => {
+    now = new Date(iso);
+  };
 
   beforeEach(() => {
     db = openDb();
-    clock = Date.UTC(2026, 9, 11, 0, 0, 0);
-    store = new OkrStore(db, () => new Date((clock += 1000)));
+    setNow(T0);
+    store = new OkrStore(db, () => now);
   });
   afterEach(() => db.close());
 
@@ -66,14 +73,17 @@ describe('OkrStore review fixes', () => {
     it('bumps the objective updated_at once, and not again when already removed', () => {
       const okr = create();
       const kr = okr.keyResults[0]!;
-      const before = store.getObjective(okr.id)!.updatedAt;
+      expect(store.getObjective(okr.id)!.updatedAt).toBe(T0);
+      setNow(T1);
       store.markKeyResultRemoved(kr.id);
       const after = store.getObjective(okr.id)!;
-      expect(after.updatedAt > before).toBe(true);
-      expect(after.keyResults[0]!.removedAt).not.toBeNull();
+      expect(after.updatedAt).toBe(T1);
+      expect(after.keyResults[0]!.removedAt).toBe(T1);
       expect(after.keyResults[1]!.removedAt).toBeNull();
+      setNow(T2);
       store.markKeyResultRemoved(kr.id);
-      expect(store.getObjective(okr.id)!.updatedAt).toBe(after.updatedAt);
+      expect(store.getObjective(okr.id)!.updatedAt).toBe(T1);
+      expect(store.getObjective(okr.id)!.keyResults[0]!.removedAt).toBe(T1);
     });
   });
 
@@ -144,27 +154,27 @@ describe('OkrStore review fixes', () => {
 
     it('saveReview bumps the objective updated_at', () => {
       const okr = create();
-      const before = updatedAt(okr.id);
+      expect(updatedAt(okr.id)).toBe(T0);
+      setNow(T1);
       store.saveReview(okr.id, { wentWell: 'Shipped', fellShort: '', nextSteps: '' });
-      expect(updatedAt(okr.id) > before).toBe(true);
-      const review = store.getReview(okr.id)!;
-      expect(updatedAt(okr.id)).toBe(review.savedAt);
+      expect(updatedAt(okr.id)).toBe(T1);
+      expect(store.getReview(okr.id)!.savedAt).toBe(T1);
     });
 
     it('a rejected review does not bump updated_at', () => {
       const okr = create();
-      const before = updatedAt(okr.id);
+      setNow(T1);
       expect(() =>
         store.saveReview(okr.id, { wentWell: '', fellShort: ' ', nextSteps: '' }),
       ).toThrow(ValidationError);
-      expect(updatedAt(okr.id)).toBe(before);
+      expect(updatedAt(okr.id)).toBe(T0);
     });
 
     it('setPeriod bumps the objective updated_at', () => {
       const okr = create();
-      const before = updatedAt(okr.id);
+      setNow(T1);
       store.setPeriod(okr.id, '2027-Q1');
-      expect(updatedAt(okr.id) > before).toBe(true);
+      expect(updatedAt(okr.id)).toBe(T1);
     });
 
     it('pinning does not bump the objective updated_at', () => {
@@ -173,18 +183,19 @@ describe('OkrStore review fixes', () => {
         title: 'Other',
         keyResults: [{ statement: 'x' }],
       });
-      const before = updatedAt(okr.id);
-      const otherBefore = updatedAt(other.id);
+      setNow(T1);
       store.pinObjective(okr.id);
       store.pinObjective(other.id);
-      expect(updatedAt(okr.id)).toBe(before);
-      expect(updatedAt(other.id)).toBe(otherBefore);
+      expect(updatedAt(okr.id)).toBe(T0);
+      expect(updatedAt(other.id)).toBe(T0);
     });
 
     it('saving a review moves the objective to the top of the history list', () => {
       const first = create();
+      setNow(T1);
       store.createObjective({ title: 'Later', keyResults: [{ statement: 'x' }] });
       expect(store.listObjectives()[0]?.id).not.toBe(first.id);
+      setNow(T2);
       store.saveReview(first.id, { wentWell: 'ok', fellShort: '', nextSteps: '' });
       expect(store.listObjectives()[0]?.id).toBe(first.id);
     });

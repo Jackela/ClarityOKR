@@ -26,6 +26,18 @@ export const ALLOWED_CHANNELS = [
   'clarityokr:app:legacy-notice:get',
   'clarityokr:app:legacy-notice:ack',
   'clarityokr:app:storage-state',
+  'clarityokr:okr:list',
+  'clarityokr:okr:open',
+  'clarityokr:okr:pin',
+  'clarityokr:okr:set-period',
+  'clarityokr:kr:set-progress',
+  'clarityokr:kr:revert-progress',
+  'clarityokr:kr:replace-progress',
+  'clarityokr:review:get',
+  'clarityokr:review:save',
+  'clarityokr:export:save',
+  'clarityokr:export:reveal',
+  'clarityokr:app:restart',
 ] as const;
 
 /**
@@ -55,6 +67,34 @@ export const IPC_CHANNELS = {
   LEGACY_NOTICE_ACK: 'clarityokr:app:legacy-notice:ack',
   /** Reply: `{ storageMode: 'normal' | 'fresh-file' | 'memory' }` (no path is ever sent). */
   STORAGE_STATE_GET: 'clarityokr:app:storage-state',
+  /**
+   * Closed-loop channels (PR-C2). All replies are `IpcResult<...>` (see closed-loop-ipc.ts);
+   * validation happens in the main process and the handlers never throw across IPC.
+   */
+  /** History list, most recently updated first. Payload is ignored. */
+  OKR_LIST: 'clarityokr:okr:list',
+  /** Read one OKR with its key results, progress summaries and review. */
+  OKR_OPEN: 'clarityokr:okr:open',
+  /** Make one OKR the single pinned sticky note. */
+  OKR_PIN: 'clarityokr:okr:pin',
+  /** Set or clear the quarter (`YYYY-Qn`). */
+  OKR_SET_PERIOD: 'clarityokr:okr:set-period',
+  /** Write a progress/status entry for one key result. */
+  KR_SET_PROGRESS: 'clarityokr:kr:set-progress',
+  /** Revert the latest `set` entry of one key result. */
+  KR_REVERT_PROGRESS: 'clarityokr:kr:revert-progress',
+  /** Atomically revert the latest `set` entry and write a new one ("edit this one"). */
+  KR_REPLACE_PROGRESS: 'clarityokr:kr:replace-progress',
+  /** Read the saved review (or null). */
+  REVIEW_GET: 'clarityokr:review:get',
+  /** Save the review texts (the first save freezes the key result snapshot). */
+  REVIEW_SAVE: 'clarityokr:review:save',
+  /** Export the OKR as Markdown or JSON through the system save dialog. */
+  EXPORT_SAVE: 'clarityokr:export:save',
+  /** Reveal a file in the file manager; only the path of the last successful export is accepted. */
+  EXPORT_REVEAL: 'clarityokr:export:reveal',
+  /** Relaunch the app, through the same confirmation rule as quitting. */
+  APP_RESTART: 'clarityokr:app:restart',
 } as const;
 
 /**

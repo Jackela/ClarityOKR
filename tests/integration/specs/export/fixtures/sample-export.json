@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 1,
+  "exportedAt": "2026-10-11T12:00:00.000Z",
+  "objective": {
+    "title": "Ship the \"closed loop\" / v2",
+    "period": "2026-Q4",
+    "pinned": true,
+    "createdAt": "2026-10-01T08:00:00.000Z",
+    "updatedAt": "2026-10-09T09:00:00.000Z"
+  },
+  "keyResults": [
+    {
+      "id": "kr-1",
+      "statement": "Release 3 times per week",
+      "successMetric": "releases per week",
+      "progress": 40,
+      "status": "at_risk",
+      "removedAt": null
+    },
+    {
+      "id": "kr-2",
+      "statement": "Cut escaped defects below 5%",
+      "successMetric": null,
+      "progress": 20,
+      "status": "in_progress",
+      "removedAt": null
+    },
+    {
+      "id": "kr-3",
+      "statement": "Retire the old importer\nkeep the data",
+      "successMetric": null,
+      "progress": 30,
+      "status": "in_progress",
+      "removedAt": "2026-10-07T09:00:00.000Z"
+    }
+  ],
+  "progressEntries": [
+    {
+      "id": 1,
+      "krId": "kr-1",
+      "kind": "set",
+      "value": 40,
+      "status": "in_progress",
+      "revertsEntryId": null,
+      "recordedAt": "2026-10-02T09:00:00.000Z"
+    },
+    {
+      "id": 2,
+      "krId": "kr-1",
+      "kind": "set",
+      "value": 100,
+      "status": "done",
+      "revertsEntryId": null,
+      "recordedAt": "2026-10-03T09:00:00.000Z"
+    },
+    {
+      "id": 3,
+      "krId": "kr-1",
+      "kind": "revert",
+      "value": 40,
+      "status": "in_progress",
+      "revertsEntryId": 2,
+      "recordedAt": "2026-10-04T09:00:00.000Z"
+    },
+    {
+      "id": 4,
+      "krId": "kr-1",
+      "kind": "set",
+      "value": 40,
+      "status": "at_risk",
+      "revertsEntryId": null,
+      "recordedAt": "2026-10-05T09:00:00.000Z"
+    },
+    {
+      "id": 5,
+      "krId": "kr-3",
+      "kind": "set",
+      "value": 30,
+      "status": "in_progress",
+      "revertsEntryId": null,
+      "recordedAt": "2026-10-06T09:00:00.000Z"
+    },
+    {
+      "id": 6,
+      "krId": "kr-2",
+      "kind": "set",
+      "value": 20,
+      "status": "in_progress",
+      "revertsEntryId": null,
+      "recordedAt": "2026-10-09T09:00:00.000Z"
+    }
+  ],
+  "review": {
+    "wentWell": "Shipped the progress UI.",
+    "fellShort": "",
+    "nextSteps": "Plan the next quarter.",
+    "snapshot": [
+      {
+        "krId": "kr-1",
+        "statement": "Release 3 times per week",
+        "successMetric": "releases per week",
+        "progress": 40,
+        "status": "at_risk",
+        "removed": false
+      },
+      {
+        "krId": "kr-2",
+        "statement": "Cut escaped defects below 5%",
+        "successMetric": null,
+        "progress": null,
+        "status": "not_started",
+        "removed": false
+      },
+      {
+        "krId": "kr-3",
+        "statement": "Retire the old importer\nkeep the data",
+        "successMetric": null,
+        "progress": 30,
+        "status": "in_progress",
+        "removed": true
+      }
+    ],
+    "savedAt": "2026-10-08T09:00:00.000Z",
+    "snapshotAt": "2026-10-08T09:00:00.000Z"
+  }
+}
