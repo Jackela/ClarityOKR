@@ -5,6 +5,7 @@ import type {
   OkrDetail,
   OkrListItem,
   Period,
+  StorageModeName,
   ProgressChangeReply,
   ReplaceProgressRequest,
   SetProgressRequest,
@@ -20,6 +21,13 @@ export type PinNotice = 'none' | 'pinning' | 'pinned' | 'failed';
 export type WriteResult<T> = { ok: true; data: T } | { ok: false; error: ClosedLoopError };
 
 const PIN_NOTICE_MS = 6000;
+
+interface WriteToken {
+  id: string | null;
+  epoch: number;
+  kind: string;
+  seq: number;
+}
 
 /** Errors that mean "what you saw is out of date": reload instead of retrying. */
 export const STALE_CODES: ReadonlySet<string> = new Set([
@@ -45,9 +53,28 @@ export class ClosedLoopStore implements OnDestroy {
   /** A regeneration / text save is running: other OKRs cannot be opened meanwhile. */
   readonly operationBusy = signal(false);
 
+  /**
+   * Where this run keeps its data (asked once). Only the wording of "saved" messages depends
+   * on it (spec §7a.3); until the answer is in, nothing says "仅本次运行".
+   */
+  readonly storageMode = signal<StorageModeName>('normal');
+
+  private storageModeAsked = false;
+
   readonly list = signal<OkrListItem[]>([]);
   readonly listState = signal<LoadState>('idle');
   readonly openError = signal(false);
+
+  /**
+   * Which "visit" of an OKR is open. It grows every time the open OKR changes, so A → B → A
+   * is a different visit than the first A and a reply addressed to the first one is dropped
+   * even though the id matches again (review: stale responses).
+   */
+  private epoch = 0;
+  /** Read requests (open / reload): only the latest one may apply. */
+  private readSeq = 0;
+  /** Latest sequence number per kind of OKR-targeted write ("pin", "period", "progress:kr"). */
+  private readonly writeSeqs = new Map<string, number>();
 
   private pinTimer: ReturnType<typeof setTimeout> | undefined;
   private lastDocumentId: string | null = null;
@@ -60,6 +87,13 @@ export class ClosedLoopStore implements OnDestroy {
   constructor() {
     // Another window may have changed progress while this one was in the background.
     if (typeof window !== 'undefined') window.addEventListener('focus', this.onWindowFocus);
+  }
+
+  /** Asks the main process once where this run keeps its data. */
+  async ensureStorageMode(): Promise<void> {
+    if (this.storageModeAsked) return;
+    this.storageModeAsked = true;
+    this.storageMode.set(await this.api.getStorageMode());
   }
 
   ngOnDestroy(): void {
@@ -88,6 +122,7 @@ export class ClosedLoopStore implements OnDestroy {
     const isNewDocument = documentId !== this.lastDocumentId;
     this.lastDocumentId = documentId;
     if (isNewDocument || documentId !== this.currentId()) {
+      this.epoch += 1;
       this.currentId.set(documentId);
       this.openedFromHistory.set(false);
       this.pinNotice.set('none');
@@ -100,8 +135,10 @@ export class ClosedLoopStore implements OnDestroy {
     const id = this.currentId();
     if (!id) return;
     if (!silent || this.detail() === null) this.detailState.set('loading');
+    const seq = ++this.readSeq;
     const result = await this.api.open({ okrId: id });
-    if (this.currentId() !== id) return;
+    // A newer read (or another OKR) superseded this one: only the latest may apply.
+    if (seq !== this.readSeq || this.currentId() !== id) return;
     if (result.ok) {
       this.detail.set(result.data);
       this.detailState.set('ready');
@@ -125,7 +162,10 @@ export class ClosedLoopStore implements OnDestroy {
   /** Opens an OKR from the history; it becomes the one edit / regenerate act on. */
   async openFromHistory(okrId: string): Promise<boolean> {
     this.openError.set(false);
+    const seq = ++this.readSeq;
     const result = await this.api.open({ okrId });
+    // Superseded by a newer open / reload: nothing to show or report for this one.
+    if (seq !== this.readSeq) return false;
     if (!result.ok) {
       this.openError.set(true);
       return false;
@@ -140,6 +180,7 @@ export class ClosedLoopStore implements OnDestroy {
       return false;
     }
     this.skipNextDocumentSync = true;
+    this.epoch += 1;
     this.detail.set(result.data);
     this.detailState.set('ready');
     this.currentId.set(okrId);
@@ -153,9 +194,13 @@ export class ClosedLoopStore implements OnDestroy {
     if (!id) return false;
     this.clearPinTimer();
     this.pinNotice.set('pinning');
+    const token = this.begin('pin');
     const result = await this.api.pin({ okrId: id });
     // The user may have opened another OKR meanwhile: that one's state is not ours to touch.
-    if (this.currentId() !== id) return result.ok;
+    if (!this.accepts(token)) {
+      this.dropped(token);
+      return result.ok;
+    }
     if (!result.ok) {
       this.pinNotice.set('failed');
       return false;
@@ -175,7 +220,12 @@ export class ClosedLoopStore implements OnDestroy {
   async setPeriod(period: Period | null): Promise<WriteResult<void>> {
     const id = this.currentId();
     if (!id) return { ok: false, error: { code: 'NOT_FOUND', message: 'No open OKR' } };
+    const token = this.begin('period');
     const result = await this.api.setPeriod({ okrId: id, period });
+    if (!this.accepts(token)) {
+      this.dropped(token);
+      return result.ok ? { ok: true, data: undefined } : result;
+    }
     if (!result.ok) return result;
     this.patchDetail(id, (detail) => ({
       ...detail,
@@ -189,28 +239,35 @@ export class ClosedLoopStore implements OnDestroy {
   }
 
   async setProgress(request: SetProgressRequest): Promise<WriteResult<ProgressChangeReply>> {
-    const id = this.currentId();
-    return this.afterProgressWrite(id, await this.api.setProgress(request));
+    const token = this.begin(`progress:${request.krId}`);
+    return this.afterProgressWrite(token, await this.api.setProgress(request));
   }
 
   async revertProgress(request: KrIdRequest): Promise<WriteResult<ProgressChangeReply>> {
-    const id = this.currentId();
-    return this.afterProgressWrite(id, await this.api.revertProgress(request));
+    const token = this.begin(`progress:${request.krId}`);
+    return this.afterProgressWrite(token, await this.api.revertProgress(request));
   }
 
   async replaceProgress(
     request: ReplaceProgressRequest,
   ): Promise<WriteResult<ProgressChangeReply>> {
-    const id = this.currentId();
-    return this.afterProgressWrite(id, await this.api.replaceProgress(request));
+    const token = this.begin(`progress:${request.krId}`);
+    return this.afterProgressWrite(token, await this.api.replaceProgress(request));
   }
 
-  /** `id` is the OKR that was open when the request left; a reply for another OKR is dropped. */
+  /**
+   * The token says which visit of which OKR the request left from; a reply for a visit that
+   * is over (or one that a newer write of the same kind superseded) is dropped.
+   */
   private async afterProgressWrite(
-    id: string | null,
+    token: WriteToken,
     result: WriteResult<ProgressChangeReply>,
   ): Promise<WriteResult<ProgressChangeReply>> {
-    if (id === null || this.currentId() !== id) return result;
+    if (!this.accepts(token)) {
+      this.dropped(token);
+      return result;
+    }
+    const id = token.id as string;
     if (result.ok) {
       const reply = result.data;
       this.patchDetail(id, (detail) => ({
@@ -230,6 +287,32 @@ export class ClosedLoopStore implements OnDestroy {
       void this.reload(true);
     }
     return result;
+  }
+
+  /** Starts an OKR-targeted write: remembers the visit and the sequence number of its kind. */
+  private begin(kind: string): WriteToken {
+    const seq = (this.writeSeqs.get(kind) ?? 0) + 1;
+    this.writeSeqs.set(kind, seq);
+    return { id: this.currentId(), epoch: this.epoch, kind, seq };
+  }
+
+  private accepts(token: WriteToken): boolean {
+    return (
+      token.id !== null &&
+      this.currentId() === token.id &&
+      token.epoch === this.epoch &&
+      this.writeSeqs.get(token.kind) === token.seq
+    );
+  }
+
+  /**
+   * A reply was not applied. If the same OKR is open again (A → B → A) the write may have
+   * landed after the fresh read of the new visit, so read once more instead of guessing.
+   */
+  private dropped(token: WriteToken): void {
+    if (token.id !== null && this.currentId() === token.id && token.epoch !== this.epoch) {
+      void this.reload(true);
+    }
   }
 
   /** Applies `update` only while `okrId` is still the open OKR. */

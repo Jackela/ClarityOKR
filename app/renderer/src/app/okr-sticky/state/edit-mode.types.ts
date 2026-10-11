@@ -1,4 +1,5 @@
 import type { KeyResult } from '@clarityokr/contracts';
+import { TEXT_LIMITS } from '@clarityokr/contracts';
 
 /**
  * Validation error structure
@@ -15,7 +16,14 @@ export interface DraftKeyResult {
   id: string;
   statement: string;
   successMetric: string;
+  /** Not editable any more (spec §0); carried through so a save never drops stored data. */
   owner: string;
+}
+
+/** The text content of one point in the edit history (progress is never part of it). */
+export interface TextSnapshot {
+  objective: string;
+  keyResults: Array<{ id: string; statement: string; successMetric: string }>;
 }
 
 /**
@@ -33,11 +41,12 @@ export interface EditModeState {
 }
 
 /**
- * Maximum length constants for validation
+ * Limits in grapheme clusters, shared with the main process (spec §3.9a).
  */
 export const VALIDATION_LIMITS = {
-  objectiveMaxLength: 200,
-  keyResultMaxLength: 180,
+  objectiveMaxLength: TEXT_LIMITS.objective,
+  keyResultMaxLength: TEXT_LIMITS.keyResult,
+  metricMaxLength: TEXT_LIMITS.successMetric,
 } as const;
 
 /**
@@ -47,7 +56,9 @@ export const VALIDATION_MESSAGES = {
   objectiveEmpty: '目标描述不能为空',
   objectiveTooLong: '目标描述不能超过200个字符',
   keyResultEmpty: '关键结果描述不能为空',
-  keyResultTooLong: '关键结果描述不能超过180个字符',
+  keyResultTooLong: '关键结果描述不能超过200个字符',
+  metricTooLong: '度量不能超过200个字符',
+  clusterTooLong: '内容里的特殊符号过多，请删减后再保存。',
 } as const;
 
 /**

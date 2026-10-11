@@ -230,37 +230,6 @@ export class OkrStickyService implements OnDestroy {
   }
 
   /**
-   * 添加 Key Result
-   *
-   * 在本地状态中动态添加一个新的 Key Result。
-   * 这是一个本地操作，不涉及 IPC 调用。
-   */
-  addKeyResult(): void {
-    const current = this._viewModel();
-    if (!current) return;
-
-    const id =
-      globalThis.crypto && 'randomUUID' in globalThis.crypto
-        ? (globalThis.crypto as { randomUUID: () => string }).randomUUID()
-        : Math.random().toString(36).slice(2);
-
-    const next: OkrStickyViewModel = {
-      ...current,
-      keyResults: [
-        ...current.keyResults,
-        {
-          id,
-          statement: 'New Key Result',
-          metricLabel: null,
-          ownerLabel: null,
-        },
-      ],
-    };
-
-    this._viewModel.set(next);
-  }
-
-  /**
    * 注册 IPC 监听器
    *
    * 监听来自主进程的 OKR 生成事件，自动更新本地状态。

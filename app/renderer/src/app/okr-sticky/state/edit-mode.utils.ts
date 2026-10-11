@@ -1,13 +1,13 @@
 import type { KeyResult } from '@clarityokr/contracts';
+
+import { evaluateText } from '../../closed-loop/text-limit';
 import type { EditModeState, DraftKeyResult, ValidationError } from './edit-mode.types.js';
 import { VALIDATION_LIMITS, VALIDATION_MESSAGES } from './edit-mode.types.js';
 
 /**
  * Create draft key results from original key results
  */
-export function createDraftKeyResults(
-  keyResults: KeyResult[],
-): DraftKeyResult[] {
+export function createDraftKeyResults(keyResults: KeyResult[]): DraftKeyResult[] {
   return keyResults.map((kr) => ({
     id: kr.id,
     statement: kr.statement,
@@ -17,7 +17,8 @@ export function createDraftKeyResults(
 }
 
 /**
- * Calculate if draft differs from original
+ * Calculate if draft differs from original. A key result that only exists in the draft
+ * (added in this session) always makes the draft dirty.
  */
 export function calculateDirty(state: EditModeState): boolean {
   if (state.draftObjective !== state.originalObjective) return true;
@@ -28,6 +29,7 @@ export function calculateDirty(state: EditModeState): boolean {
     const original = state.originalKeyResults[i];
 
     if (
+      draft.id !== original.id ||
       draft.statement !== original.statement ||
       draft.successMetric !== (original.successMetric ?? '') ||
       draft.owner !== (original.owner ?? '')
@@ -40,32 +42,37 @@ export function calculateDirty(state: EditModeState): boolean {
 }
 
 /**
- * Validate current state
+ * Validate current state: empty required fields, then the grapheme limits (§3.9a).
  */
 export function validateState(state: EditModeState): ValidationError[] {
   const errors: ValidationError[] = [];
 
-  // Validate objective
-  const objectiveTrimmed = state.draftObjective.trim();
-  if (objectiveTrimmed.length === 0) {
+  const objective = evaluateText(state.draftObjective, VALIDATION_LIMITS.objectiveMaxLength);
+  if (state.draftObjective.trim().length === 0) {
     errors.push({ field: 'objective', message: VALIDATION_MESSAGES.objectiveEmpty });
-  } else if (state.draftObjective.length > VALIDATION_LIMITS.objectiveMaxLength) {
+  } else if (objective.kind === 'cluster_too_long') {
+    errors.push({ field: 'objective', message: VALIDATION_MESSAGES.clusterTooLong });
+  } else if (objective.kind === 'too_long') {
     errors.push({ field: 'objective', message: VALIDATION_MESSAGES.objectiveTooLong });
   }
 
-  // Validate key results
   state.draftKeyResults.forEach((kr) => {
-    const statementTrimmed = kr.statement.trim();
-    if (statementTrimmed.length === 0) {
-      errors.push({
-        field: `keyResults.${kr.id}.statement`,
-        message: VALIDATION_MESSAGES.keyResultEmpty,
-      });
-    } else if (kr.statement.length > VALIDATION_LIMITS.keyResultMaxLength) {
-      errors.push({
-        field: `keyResults.${kr.id}.statement`,
-        message: VALIDATION_MESSAGES.keyResultTooLong,
-      });
+    const statement = evaluateText(kr.statement, VALIDATION_LIMITS.keyResultMaxLength);
+    const field = `keyResults.${kr.id}.statement`;
+    if (kr.statement.trim().length === 0) {
+      errors.push({ field, message: VALIDATION_MESSAGES.keyResultEmpty });
+    } else if (statement.kind === 'cluster_too_long') {
+      errors.push({ field, message: VALIDATION_MESSAGES.clusterTooLong });
+    } else if (statement.kind === 'too_long') {
+      errors.push({ field, message: VALIDATION_MESSAGES.keyResultTooLong });
+    }
+
+    const metric = evaluateText(kr.successMetric, VALIDATION_LIMITS.metricMaxLength);
+    const metricField = `keyResults.${kr.id}.successMetric`;
+    if (metric.kind === 'cluster_too_long') {
+      errors.push({ field: metricField, message: VALIDATION_MESSAGES.clusterTooLong });
+    } else if (metric.kind === 'too_long') {
+      errors.push({ field: metricField, message: VALIDATION_MESSAGES.metricTooLong });
     }
   });
 
