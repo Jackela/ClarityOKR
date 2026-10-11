@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { rename, unlink, writeFile } from 'node:fs/promises';
+import { lstat, rename, unlink, writeFile } from 'node:fs/promises';
 import { dirname, extname, isAbsolute, join, basename } from 'node:path';
 
 import type { ExportFailureCategory, ExportFormat, ExportReply } from '@clarityokr/contracts';
@@ -37,6 +37,7 @@ const EXPORT_ERROR_CATEGORIES = new Map<string, ExportFailureCategory>([
   ['ENOSPC', 'disk_full'],
   ['ENOENT', 'not_found'],
   ['EBUSY', 'busy'],
+  ['EEXIST', 'exists'],
 ]);
 
 export function categorizeExportError(error: unknown): ExportFailureCategory {
@@ -47,14 +48,45 @@ export function categorizeExportError(error: unknown): ExportFailureCategory {
   return EXPORT_ERROR_CATEGORIES.get(code) ?? 'other';
 }
 
+/** Longest part of the original name kept in the temp file name (the rest is dot, hex, `.tmp`). */
+const TEMP_NAME_BASE_MAX_BYTES = 200;
+const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+
+function truncateToBytes(text: string, maxBytes: number): string {
+  let result = '';
+  for (const { segment } of segmenter.segment(text)) {
+    if (Buffer.byteLength(result + segment, 'utf8') > maxBytes) break;
+    result += segment;
+  }
+  return result;
+}
+
+/** Hidden sibling of `path`; stays well below the 255-byte file name limit. */
+export function tempFilePathFor(path: string): string {
+  const base = truncateToBytes(basename(path), TEMP_NAME_BASE_MAX_BYTES);
+  return join(dirname(path), `.${base}.${randomBytes(6).toString('hex')}.tmp`);
+}
+
 /** Temp file + rename: a failed write never leaves a truncated file at the chosen path. */
 export async function writeFileAtomically(path: string, content: string): Promise<void> {
-  const temp = join(dirname(path), `.${basename(path)}.${randomBytes(6).toString('hex')}.tmp`);
+  const temp = tempFilePathFor(path);
   try {
     await writeFile(temp, content, { encoding: 'utf8', flag: 'wx' });
     await rename(temp, path);
   } catch (error) {
     await unlink(temp).catch(() => undefined);
+    throw error;
+  }
+}
+
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await lstat(path);
+    return true;
+  } catch (error) {
+    if ((error as { code?: unknown }).code === 'ENOENT') {
+      return false;
+    }
     throw error;
   }
 }
@@ -113,6 +145,15 @@ export class ExportService {
     const path = withFormatExtension(chosen, format);
     const content = format === 'json' ? renderJson(source, exportedAt) : renderMarkdown(source);
     try {
+      // The OS dialog only confirmed an overwrite of the exact path it returned. When we
+      // appended an extension the final name is new to it, so an existing file there must
+      // never be replaced silently.
+      if (path !== chosen && (await pathExists(path))) {
+        Logger.warn('[export] Extension-adjusted target already exists; not overwriting', {
+          format,
+        });
+        return { outcome: 'failed', category: 'exists' };
+      }
       await this.writeOut(path, content);
     } catch (error) {
       const category = categorizeExportError(error);

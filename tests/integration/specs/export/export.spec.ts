@@ -7,15 +7,17 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import type { Database } from 'better-sqlite3';
 import { renderJson, renderMarkdown } from '../../../../app/main/src/export/export-document.js';
 import {
   ExportService,
   categorizeExportError,
+  tempFilePathFor,
   type ExportDeps,
 } from '../../../../app/main/src/export/export-service.js';
 import { buildSampleOkr, FIXED_EXPORT_TIME, loadExportSource } from './fixture.js';
@@ -246,6 +248,7 @@ describe('ExportService (injected dialog, temp directory)', () => {
     ['ENOSPC', 'disk_full'],
     ['ENOENT', 'not_found'],
     ['EBUSY', 'busy'],
+    ['EEXIST', 'exists'],
     ['EIO', 'other'],
     ['constructor', 'other'],
     ['EMFILE', 'other'],
@@ -288,6 +291,95 @@ describe('ExportService (injected dialog, temp directory)', () => {
     service = make();
     showSaveDialog.mockResolvedValue(join(dir, 'does', 'not', 'exist', 'out.md'));
     expect(await service.export(okrId, 'md')).toEqual({ outcome: 'failed', category: 'not_found' });
+  });
+
+  describe('extension appended by us', () => {
+    it('does not overwrite an existing file at the appended name and reports `exists` without a path', async () => {
+      service = make();
+      const existing = join(dir, 'report.md');
+      writeFileSync(existing, 'precious');
+      showSaveDialog.mockResolvedValue(join(dir, 'report'));
+      const result = await service.export(okrId, 'md');
+      expect(result).toEqual({ outcome: 'failed', category: 'exists' });
+      expect(JSON.stringify(result)).not.toContain(dir);
+      expect(readFileSync(existing, 'utf8')).toBe('precious');
+      expect(readdirSync(dir).filter((f) => f.endsWith('.tmp'))).toEqual([]);
+      expect(service.canReveal(existing)).toBe(false);
+    });
+
+    it('also protects the collision when the wrong extension was replaced by appending', async () => {
+      service = make();
+      const existing = join(dir, 'notes.txt.json');
+      writeFileSync(existing, 'precious');
+      showSaveDialog.mockResolvedValue(join(dir, 'notes.txt'));
+      expect(await service.export(okrId, 'json')).toEqual({
+        outcome: 'failed',
+        category: 'exists',
+      });
+      expect(readFileSync(existing, 'utf8')).toBe('precious');
+    });
+
+    it('treats a dangling symlink at the appended name as taken', async () => {
+      service = make();
+      const link = join(dir, 'linked.md');
+      symlinkSync(join(dir, 'nowhere'), link);
+      showSaveDialog.mockResolvedValue(join(dir, 'linked'));
+      expect(await service.export(okrId, 'md')).toEqual({ outcome: 'failed', category: 'exists' });
+      expect(existsSync(join(dir, 'nowhere'))).toBe(false);
+    });
+
+    it('writes normally when the appended name is free', async () => {
+      service = make();
+      showSaveDialog.mockResolvedValue(join(dir, 'fresh'));
+      expect(await service.export(okrId, 'md')).toMatchObject({
+        outcome: 'saved',
+        fileName: 'fresh.md',
+      });
+      expect(existsSync(join(dir, 'fresh.md'))).toBe(true);
+    });
+
+    it('the exact path the dialog returned (and the OS confirmed) is still overwritten', async () => {
+      service = make();
+      const target = join(dir, 'confirmed.md');
+      writeFileSync(target, 'old');
+      showSaveDialog.mockResolvedValue(target);
+      expect(await service.export(okrId, 'md')).toMatchObject({ outcome: 'saved', path: target });
+      expect(readFileSync(target, 'utf8')).not.toBe('old');
+      // a different-case extension that already matches the format is also the dialog's path
+      const upper = join(dir, 'upper.MD');
+      writeFileSync(upper, 'old');
+      showSaveDialog.mockResolvedValue(upper);
+      expect(await service.export(okrId, 'md')).toMatchObject({ outcome: 'saved', path: upper });
+      expect(readFileSync(upper, 'utf8')).not.toBe('old');
+    });
+  });
+
+  describe('temp file names', () => {
+    it('stay below 255 bytes for long base names, ASCII and CJK', async () => {
+      service = make();
+      for (const base of ['a'.repeat(250), '文'.repeat(83)]) {
+        const name = `${base}.md`;
+        expect(Buffer.byteLength(name)).toBeLessThanOrEqual(255);
+        const tempName = basename(tempFilePathFor(join(dir, name)));
+        expect(Buffer.byteLength(tempName)).toBeLessThanOrEqual(255);
+        expect(tempName.endsWith('.tmp')).toBe(true);
+        showSaveDialog.mockResolvedValue(join(dir, name));
+        expect(await service.export(okrId, 'md')).toMatchObject({
+          outcome: 'saved',
+          fileName: name,
+        });
+        expect(readFileSync(join(dir, name), 'utf8').length).toBeGreaterThan(0);
+        expect(readdirSync(dir).filter((f) => f.endsWith('.tmp'))).toEqual([]);
+      }
+    });
+
+    it('are unique per call and never cut a character in half', () => {
+      const path = join(dir, `${'👨‍👩‍👧‍👦'.repeat(40)}.json`);
+      const a = tempFilePathFor(path);
+      expect(a).not.toBe(tempFilePathFor(path));
+      expect(basename(a)).not.toContain('\ufffd');
+      expect(Buffer.byteLength(basename(a))).toBeLessThanOrEqual(255);
+    });
   });
 
   it('a failed write does not clobber an existing file at the chosen path', async () => {

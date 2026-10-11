@@ -69,4 +69,36 @@ describe('AppRestartService', () => {
       dialogWindow: 'main',
     });
   });
+
+  it('resets the restarting flag when relaunch throws and reports a categorised failure', () => {
+    const relaunch = jest
+      .fn<() => void>()
+      .mockImplementationOnce(() => {
+        throw new Error('spawn failed at /secret/path');
+      })
+      .mockImplementation(() => undefined);
+    const service = new AppRestartService({
+      getStorageMode: () => 'memory',
+      dbHasData: () => true,
+      relaunch,
+    });
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    const failed = service.requestRestart({ unsaved: none, confirmed: true });
+    expect(failed).toEqual({ outcome: 'failed', category: 'relaunch_failed' });
+    expect(JSON.stringify(failed)).not.toContain('secret');
+
+    // a later call is evaluated normally (not "restarting"): memory data asks again…
+    expect(service.requestRestart({ unsaved: none })).toMatchObject({
+      outcome: 'confirm_required',
+    });
+    expect(relaunch).toHaveBeenCalledTimes(1);
+    // …and once confirmed it relaunches, after which repeated calls collapse
+    expect(service.requestRestart({ unsaved: none, confirmed: true })).toEqual({
+      outcome: 'restarting',
+    });
+    expect(service.requestRestart({ unsaved: none })).toEqual({ outcome: 'restarting' });
+    expect(relaunch).toHaveBeenCalledTimes(2);
+    errorSpy.mockRestore();
+  });
 });

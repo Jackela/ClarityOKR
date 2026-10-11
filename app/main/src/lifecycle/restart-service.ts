@@ -55,7 +55,14 @@ export class AppRestartService {
       return { outcome: 'confirm_required', confirmation };
     }
     this.restarting = true;
-    this.deps.relaunch();
+    try {
+      this.deps.relaunch();
+    } catch (error) {
+      // Not restarting after all: allow later requests to be evaluated normally.
+      this.restarting = false;
+      Logger.error('[restart] Relaunch failed', error);
+      return { outcome: 'failed', category: 'relaunch_failed' };
+    }
     return { outcome: 'restarting' };
   }
 }

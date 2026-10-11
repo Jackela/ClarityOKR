@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import BetterSqlite3 from 'better-sqlite3';
@@ -793,6 +793,16 @@ describe('closed-loop IPC handlers (real OkrStore on a temp database)', () => {
       expect(readFileSync(target, 'utf8')).toContain('# Ship the closed loop');
     });
 
+    it('reports `exists` (no path, nothing overwritten) when the appended extension collides', async () => {
+      const okr = create();
+      writeFileSync(join(h.dir, 'taken.md'), 'precious');
+      h.showSaveDialog.mockResolvedValue(join(h.dir, 'taken'));
+      const r = await h.ipc.invoke(IPC_CHANNELS.EXPORT_SAVE, { okrId: okr.id, format: 'md' });
+      expect(r).toEqual({ ok: true, data: { outcome: 'failed', category: 'exists' } });
+      expect(JSON.stringify(r)).not.toContain(h.dir);
+      expect(readFileSync(join(h.dir, 'taken.md'), 'utf8')).toBe('precious');
+    });
+
     it('saves JSON with schemaVersion 1', async () => {
       const okr = create();
       const target = join(h.dir, 'out.json');
@@ -925,6 +935,23 @@ describe('closed-loop IPC handlers (real OkrStore on a temp database)', () => {
         data: { outcome: 'restarting' },
       });
       expect(h.relaunch).toHaveBeenCalledTimes(1);
+    });
+
+    it('a throwing relaunch is reported as relaunch_failed without leaking text, and later calls work', async () => {
+      create();
+      h.relaunch.mockImplementationOnce(() => {
+        throw new Error(`boom ${h.dir}`);
+      });
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+      const r = await h.ipc.invoke(IPC_CHANNELS.APP_RESTART, { unsaved: none });
+      expect(r).toEqual({ ok: true, data: { outcome: 'failed', category: 'relaunch_failed' } });
+      expect(JSON.stringify(r)).not.toContain(h.dir);
+      expect(await h.ipc.invoke(IPC_CHANNELS.APP_RESTART, { unsaved: none })).toEqual({
+        ok: true,
+        data: { outcome: 'restarting' },
+      });
+      expect(h.relaunch).toHaveBeenCalledTimes(2);
+      errorSpy.mockRestore();
     });
 
     it('memory mode WITH data asks first, and relaunches only after confirmed:true', async () => {

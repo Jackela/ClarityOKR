@@ -212,7 +212,14 @@ export interface ReviewReply {
   review: ReviewRecord | null;
 }
 
-export type ExportFailureCategory = 'permission' | 'disk_full' | 'not_found' | 'busy' | 'other';
+export type ExportFailureCategory =
+  | 'permission'
+  | 'disk_full'
+  | 'not_found'
+  | 'busy'
+  /** The extension we appended produced a name that is already taken; nothing was written. */
+  | 'exists'
+  | 'other';
 
 export type ExportReply =
   | { outcome: 'saved'; format: ExportFormat; fileName: string; path: string }
@@ -223,8 +230,12 @@ export interface RevealReply {
   revealed: true;
 }
 
+export type RestartFailureCategory = 'relaunch_failed';
+
 export type RestartReply =
-  { outcome: 'restarting' } | { outcome: 'confirm_required'; confirmation: ExitConfirmation };
+  | { outcome: 'restarting' }
+  | { outcome: 'confirm_required'; confirmation: ExitConfirmation }
+  | { outcome: 'failed'; category: RestartFailureCategory };
 
 // ---------------------------------------------------------------------------
 // Exit / restart confirmation (pure decision)
