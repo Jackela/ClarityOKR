@@ -247,6 +247,7 @@ describe('ExportService (injected dialog, temp directory)', () => {
     ['ENOENT', 'not_found'],
     ['EBUSY', 'busy'],
     ['EIO', 'other'],
+    ['constructor', 'other'],
     ['EMFILE', 'other'],
     [undefined, 'other'],
   ])(

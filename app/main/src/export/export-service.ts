@@ -31,24 +31,20 @@ export interface ExportDeps {
 /** `null` when the OKR does not exist. */
 export type ExportOutcome = ExportReply | null;
 
+const EXPORT_ERROR_CATEGORIES = new Map<string, ExportFailureCategory>([
+  ['EACCES', 'permission'],
+  ['EPERM', 'permission'],
+  ['ENOSPC', 'disk_full'],
+  ['ENOENT', 'not_found'],
+  ['EBUSY', 'busy'],
+]);
+
 export function categorizeExportError(error: unknown): ExportFailureCategory {
   const code =
     typeof error === 'object' && error !== null && 'code' in error
       ? String((error as { code: unknown }).code)
       : '';
-  switch (code) {
-    case 'EACCES':
-    case 'EPERM':
-      return 'permission';
-    case 'ENOSPC':
-      return 'disk_full';
-    case 'ENOENT':
-      return 'not_found';
-    case 'EBUSY':
-      return 'busy';
-    default:
-      return 'other';
-  }
+  return EXPORT_ERROR_CATEGORIES.get(code) ?? 'other';
 }
 
 /** Temp file + rename: a failed write never leaves a truncated file at the chosen path. */
