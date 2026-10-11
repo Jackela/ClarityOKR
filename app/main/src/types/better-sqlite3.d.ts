@@ -7,21 +7,26 @@ declare module 'better-sqlite3' {
     all(...params: unknown[]): unknown[];
   }
 
-  export interface Transaction {
-    (): void;
+  export interface DatabaseOptions {
+    readonly?: boolean;
+    fileMustExist?: boolean;
+  }
+
+  export interface Transaction<T = void> {
+    (): T;
     deferred: () => void;
     immediate: () => void;
     exclusive: () => void;
   }
 
   export class Database {
-    constructor(filename: string);
+    constructor(filename: string, options?: DatabaseOptions);
 
-    pragma(pragma: string): unknown;
+    pragma(source: string, options?: { simple?: boolean }): unknown;
     exec(sql: string): void;
     prepare(sql: string): Statement;
     close(): void;
-    transaction(fn: () => void): Transaction;
+    transaction<T>(fn: () => T): Transaction<T>;
   }
 
   const _default: typeof Database;
