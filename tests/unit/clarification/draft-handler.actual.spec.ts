@@ -129,7 +129,7 @@ describe('Actual session-to-draft boundary', () => {
     { title: 'Objective' },
     { title: 'Objective', keyResults: [{}] },
     { title: 'x'.repeat(201), keyResults: [{ statement: 'Result' }] },
-    { title: 'Objective', keyResults: [{ statement: 'x'.repeat(181) }] },
+    { title: 'Objective', keyResults: [{ statement: 'x'.repeat(201) }] },
   ])('rejects drafts outside the public OKR contract (%p)', async (objective) => {
     sessions.createSession('synthetic', 'Synthetic intent');
     agent.generateDraft.mockResolvedValue({ draft: { objectives: [objective] } });

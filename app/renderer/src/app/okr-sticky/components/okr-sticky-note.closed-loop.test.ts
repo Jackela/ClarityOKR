@@ -145,12 +145,22 @@ describe('OkrStickyNoteComponent closed-loop states', () => {
       expect(q('regenerate-button')).not.toBeNull();
     });
 
-    it('emits addKr', async () => {
-      await show([makeKr()]);
-      const spy = jest.fn();
-      fixture.componentInstance.addKr.subscribe(spy);
+    it('「＋ 添加」 opens the text form with one more, empty, focused key result (§3.10)', async () => {
+      await show([makeKr({ id: 'a' })]);
       q('sticky-add-kr').click();
-      expect(spy).toHaveBeenCalledTimes(1);
+      fixture.detectChanges();
+      await settle();
+      const statements = Array.from(
+        root().querySelectorAll<HTMLTextAreaElement>('textarea[data-testid^="edit-kr-"]'),
+      );
+      expect(statements).toHaveLength(2);
+      expect(statements[1]!.value).toBe('');
+      expect(statements[1]!.placeholder).toBe('写下一个可衡量的关键结果');
+      expect(document.activeElement).toBe(statements[1]);
+      // nothing changed in the data yet
+      expect(fixture.componentInstance.editor.isDirty()).toBe(true);
+      expect(fixture.componentInstance.editor.isValid()).toBe(false);
+      expect(q<HTMLButtonElement>('edit-save').disabled).toBe(true);
     });
 
     it('"添加度量" opens the text editor', async () => {

@@ -133,7 +133,6 @@ describe('Actual sticky service transport, projection and persistence ownership'
   });
 
   it('keeps local view edits separate from persisted identity and enforces no-document guards', async () => {
-    service.addKeyResult();
     expect(service.viewModel()).toBeNull();
     for (const operation of [
       () => service.copy(),
@@ -143,9 +142,7 @@ describe('Actual sticky service transport, projection and persistence ownership'
       await expect(operation()).rejects.toThrow('No OKR');
     }
     broadcast(undefined, document);
-    service.addKeyResult();
-    expect(service.viewModel()?.keyResults).toHaveLength(3);
-    expect(service.viewModel()?.keyResults[2].id.length).toBeGreaterThan(0);
+    expect(service.viewModel()?.keyResults).toHaveLength(2);
     service.updateViewModel(null);
     expect(service.hasStickyNote()).toBe(false);
     service.clear();
@@ -203,6 +200,69 @@ describe('Actual sticky service transport, projection and persistence ownership'
       const vm = service.openFromDetail(detail([{ id: 'x', removedAt: time }]));
       expect(vm.keyResults).toEqual([]);
       expect(service.viewModel()?.id).toBe('from-history');
+    });
+
+    describe('storeDocument order: project first, state writes only after it succeeded', () => {
+      interface Internals {
+        buildViewModel: (document: unknown) => unknown;
+        _viewModel: { set: (value: unknown) => void };
+      }
+
+      /** Records every step in call order: the projection, the document write, the view write. */
+      function observe(): string[] {
+        const log: string[] = [];
+        const internals = service as unknown as Internals;
+        const build = internals.buildViewModel.bind(service);
+        jest.spyOn(internals, 'buildViewModel').mockImplementation((doc) => {
+          log.push('project');
+          return build(doc);
+        });
+        const set = internals._viewModel.set.bind(internals._viewModel);
+        jest.spyOn(internals._viewModel, 'set').mockImplementation((value) => {
+          log.push('write:viewModel');
+          set(value);
+        });
+        let stored: unknown = (service as unknown as { document: unknown }).document;
+        Object.defineProperty(service, 'document', {
+          configurable: true,
+          get: () => stored,
+          set: (value) => {
+            log.push('write:document');
+            stored = value;
+          },
+        });
+        return log;
+      }
+
+      it('projects before it writes the document and the view', () => {
+        const log = observe();
+        service.openFromDetail(detail([{ id: 'x', removedAt: null }]));
+        expect(log).toEqual(['project', 'write:document', 'write:viewModel']);
+      });
+
+      it('the strict path projects first as well (broadcast / generate use it)', () => {
+        const log = observe();
+        broadcast(undefined, { ...document, objective: 'Strict path' });
+        expect(log).toEqual(['project', 'write:document', 'write:viewModel']);
+        expect(service.viewModel()?.objective).toBe('Strict path');
+      });
+
+      it('a projection that throws means NO state write at all, and the error reaches the caller', () => {
+        broadcast(undefined, document);
+        const before = service.viewModel();
+        const documentBefore = (service as unknown as { document: unknown }).document;
+        const log = observe();
+        (service as unknown as Internals).buildViewModel = () => {
+          log.push('project');
+          throw new Error('cannot project');
+        };
+        expect(() => service.openFromDetail(detail([{ id: 'x', removedAt: null }]))).toThrow(
+          'cannot project',
+        );
+        expect(log).toEqual(['project']);
+        expect(service.viewModel()).toBe(before);
+        expect((service as unknown as { document: unknown }).document).toBe(documentBefore);
+      });
     });
 
     it('still rejects an empty document on the normal path and leaves the view untouched', () => {

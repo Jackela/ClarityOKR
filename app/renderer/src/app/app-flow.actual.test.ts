@@ -129,9 +129,6 @@ describe('Actual root UI wiring with real state, orchestrator and sticky service
     expect(
       fixture.nativeElement.querySelector('[data-testid="okr-summary"]').textContent,
     ).toContain(okr.objective);
-    const before = sticky.getCurrentViewModel()?.keyResults.length;
-    component.onAddKeyResult();
-    expect(sticky.getCurrentViewModel()?.keyResults.length).toBe((before ?? 0) + 1);
     await component.reopenSticky();
     expect(invoke).toHaveBeenCalledWith(IPC_CHANNELS.STICKY_REOPEN, undefined);
   });
