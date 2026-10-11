@@ -218,6 +218,18 @@ describe('OkrStickyNoteComponent closed-loop states', () => {
       expect(q('removed-key-result').textContent).not.toContain('添加度量');
     });
 
+    it('an OKR with only removed key results: empty list text, 「—」, section collapsed (B1)', async () => {
+      await show([
+        makeKr({ id: 'a', removedAt: '2026-10-03T08:00:00.000Z' }),
+        makeKr({ id: 'b', position: 1, removedAt: '2026-10-03T08:00:00.000Z' }),
+      ]);
+      expect(q('kr-empty').textContent).toContain('还没有关键结果');
+      expect(q('overall-value').textContent!.trim()).toBe('—');
+      expect(q('removed-toggle').getAttribute('aria-expanded')).toBe('false');
+      expect(q('removed-toggle').textContent).toContain('已移除的关键结果（2）');
+      expect(q('removed-key-result')).toBeNull();
+    });
+
     it('the section is absent when nothing was removed', async () => {
       await show([makeKr()]);
       expect(q('removed-section')).toBeNull();

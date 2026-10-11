@@ -112,7 +112,10 @@ export class OkrStickyService implements OnDestroy {
     if (!document.keyResults.length) {
       throw new Error('Key Results are required for sticky note rendering.');
     }
+    return this.buildViewModel(document);
+  }
 
+  private buildViewModel(document: OKRDocument): OkrStickyViewModel {
     return {
       id: document.id,
       objective: document.objective,
@@ -199,22 +202,26 @@ export class OkrStickyService implements OnDestroy {
    */
   openFromDetail(detail: OkrDetail): OkrStickyViewModel {
     const { objective } = detail;
-    return this.storeDocument({
-      id: objective.id,
-      objective: objective.title,
-      keyResults: objective.keyResults
-        .filter((kr) => kr.removedAt === null)
-        .map((kr) => ({
-          id: kr.id,
-          statement: kr.statement,
-          ...(kr.successMetric ? { successMetric: kr.successMetric } : {}),
-        })),
-      sourceSessionId: objective.sourceSessionId ?? '',
-      generatedAt: objective.createdAt,
-      lastEditedAt: objective.updatedAt === objective.createdAt ? null : objective.updatedAt,
-      regenerationPolicy: 'overwrite',
-      manualEdits: [],
-    });
+    // An OKR whose key results were all removed by regenerations still opens (empty list).
+    return this.storeDocument(
+      {
+        id: objective.id,
+        objective: objective.title,
+        keyResults: objective.keyResults
+          .filter((kr) => kr.removedAt === null)
+          .map((kr) => ({
+            id: kr.id,
+            statement: kr.statement,
+            ...(kr.successMetric ? { successMetric: kr.successMetric } : {}),
+          })),
+        sourceSessionId: objective.sourceSessionId ?? '',
+        generatedAt: objective.createdAt,
+        lastEditedAt: objective.updatedAt === objective.createdAt ? null : objective.updatedAt,
+        regenerationPolicy: 'overwrite',
+        manualEdits: [],
+      },
+      { allowEmpty: true },
+    );
   }
 
   async reopenSticky(): Promise<void> {
@@ -296,9 +303,13 @@ export class OkrStickyService implements OnDestroy {
   /**
    * Store document and project to view model
    */
-  private storeDocument(document: OKRDocument): OkrStickyViewModel {
+  private storeDocument(
+    document: OKRDocument,
+    options: { allowEmpty?: boolean } = {},
+  ): OkrStickyViewModel {
+    // Project first: if it throws, the stored document and the view model stay untouched.
+    const viewModel = options.allowEmpty ? this.buildViewModel(document) : this.project(document);
     this.document = document;
-    const viewModel = this.project(document);
     this._viewModel.set(viewModel);
     return viewModel;
   }

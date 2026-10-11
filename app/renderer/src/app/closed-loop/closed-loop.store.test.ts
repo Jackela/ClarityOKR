@@ -273,4 +273,142 @@ describe('ClosedLoopStore', () => {
       expect(await store.setPeriod('2026-Q1')).toMatchObject({ ok: false });
     });
   });
+  describe('stale replies and failed opens (review B1/B2/N1)', () => {
+    const deferred = <T>() => {
+      let resolve: (v: T) => void = () => undefined;
+      const promise = new Promise<T>((r) => (resolve = r));
+      return { promise, resolve };
+    };
+
+    async function openFirst(): Promise<void> {
+      api['open']!.mockResolvedValueOnce(ok(makeDetail([makeKr()], { id: 'a', pinned: false })));
+      await store.openFromHistory('a');
+    }
+
+    async function switchToB(): Promise<void> {
+      api['open']!.mockResolvedValueOnce(
+        ok(
+          makeDetail([makeKr({ id: 'kr-b', progress: 10 })], {
+            id: 'b',
+            period: null,
+            pinned: false,
+          }),
+        ),
+      );
+      await store.openFromHistory('b');
+    }
+
+    it('B1: an OKR with only removed key results opens normally', async () => {
+      const removedOnly = makeDetail([makeKr({ removedAt: '2026-10-10T00:00:00.000Z' })], {
+        id: 'gone',
+      });
+      api['open']!.mockResolvedValue(ok(removedOnly));
+      expect(await store.openFromHistory('gone')).toBe(true);
+      expect(store.currentId()).toBe('gone');
+      expect(store.detail()).toBe(removedOnly);
+      expect(store.openError()).toBe(false);
+    });
+
+    it('B1: when showing the OKR throws, no store state is touched', async () => {
+      await openFirst();
+      store.syncDocument('a'); // the note's own sync of the document that was just opened
+      const before = store.detail();
+      sticky.openFromDetail.mockImplementationOnce(() => {
+        throw new Error('boom');
+      });
+      api['open']!.mockResolvedValueOnce(ok(makeDetail([makeKr()], { id: 'x' })));
+      expect(await store.openFromHistory('x')).toBe(false);
+      expect(store.currentId()).toBe('a');
+      expect(store.detail()).toBe(before);
+      expect(store.openError()).toBe(true);
+      // the next document sync is not swallowed by a stale skip flag
+      api['open']!.mockResolvedValue(ok(makeDetail([makeKr()], { id: 'c' })));
+      store.syncDocument('c');
+      await jest.advanceTimersByTimeAsync(0);
+      expect(store.currentId()).toBe('c');
+    });
+
+    it('B2: a pin reply that arrives after switching OKR changes nothing', async () => {
+      await openFirst();
+      const d = deferred<ReturnType<typeof ok>>();
+      api['pin']!.mockReturnValue(d.promise);
+      const pending = store.pin();
+      await switchToB();
+      d.resolve(ok({ okrId: 'a', pinned: true }));
+      await pending;
+      expect(store.detail()?.objective.id).toBe('b');
+      expect(store.detail()?.objective.pinned).toBe(false);
+      expect(store.pinNotice()).toBe('none');
+    });
+
+    it('B2: a failed pin for the old OKR does not show a failure on the new one', async () => {
+      await openFirst();
+      const d = deferred<ReturnType<typeof fail>>();
+      api['pin']!.mockReturnValue(d.promise);
+      const pending = store.pin();
+      await switchToB();
+      d.resolve(fail('INTERNAL'));
+      await pending;
+      expect(store.pinNotice()).toBe('none');
+    });
+
+    it('B2: a period reply for the old OKR does not overwrite the new one', async () => {
+      await openFirst();
+      const d = deferred<ReturnType<typeof ok>>();
+      api['setPeriod']!.mockReturnValue(d.promise);
+      const pending = store.setPeriod('2026-Q4' as never);
+      await switchToB();
+      d.resolve(ok({ okrId: 'a', period: '2026-Q4', updatedAt: '2026-10-11T00:00:00.000Z' }));
+      await pending;
+      expect(store.detail()?.objective.id).toBe('b');
+      expect(store.detail()?.objective.period).toBeNull();
+    });
+
+    it.each([
+      ['setProgress', (s: ClosedLoopStore) => s.setProgress({ krId: 'kr-1', status: 'done' })],
+      ['revertProgress', (s: ClosedLoopStore) => s.revertProgress({ krId: 'kr-1' })],
+      ['replaceProgress', (s: ClosedLoopStore) => s.replaceProgress({ krId: 'kr-1', value: 90 })],
+    ] as const)('B2: a %s reply for the old OKR does not touch the new OKR', async (name, run) => {
+      await openFirst();
+      const d = deferred<ReturnType<typeof ok>>();
+      api[name]!.mockReturnValue(d.promise);
+      const pending = run(store);
+      await switchToB();
+      const stale = makeKr({ id: 'kr-1', progress: 90 });
+      d.resolve(ok(makeChange(stale, {}, true, 90)));
+      await pending;
+      const objective = store.detail()!.objective;
+      expect(objective.id).toBe('b');
+      expect(objective.overallProgress).not.toBe(90);
+      expect(objective.keyResults.map((kr) => kr.id)).toEqual(['kr-b']);
+      expect(store.detail()!.progress['kr-1']).toBeUndefined();
+    });
+
+    it('B2: a stale-state failure of the old OKR does not reload the new one', async () => {
+      await openFirst();
+      const d = deferred<ReturnType<typeof fail>>();
+      api['revertProgress']!.mockReturnValue(d.promise);
+      const pending = store.revertProgress({ krId: 'kr-1' });
+      await switchToB();
+      api['open']!.mockClear();
+      d.resolve(fail('LATEST_IS_REVERT'));
+      await pending;
+      await jest.advanceTimersByTimeAsync(0);
+      expect(api['open']).not.toHaveBeenCalled();
+    });
+
+    it.each(['LATEST_IS_REVERT', 'NOTHING_TO_REVERT', 'NOT_FOUND', 'KEY_RESULT_REMOVED'] as const)(
+      'N1: %s reloads the open OKR instead of leaving a stale state',
+      async (code) => {
+        await openFirst();
+        api['revertProgress']!.mockResolvedValue(fail(code));
+        api['open']!.mockClear();
+        api['open']!.mockResolvedValue(ok(makeDetail([makeKr()], { id: 'a' })));
+        const result = await store.revertProgress({ krId: 'kr-1' });
+        await jest.advanceTimersByTimeAsync(0);
+        expect(result.ok).toBe(false);
+        expect(api['open']).toHaveBeenCalledWith({ okrId: 'a' });
+      },
+    );
+  });
 });

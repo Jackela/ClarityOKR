@@ -15,6 +15,15 @@ import { COPY, formatRelativeTime } from './copy';
 import { ClosedLoopStore } from './closed-loop.store';
 
 /** Search box appears only above this many OKRs (spec §4.3). */
+/** One piece of the meta line: visible text plus optional screen-reader wording. */
+export interface MetaPart {
+  text: string;
+  /** Read before the text, not shown. */
+  label?: string;
+  /** Read instead of the text (which is then hidden from readers). */
+  spoken?: string;
+}
+
 export const SEARCH_THRESHOLD = 8;
 const PAGE_STEP = 5;
 
@@ -125,8 +134,18 @@ const PAGE_STEP = 5;
                     <div class="item__title">{{ item.title }}</div>
                     <div class="item__meta">
                       @for (part of metaParts(item); track $index) {
-                        <span>{{ part }}</span
-                        ><span class="sr-only">，</span>
+                        <span>
+                          @if (part.spoken) {
+                            <span aria-hidden="true">{{ part.text }}</span
+                            ><span class="sr-only">{{ part.spoken }}</span>
+                          } @else {
+                            @if (part.label) {
+                              <span class="sr-only">{{ part.label }}</span>
+                            }
+                            {{ part.text }}
+                          }
+                        </span>
+                        <span class="sr-only">，</span>
                       }
                       @if (item.overallProgress !== null) {
                         <span class="item__mini"
@@ -202,13 +221,22 @@ export class HistoryTabComponent {
     return formatRelativeTime(iso);
   }
 
-  metaParts(item: OkrListItem): string[] {
-    const parts: string[] = [];
-    if (item.period) parts.push(item.period);
-    parts.push(item.overallProgress === null ? '—' : `${item.overallProgress}%`);
-    parts.push(COPY.history.krCount(item.keyResultCount));
-    if (item.reviewed) parts.push(`✓ ${COPY.history.reviewed}`);
-    if (item.allDone) parts.push(`✓ ${COPY.history.allDone}`);
+  /**
+   * The second line of an item. The accessible name of the option is its content, so the
+   * visible text comes first and the screen-reader-only label words ("周期 2026-Q4，整体进度
+   * 62%，…") sit right in front of the value they describe.
+   */
+  metaParts(item: OkrListItem): MetaPart[] {
+    const parts: MetaPart[] = [];
+    if (item.period) parts.push({ text: item.period, label: COPY.history.periodLabel });
+    parts.push(
+      item.overallProgress === null
+        ? { text: '—', spoken: COPY.history.overallNotFilled }
+        : { text: `${item.overallProgress}%`, label: COPY.history.overallLabel },
+    );
+    parts.push({ text: COPY.history.krCount(item.keyResultCount) });
+    if (item.reviewed) parts.push({ text: `✓ ${COPY.history.reviewed}` });
+    if (item.allDone) parts.push({ text: `✓ ${COPY.history.allDone}` });
     return parts;
   }
 

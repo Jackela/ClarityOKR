@@ -21,6 +21,14 @@ export type WriteResult<T> = { ok: true; data: T } | { ok: false; error: ClosedL
 
 const PIN_NOTICE_MS = 6000;
 
+/** Errors that mean "what you saw is out of date": reload instead of retrying. */
+export const STALE_CODES: ReadonlySet<string> = new Set([
+  'NOT_FOUND',
+  'KEY_RESULT_REMOVED',
+  'NOTHING_TO_REVERT',
+  'LATEST_IS_REVERT',
+]);
+
 /**
  * Renderer state for the closed-loop views: the OKR that is currently open (a full
  * {@link OkrDetail}), the history list and the pin hint. All persistence goes through
@@ -122,13 +130,21 @@ export class ClosedLoopStore implements OnDestroy {
       this.openError.set(true);
       return false;
     }
+    // Hand the OKR to the sticky service first: it projects it. If that throws, nothing of
+    // the store has been touched yet (no half-opened OKR).
+    try {
+      this.sticky.openFromDetail(result.data);
+    } catch {
+      this.logger.warn('[closed-loop] the OKR could not be shown');
+      this.openError.set(true);
+      return false;
+    }
+    this.skipNextDocumentSync = true;
     this.detail.set(result.data);
     this.detailState.set('ready');
     this.currentId.set(okrId);
     this.openedFromHistory.set(true);
     this.pinNotice.set('none');
-    this.skipNextDocumentSync = true;
-    this.sticky.openFromDetail(result.data);
     return true;
   }
 
@@ -138,11 +154,16 @@ export class ClosedLoopStore implements OnDestroy {
     this.clearPinTimer();
     this.pinNotice.set('pinning');
     const result = await this.api.pin({ okrId: id });
+    // The user may have opened another OKR meanwhile: that one's state is not ours to touch.
+    if (this.currentId() !== id) return result.ok;
     if (!result.ok) {
       this.pinNotice.set('failed');
       return false;
     }
-    this.patchDetail((detail) => ({ ...detail, objective: { ...detail.objective, pinned: true } }));
+    this.patchDetail(id, (detail) => ({
+      ...detail,
+      objective: { ...detail.objective, pinned: true },
+    }));
     this.pinNotice.set('pinned');
     this.pinTimer = setTimeout(() => {
       this.pinNotice.set('none');
@@ -156,7 +177,7 @@ export class ClosedLoopStore implements OnDestroy {
     if (!id) return { ok: false, error: { code: 'NOT_FOUND', message: 'No open OKR' } };
     const result = await this.api.setPeriod({ okrId: id, period });
     if (!result.ok) return result;
-    this.patchDetail((detail) => ({
+    this.patchDetail(id, (detail) => ({
       ...detail,
       objective: {
         ...detail.objective,
@@ -168,25 +189,31 @@ export class ClosedLoopStore implements OnDestroy {
   }
 
   async setProgress(request: SetProgressRequest): Promise<WriteResult<ProgressChangeReply>> {
-    return this.afterProgressWrite(await this.api.setProgress(request));
+    const id = this.currentId();
+    return this.afterProgressWrite(id, await this.api.setProgress(request));
   }
 
   async revertProgress(request: KrIdRequest): Promise<WriteResult<ProgressChangeReply>> {
-    return this.afterProgressWrite(await this.api.revertProgress(request));
+    const id = this.currentId();
+    return this.afterProgressWrite(id, await this.api.revertProgress(request));
   }
 
   async replaceProgress(
     request: ReplaceProgressRequest,
   ): Promise<WriteResult<ProgressChangeReply>> {
-    return this.afterProgressWrite(await this.api.replaceProgress(request));
+    const id = this.currentId();
+    return this.afterProgressWrite(id, await this.api.replaceProgress(request));
   }
 
+  /** `id` is the OKR that was open when the request left; a reply for another OKR is dropped. */
   private async afterProgressWrite(
+    id: string | null,
     result: WriteResult<ProgressChangeReply>,
   ): Promise<WriteResult<ProgressChangeReply>> {
+    if (id === null || this.currentId() !== id) return result;
     if (result.ok) {
       const reply = result.data;
-      this.patchDetail((detail) => ({
+      this.patchDetail(id, (detail) => ({
         ...detail,
         objective: {
           ...detail.objective,
@@ -197,16 +224,20 @@ export class ClosedLoopStore implements OnDestroy {
         },
         progress: { ...detail.progress, [reply.keyResult.id]: reply.progress },
       }));
-    } else if (result.error.code === 'NOT_FOUND' || result.error.code === 'KEY_RESULT_REMOVED') {
-      // The key result is gone (e.g. regenerated elsewhere): show the real state.
+    } else if (STALE_CODES.has(result.error.code)) {
+      // The key result changed elsewhere (regenerated, reverted in the other window...):
+      // show the real state instead of offering a retry that can never succeed.
       void this.reload(true);
     }
     return result;
   }
 
-  private patchDetail(update: (detail: OkrDetail) => OkrDetail): void {
+  /** Applies `update` only while `okrId` is still the open OKR. */
+  private patchDetail(okrId: string, update: (detail: OkrDetail) => OkrDetail): void {
     const current = this.detail();
-    if (current) this.detail.set(update(current));
+    if (current && current.objective.id === okrId && this.currentId() === okrId) {
+      this.detail.set(update(current));
+    }
   }
 
   private clearPinTimer(): void {

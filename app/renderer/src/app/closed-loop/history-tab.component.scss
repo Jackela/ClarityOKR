@@ -107,13 +107,9 @@
   color: var(--color-text-secondary);
 }
 
-.item__meta > span + span::before {
-  content: '·';
+.item__meta > span + span:not(.item__mini)::before {
+  content: '·' / '';
   margin-right: 8px;
-}
-
-.item__meta > .item__mini::before {
-  content: none;
 }
 
 .item__current {

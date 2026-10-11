@@ -169,8 +169,12 @@ describe('HistoryTabComponent', () => {
           updatedAt: new Date(2026, 9, 9, 14, 20).toISOString(),
         }),
       ]);
-      const name = (): string => options()[0]!.textContent!.replace(/\s+/g, ' ');
+      const name = (): string =>
+        options()[0]!
+          .textContent!.replace(/\s+/g, ' ')
+          .replace(/ ?， ?/g, '，');
       expect(name()).toContain('提升团队交付效率');
+      expect(name()).toContain('周期 2026-Q4，整体进度 62%，4 个关键结果');
       expect(name()).toContain('2026-Q4');
       expect(name()).toContain('62%');
       expect(name()).toContain('4 个关键结果');
@@ -181,6 +185,7 @@ describe('HistoryTabComponent', () => {
       expect(options()[0]!.hasAttribute('aria-label')).toBe(false);
       show([makeListItem({ id: 'b', title: '空' })]);
       expect(name()).not.toContain('周期');
+      expect(name()).toContain('整体进度未填写');
     });
 
     it('marks the open one: aria-selected, the 当前打开 text and the class', () => {

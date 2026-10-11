@@ -207,6 +207,14 @@
   text-decoration: underline;
 }
 
+/* §3.6 disabled look: secondary text colour, no underline, 60% opacity, not-allowed. The button
+   stays focusable (aria-disabled, not [disabled]) so the reason can be read. */
+.kr__link--action.kr__link--disabled,
+.kr__link--action.kr__link--disabled:hover {
+  color: var(--color-text-secondary);
+  text-decoration: none;
+}
+
 .kr__link--hint {
   color: var(--notice-warn-fg);
   text-decoration: underline;

@@ -158,4 +158,57 @@ describe('Actual sticky service transport, projection and persistence ownership'
     await expect(service.generate('session', 'Synthetic')).rejects.toThrow('bridge');
     await expect(service.reopenSticky()).rejects.toThrow('bridge');
   });
+
+  describe('openFromDetail', () => {
+    const detail = (keyResults: Array<{ id: string; removedAt: string | null }>) =>
+      ({
+        objective: {
+          id: 'from-history',
+          title: 'Old objective',
+          period: null,
+          pinned: false,
+          sourceSessionId: 'session',
+          createdAt: time,
+          updatedAt: time,
+          overallProgress: null,
+          keyResults: keyResults.map((kr, position) => ({
+            ...kr,
+            objectiveId: 'from-history',
+            position,
+            statement: `KR ${kr.id}`,
+            successMetric: null,
+            progress: null,
+            status: 'not_started',
+            createdAt: time,
+            updatedAt: time,
+          })),
+        },
+        progress: {},
+        review: null,
+      }) as unknown as Parameters<OkrStickyService['openFromDetail']>[0];
+
+    it('shows only the active key results', () => {
+      const vm = service.openFromDetail(
+        detail([
+          { id: 'x', removedAt: null },
+          { id: 'y', removedAt: time },
+        ]),
+      );
+      expect(vm.id).toBe('from-history');
+      expect(vm.keyResults.map((kr) => kr.id)).toEqual(['x']);
+      expect(service.viewModel()).toBe(vm);
+    });
+
+    it('opens an OKR whose key results were all removed (empty list, no throw)', () => {
+      const vm = service.openFromDetail(detail([{ id: 'x', removedAt: time }]));
+      expect(vm.keyResults).toEqual([]);
+      expect(service.viewModel()?.id).toBe('from-history');
+    });
+
+    it('still rejects an empty document on the normal path and leaves the view untouched', () => {
+      const before = service.viewModel();
+      expect(() => service.project({ ...document, keyResults: [] })).toThrow('Key Results');
+      expect(service.viewModel()).toBe(before);
+    });
+  });
 });

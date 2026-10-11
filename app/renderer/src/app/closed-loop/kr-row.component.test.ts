@@ -425,14 +425,11 @@ describe('KrRowComponent', () => {
       expect(q('kr-update-line').textContent).toContain('最近更新 40% → 65%');
       for (const id of ['kr-edit-last', 'kr-revert-last']) {
         expect(q(id).hasAttribute('aria-disabled')).toBe(false);
+        expect(q(id).classList.contains('kr__link--disabled')).toBe(false);
         expect(q(id).hasAttribute('disabled')).toBe(false);
       }
-      expect(q('kr-edit-last').getAttribute('aria-label')).toBe(
-        '修改这次，关键结果 1 的最近一次进度更新',
-      );
-      expect(q('kr-revert-last').getAttribute('aria-label')).toBe(
-        '撤回这次，关键结果 1 的最近一次进度更新',
-      );
+      expect(q('kr-edit-last').getAttribute('aria-label')).toBe('修改这次，关键结果 1');
+      expect(q('kr-revert-last').getAttribute('aria-label')).toBe('撤回这次，关键结果 1');
       expect(q('kr-revert-reason')).toBeNull();
     });
 
@@ -486,6 +483,8 @@ describe('KrRowComponent', () => {
         const b = q<HTMLButtonElement>(id);
         expect(b.getAttribute('aria-disabled')).toBe('true');
         expect(b.disabled).toBe(false);
+        // the visual disabled state (secondary colour, no underline) hangs on this class (§3.6)
+        expect(b.classList.contains('kr__link--disabled')).toBe(true);
         expect(b.getAttribute('aria-describedby')).toBe(reason.id);
         b.click();
       }
@@ -649,6 +648,23 @@ describe('KrRowComponent', () => {
       expect(q('kr-save-failed')).toBeNull();
       expect(q('kr-progress-value').textContent!.trim()).toBe('40%');
     });
+
+    it.each(['LATEST_IS_REVERT', 'NOTHING_TO_REVERT', 'NOT_FOUND', 'KEY_RESULT_REMOVED'] as const)(
+      'a stale-state error (%s) shows no retry row, only a status line',
+      async (code) => {
+        api['setProgress']!.mockResolvedValue({
+          ok: false,
+          error: { code, message: 'x' },
+        });
+        const input = await openEditor();
+        type(input, '80');
+        key(input, 'Enter');
+        await settle();
+        expect(q('kr-save-failed')).toBeNull();
+        expect(q('kr-retry')).toBeNull();
+        expect(q('kr-live').textContent).toContain('已刷新为最新状态');
+      },
+    );
 
     it('a failed status change and a failed revert show the same message', async () => {
       api['setProgress']!.mockResolvedValue(fail());

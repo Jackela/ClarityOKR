@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { TestBed } from '@angular/core/testing';
 
 import { MeterBarComponent } from './meter-bar.component';
@@ -42,5 +45,21 @@ describe('MeterBarComponent', () => {
     const { bar, fill } = render((c) => (c.value = 0));
     expect(bar.getAttribute('aria-valuenow')).toBe('0');
     expect(fill!.style.width).toBe('0%');
+  });
+
+  describe('reduced motion', () => {
+    // jsdom has no media queries, so check the two ends of the contract in the sources; the
+    // computed style under `prefers-reduced-motion: reduce` is asserted in the e2e suite.
+    it('animates the fill only through --duration-normal', () => {
+      const source = readFileSync(join(__dirname, 'meter-bar.component.ts'), 'utf8');
+      expect(source).toMatch(/transition:\s*width var\(--duration-normal\)/);
+    });
+
+    it('zeroes --duration-normal inside prefers-reduced-motion: reduce', () => {
+      const tokens = readFileSync(join(__dirname, '../../../styles/tokens.css'), 'utf8');
+      const block = /@media \(prefers-reduced-motion: reduce\) \{\s*:root \{([^}]*)\}/.exec(tokens);
+      expect(block).not.toBeNull();
+      expect(block![1]).toMatch(/--duration-normal:\s*0ms/);
+    });
   });
 });

@@ -26,7 +26,7 @@ import {
   type PopupOption,
 } from '../shared/components/popup-select.component';
 import { COPY, STATUS_ICON, STATUS_LABEL, STATUS_ORDER } from './copy';
-import { ClosedLoopStore, type WriteResult } from './closed-loop.store';
+import { ClosedLoopStore, STALE_CODES, type WriteResult } from './closed-loop.store';
 import {
   describeLatestUpdate,
   isDoneButNot100,
@@ -166,6 +166,7 @@ const SLOW_SAVE_MS = 300;
           <button
             type="button"
             class="kr__link kr__link--action"
+            [class.kr__link--disabled]="lastDisabled"
             data-testid="kr-edit-last"
             [attr.aria-label]="copy.kr.editLastLabel(n)"
             [attr.aria-disabled]="lastDisabled ? 'true' : null"
@@ -177,6 +178,7 @@ const SLOW_SAVE_MS = 300;
           <button
             type="button"
             class="kr__link kr__link--action"
+            [class.kr__link--disabled]="lastDisabled"
             data-testid="kr-revert-last"
             [attr.aria-label]="copy.kr.revertLastLabel(n)"
             [attr.aria-disabled]="lastDisabled ? 'true' : null"
@@ -440,6 +442,9 @@ export class KrRowComponent implements OnChanges, OnDestroy {
         if (result.data.changed) {
           this.announcement.set(describe ? describe(result.data) : (message ?? ''));
         }
+      } else if (STALE_CODES.has(result.error.code)) {
+        // The store reloads the OKR; a retry of the same request could never succeed.
+        this.announcement.set(COPY.kr.stale);
       } else {
         this.failure.set(() => this.run(write, message, describe));
       }
