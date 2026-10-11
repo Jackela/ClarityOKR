@@ -17,6 +17,8 @@ import type { CircuitBreakerMetrics } from './llm-circuit-breaker.service.js';
 export interface ClarificationContext {
   /** Array of question-answer pairs from the clarification session */
   turns: Array<{ questionId: string; optionId: string; timestamp: string }>;
+  /** On regeneration: the current key results, so the model can return their ids. */
+  existingKeyResults?: Array<{ id: string; statement: string; successMetric?: string }>;
 }
 
 /**

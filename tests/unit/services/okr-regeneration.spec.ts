@@ -55,7 +55,9 @@ describe('persisted OKR regeneration', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) throw result.error;
     expect(result.value.objective).toBe(current.objective);
-    expect(result.value.keyResults.map((kr) => kr.id)).toEqual(['new-1', 'new-2', 'new-3']);
+    const ids = result.value.keyResults.map((kr) => kr.id);
+    expect(new Set(ids).size).toBe(3);
+    expect(ids.every((id) => typeof id === 'string' && id.length > 0)).toBe(true);
     expect(result.value.keyResults[0].successMetric).toBe('100 %');
     expect(agent.clearCache).toHaveBeenCalled();
     expect(repository.save).toHaveBeenCalledWith(result.value);

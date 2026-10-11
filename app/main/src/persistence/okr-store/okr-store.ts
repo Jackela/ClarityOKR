@@ -67,6 +67,15 @@ export interface SetProgressInput {
   status: KrStatus;
 }
 
+export interface SyncObjectiveInput {
+  id: string;
+  title: string;
+  period?: Period | null;
+  sourceSessionId?: string | null;
+  createdAt?: string;
+  keyResults: Array<{ id: string; statement: string; successMetric?: string | null }>;
+}
+
 export interface ReviewInput {
   wentWell: string;
   fellShort: string;
@@ -130,6 +139,14 @@ function assertTextWithinLimit(label: string, text: string, max: number): void {
   }
 }
 
+/** Empty or whitespace-only text means "no value" and is stored as NULL; real text is kept as typed. */
+export function normalizeSuccessMetric(value: string | null | undefined): string | null {
+  if (value === null || value === undefined || value.trim().length === 0) {
+    return null;
+  }
+  return value;
+}
+
 /** Rounded average of non-removed KRs that have a progress value; null when none do. */
 export function computeOverallProgress(keyResults: readonly KeyResultRecord[]): number | null {
   const values = keyResults
@@ -165,8 +182,9 @@ export class OkrStore {
     }
     for (const kr of input.keyResults) {
       requireText('Key result', kr.statement, TEXT_LIMITS.keyResult);
-      if (kr.successMetric) {
-        assertTextWithinLimit('Success metric', kr.successMetric, TEXT_LIMITS.successMetric);
+      const metric = normalizeSuccessMetric(kr.successMetric);
+      if (metric !== null) {
+        assertTextWithinLimit('Success metric', metric, TEXT_LIMITS.successMetric);
       }
     }
 
@@ -190,7 +208,7 @@ export class OkrStore {
           id,
           index,
           kr.statement,
-          kr.successMetric ?? null,
+          normalizeSuccessMetric(kr.successMetric),
           at,
           at,
         );
@@ -198,6 +216,125 @@ export class OkrStore {
     });
     create();
     return this.requireObjective(id);
+  }
+
+  /**
+   * Creates or updates an objective and reconciles its key results by id.
+   *
+   * - key results present in the input keep their progress and status; their text
+   *   and metric are replaced and a previously removed one is restored
+   * - ids not present in the existing objective are inserted as new, unset rows
+   * - existing key results missing from the input are marked removed (history kept)
+   *
+   * Only emptiness is checked here: text limits are enforced where user input
+   * enters (IPC), because generated text is stored as-is.
+   */
+  syncObjective(input: SyncObjectiveInput): ObjectiveWithKeyResults {
+    if (input.title.trim().length === 0) {
+      throw new ValidationError('Objective must not be empty');
+    }
+    if (input.period !== undefined && input.period !== null && !isPeriod(input.period)) {
+      throw new ValidationError('Period must look like 2026-Q4');
+    }
+    for (const kr of input.keyResults) {
+      if (kr.statement.trim().length === 0) {
+        throw new ValidationError('Key result must not be empty');
+      }
+    }
+    const ids = new Set(input.keyResults.map((kr) => kr.id));
+    if (ids.size !== input.keyResults.length) {
+      throw new ValidationError('Key result ids must be unique');
+    }
+
+    const at = this.timestamp();
+    const existing = this.db.prepare('SELECT * FROM objectives WHERE id = ?').get(input.id) as
+      ObjectiveRow | undefined;
+    this.db.transaction(() => {
+      if (existing) {
+        this.db
+          .prepare('UPDATE objectives SET title = ?, updated_at = ? WHERE id = ?')
+          .run(input.title, at, input.id);
+        if (input.period !== undefined) {
+          this.db
+            .prepare('UPDATE objectives SET period = ? WHERE id = ?')
+            .run(input.period, input.id);
+        }
+      } else {
+        this.db
+          .prepare(
+            `INSERT INTO objectives (id, title, period, pinned, source_session_id, created_at, updated_at)
+             VALUES (?, ?, ?, 0, ?, ?, ?)`,
+          )
+          .run(
+            input.id,
+            input.title,
+            input.period ?? null,
+            input.sourceSessionId ?? null,
+            input.createdAt ?? at,
+            at,
+          );
+      }
+
+      const rows = this.db
+        .prepare('SELECT * FROM key_results WHERE objective_id = ?')
+        .all(input.id) as KeyResultRow[];
+      const known = new Map(rows.map((row) => [row.id, row]));
+      const update = this.db.prepare(
+        `UPDATE key_results SET position = ?, statement = ?, success_metric = ?, removed_at = NULL, updated_at = ?
+         WHERE id = ?`,
+      );
+      const insert = this.db.prepare(
+        `INSERT INTO key_results
+           (id, objective_id, position, statement, success_metric, progress, status, removed_at, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, NULL, 'not_started', NULL, ?, ?)`,
+      );
+      input.keyResults.forEach((kr, index) => {
+        if (known.has(kr.id)) {
+          update.run(index, kr.statement, normalizeSuccessMetric(kr.successMetric), at, kr.id);
+        } else {
+          insert.run(
+            kr.id,
+            input.id,
+            index,
+            kr.statement,
+            normalizeSuccessMetric(kr.successMetric),
+            at,
+            at,
+          );
+        }
+      });
+      for (const row of rows) {
+        if (!ids.has(row.id) && row.removed_at === null) {
+          this.db
+            .prepare('UPDATE key_results SET removed_at = ?, updated_at = ? WHERE id = ?')
+            .run(at, at, row.id);
+        }
+      }
+    })();
+    if (!existing) {
+      this.pinObjective(input.id);
+    }
+    return this.requireObjective(input.id);
+  }
+
+  /** The pinned objective, or else the most recently updated one. */
+  getCurrentObjective(): ObjectiveWithKeyResults | null {
+    return this.getPinnedObjective() ?? this.listObjectives()[0] ?? null;
+  }
+
+  /** Objectives created from a clarification session, most recently updated first. */
+  listObjectivesBySession(sessionId: string): ObjectiveWithKeyResults[] {
+    const rows = this.db
+      .prepare(
+        'SELECT id FROM objectives WHERE source_session_id = ? ORDER BY updated_at DESC, id ASC',
+      )
+      .all(sessionId) as Array<{ id: string }>;
+    return rows.map((row) => this.requireObjective(row.id));
+  }
+
+  /** Deletes every objective with its key results, entries and reviews (test reset). */
+  deleteAllObjectives(): void {
+    this.db.prepare('DELETE FROM objectives').run();
   }
 
   getObjective(id: string): ObjectiveWithKeyResults | null {
@@ -274,9 +411,43 @@ export class OkrStore {
    */
   revertLastProgress(krId: string): KeyResultRecord {
     const kr = this.requireKeyResult(krId);
+    if (kr.removedAt !== null) {
+      throw new ValidationError('Cannot revert progress of a removed key result');
+    }
+    this.db.transaction(() => {
+      this.appendRevert(kr);
+    })();
+    return this.requireKeyResult(krId);
+  }
+
+  /**
+   * "Edit this one": reverts the latest progress entry and writes the corrected value as a
+   * new entry, both in one transaction. If the new write is rejected or fails, the revert is
+   * rolled back too and the key result is unchanged. Nothing is deleted.
+   */
+  replaceLastProgress(krId: string, input: SetProgressInput): KeyResultRecord {
+    if (input.value !== null && !isValidProgress(input.value)) {
+      throw new ValidationError('Progress must be an integer between 0 and 100');
+    }
+    if (!isKrStatus(input.status)) {
+      throw new ValidationError('Unknown status');
+    }
+    const kr = this.requireKeyResult(krId);
+    if (kr.removedAt !== null) {
+      throw new ValidationError('Cannot update progress of a removed key result');
+    }
+    this.db.transaction(() => {
+      this.appendRevert(kr);
+      this.insertEntry(krId, 'set', input.value, input.status, null);
+      this.applyState(kr, input.value, input.status);
+    })();
+    return this.requireKeyResult(krId);
+  }
+
+  private appendRevert(kr: KeyResultRecord): void {
     const latest = this.db
       .prepare('SELECT * FROM progress_entries WHERE kr_id = ? ORDER BY id DESC LIMIT 2')
-      .all(krId) as ProgressEntryRow[];
+      .all(kr.id) as ProgressEntryRow[];
     const last = latest[0];
     if (!last || last.kind === 'revert') {
       throw new ValidationError('Nothing to revert');
@@ -284,11 +455,8 @@ export class OkrStore {
     const previous = latest[1];
     const restoredValue = previous ? previous.value : null;
     const restoredStatus = previous ? (previous.status as KrStatus) : 'not_started';
-    this.db.transaction(() => {
-      this.insertEntry(krId, 'revert', restoredValue, restoredStatus, last.id);
-      this.applyState(kr, restoredValue, restoredStatus);
-    })();
-    return this.requireKeyResult(krId);
+    this.insertEntry(kr.id, 'revert', restoredValue, restoredStatus, last.id);
+    this.applyState(kr, restoredValue, restoredStatus);
   }
 
   listProgressEntries(krId: string): ProgressEntryRecord[] {
@@ -305,9 +473,14 @@ export class OkrStore {
     if (kr.removedAt !== null) {
       return;
     }
-    this.db
-      .prepare('UPDATE key_results SET removed_at = ?, updated_at = ? WHERE id = ?')
-      .run(this.timestamp(), this.timestamp(), krId);
+    const at = this.timestamp();
+    this.db.transaction(() => {
+      this.db
+        .prepare('UPDATE key_results SET removed_at = ?, updated_at = ? WHERE id = ?')
+        .run(at, at, krId);
+      // Removing a key result is an edit of its objective.
+      this.db.prepare('UPDATE objectives SET updated_at = ? WHERE id = ?').run(at, kr.objectiveId);
+    })();
   }
 
   /**
@@ -336,9 +509,10 @@ export class OkrStore {
       removed: kr.removedAt !== null,
     }));
     const savedAt = this.timestamp();
-    this.db
-      .prepare(
-        `INSERT INTO reviews (objective_id, went_well, fell_short, next_steps, snapshot, saved_at)
+    const save = this.db.transaction(() => {
+      this.db
+        .prepare(
+          `INSERT INTO reviews (objective_id, went_well, fell_short, next_steps, snapshot, saved_at)
          VALUES (?, ?, ?, ?, ?, ?)
          ON CONFLICT (objective_id) DO UPDATE SET
            went_well = excluded.went_well,
@@ -346,15 +520,20 @@ export class OkrStore {
            next_steps = excluded.next_steps,
            snapshot = excluded.snapshot,
            saved_at = excluded.saved_at`,
-      )
-      .run(
-        objectiveId,
-        input.wentWell,
-        input.fellShort,
-        input.nextSteps,
-        JSON.stringify(snapshot),
-        savedAt,
-      );
+        )
+        .run(
+          objectiveId,
+          input.wentWell,
+          input.fellShort,
+          input.nextSteps,
+          JSON.stringify(snapshot),
+          savedAt,
+        );
+      this.db
+        .prepare('UPDATE objectives SET updated_at = ? WHERE id = ?')
+        .run(savedAt, objectiveId);
+    });
+    save();
     return this.getReview(objectiveId) as ReviewRecord;
   }
 

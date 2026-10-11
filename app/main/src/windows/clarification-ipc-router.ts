@@ -23,7 +23,7 @@ import type {
   ClarificationResponseHandler,
   ClarificationSessionManager,
 } from '../clarification/index.js';
-import type { OkrRepository } from '../persistence/okr-repository.js';
+import type { OkrStoreRepository as OkrRepository } from '../persistence/okr-store/okr-store-repository.js';
 import type { ActionLogService } from '../services/action-log.service.js';
 import type { OkrRegenerationService } from '../services/okr-regeneration.service.js';
 import type { StickyWindowManager } from './sticky-window-manager.js';

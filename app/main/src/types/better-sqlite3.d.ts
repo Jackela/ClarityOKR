@@ -10,6 +10,8 @@ declare module 'better-sqlite3' {
   export interface DatabaseOptions {
     readonly?: boolean;
     fileMustExist?: boolean;
+    /** Milliseconds to wait on a locked database before SQLITE_BUSY. */
+    timeout?: number;
   }
 
   export interface Transaction<T = void> {

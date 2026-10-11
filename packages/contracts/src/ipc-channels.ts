@@ -23,6 +23,9 @@ export const ALLOWED_CHANNELS = [
   'clarityokr:sticky:reopen',
   'clarityokr:okr:latest',
   'clarityokr:error:report',
+  'clarityokr:app:legacy-notice:get',
+  'clarityokr:app:legacy-notice:ack',
+  'clarityokr:app:storage-state',
 ] as const;
 
 /**
@@ -46,6 +49,12 @@ export const IPC_CHANNELS = {
   STICKY_REOPEN: 'clarityokr:sticky:reopen',
   OKR_LATEST: 'clarityokr:okr:latest',
   ERROR_REPORT: 'clarityokr:error:report',
+  /** Reply: `{ legacyDatabaseRetired: boolean }` (no path is ever sent). */
+  LEGACY_NOTICE_GET: 'clarityokr:app:legacy-notice:get',
+  /** The user dismissed the one-time legacy database notice. */
+  LEGACY_NOTICE_ACK: 'clarityokr:app:legacy-notice:ack',
+  /** Reply: `{ storageMode: 'normal' | 'fresh-file' | 'memory' }` (no path is ever sent). */
+  STORAGE_STATE_GET: 'clarityokr:app:storage-state',
 } as const;
 
 /**

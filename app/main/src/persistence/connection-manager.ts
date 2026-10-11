@@ -4,9 +4,12 @@ import type { Database } from 'better-sqlite3';
 import BetterSqlite3 from 'better-sqlite3';
 
 import { Logger } from '../core/logger.js';
+import { applySchema } from './okr-store/schema.js';
 
 export interface ConnectionManagerOptions {
   dbPath: string;
+  /** How long a locked database is waited for before SQLITE_BUSY (better-sqlite3 default: 5000). */
+  busyTimeoutMs?: number;
 }
 
 /**
@@ -17,9 +20,11 @@ export interface ConnectionManagerOptions {
 export class ConnectionManager {
   private db: Database | null = null;
   private readonly dbPath: string;
+  private readonly busyTimeoutMs: number | undefined;
 
   constructor(options: ConnectionManagerOptions) {
     this.dbPath = options.dbPath;
+    this.busyTimeoutMs = options.busyTimeoutMs;
   }
 
   /**
@@ -34,7 +39,10 @@ export class ConnectionManager {
     if (this.dbPath !== ':memory:') {
       mkdirSync(dirname(this.dbPath), { recursive: true });
     }
-    this.db = new BetterSqlite3(this.dbPath);
+    this.db = new BetterSqlite3(
+      this.dbPath,
+      this.busyTimeoutMs === undefined ? undefined : { timeout: this.busyTimeoutMs },
+    );
     this.db.pragma('journal_mode = WAL');
     this.db.pragma('foreign_keys = ON');
 
@@ -42,11 +50,11 @@ export class ConnectionManager {
   }
 
   /**
-   * Initialize the database connection and create all required tables.
+   * Initialize the database connection and bring the schema up to date.
    */
   initialize(): void {
     const db = this.connect();
-    this.createTables(db);
+    applySchema(db);
     Logger.info('[ConnectionManager] Database initialized at', this.dbPath);
   }
 
@@ -80,63 +88,5 @@ export class ConnectionManager {
       this.db = null;
       Logger.info('[ConnectionManager] Database connection closed');
     }
-  }
-
-  /**
-   * Create all required tables.
-   */
-  private createTables(db: Database): void {
-    // Sessions table
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS sessions (
-        id TEXT PRIMARY KEY,
-        initial_intent TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'collecting',
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL,
-        steps TEXT NOT NULL,
-        selected_options TEXT NOT NULL,
-        confidence REAL NOT NULL,
-        pending_question_id TEXT
-      );
-    `);
-
-    // OKR documents table
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS okr_documents (
-        id TEXT PRIMARY KEY,
-        objective TEXT NOT NULL,
-        key_results TEXT NOT NULL,
-        source_session_id TEXT NOT NULL,
-        generated_at TEXT NOT NULL,
-        last_edited_at TEXT,
-        regeneration_policy TEXT NOT NULL,
-        manual_edits TEXT NOT NULL
-      );
-    `);
-
-    // Action logs table
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS action_logs (
-        id TEXT PRIMARY KEY,
-        action_type TEXT NOT NULL,
-        session_id TEXT NOT NULL,
-        okr_id TEXT,
-        payload_summary TEXT NOT NULL,
-        occurred_at TEXT NOT NULL
-      );
-    `);
-
-    // Migration tracking table
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS migrations (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        version TEXT NOT NULL,
-        migrated_at TEXT NOT NULL,
-        source TEXT
-      );
-    `);
-
-    Logger.debug('[ConnectionManager] Tables created');
   }
 }

@@ -30,13 +30,16 @@ import type {
 } from 'electron';
 
 import { Logger } from './core/logger.js';
-import { ConnectionManager } from './persistence/connection-manager.js';
 import { SQLiteActionLogWriter } from './persistence/action-log-writer.js';
-import { OKRRepositorySqlite } from './persistence/okr-repository.js';
+import { OkrStore, OkrStoreRepository } from './persistence/okr-store/index.js';
 import { SqliteSessionRepository } from './persistence/sqlite-session-repository.js';
 import { OkrAgentService } from './services/okr-agent.service.js';
 import { OkrRegenerationService } from './services/okr-regeneration.service.js';
 
+import { resolveDbPath } from './startup/db-path.js';
+import { LegacyDatabaseNotice, registerLegacyNoticeHandlers } from './startup/legacy-notice.js';
+import { openDatabaseSafely } from './startup/open-database.js';
+import { registerStorageStateHandler } from './startup/storage-state.js';
 import { ClarificationController } from './windows/clarification-controller.js';
 import { StickyWindowManager } from './windows/sticky-window-manager.js';
 import { registerRendererProtocol } from './windows/renderer-protocol.js';
@@ -50,16 +53,34 @@ const rendererDistPath =
     ? path.resolve(process.env.E2E_RENDERER_DIR)
     : path.resolve(currentDir, '../../renderer/dist');
 
-const connectionManager = new ConnectionManager({
-  dbPath:
-    process.env.E2E_TEST && process.env.E2E_DB_PATH
-      ? process.env.E2E_DB_PATH
-      : path.resolve(currentDir, '../../data/clarityokr.db'),
+const dbPath = resolveDbPath({
+  e2eTest: Boolean(process.env.E2E_TEST),
+  e2eDbPath: process.env.E2E_DB_PATH,
+  userDataDir: app.getPath('userData'),
 });
-connectionManager.initialize();
+
+// A database from before schema versioning (or an unreadable file) is kept aside in backups/
+// and not imported. Opening never throws: a bad file falls back to a fresh database.
+const legacyNotice = new LegacyDatabaseNotice(path.dirname(dbPath));
+const openedDatabase = openDatabaseSafely({
+  dbPath,
+  backupsDir: path.join(path.dirname(dbPath), 'backups'),
+  notice: legacyNotice,
+});
+if (openedDatabase.storageMode !== 'normal') {
+  Logger.error(
+    '[main] Running on a fallback database:',
+    openedDatabase.storageMode,
+    openedDatabase.activePath,
+  );
+}
+registerLegacyNoticeHandlers(ipcMain, legacyNotice);
+registerStorageStateHandler(ipcMain, openedDatabase.storageMode);
+
+const connectionManager = openedDatabase.connectionManager;
 
 const sessionRepository = new SqliteSessionRepository(connectionManager);
-const okrRepository = new OKRRepositorySqlite(connectionManager);
+const okrRepository = new OkrStoreRepository(new OkrStore(connectionManager.getDb()));
 const actionLogWriter = new SQLiteActionLogWriter(connectionManager);
 
 const okrAgentService = new OkrAgentService();

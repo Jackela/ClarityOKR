@@ -1,7 +1,7 @@
 import { jest } from '@jest/globals';
 import { ClarificationController } from '@clarityokr/main/windows/clarification-controller';
 import type { ISessionRepository as SessionRepository } from '@clarityokr/main/persistence/interfaces/session-repository.interface';
-import type { OkrRepository } from '@clarityokr/main/persistence/okr-repository';
+import type { OkrStoreRepository as OkrRepository } from '@clarityokr/main/persistence/okr-store/okr-store-repository';
 import type { IActionLogWriter } from '@clarityokr/main/persistence/action-log-writer';
 import type { StickyWindowManager } from '@clarityokr/main/windows/sticky-window-manager';
 import type { OkrAgentService } from '@clarityokr/main/services/okr-agent.service';

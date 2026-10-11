@@ -2,7 +2,6 @@ import type {
   ClarificationPrompt,
   ClarificationSelection,
   ClarificationSession,
-  OKRDocument,
   UserActionLogEntry,
 } from '@clarityokr/contracts';
 
@@ -19,17 +18,6 @@ export interface SessionRow {
   selected_options: string;
   confidence: number;
   pending_question_id: string | null;
-}
-
-export interface OKRRow {
-  id: string;
-  objective: string;
-  key_results: string;
-  source_session_id: string;
-  generated_at: string;
-  last_edited_at: string | null;
-  regeneration_policy: string;
-  manual_edits: string;
 }
 
 export interface ActionLogRow {
@@ -55,22 +43,6 @@ export function parseSessionRow(row: SessionRow): ClarificationSession {
     selectedOptions: JSON.parse(row.selected_options) as ClarificationSelection[],
     confidence: row.confidence,
     pendingQuestionId: row.pending_question_id,
-  };
-}
-
-/**
- * Parse OKR from database row
- */
-export function parseOKRRow(row: OKRRow): OKRDocument {
-  return {
-    id: row.id,
-    objective: row.objective,
-    keyResults: JSON.parse(row.key_results),
-    sourceSessionId: row.source_session_id,
-    generatedAt: row.generated_at,
-    lastEditedAt: row.last_edited_at,
-    regenerationPolicy: row.regeneration_policy as OKRDocument['regenerationPolicy'],
-    manualEdits: JSON.parse(row.manual_edits),
   };
 }
 
@@ -108,21 +80,6 @@ export const SQL_QUERIES = {
     FROM sessions ORDER BY created_at DESC
   `,
   deleteSession: 'DELETE FROM sessions WHERE id = ?',
-  saveOKR: `
-    INSERT OR REPLACE INTO okr_documents 
-    (id, objective, key_results, source_session_id, generated_at, last_edited_at, regeneration_policy, manual_edits)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `,
-  getOKR: `
-    SELECT id, objective, key_results, source_session_id, 
-           generated_at, last_edited_at, regeneration_policy, manual_edits
-    FROM okr_documents WHERE id = ?
-  `,
-  getOKRBySessionId: `
-    SELECT id, objective, key_results, source_session_id, 
-           generated_at, last_edited_at, regeneration_policy, manual_edits
-    FROM okr_documents WHERE source_session_id = ?
-  `,
   saveActionLog: `
     INSERT OR REPLACE INTO action_logs 
     (id, action_type, session_id, okr_id, payload_summary, occurred_at)
@@ -132,9 +89,4 @@ export const SQL_QUERIES = {
     SELECT id, action_type, session_id, okr_id, payload_summary, occurred_at
     FROM action_logs WHERE session_id = ? ORDER BY occurred_at ASC
   `,
-  recordMigration: `
-    INSERT INTO migrations (version, migrated_at, source)
-    VALUES (?, ?, ?)
-  `,
-  hasMigration: 'SELECT id FROM migrations WHERE version = ?',
 };

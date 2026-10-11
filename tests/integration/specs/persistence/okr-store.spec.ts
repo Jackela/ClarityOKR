@@ -7,6 +7,7 @@ import { ValidationError } from '@clarityokr/contracts';
 import {
   LATEST_SCHEMA_VERSION,
   OkrStore,
+  OkrStoreRepository,
   SchemaVersionError,
   applySchema,
   getSchemaVersion,
@@ -417,5 +418,114 @@ describe('retireLegacyDatabase', () => {
     const file = join(dir, 'clarityokr.db');
     writeFileSync(file, '');
     expect(retireLegacyDatabase(file, join(dir, 'backups'))).toBeNull();
+  });
+});
+
+describe('OkrStoreRepository (document view)', () => {
+  let db: Database;
+  let store: OkrStore;
+  let repo: OkrStoreRepository;
+  let tick: number;
+
+  const doc = (id: string, krs: Array<[string, string]>, sessionId = 'session-1') => ({
+    id,
+    objective: `Objective ${id}`,
+    keyResults: krs.map(([krId, statement]) => ({ id: krId, statement })),
+    sourceSessionId: sessionId,
+    generatedAt: '2026-10-11T00:00:00.000Z',
+    lastEditedAt: null,
+    regenerationPolicy: 'overwrite' as const,
+    manualEdits: [],
+  });
+
+  beforeEach(() => {
+    db = openDb();
+    tick = Date.UTC(2026, 9, 11);
+    store = new OkrStore(db, () => new Date((tick += 1000)));
+    repo = new OkrStoreRepository(store);
+  });
+  afterEach(() => db.close());
+
+  it('saves a new document, pins it and reads it back', async () => {
+    await repo.save(
+      doc('o1', [
+        ['k1', 'First'],
+        ['k2', 'Second'],
+      ]),
+    );
+    expect(store.getPinnedObjective()?.id).toBe('o1');
+    const loaded = await repo.findById('o1');
+    expect(loaded).toMatchObject({
+      id: 'o1',
+      objective: 'Objective o1',
+      sourceSessionId: 'session-1',
+      keyResults: [
+        { id: 'k1', statement: 'First' },
+        { id: 'k2', statement: 'Second' },
+      ],
+      manualEdits: [],
+    });
+  });
+
+  it('keeps progress and status when a saved document is edited, and hides removed key results', async () => {
+    await repo.save(
+      doc('o1', [
+        ['k1', 'First'],
+        ['k2', 'Second'],
+      ]),
+    );
+    store.setProgress('k1', { value: 40, status: 'in_progress' });
+    await repo.save(doc('o1', [['k1', 'First, edited']]));
+    const objective = store.getObjective('o1');
+    expect(objective?.keyResults[0]).toMatchObject({
+      statement: 'First, edited',
+      progress: 40,
+      status: 'in_progress',
+    });
+    expect(objective?.keyResults[1]?.removedAt).not.toBeNull();
+    expect((await repo.findById('o1'))?.keyResults.map((k) => k.id)).toEqual(['k1']);
+  });
+
+  it('rejects empty text and duplicate key result ids without changing anything', async () => {
+    await repo.save(doc('o1', [['k1', 'First']]));
+    await expect(repo.save(doc('o1', [['k1', ' ']]))).rejects.toThrow(/Failed to save/);
+    await expect(
+      repo.save(
+        doc('o1', [
+          ['k1', 'a'],
+          ['k1', 'b'],
+        ]),
+      ),
+    ).rejects.toThrow(/unique/);
+    expect((await repo.findById('o1'))?.keyResults[0]?.statement).toBe('First');
+  });
+
+  it('finds documents by session and returns the most recently updated one', async () => {
+    await repo.save(doc('o1', [['k1', 'One']], 'session-a'));
+    await repo.save(doc('o2', [['k2', 'Two']], 'session-a'));
+    await repo.save(doc('o3', [['k3', 'Three']], 'session-b'));
+    expect((await repo.findBySessionId('session-a')).map((d) => d.id).sort()).toEqual(['o1', 'o2']);
+    expect((await repo.getLatestForSession('session-a'))?.id).toBe('o2');
+    store.setProgress('k1', { value: 1, status: 'in_progress' });
+    expect((await repo.getLatestForSession('session-a'))?.id).toBe('o1');
+    expect(await repo.getLatestForSession('missing')).toBeNull();
+  });
+
+  it('loadLatest prefers the pinned OKR, then the most recently updated one', async () => {
+    expect(await repo.loadLatest()).toBeNull();
+    await repo.save(doc('o1', [['k1', 'One']]));
+    await repo.save(doc('o2', [['k2', 'Two']]));
+    expect((await repo.loadLatest())?.id).toBe('o2');
+    store.pinObjective('o1');
+    expect((await repo.loadLatest())?.id).toBe('o1');
+  });
+
+  it('clear removes everything including progress history', async () => {
+    await repo.save(doc('o1', [['k1', 'One']]));
+    store.setProgress('k1', { value: 5, status: 'in_progress' });
+    await repo.clear();
+    expect(await repo.loadLatest()).toBeNull();
+    const rows = db.prepare('SELECT COUNT(*) AS n FROM progress_entries').get() as { n: number };
+    expect(rows.n).toBe(0);
   });
 });

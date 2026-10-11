@@ -100,7 +100,7 @@ describe('Actual session-to-draft boundary', () => {
     expect(result.okr.objective).toBe('Described objective');
     expect(result.okr.keyResults).toEqual([
       {
-        id: 'result',
+        id: expect.any(String),
         statement: 'Result without metric',
         successMetric: undefined,
         owner: undefined,

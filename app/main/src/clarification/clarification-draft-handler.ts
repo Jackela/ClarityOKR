@@ -130,7 +130,7 @@ export class ClarificationDraftHandler implements IClarificationDraftHandler {
       id: randomUUID(),
       objective: first.title ?? first.description ?? '自动生成的目标',
       keyResults: (first.keyResults ?? []).slice(0, 5).map((kr) => ({
-        id: String(kr?.id ?? randomUUID()),
+        id: randomUUID(),
         statement: String(kr?.statement ?? ''),
         successMetric:
           typeof kr?.target !== 'undefined' && typeof kr?.measurement === 'string'
