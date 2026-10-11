@@ -1,4 +1,6 @@
+import { createHash } from 'node:crypto';
 import {
+  chmodSync,
   copyFileSync,
   existsSync,
   mkdirSync,
@@ -17,6 +19,7 @@ import {
   LATEST_SCHEMA_VERSION,
   OkrStore,
   OkrStoreRepository,
+  applySchema,
   getSchemaVersion,
   isLegacyDatabase,
   retireLegacyDatabase,
@@ -29,7 +32,12 @@ import {
   LegacyDatabaseNotice,
   registerLegacyNoticeHandlers,
 } from '../../../../app/main/src/startup/legacy-notice.js';
-import { openDatabaseSafely } from '../../../../app/main/src/startup/open-database.js';
+import {
+  initializeConnection,
+  openDatabaseSafely,
+} from '../../../../app/main/src/startup/open-database.js';
+import { FallbackKeyProvider } from '../../../../app/main/src/services/secure-storage/fallback-key-provider.js';
+import { LlmConfigStore } from '../../../../app/main/src/services/secure-storage/llm-config-store.js';
 import { IPC_CHANNELS } from '@clarityokr/contracts';
 
 /**
@@ -91,6 +99,34 @@ function buildOldVersionDb(path: string): void {
   db.close();
 }
 
+const sha = (path: string): string => createHash('sha256').update(readFileSync(path)).digest('hex');
+
+/** A healthy database of the current app version (rollback-journal mode, one session row). */
+function buildCurrentVersionDb(path: string, userVersion?: number): void {
+  const db = new BetterSqlite3(path);
+  applySchema(db);
+  db.prepare(
+    `INSERT INTO sessions (id, initial_intent, created_at, updated_at, steps, selected_options, confidence)
+     VALUES ('keep-me', 'intent', 'x', 'x', '[]', '[]', 0.5)`,
+  ).run();
+  if (userVersion !== undefined) {
+    db.pragma(`user_version = ${userVersion}`);
+  }
+  db.close();
+}
+
+const sqliteError = (code: string): Error =>
+  Object.assign(new Error(`simulated ${code}`), { code });
+
+function sessionCount(path: string): number {
+  const db = new BetterSqlite3(path, { readonly: true });
+  try {
+    return (db.prepare('SELECT COUNT(*) AS n FROM sessions').get() as { n: number }).n;
+  } finally {
+    db.close();
+  }
+}
+
 function tableNames(path: string): string[] {
   const db = new BetterSqlite3(path, { readonly: true });
   try {
@@ -142,7 +178,7 @@ describe('startup: opening the database', () => {
       const opened = launch();
 
       expect(opened.legacyRetired).toBe(true);
-      expect(opened.degraded).toBeNull();
+      expect(opened.storageMode).toBe('normal');
       expect(opened.activePath).toBe(dbPath);
 
       // old file is kept with its data, byte-for-byte readable
@@ -235,18 +271,27 @@ describe('startup: opening the database', () => {
       expect(new LegacyDatabaseNotice(userData).shouldShow()).toBe(false);
     });
 
-    it('is absent on a normal first install and the reply never contains a path', () => {
+    it('is absent on a normal first install', () => {
       const opened = launch();
       expect(opened.legacyRetired).toBe(false);
       const ipc = fakeIpc();
       registerLegacyNoticeHandlers(ipc.ipcMain, new LegacyDatabaseNotice(userData));
       expect(ipc.call(IPC_CHANNELS.LEGACY_NOTICE_GET)).toEqual({ legacyDatabaseRetired: false });
       expect(existsSync(join(userData, LEGACY_NOTICE_FILE_NAME))).toBe(false);
+      expect(existsSync(backupsDir())).toBe(false);
       opened.connectionManager.close();
+    });
 
-      buildOldVersionDb(join(userData, 'other.db'));
-      const raw = JSON.stringify(new LegacyDatabaseNotice(userData).shouldShow());
-      expect(raw).not.toMatch(/bak|backups/);
+    it('a launch that retires a legacy database leaves exactly one .db.bak in backups/ and a path-free reply', () => {
+      buildOldVersionDb(dbPath);
+      const opened = launch();
+      opened.connectionManager.close();
+      expect(backupFiles(userData)).toEqual(['clarityokr-20261012-083015.db.bak']);
+      const ipc = fakeIpc();
+      registerLegacyNoticeHandlers(ipc.ipcMain, new LegacyDatabaseNotice(userData));
+      const reply = ipc.call(IPC_CHANNELS.LEGACY_NOTICE_GET);
+      expect(reply).toEqual({ legacyDatabaseRetired: true });
+      expect(JSON.stringify(reply)).not.toMatch(/bak|backups|\//);
     });
 
     it('treats an unreadable state file as already shown instead of crashing', () => {
@@ -261,7 +306,7 @@ describe('startup: opening the database', () => {
       writeFileSync(dbPath, garbage);
       const opened = launch();
       expect(opened.legacyRetired).toBe(true);
-      expect(opened.degraded).toBeNull();
+      expect(opened.storageMode).toBe('normal');
       expect(opened.activePath).toBe(dbPath);
       const backups = backupFiles(userData);
       expect(backups).toHaveLength(1);
@@ -275,7 +320,7 @@ describe('startup: opening the database', () => {
       writeFileSync(dbPath, '');
       const opened = launch();
       expect(opened.legacyRetired).toBe(false);
-      expect(opened.degraded).toBeNull();
+      expect(opened.storageMode).toBe('normal');
       expect(backupFiles(userData)).toHaveLength(0);
       expect(getSchemaVersion(opened.connectionManager.getDb())).toBe(LATEST_SCHEMA_VERSION);
       expect(new LegacyDatabaseNotice(userData).shouldShow()).toBe(false);
@@ -290,7 +335,7 @@ describe('startup: opening the database', () => {
         expect(() => isLegacyDatabase(dbPath)).not.toThrow();
         const opened = launch();
         expect(opened.legacyRetired).toBe(true);
-        expect(opened.degraded).toBeNull();
+        expect(opened.storageMode).toBe('normal');
         expect(backupFiles(userData)).toHaveLength(1);
         expect(getSchemaVersion(opened.connectionManager.getDb())).toBe(LATEST_SCHEMA_VERSION);
         opened.connectionManager.close();
@@ -316,7 +361,7 @@ describe('startup: opening the database', () => {
       truncateSync(dbPath, 8192);
 
       const opened = launch();
-      expect(opened.degraded).toBeNull();
+      expect(opened.storageMode).toBe('normal');
       expect(opened.legacyRetired).toBe(true);
       expect(backupFiles(userData)).toHaveLength(1);
       const fresh = opened.connectionManager.getDb();
@@ -350,7 +395,7 @@ describe('startup: opening the database', () => {
       expect(isLegacyDatabase(dbPath)).toBe(false);
 
       const opened = launch();
-      expect(opened.degraded).toBeNull();
+      expect(opened.storageMode).toBe('normal');
       expect(opened.legacyRetired).toBe(true);
       expect(backupFiles(userData)).toHaveLength(1);
       const fresh = opened.connectionManager.getDb();
@@ -379,7 +424,7 @@ describe('startup: opening the database', () => {
       buildOldVersionDb(dbPath);
       const opened = launch({ fileOps: { ...realOps, renameSync: busy } });
       expect(opened.legacyRetired).toBe(true);
-      expect(opened.degraded).toBeNull();
+      expect(opened.storageMode).toBe('normal');
       expect(opened.activePath).toBe(dbPath);
       const backups = backupFiles(userData);
       expect(backups).toHaveLength(1);
@@ -394,7 +439,7 @@ describe('startup: opening the database', () => {
     it('rename throws EPERM and the original cannot be deleted: starts on clarityokr-fresh.db, original untouched, copy kept', () => {
       buildOldVersionDb(dbPath);
       const opened = launch({ fileOps: { ...realOps, renameSync: denied, unlinkSync: denied } });
-      expect(opened.degraded).toBe('fallback-path');
+      expect(opened.storageMode).toBe('fresh-file');
       expect(opened.activePath).toBe(join(userData, 'clarityokr-fresh.db'));
       expect(opened.legacyRetired).toBe(true);
       expect(backupFiles(userData)).toHaveLength(1);
@@ -409,7 +454,7 @@ describe('startup: opening the database', () => {
       const opened = launch({
         fileOps: { renameSync: busy, copyFileSync: denied, unlinkSync: denied },
       });
-      expect(opened.degraded).toBe('fallback-path');
+      expect(opened.storageMode).toBe('fresh-file');
       expect(opened.legacyRetired).toBe(false);
       expect(backupFiles(userData)).toHaveLength(0);
       expect(tableNames(dbPath)).toContain('okr_documents');
@@ -433,27 +478,348 @@ describe('startup: opening the database', () => {
       expect((caught as LegacyRetireError).backupPath).toContain('.db.bak');
     });
 
-    it('a locked WAL side file does not stop the main file from being retired', () => {
+    it('a WAL side file that cannot be moved, copied or deleted is reported, not ignored', () => {
       buildOldVersionDb(dbPath);
       writeFileSync(`${dbPath}-wal`, 'stale');
+      const stuck = (): never => {
+        throw Object.assign(new Error('busy'), { code: 'EBUSY' });
+      };
       const ops: LegacyFileOps = {
         ...realOps,
-        renameSync: (from, to) => {
-          if (from.endsWith('-wal')) {
-            throw Object.assign(new Error('busy'), { code: 'EBUSY' });
+        renameSync: (from, to) => (from.endsWith('-wal') ? stuck() : realOps.renameSync(from, to)),
+        copyFileSync: (from, to) => (from.endsWith('-wal') ? stuck() : copyFileSync(from, to)),
+      };
+      let caught: unknown;
+      try {
+        retireLegacyDatabase(dbPath, backupsDir(), new Date(2026, 9, 12), ops);
+      } catch (error) {
+        caught = error;
+      }
+      expect(caught).toBeInstanceOf(LegacyRetireError);
+      expect((caught as LegacyRetireError).backupPath).toContain('.db.bak');
+      expect(existsSync(dbPath)).toBe(false); // main file did move
+      expect(existsSync(`${dbPath}-wal`)).toBe(true); // stuck side file is still there
+    });
+  });
+
+  describe('only corruption may move a database away', () => {
+    const noWait = (sleeps: number[]) => ({
+      attempts: 3,
+      delayMs: 7,
+      sleep: (ms: number) => void sleeps.push(ms),
+    });
+
+    it('a healthy database that is locked (SQLITE_BUSY) is not moved: retried, then fresh-file fallback, original untouched', () => {
+      buildCurrentVersionDb(dbPath);
+      const before = sha(dbPath);
+      const holder = new BetterSqlite3(dbPath);
+      holder.exec('BEGIN EXCLUSIVE');
+      const sleeps: number[] = [];
+      let opened;
+      try {
+        opened = launch({ busyTimeoutMs: 20, retry: noWait(sleeps) });
+      } finally {
+        holder.exec('ROLLBACK');
+        holder.close();
+      }
+      expect(opened.storageMode).toBe('fresh-file');
+      expect(opened.activePath).toBe(join(userData, 'clarityokr-fresh.db'));
+      expect(opened.legacyRetired).toBe(false);
+      expect(sleeps).toEqual([7, 7]); // 3 tries => 2 pauses
+      expect(backupFiles(userData)).toHaveLength(0);
+      expect(existsSync(backupsDir())).toBe(false);
+      expect(new LegacyDatabaseNotice(userData).shouldShow()).toBe(false);
+      opened.connectionManager.close();
+      expect(sha(dbPath)).toBe(before);
+
+      // once the lock is gone the same file opens normally and its data is still there
+      const again = launch();
+      expect(again.storageMode).toBe('normal');
+      expect(again.legacyRetired).toBe(false);
+      expect(
+        again.connectionManager.getDb().prepare('SELECT COUNT(*) AS n FROM sessions').get(),
+      ).toEqual({ n: 1 });
+      again.connectionManager.close();
+    });
+
+    it('a transient error that clears within the retries opens the original normally', () => {
+      buildCurrentVersionDb(dbPath);
+      let calls = 0;
+      const sleeps: number[] = [];
+      const opened = launch({
+        retry: noWait(sleeps),
+        initialize: (path, timeout) => {
+          if (path === dbPath && (calls += 1) === 1) {
+            throw sqliteError('SQLITE_BUSY');
           }
-          realOps.renameSync(from, to);
+          return initializeConnection(path, timeout);
+        },
+      });
+      expect(opened.storageMode).toBe('normal');
+      expect(opened.legacyRetired).toBe(false);
+      expect(sleeps).toEqual([7]);
+      expect(backupFiles(userData)).toHaveLength(0);
+      expect(sessionCount(dbPath)).toBe(1);
+      opened.connectionManager.close();
+    });
+
+    it('a database from a newer app version (higher user_version) is not retired: fresh-file fallback, original untouched', () => {
+      buildCurrentVersionDb(dbPath, LATEST_SCHEMA_VERSION + 1);
+      const before = sha(dbPath);
+      const opened = launch();
+      expect(opened.storageMode).toBe('fresh-file');
+      expect(opened.activePath).toBe(join(userData, 'clarityokr-fresh.db'));
+      expect(opened.legacyRetired).toBe(false);
+      expect(backupFiles(userData)).toHaveLength(0);
+      expect(existsSync(backupsDir())).toBe(false);
+      expect(new LegacyDatabaseNotice(userData).shouldShow()).toBe(false);
+      expect(getSchemaVersion(opened.connectionManager.getDb())).toBe(LATEST_SCHEMA_VERSION);
+      opened.connectionManager.close();
+      expect(sha(dbPath)).toBe(before);
+      const original = new BetterSqlite3(dbPath, { readonly: true });
+      expect(original.pragma('user_version', { simple: true })).toBe(LATEST_SCHEMA_VERSION + 1);
+      original.close();
+      expect(sessionCount(dbPath)).toBe(1);
+    });
+
+    it.each([
+      'SQLITE_IOERR',
+      'SQLITE_IOERR_READ',
+      'SQLITE_CANTOPEN',
+      'SQLITE_PERM',
+      'SQLITE_READONLY',
+      'SQLITE_BUSY',
+      'SQLITE_LOCKED',
+    ])(
+      '%s while opening: retried 3 times, never moves the file, falls back to fresh-file',
+      (code) => {
+        buildCurrentVersionDb(dbPath);
+        const before = sha(dbPath);
+        let calls = 0;
+        const sleeps: number[] = [];
+        const opened = launch({
+          retry: noWait(sleeps),
+          initialize: (path, timeout) => {
+            if (path === dbPath) {
+              calls += 1;
+              throw sqliteError(code);
+            }
+            return initializeConnection(path, timeout);
+          },
+        });
+        expect(calls).toBe(3);
+        expect(sleeps).toEqual([7, 7]);
+        expect(opened.storageMode).toBe('fresh-file');
+        expect(opened.legacyRetired).toBe(false);
+        expect(backupFiles(userData)).toHaveLength(0);
+        expect(new LegacyDatabaseNotice(userData).shouldShow()).toBe(false);
+        opened.connectionManager.close();
+        expect(sha(dbPath)).toBe(before);
+      },
+    );
+
+    it('a file that cannot be read for lack of permission is not moved (real chmod 000)', () => {
+      buildCurrentVersionDb(dbPath);
+      const before = sha(dbPath);
+      chmodSync(dbPath, 0o000);
+      let opened;
+      try {
+        opened = launch({ retry: noWait([]) });
+      } finally {
+        chmodSync(dbPath, 0o600);
+      }
+      expect(opened.storageMode).toBe('fresh-file');
+      expect(opened.legacyRetired).toBe(false);
+      expect(backupFiles(userData)).toHaveLength(0);
+      opened.connectionManager.close();
+      expect(sha(dbPath)).toBe(before);
+    });
+
+    it.each(['SQLITE_CORRUPT', 'SQLITE_CORRUPT_INDEX', 'SQLITE_NOTADB'])(
+      '%s while opening is positive evidence: the file is moved aside and a fresh database created',
+      (code) => {
+        buildCurrentVersionDb(dbPath);
+        let calls = 0;
+        const opened = launch({
+          retry: noWait([]),
+          initialize: (path, timeout) => {
+            if (path === dbPath && (calls += 1) === 1) {
+              throw sqliteError(code);
+            }
+            return initializeConnection(path, timeout);
+          },
+        });
+        expect(calls).toBe(2); // corruption is final: no retry, one fresh open after moving aside
+        expect(opened.storageMode).toBe('normal');
+        expect(opened.legacyRetired).toBe(true);
+        expect(backupFiles(userData)).toHaveLength(1);
+        expect(sessionCount(dbPath)).toBe(0);
+        opened.connectionManager.close();
+      },
+    );
+  });
+
+  describe('storage mode: memory', () => {
+    it('both the normal and the fresh file fail: runs in memory, original untouched, still usable', async () => {
+      buildCurrentVersionDb(dbPath, LATEST_SCHEMA_VERSION + 1);
+      const before = sha(dbPath);
+      // a directory where the fresh database file should be makes opening it fail for real
+      mkdirSync(join(userData, 'clarityokr-fresh.db'));
+      const opened = launch({ retry: { attempts: 2, delayMs: 0, sleep: () => undefined } });
+      expect(opened.storageMode).toBe('memory');
+      expect(opened.activePath).toBe(':memory:');
+      expect(opened.legacyRetired).toBe(false);
+      const repo = new OkrStoreRepository(new OkrStore(opened.connectionManager.getDb()));
+      await repo.save({
+        id: 'm1',
+        objective: 'In memory',
+        keyResults: [{ id: 'k1', statement: 'x' }],
+        sourceSessionId: 's',
+        generatedAt: '2026-10-12T00:00:00.000Z',
+        lastEditedAt: null,
+        regenerationPolicy: 'overwrite',
+        manualEdits: [],
+      });
+      expect((await repo.loadLatest())?.objective).toBe('In memory');
+      opened.connectionManager.close();
+      expect(sha(dbPath)).toBe(before);
+      expect(backupFiles(userData)).toHaveLength(0);
+    });
+
+    it('reports storageMode "normal" on a healthy start', () => {
+      const opened = launch();
+      expect(opened.storageMode).toBe('normal');
+      opened.connectionManager.close();
+    });
+  });
+
+  describe('WAL side files of a retired database', () => {
+    /** A legacy database whose rows and tables live only in an uncheckpointed -wal file. */
+    function buildLegacyDbWithLiveWal(path: string): void {
+      const staging = `${path}.staging`;
+      buildOldVersionDb(staging); // closes cleanly (checkpointed)
+      const db = new BetterSqlite3(staging);
+      db.pragma('journal_mode = WAL');
+      db.pragma('wal_autocheckpoint = 0');
+      db.prepare(
+        "INSERT INTO okr_documents VALUES ('wal-only', 'In the WAL', '[]', 's', 'x', NULL, 'overwrite', '[]')",
+      ).run();
+      copyFileSync(staging, path);
+      copyFileSync(`${staging}-wal`, `${path}-wal`);
+      db.close();
+      rmSync(staging, { force: true });
+      rmSync(`${staging}-wal`, { force: true });
+      rmSync(`${staging}-shm`, { force: true });
+    }
+
+    it('moves the -wal along with the database; the new database is reopened clean and empty', () => {
+      buildLegacyDbWithLiveWal(dbPath);
+      expect(existsSync(`${dbPath}-wal`)).toBe(true);
+
+      const opened = launch();
+      expect(opened.storageMode).toBe('normal');
+      expect(opened.legacyRetired).toBe(true);
+      opened.connectionManager.close();
+
+      const names = readdirSync(backupsDir()).sort();
+      expect(names).toContain('clarityokr-20261012-083015.db.bak');
+      expect(names).toContain('clarityokr-20261012-083015.db.bak-wal');
+
+      // the retired copy still has the WAL-only row
+      const old = new BetterSqlite3(join(backupsDir(), 'clarityokr-20261012-083015.db.bak'));
+      expect(
+        old.prepare("SELECT objective FROM okr_documents WHERE id = 'wal-only'").get(),
+      ).toEqual({
+        objective: 'In the WAL',
+      });
+      old.close();
+
+      // reopen the new database: nothing leaked in from the old WAL
+      const reopened = launch();
+      expect(reopened.legacyRetired).toBe(false);
+      const db = reopened.connectionManager.getDb();
+      expect(getSchemaVersion(db)).toBe(LATEST_SCHEMA_VERSION);
+      expect(tableNames(dbPath)).not.toContain('okr_documents');
+      expect(db.prepare('SELECT COUNT(*) AS n FROM sessions').get()).toEqual({ n: 0 });
+      expect(db.prepare('SELECT COUNT(*) AS n FROM objectives').get()).toEqual({ n: 0 });
+      reopened.connectionManager.close();
+    });
+
+    it('when the -wal can be neither moved nor copied nor deleted, the normal path is not reused', () => {
+      buildOldVersionDb(dbPath);
+      writeFileSync(`${dbPath}-wal`, 'stale wal bytes');
+      const stuck = (path: string): boolean => path.endsWith('-wal');
+      const ops: LegacyFileOps = {
+        renameSync: (from, to) => {
+          if (stuck(from)) throw Object.assign(new Error('busy'), { code: 'EBUSY' });
+          copyFileSync(from, to);
+          rmSync(from);
         },
         copyFileSync: (from, to) => {
-          if (from.endsWith('-wal')) {
-            throw Object.assign(new Error('busy'), { code: 'EBUSY' });
-          }
+          if (stuck(from)) throw Object.assign(new Error('busy'), { code: 'EBUSY' });
           copyFileSync(from, to);
         },
+        unlinkSync: (path) => {
+          if (stuck(path)) throw Object.assign(new Error('busy'), { code: 'EPERM' });
+          rmSync(path);
+        },
       };
-      const moved = retireLegacyDatabase(dbPath, backupsDir(), new Date(2026, 9, 12), ops);
-      expect(moved).toContain('.db.bak');
+      const opened = launch({ fileOps: ops });
+      expect(opened.storageMode).toBe('fresh-file');
+      expect(opened.activePath).toBe(join(userData, 'clarityokr-fresh.db'));
+      // the main file was backed up, so the user is told; the stuck -wal is left where it is
+      expect(opened.legacyRetired).toBe(true);
+      expect(new LegacyDatabaseNotice(userData).shouldShow()).toBe(true);
+      expect(backupFiles(userData)).toHaveLength(1);
       expect(existsSync(dbPath)).toBe(false);
+      expect(existsSync(`${dbPath}-wal`)).toBe(true);
+      // nothing was created at the normal path, so the stale -wal cannot be replayed
+      expect(getSchemaVersion(opened.connectionManager.getDb())).toBe(LATEST_SCHEMA_VERSION);
+      expect(
+        opened.connectionManager.getDb().prepare('SELECT COUNT(*) AS n FROM sessions').get(),
+      ).toEqual({ n: 0 });
+      opened.connectionManager.close();
+      expect(existsSync(dbPath)).toBe(false);
+    });
+  });
+
+  describe('API key store is unaffected by retiring the database', () => {
+    it('the encrypted config in a temp config dir is unchanged and still readable after a legacy retirement', () => {
+      const home = mkdtempSync(join(tmpdir(), 'okr-home-'));
+      const saved = { HOME: process.env.HOME, USERPROFILE: process.env.USERPROFILE };
+      process.env.HOME = home;
+      process.env.USERPROFILE = home;
+      try {
+        const provider = new FallbackKeyProvider();
+        const secret = {
+          apiKey: 'synthetic-key-for-test',
+          baseUrl: 'http://127.0.0.1:1',
+          model: 'm',
+        };
+        new LlmConfigStore(provider).store(secret);
+        const configFile = join(home, '.clarityokr', 'llm-config.enc');
+        const before = readFileSync(configFile);
+
+        buildOldVersionDb(dbPath);
+        const opened = launch();
+        expect(opened.legacyRetired).toBe(true);
+        opened.connectionManager.close();
+
+        expect(readFileSync(configFile).equals(before)).toBe(true);
+        expect(new LlmConfigStore(new FallbackKeyProvider()).retrieve()).toEqual(secret);
+        // the key never lives in, or moves with, the userData directory or the backups
+        expect(readdirSync(userData)).not.toContain('llm-config.enc');
+        expect(readdirSync(backupsDir()).some((f) => f.includes('llm-config'))).toBe(false);
+      } finally {
+        for (const [key, value] of Object.entries(saved)) {
+          if (value === undefined) {
+            delete process.env[key];
+          } else {
+            process.env[key] = value;
+          }
+        }
+        rmSync(home, { recursive: true, force: true });
+      }
     });
   });
 

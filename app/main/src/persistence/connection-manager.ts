@@ -8,6 +8,8 @@ import { applySchema } from './okr-store/schema.js';
 
 export interface ConnectionManagerOptions {
   dbPath: string;
+  /** How long a locked database is waited for before SQLITE_BUSY (better-sqlite3 default: 5000). */
+  busyTimeoutMs?: number;
 }
 
 /**
@@ -18,9 +20,11 @@ export interface ConnectionManagerOptions {
 export class ConnectionManager {
   private db: Database | null = null;
   private readonly dbPath: string;
+  private readonly busyTimeoutMs: number | undefined;
 
   constructor(options: ConnectionManagerOptions) {
     this.dbPath = options.dbPath;
+    this.busyTimeoutMs = options.busyTimeoutMs;
   }
 
   /**
@@ -35,7 +39,10 @@ export class ConnectionManager {
     if (this.dbPath !== ':memory:') {
       mkdirSync(dirname(this.dbPath), { recursive: true });
     }
-    this.db = new BetterSqlite3(this.dbPath);
+    this.db = new BetterSqlite3(
+      this.dbPath,
+      this.busyTimeoutMs === undefined ? undefined : { timeout: this.busyTimeoutMs },
+    );
     this.db.pragma('journal_mode = WAL');
     this.db.pragma('foreign_keys = ON');
 

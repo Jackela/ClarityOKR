@@ -4,6 +4,7 @@ import BetterSqlite3 from 'better-sqlite3';
 import type { Database } from 'better-sqlite3';
 
 import { Logger } from '../../core/logger.js';
+import { errorCode, isCorruptionError } from './db-errors.js';
 
 /** File operations used to move a database aside; injectable so failures can be simulated. */
 export interface LegacyFileOps {
@@ -35,20 +36,15 @@ function timestamp(now: Date): string {
   );
 }
 
-function errorCode(error: unknown): string {
-  return typeof error === 'object' && error !== null && 'code' in error
-    ? String((error as { code: unknown }).code)
-    : '';
-}
-
 /**
  * True when the file cannot be used as a current database and should be kept aside:
  * a SQLite file from before schema versioning (user_version = 0 with tables), or a file
  * that is not a readable SQLite database (garbage bytes, truncated or corrupt).
- * A zero-byte file is a fresh database for SQLite and is left alone. A database that is
- * locked by another process is not judged: the error is rethrown.
+ * A zero-byte file is a fresh database for SQLite and is left alone. Only SQLITE_CORRUPT /
+ * SQLITE_NOTADB count as unusable; any other error (busy, locked, I/O, cannot open,
+ * permission) is rethrown so the caller never moves a possibly healthy file away.
  */
-export function isLegacyDatabase(dbPath: string): boolean {
+export function isLegacyDatabase(dbPath: string, busyTimeoutMs?: number): boolean {
   if (!existsSync(dbPath)) {
     return false;
   }
@@ -57,13 +53,17 @@ export function isLegacyDatabase(dbPath: string): boolean {
   }
   let db: Database;
   try {
-    db = new BetterSqlite3(dbPath, { readonly: true, fileMustExist: true });
+    db = new BetterSqlite3(dbPath, {
+      readonly: true,
+      fileMustExist: true,
+      ...(busyTimeoutMs === undefined ? {} : { timeout: busyTimeoutMs }),
+    });
   } catch (error) {
-    if (isBusy(error)) {
-      throw error;
+    if (isCorruptionError(error)) {
+      Logger.warn('[legacy-database] File is not a SQLite database, treating as unusable', error);
+      return true;
     }
-    Logger.warn('[legacy-database] File cannot be opened as SQLite, treating as unusable', error);
-    return true;
+    throw error;
   }
   try {
     const version = db.pragma('user_version', { simple: true }) as number;
@@ -77,19 +77,14 @@ export function isLegacyDatabase(dbPath: string): boolean {
     };
     return row.n > 0;
   } catch (error) {
-    if (isBusy(error)) {
-      throw error;
+    if (isCorruptionError(error)) {
+      Logger.warn('[legacy-database] File is not a readable SQLite database', error);
+      return true;
     }
-    Logger.warn('[legacy-database] File is not a readable SQLite database', error);
-    return true;
+    throw error;
   } finally {
     db.close();
   }
-}
-
-function isBusy(error: unknown): boolean {
-  const code = errorCode(error);
-  return code === 'SQLITE_BUSY' || code === 'SQLITE_LOCKED';
 }
 
 /** Moves one file; when renaming fails (locked, cross-device) copies it and removes the original. */
@@ -121,7 +116,8 @@ function moveFile(from: string, to: string, ops: LegacyFileOps): 'rename' | 'cop
  * Moves a database file (and its WAL side files) into backupsDir as
  * `<name>-<yyyyMMdd-HHmmss>.db.bak`. Data is kept, never deleted or imported.
  *
- * @throws LegacyRetireError when the file cannot be moved away.
+ * @throws LegacyRetireError when the file or one of its WAL side files cannot be moved away;
+ *   the path must then not be reused for a new database.
  */
 export function moveDatabaseAside(
   dbPath: string,
@@ -139,8 +135,21 @@ export function moveDatabaseAside(
       try {
         moveFile(side, `${target}${suffix}`, ops);
       } catch (error) {
-        Logger.warn(`[legacy-database] Could not move ${side}`, error);
+        // A leftover WAL next to the path could be replayed into a new database created there.
+        throw new LegacyRetireError(
+          `Moved the database but could not remove its side file ${side}`,
+          target,
+          error,
+        );
       }
+    }
+  }
+  for (const suffix of ['-wal', '-shm']) {
+    if (existsSync(`${dbPath}${suffix}`)) {
+      throw new LegacyRetireError(
+        `Side file ${dbPath}${suffix} is still present after moving the database`,
+        target,
+      );
     }
   }
   return target;
@@ -158,8 +167,9 @@ export function retireLegacyDatabase(
   backupsDir: string,
   now: Date = new Date(),
   ops: LegacyFileOps = defaultFileOps,
+  busyTimeoutMs?: number,
 ): string | null {
-  if (!isLegacyDatabase(dbPath)) {
+  if (!isLegacyDatabase(dbPath, busyTimeoutMs)) {
     return null;
   }
   return moveDatabaseAside(dbPath, backupsDir, now, ops);

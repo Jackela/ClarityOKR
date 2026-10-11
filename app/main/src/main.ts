@@ -39,6 +39,7 @@ import { OkrRegenerationService } from './services/okr-regeneration.service.js';
 import { resolveDbPath } from './startup/db-path.js';
 import { LegacyDatabaseNotice, registerLegacyNoticeHandlers } from './startup/legacy-notice.js';
 import { openDatabaseSafely } from './startup/open-database.js';
+import { registerStorageStateHandler } from './startup/storage-state.js';
 import { ClarificationController } from './windows/clarification-controller.js';
 import { StickyWindowManager } from './windows/sticky-window-manager.js';
 import { registerRendererProtocol } from './windows/renderer-protocol.js';
@@ -66,14 +67,15 @@ const openedDatabase = openDatabaseSafely({
   backupsDir: path.join(path.dirname(dbPath), 'backups'),
   notice: legacyNotice,
 });
-if (openedDatabase.degraded) {
+if (openedDatabase.storageMode !== 'normal') {
   Logger.error(
     '[main] Running on a fallback database:',
-    openedDatabase.degraded,
+    openedDatabase.storageMode,
     openedDatabase.activePath,
   );
 }
 registerLegacyNoticeHandlers(ipcMain, legacyNotice);
+registerStorageStateHandler(ipcMain, openedDatabase.storageMode);
 
 const connectionManager = openedDatabase.connectionManager;
 

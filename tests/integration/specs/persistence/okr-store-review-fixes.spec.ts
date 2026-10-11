@@ -62,6 +62,21 @@ describe('OkrStore review fixes', () => {
     });
   });
 
+  describe('markKeyResultRemoved', () => {
+    it('bumps the objective updated_at once, and not again when already removed', () => {
+      const okr = create();
+      const kr = okr.keyResults[0]!;
+      const before = store.getObjective(okr.id)!.updatedAt;
+      store.markKeyResultRemoved(kr.id);
+      const after = store.getObjective(okr.id)!;
+      expect(after.updatedAt > before).toBe(true);
+      expect(after.keyResults[0]!.removedAt).not.toBeNull();
+      expect(after.keyResults[1]!.removedAt).toBeNull();
+      store.markKeyResultRemoved(kr.id);
+      expect(store.getObjective(okr.id)!.updatedAt).toBe(after.updatedAt);
+    });
+  });
+
   describe('replaceLastProgress (edit the latest value)', () => {
     it('reverts the latest entry and writes the new value, keeping the full history', () => {
       const okr = create();

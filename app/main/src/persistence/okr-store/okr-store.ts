@@ -473,9 +473,14 @@ export class OkrStore {
     if (kr.removedAt !== null) {
       return;
     }
-    this.db
-      .prepare('UPDATE key_results SET removed_at = ?, updated_at = ? WHERE id = ?')
-      .run(this.timestamp(), this.timestamp(), krId);
+    const at = this.timestamp();
+    this.db.transaction(() => {
+      this.db
+        .prepare('UPDATE key_results SET removed_at = ?, updated_at = ? WHERE id = ?')
+        .run(at, at, krId);
+      // Removing a key result is an edit of its objective.
+      this.db.prepare('UPDATE objectives SET updated_at = ? WHERE id = ?').run(at, kr.objectiveId);
+    })();
   }
 
   /**

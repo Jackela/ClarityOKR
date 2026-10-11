@@ -15,3 +15,4 @@ export {
 } from './legacy-database.js';
 export type { LegacyFileOps } from './legacy-database.js';
 export { OkrStoreRepository } from './okr-store-repository.js';
+export { IntegrityCheckError, isCorruptionError } from './db-errors.js';

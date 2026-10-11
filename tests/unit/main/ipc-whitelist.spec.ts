@@ -5,9 +5,13 @@ import {
   validateChannel,
 } from '@clarityokr/contracts';
 
-describe('legacy notice IPC channels', () => {
+describe('legacy notice and storage state IPC channels', () => {
   it('are in the allowlist and reachable through validateChannel', () => {
-    for (const channel of [IPC_CHANNELS.LEGACY_NOTICE_GET, IPC_CHANNELS.LEGACY_NOTICE_ACK]) {
+    for (const channel of [
+      IPC_CHANNELS.LEGACY_NOTICE_GET,
+      IPC_CHANNELS.LEGACY_NOTICE_ACK,
+      IPC_CHANNELS.STORAGE_STATE_GET,
+    ]) {
       expect(ALLOWED_CHANNELS).toContain(channel);
       expect(isAllowedChannel(channel)).toBe(true);
       expect(() => validateChannel(channel)).not.toThrow();
