@@ -70,9 +70,17 @@ describe('ConnectionManager', () => {
 
       const tableNames = tables.map((t) => t.name);
       expect(tableNames).toContain('sessions');
-      expect(tableNames).toContain('okr_documents');
-      expect(tableNames).toContain('action_logs');
-      expect(tableNames).toContain('migrations');
+      expect(tableNames).toEqual(
+        expect.arrayContaining([
+          'objectives',
+          'key_results',
+          'progress_entries',
+          'reviews',
+          'action_logs',
+        ]),
+      );
+      expect(tableNames).not.toContain('okr_documents');
+      expect(tableNames).not.toContain('migrations');
     });
 
     it('should be idempotent', () => {

@@ -2,7 +2,8 @@ import { jest } from '@jest/globals';
 import { clarificationSessionSchema } from '@clarityokr/contracts';
 import { ConnectionManager } from '@clarityokr/main/persistence/connection-manager';
 import { SqliteSessionRepository } from '@clarityokr/main/persistence/sqlite-session-repository';
-import { OKRRepositorySqlite } from '@clarityokr/main/persistence/okr-repository';
+import { OkrStore } from '@clarityokr/main/persistence/okr-store/okr-store';
+import { OkrStoreRepository } from '@clarityokr/main/persistence/okr-store/okr-store-repository';
 import { OkrRegenerationService } from '@clarityokr/main/services/okr-regeneration.service';
 import type { OkrAgentService } from '@clarityokr/main/services/okr-agent.service';
 
@@ -14,7 +15,8 @@ const time = '2026-10-09T00:00:00.000Z';
 describe('Actual regeneration persistence and failure boundaries', () => {
   let db: ConnectionManager;
   let sessions: SqliteSessionRepository;
-  let okrs: OKRRepositorySqlite;
+  let okrs: OkrStoreRepository;
+  let store: OkrStore;
   let agent: {
     clearCache: ReturnType<typeof jest.fn>;
     generateDraft: ReturnType<typeof jest.fn<(context: unknown) => Promise<unknown>>>;
@@ -24,7 +26,8 @@ describe('Actual regeneration persistence and failure boundaries', () => {
     db = new ConnectionManager({ dbPath: ':memory:' });
     db.initialize();
     sessions = new SqliteSessionRepository(db);
-    okrs = new OKRRepositorySqlite(db);
+    store = new OkrStore(db.getDb());
+    okrs = new OkrStoreRepository(store);
     await sessions.save({
       id: 'synthetic',
       initialIntent: 'Synthetic intent',
@@ -77,11 +80,17 @@ describe('Actual regeneration persistence and failure boundaries', () => {
         sourceSessionId: 'synthetic',
         regenerationPolicy: policy,
         manualEdits: [],
-        keyResults: response.keyResults,
+        keyResults: [{ id: expect.any(String), statement: 'Measurable result' }],
       });
-      expect(await okrs.findById(result.value.id)).toMatchObject(
-        JSON.parse(JSON.stringify(result.value)),
-      );
+      // Generated ids are never trusted: a fresh id is assigned.
+      expect(result.value.keyResults[0]?.id).not.toBe('generated');
+      const stored = await okrs.findById(result.value.id);
+      expect(stored).toMatchObject({
+        id: result.value.id,
+        objective: 'Generated objective',
+        sourceSessionId: 'synthetic',
+        keyResults: JSON.parse(JSON.stringify(result.value.keyResults)),
+      });
       expect(agent.generateDraft).toHaveBeenCalledWith({
         turns: [
           { questionId: 'selected', optionId: 'choice', timestamp: time },
@@ -172,4 +181,139 @@ describe('Actual regeneration persistence and failure boundaries', () => {
       expect(await okrs.loadLatest()).toBeNull();
     },
   );
+
+  describe('keeps progress by key result id', () => {
+    const draft = (keyResults: Array<{ id: string; statement: string; successMetric?: string }>) =>
+      ({ objective: 'Generated objective', keyResults }) as const;
+
+    async function seed() {
+      agent.generateDraft.mockResolvedValue(
+        draft([
+          { id: 'x', statement: 'First result', successMetric: '10 users' },
+          { id: 'y', statement: 'Second result' },
+        ]),
+      );
+      const first = await service.regenerate('synthetic', 'overwrite');
+      if (!first.ok) throw first.error;
+      const [a, b] = first.value.keyResults;
+      if (!a || !b) throw new Error('fixture');
+      store.setProgress(a.id, { value: 60, status: 'in_progress' });
+      store.setProgress(b.id, { value: 20, status: 'at_risk' });
+      return { okrId: first.value.id, a, b };
+    }
+
+    it('sends the existing key results so the model can return their ids', async () => {
+      const { a, b } = await seed();
+      agent.generateDraft.mockClear();
+      await service.regenerate('synthetic', 'overwrite');
+      expect(agent.generateDraft).toHaveBeenCalledWith(
+        expect.objectContaining({
+          existingKeyResults: [
+            { id: a.id, statement: 'First result', successMetric: '10 users' },
+            { id: b.id, statement: 'Second result' },
+          ],
+        }),
+      );
+    });
+
+    it('replaces text and metric of a returned id, keeps its progress and status', async () => {
+      const { okrId, a, b } = await seed();
+      agent.generateDraft.mockResolvedValue(
+        draft([
+          { id: a.id, statement: 'First result, reworded', successMetric: '25 users' },
+          { id: b.id, statement: 'Second result' },
+        ]),
+      );
+      const result = await service.regenerate('synthetic', 'overwrite');
+      expect(result.ok).toBe(true);
+      const loaded = store.getObjective(okrId);
+      expect(
+        loaded?.keyResults.map((k) => [k.id, k.statement, k.successMetric, k.progress, k.status]),
+      ).toEqual([
+        [a.id, 'First result, reworded', '25 users', 60, 'in_progress'],
+        [b.id, 'Second result', null, 20, 'at_risk'],
+      ]);
+    });
+
+    it('treats a reordered response by id, not by position', async () => {
+      const { okrId, a, b } = await seed();
+      agent.generateDraft.mockResolvedValue(
+        draft([
+          { id: b.id, statement: 'Second result' },
+          { id: a.id, statement: 'First result' },
+        ]),
+      );
+      await service.regenerate('synthetic', 'overwrite');
+      const loaded = store.getObjective(okrId);
+      expect(loaded?.keyResults.map((k) => [k.id, k.progress])).toEqual([
+        [b.id, 20],
+        [a.id, 60],
+      ]);
+    });
+
+    it('treats key results without a known id as new and marks the old ones removed, keeping history', async () => {
+      const { okrId, a, b } = await seed();
+      agent.generateDraft.mockResolvedValue(
+        draft([
+          { id: 'made-up-1', statement: 'Brand new' },
+          { id: 'made-up-2', statement: 'Another' },
+        ]),
+      );
+      await service.regenerate('synthetic', 'overwrite');
+      const loaded = store.getObjective(okrId);
+      const active = loaded?.keyResults.filter((k) => k.removedAt === null) ?? [];
+      expect(active.map((k) => [k.statement, k.progress])).toEqual([
+        ['Brand new', null],
+        ['Another', null],
+      ]);
+      expect(loaded?.overallProgress).toBeNull();
+      const removed = loaded?.keyResults.filter((k) => k.removedAt !== null).map((k) => k.id);
+      expect(removed).toEqual(expect.arrayContaining([a.id, b.id]));
+      expect(store.listProgressEntries(a.id)).toHaveLength(1);
+      expect(store.listProgressEntries(b.id)).toHaveLength(1);
+    });
+
+    it('marks a key result removed when the response drops its id and keeps the others', async () => {
+      const { okrId, a, b } = await seed();
+      agent.generateDraft.mockResolvedValue(draft([{ id: a.id, statement: 'First result' }]));
+      await service.regenerate('synthetic', 'overwrite');
+      const loaded = store.getObjective(okrId);
+      expect(loaded?.keyResults.find((k) => k.id === a.id)?.progress).toBe(60);
+      expect(loaded?.keyResults.find((k) => k.id === b.id)?.removedAt).not.toBeNull();
+      expect(loaded?.overallProgress).toBe(60);
+    });
+
+    it('never reuses a returned id twice and ignores ids of other objectives', async () => {
+      const { okrId, a } = await seed();
+      agent.generateDraft.mockResolvedValue(
+        draft([
+          { id: a.id, statement: 'Keeps identity' },
+          { id: a.id, statement: 'Duplicate id becomes new' },
+        ]),
+      );
+      await service.regenerate('synthetic', 'overwrite');
+      const active =
+        store.getObjective(okrId)?.keyResults.filter((k) => k.removedAt === null) ?? [];
+      expect(active).toHaveLength(2);
+      expect(new Set(active.map((k) => k.id)).size).toBe(2);
+      expect(active[0]).toMatchObject({ id: a.id, progress: 60 });
+      expect(active[1]?.progress).toBeNull();
+    });
+
+    it('append policy keeps every existing key result with its progress and adds new ones', async () => {
+      const { okrId, a, b } = await seed();
+      agent.generateDraft.mockResolvedValue(draft([{ id: 'n', statement: 'Appended' }]));
+      await service.regenerate('synthetic', 'append');
+      const loaded = store.getObjective(okrId);
+      expect(
+        loaded?.keyResults.map((k) => [k.statement, k.progress, k.removedAt === null]),
+      ).toEqual([
+        ['First result', 60, true],
+        ['Second result', 20, true],
+        ['Appended', null, true],
+      ]);
+      expect(loaded?.keyResults[0]?.id).toBe(a.id);
+      expect(loaded?.keyResults[1]?.id).toBe(b.id);
+    });
+  });
 });

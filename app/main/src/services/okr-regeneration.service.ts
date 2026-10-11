@@ -15,6 +15,7 @@ import { Logger } from '../core/logger.js';
 import type { OKRRepository } from '../persistence/okr-repository.types.js';
 import type { ISessionRepository } from '../persistence/interfaces/index.js';
 import type { OkrAgentService } from './okr-agent.service.js';
+import type { ClarificationContext } from './okr-agent.types.js';
 
 /**
  * Result type for operations that can fail with a domain error.
@@ -79,8 +80,10 @@ export class OkrRegenerationService {
       // Get current OKR for the session (needed for append policy)
       const currentOkr = await this.okrRepo.getLatestForSession(sessionId);
 
-      // Build clarification context from session steps and selections
-      const context = {
+      // Build clarification context from session steps and selections.
+      // Existing key results are sent along (only when there are any) so the model can
+      // return their ids; progress is only carried over for ids that come back.
+      const context: ClarificationContext = {
         turns: session.steps.map((step) => ({
           questionId: step.id,
           optionId:
@@ -92,6 +95,15 @@ export class OkrRegenerationService {
               .at(-1)?.optionId ?? '',
           timestamp: step.context ?? new Date().toISOString(),
         })),
+        ...(currentOkr && currentOkr.keyResults.length > 0
+          ? {
+              existingKeyResults: currentOkr.keyResults.map((kr) => ({
+                id: kr.id,
+                statement: kr.statement,
+                ...(kr.successMetric ? { successMetric: kr.successMetric } : {}),
+              })),
+            }
+          : {}),
       };
 
       // Step 2: Call LLM to generate new OKR draft
@@ -124,16 +136,27 @@ export class OkrRegenerationService {
       const timestamp = new Date().toISOString();
       let newOkr: OKRDocument;
 
+      const existingIds = new Set((currentOkr?.keyResults ?? []).map((kr) => kr.id));
+      // Only an id the model returned that matches an existing key result keeps that
+      // identity (and so its progress). Everything else is new with a fresh id.
+      const resolveId = (returnedId: string, taken: Set<string>): string => {
+        if (existingIds.has(returnedId) && !taken.has(returnedId)) {
+          taken.add(returnedId);
+          return returnedId;
+        }
+        return randomUUID();
+      };
+      const matched = new Set<string>();
+
       if (policy === 'overwrite') {
         // Complete replacement - create new document
         newOkr = {
           id: currentOkr?.id ?? randomUUID(),
           objective: currentOkr?.objective ?? newDraft.objective,
           keyResults: newDraft.keyResults.map((kr) => ({
-            id: kr.id,
+            id: resolveId(kr.id, matched),
             statement: kr.statement,
             successMetric: kr.successMetric,
-            owner: kr.owner,
           })),
           sourceSessionId: sessionId,
           generatedAt: timestamp,
@@ -145,11 +168,11 @@ export class OkrRegenerationService {
         const existingKeyResults = currentOkr?.keyResults ?? [];
         const mergedKeyResults = [
           ...existingKeyResults,
+          // In append mode existing key results stay as they are; every generated one is new.
           ...newDraft.keyResults.map((kr) => ({
-            id: kr.id,
+            id: randomUUID(),
             statement: kr.statement,
             successMetric: kr.successMetric,
-            owner: kr.owner,
           })),
         ];
 

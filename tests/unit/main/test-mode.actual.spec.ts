@@ -4,7 +4,8 @@ import { join } from 'node:path';
 import type { OKRDocument } from '@clarityokr/contracts';
 import { ConnectionManager } from '@clarityokr/main/persistence/connection-manager';
 import { SqliteSessionRepository } from '@clarityokr/main/persistence/sqlite-session-repository';
-import { OKRRepositorySqlite } from '@clarityokr/main/persistence/okr-repository';
+import { OkrStore } from '@clarityokr/main/persistence/okr-store/okr-store';
+import { OkrStoreRepository } from '@clarityokr/main/persistence/okr-store/okr-store-repository';
 import {
   ClarificationSessionManager,
   ClarificationStateMachine,
@@ -31,7 +32,7 @@ const okr: OKRDocument = {
 describe('Actual TestMode with session manager and SQLite persistence', () => {
   let database: ConnectionManager;
   let sessionRepo: SqliteSessionRepository;
-  let okrRepo: OKRRepositorySqlite;
+  let okrRepo: OkrStoreRepository;
   let manager: ClarificationSessionManager;
   let mode: TestMode;
   let scratch: string;
@@ -44,7 +45,7 @@ describe('Actual TestMode with session manager and SQLite persistence', () => {
     database = new ConnectionManager({ dbPath: ':memory:' });
     database.initialize();
     sessionRepo = new SqliteSessionRepository(database);
-    okrRepo = new OKRRepositorySqlite(database);
+    okrRepo = new OkrStoreRepository(new OkrStore(database.getDb()));
     manager = new ClarificationSessionManager(sessionRepo, new ClarificationStateMachine());
     dependencies = {
       controller: {
@@ -90,7 +91,12 @@ describe('Actual TestMode with session manager and SQLite persistence', () => {
     const id = await mode.createMockSession({ initialIntent: 'First intent' });
     expect((await mode.getSession(id))?.initialIntent).toBe('First intent');
     await mode.saveOKR(okr);
-    expect(await mode.getLatestOKR()).toEqual(okr);
+    expect(await mode.getLatestOKR()).toMatchObject({
+      id: okr.id,
+      objective: okr.objective,
+      sourceSessionId: okr.sourceSessionId,
+      keyResults: [{ id: 'kr', statement: 'Measure' }],
+    });
     await mode.resetPersistence();
     expect(await sessionRepo.getAll()).toEqual([]);
     expect(await mode.getLatestOKR()).toBeNull();

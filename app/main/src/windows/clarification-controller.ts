@@ -36,7 +36,7 @@ import {
   ClarificationStateMachine,
 } from '../clarification/index.js';
 import type { IActionLogWriter } from '../persistence/action-log-writer.js';
-import type { OkrRepository } from '../persistence/okr-repository.js';
+import type { OkrStoreRepository as OkrRepository } from '../persistence/okr-store/okr-store-repository.js';
 import type { ISessionRepository } from '../persistence/interfaces/index.js';
 import { ActionLogService } from '../services/action-log.service.js';
 import type { OkrAgentService } from '../services/okr-agent.service.js';

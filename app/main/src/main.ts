@@ -32,7 +32,11 @@ import type {
 import { Logger } from './core/logger.js';
 import { ConnectionManager } from './persistence/connection-manager.js';
 import { SQLiteActionLogWriter } from './persistence/action-log-writer.js';
-import { OKRRepositorySqlite } from './persistence/okr-repository.js';
+import {
+  OkrStore,
+  OkrStoreRepository,
+  retireLegacyDatabase,
+} from './persistence/okr-store/index.js';
 import { SqliteSessionRepository } from './persistence/sqlite-session-repository.js';
 import { OkrAgentService } from './services/okr-agent.service.js';
 import { OkrRegenerationService } from './services/okr-regeneration.service.js';
@@ -50,16 +54,25 @@ const rendererDistPath =
     ? path.resolve(process.env.E2E_RENDERER_DIR)
     : path.resolve(currentDir, '../../renderer/dist');
 
-const connectionManager = new ConnectionManager({
-  dbPath:
-    process.env.E2E_TEST && process.env.E2E_DB_PATH
-      ? process.env.E2E_DB_PATH
-      : path.resolve(currentDir, '../../data/clarityokr.db'),
-});
+const dbPath =
+  process.env.E2E_TEST && process.env.E2E_DB_PATH
+    ? process.env.E2E_DB_PATH
+    : path.join(app.getPath('userData'), 'clarityokr.db');
+
+// A database from before schema versioning is renamed into backups/ and not imported.
+const retiredLegacyDatabase = retireLegacyDatabase(
+  dbPath,
+  path.join(path.dirname(dbPath), 'backups'),
+);
+if (retiredLegacyDatabase) {
+  Logger.info('[main] Previous database kept at', retiredLegacyDatabase);
+}
+
+const connectionManager = new ConnectionManager({ dbPath });
 connectionManager.initialize();
 
 const sessionRepository = new SqliteSessionRepository(connectionManager);
-const okrRepository = new OKRRepositorySqlite(connectionManager);
+const okrRepository = new OkrStoreRepository(new OkrStore(connectionManager.getDb()));
 const actionLogWriter = new SQLiteActionLogWriter(connectionManager);
 
 const okrAgentService = new OkrAgentService();

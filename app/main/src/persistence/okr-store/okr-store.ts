@@ -67,6 +67,15 @@ export interface SetProgressInput {
   status: KrStatus;
 }
 
+export interface SyncObjectiveInput {
+  id: string;
+  title: string;
+  period?: Period | null;
+  sourceSessionId?: string | null;
+  createdAt?: string;
+  keyResults: Array<{ id: string; statement: string; successMetric?: string | null }>;
+}
+
 export interface ReviewInput {
   wentWell: string;
   fellShort: string;
@@ -198,6 +207,117 @@ export class OkrStore {
     });
     create();
     return this.requireObjective(id);
+  }
+
+  /**
+   * Creates or updates an objective and reconciles its key results by id.
+   *
+   * - key results present in the input keep their progress and status; their text
+   *   and metric are replaced and a previously removed one is restored
+   * - ids not present in the existing objective are inserted as new, unset rows
+   * - existing key results missing from the input are marked removed (history kept)
+   *
+   * Only emptiness is checked here: text limits are enforced where user input
+   * enters (IPC), because generated text is stored as-is.
+   */
+  syncObjective(input: SyncObjectiveInput): ObjectiveWithKeyResults {
+    if (input.title.trim().length === 0) {
+      throw new ValidationError('Objective must not be empty');
+    }
+    if (input.period !== undefined && input.period !== null && !isPeriod(input.period)) {
+      throw new ValidationError('Period must look like 2026-Q4');
+    }
+    for (const kr of input.keyResults) {
+      if (kr.statement.trim().length === 0) {
+        throw new ValidationError('Key result must not be empty');
+      }
+    }
+    const ids = new Set(input.keyResults.map((kr) => kr.id));
+    if (ids.size !== input.keyResults.length) {
+      throw new ValidationError('Key result ids must be unique');
+    }
+
+    const at = this.timestamp();
+    const existing = this.db.prepare('SELECT * FROM objectives WHERE id = ?').get(input.id) as
+      ObjectiveRow | undefined;
+    this.db.transaction(() => {
+      if (existing) {
+        this.db
+          .prepare('UPDATE objectives SET title = ?, updated_at = ? WHERE id = ?')
+          .run(input.title, at, input.id);
+        if (input.period !== undefined) {
+          this.db
+            .prepare('UPDATE objectives SET period = ? WHERE id = ?')
+            .run(input.period, input.id);
+        }
+      } else {
+        this.db
+          .prepare(
+            `INSERT INTO objectives (id, title, period, pinned, source_session_id, created_at, updated_at)
+             VALUES (?, ?, ?, 0, ?, ?, ?)`,
+          )
+          .run(
+            input.id,
+            input.title,
+            input.period ?? null,
+            input.sourceSessionId ?? null,
+            input.createdAt ?? at,
+            at,
+          );
+      }
+
+      const rows = this.db
+        .prepare('SELECT * FROM key_results WHERE objective_id = ?')
+        .all(input.id) as KeyResultRow[];
+      const known = new Map(rows.map((row) => [row.id, row]));
+      const update = this.db.prepare(
+        `UPDATE key_results SET position = ?, statement = ?, success_metric = ?, removed_at = NULL, updated_at = ?
+         WHERE id = ?`,
+      );
+      const insert = this.db.prepare(
+        `INSERT INTO key_results
+           (id, objective_id, position, statement, success_metric, progress, status, removed_at, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, NULL, 'not_started', NULL, ?, ?)`,
+      );
+      input.keyResults.forEach((kr, index) => {
+        if (known.has(kr.id)) {
+          update.run(index, kr.statement, kr.successMetric ?? null, at, kr.id);
+        } else {
+          insert.run(kr.id, input.id, index, kr.statement, kr.successMetric ?? null, at, at);
+        }
+      });
+      for (const row of rows) {
+        if (!ids.has(row.id) && row.removed_at === null) {
+          this.db
+            .prepare('UPDATE key_results SET removed_at = ?, updated_at = ? WHERE id = ?')
+            .run(at, at, row.id);
+        }
+      }
+    })();
+    if (!existing) {
+      this.pinObjective(input.id);
+    }
+    return this.requireObjective(input.id);
+  }
+
+  /** The pinned objective, or else the most recently updated one. */
+  getCurrentObjective(): ObjectiveWithKeyResults | null {
+    return this.getPinnedObjective() ?? this.listObjectives()[0] ?? null;
+  }
+
+  /** Objectives created from a clarification session, most recently updated first. */
+  listObjectivesBySession(sessionId: string): ObjectiveWithKeyResults[] {
+    const rows = this.db
+      .prepare(
+        'SELECT id FROM objectives WHERE source_session_id = ? ORDER BY updated_at DESC, id ASC',
+      )
+      .all(sessionId) as Array<{ id: string }>;
+    return rows.map((row) => this.requireObjective(row.id));
+  }
+
+  /** Deletes every objective with its key results, entries and reviews (test reset). */
+  deleteAllObjectives(): void {
+    this.db.prepare('DELETE FROM objectives').run();
   }
 
   getObjective(id: string): ObjectiveWithKeyResults | null {
