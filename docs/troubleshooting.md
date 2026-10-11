@@ -154,7 +154,7 @@ cat data/session.json | jq .
 ls -la data/okr/
 
 # View action log
-tail -f data/action-log.ndjson
+tail -f data/action-log.json
 ```
 
 ### Debug Electron Main Process
@@ -210,7 +210,7 @@ tail -f data/action-log.ndjson
 ## Getting Help
 
 1. Check existing issues: https://github.com/Jackela/ClarityOKR/issues
-2. Review action logs in `data/action-log.ndjson`
+2. Review action logs in `data/action-log.json`
 3. Create a minimal reproduction case
 4. Include:
    - Node.js version

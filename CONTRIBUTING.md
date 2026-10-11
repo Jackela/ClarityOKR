@@ -62,7 +62,7 @@ This repository uses AI-assisted development tools that create local working dir
 - These directories are gitignored and will not appear in version control
 - They contain valuable context for AI assistants working in the codebase
 - If you need to preserve this context, back it up separately (e.g., Dropbox, personal git repo)
-- **Authoritative project context**: See `openspec/project.md` for comprehensive ClarityOKR architecture, tech stack, and conventions
+- **Authoritative project context**: See [docs/architecture.md](docs/architecture.md) and [README.md](README.md) for ClarityOKR architecture, tech stack, and conventions
 
 ## Reporting issues
 Please create an issue with steps to reproduce, expected vs actual behavior, logs, and environment details.
