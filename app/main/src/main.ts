@@ -34,7 +34,6 @@ import { ConnectionManager } from './persistence/connection-manager.js';
 import { SQLiteActionLogWriter } from './persistence/action-log-writer.js';
 import { OKRRepositorySqlite } from './persistence/okr-repository.js';
 import { SqliteSessionRepository } from './persistence/sqlite-session-repository.js';
-import { MigrationService } from './persistence/migration.service.js';
 import { OkrAgentService } from './services/okr-agent.service.js';
 import { OkrRegenerationService } from './services/okr-regeneration.service.js';
 
@@ -62,11 +61,6 @@ connectionManager.initialize();
 const sessionRepository = new SqliteSessionRepository(connectionManager);
 const okrRepository = new OKRRepositorySqlite(connectionManager);
 const actionLogWriter = new SQLiteActionLogWriter(connectionManager);
-
-const migrationService = new MigrationService(connectionManager);
-if (migrationService.needsMigration()) {
-  void migrationService.migrate();
-}
 
 const okrAgentService = new OkrAgentService();
 const okrRegenerationService = new OkrRegenerationService(
