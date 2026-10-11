@@ -9,3 +9,6 @@ export { LoadingSpinnerComponent, type SpinnerSize } from './loading-spinner.com
 export { ProgressIndicatorComponent } from './progress-indicator.component';
 export { SkeletonComponent } from './skeleton.component';
 export { SuccessCelebrationComponent } from './success-celebration.component';
+export { MeterBarComponent } from './meter-bar.component';
+export { PopupSelectComponent, type PopupOption } from './popup-select.component';
+export { TabBarComponent, type TabItem } from './tab-bar.component';

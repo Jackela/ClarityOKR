@@ -1,5 +1,10 @@
 import { Inject, Injectable, type OnDestroy, signal, computed } from '@angular/core';
-import type { GenerateOKRRequest, OKRDocument, RegenerationPolicy } from '@clarityokr/contracts';
+import type {
+  GenerateOKRRequest,
+  OKRDocument,
+  OkrDetail,
+  RegenerationPolicy,
+} from '@clarityokr/contracts';
 import {
   BridgeUnavailableError,
   generateOKRRequestSchema,
@@ -29,6 +34,8 @@ export interface KeyResultViewModel {
  * View model for the OKR sticky note display.
  */
 export interface OkrStickyViewModel {
+  /** Objective id in the store (the key for the closed-loop channels) */
+  id: string;
   /** The main Objective statement */
   objective: string;
   /** Array of Key Results transformed for display */
@@ -105,8 +112,12 @@ export class OkrStickyService implements OnDestroy {
     if (!document.keyResults.length) {
       throw new Error('Key Results are required for sticky note rendering.');
     }
+    return this.buildViewModel(document);
+  }
 
+  private buildViewModel(document: OKRDocument): OkrStickyViewModel {
     return {
+      id: document.id,
       objective: document.objective,
       keyResults: document.keyResults.map((kr) => ({
         id: kr.id,
@@ -183,6 +194,34 @@ export class OkrStickyService implements OnDestroy {
       okrId: this.document.id,
     });
     if (copied !== true) throw new Error('Clipboard export failed');
+  }
+
+  /**
+   * Makes an OKR opened from the history the one that edit / regenerate / copy act on.
+   * Built from the closed-loop detail, so no extra round trip is needed.
+   */
+  openFromDetail(detail: OkrDetail): OkrStickyViewModel {
+    const { objective } = detail;
+    // An OKR whose key results were all removed by regenerations still opens (empty list).
+    return this.storeDocument(
+      {
+        id: objective.id,
+        objective: objective.title,
+        keyResults: objective.keyResults
+          .filter((kr) => kr.removedAt === null)
+          .map((kr) => ({
+            id: kr.id,
+            statement: kr.statement,
+            ...(kr.successMetric ? { successMetric: kr.successMetric } : {}),
+          })),
+        sourceSessionId: objective.sourceSessionId ?? '',
+        generatedAt: objective.createdAt,
+        lastEditedAt: objective.updatedAt === objective.createdAt ? null : objective.updatedAt,
+        regenerationPolicy: 'overwrite',
+        manualEdits: [],
+      },
+      { allowEmpty: true },
+    );
   }
 
   async reopenSticky(): Promise<void> {
@@ -264,9 +303,13 @@ export class OkrStickyService implements OnDestroy {
   /**
    * Store document and project to view model
    */
-  private storeDocument(document: OKRDocument): OkrStickyViewModel {
+  private storeDocument(
+    document: OKRDocument,
+    options: { allowEmpty?: boolean } = {},
+  ): OkrStickyViewModel {
+    // Project first: if it throws, the stored document and the view model stay untouched.
+    const viewModel = options.allowEmpty ? this.buildViewModel(document) : this.project(document);
     this.document = document;
-    const viewModel = this.project(document);
     this._viewModel.set(viewModel);
     return viewModel;
   }

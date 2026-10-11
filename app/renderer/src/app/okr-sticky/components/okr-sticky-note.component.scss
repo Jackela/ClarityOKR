@@ -163,3 +163,194 @@
   border: 0;
   min-width: 0;
 }
+
+/* ---- Closed-loop layout (spec §3.2) ---- */
+.sticky-note__toprow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 32px;
+}
+
+.sticky-note__edited {
+  flex: 1;
+  min-width: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.sticky-note__edit {
+  margin-left: auto;
+}
+
+.sticky-note__tag {
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--notice-warn-bg);
+  color: var(--notice-warn-fg);
+  font-size: var(--font-size-xs);
+  line-height: 20px;
+}
+
+.sticky-note__title {
+  margin: var(--space-1) 0 0;
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: var(--font-weight-bold);
+  overflow-wrap: anywhere;
+}
+
+.sticky-note__section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.sticky-note__section-title {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.sticky-note__section-actions,
+.sticky-note__policies,
+.sticky-note__footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.sticky-note__text-btn {
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border-control);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+
+.sticky-note__text-btn:hover {
+  background: var(--color-bg-secondary);
+}
+
+.sticky-note .sticky-note__list {
+  gap: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-bg-primary);
+  overflow: hidden;
+}
+
+.sticky-note__plain {
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-size-sm);
+}
+
+.banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: 40px;
+  padding: var(--space-2) var(--space-3);
+  border-left: 4px solid var(--color-brand-primary);
+  border-radius: var(--radius-md);
+  background: var(--notice-info-bg);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.banner--error {
+  border-left-color: var(--notice-error-fg);
+  background: var(--notice-error-bg);
+  color: var(--notice-error-fg);
+}
+
+.banner__btn {
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.banner__btn[aria-disabled='true'] {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.panel {
+  padding: var(--space-4) 0;
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.removed__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-align: left;
+  cursor: pointer;
+}
+
+.removed__note,
+.removed__meta {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: 16px;
+}
+
+.removed__list {
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.removed__item {
+  padding: var(--space-2) 0 var(--space-2) 36px;
+  border-top: 1px solid var(--color-border);
+}
+
+.removed__text {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 21px;
+  overflow-wrap: anywhere;
+}
+
+.removed__tag {
+  display: inline-block;
+  margin-right: var(--space-2);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--status-not_started-bg);
+}
+
+.sticky-note__footer {
+  margin-top: var(--space-3);
+}

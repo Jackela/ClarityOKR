@@ -23,9 +23,14 @@ export const buttonStyles = [
         background-color var(--duration-fast) var(--ease-snappy);
     }
 
+    /* Visible focus ring (spec §2.2): 2px outline, never replaced by a faint glow. */
     .btn:focus-visible {
-      outline: none;
-      box-shadow: var(--shadow-focus-ring);
+      outline: 2px solid var(--color-brand-primary);
+      outline-offset: 2px;
+    }
+
+    :host-context([data-theme='dark']) .btn:focus-visible {
+      outline-color: #60a5fa;
     }
 
     .btn:disabled, .btn--disabled {
