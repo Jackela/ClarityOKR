@@ -1,5 +1,5 @@
 /**
- * Closed-loop OKR data model (schema v1).
+ * Closed-loop OKR data model (schema v2).
  *
  * Shared by the main process (persistence, IPC validation) and the renderer
  * (form validation) so both sides agree on limits and text counting.
@@ -128,7 +128,10 @@ export interface ReviewRecord {
   fellShort: string;
   nextSteps: string;
   snapshot: ReviewKrSnapshot[];
+  /** When the review text was last saved. */
   savedAt: string;
+  /** When the key result snapshot was frozen (first save); never changes afterwards. */
+  snapshotAt: string;
 }
 
 export interface NewKeyResultInput {
