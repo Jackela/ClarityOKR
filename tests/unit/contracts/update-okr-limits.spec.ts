@@ -74,3 +74,54 @@ describe('okr:update text limits (grapheme based)', () => {
     expect(doc.success).toBe(true);
   });
 });
+
+describe('there is no owner field any more', () => {
+  it('the key result schema rejects a key result that carries one', () => {
+    const result = okrDocumentSchema.safeParse({
+      id: 'okr-1',
+      objective: '目标',
+      keyResults: [{ id: 'kr-1', statement: '关键结果', owner: '团队' }],
+      sourceSessionId: 's',
+      generatedAt: '2026-10-10T00:00:00.000Z',
+      regenerationPolicy: 'append',
+      manualEdits: [],
+    });
+    expect(result.success).toBe(false);
+    expect(JSON.stringify(result.error?.issues)).toContain('owner');
+  });
+
+  it('an explicit undefined owner is rejected as well (nothing carries the key)', () => {
+    const result = okrDocumentSchema.safeParse({
+      id: 'okr-1',
+      objective: '目标',
+      keyResults: [{ id: 'kr-1', statement: '关键结果', owner: undefined }],
+      sourceSessionId: 's',
+      generatedAt: '2026-10-10T00:00:00.000Z',
+      regenerationPolicy: 'append',
+      manualEdits: [],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('okr:update rejects an owner on a key result too', () => {
+    const result = updateOKRRequestSchema.safeParse({
+      ...base,
+      keyResults: [{ id: 'kr-1', statement: '关键结果', owner: '团队' }],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('a key result without owner is accepted', () => {
+    expect(
+      okrDocumentSchema.safeParse({
+        id: 'okr-1',
+        objective: '目标',
+        keyResults: [{ id: 'kr-1', statement: '关键结果', successMetric: '度量' }],
+        sourceSessionId: 's',
+        generatedAt: '2026-10-10T00:00:00.000Z',
+        regenerationPolicy: 'append',
+        manualEdits: [],
+      }).success,
+    ).toBe(true);
+  });
+});

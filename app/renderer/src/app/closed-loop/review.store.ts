@@ -98,6 +98,10 @@ export class ReviewStore {
 
   /** Throws the typed text away (the user confirmed leaving). */
   discard(): void {
+    // Whatever request is still in flight belongs to the text that is thrown away: its reply
+    // must not be adopted (so nothing is saved after the user said 「放弃」).
+    this.seq++;
+    this.saving.set(false);
     this.draft.set({ ...this.baseline() });
     this.saveFailure.set('none');
   }

@@ -27,13 +27,11 @@ describe('OkrStickyNoteComponent', () => {
         id: 'kr-1',
         statement: '将迭代周期缩短到 3 周',
         metricLabel: '周期 <= 21 天',
-        ownerLabel: '运营团队',
       },
       {
         id: 'kr-2',
         statement: '将上线缺陷率控制在 0.5%',
         metricLabel: null,
-        ownerLabel: null,
       },
     ],
     generatedAt: '2025-10-31T10:12:00.000Z',
@@ -125,7 +123,7 @@ describe('Sticky note DOM with actual edit store and gateway', () => {
     sourceSessionId: 'component-session',
     objective: 'Original objective',
     keyResults: [
-      { id: 'first', statement: 'First result', owner: 'Team', successMetric: '90%' },
+      { id: 'first', statement: 'First result', successMetric: '90%' },
       { id: 'second', statement: 'Second result' },
     ],
     generatedAt: time,
@@ -267,6 +265,26 @@ describe('Sticky note DOM with actual edit store and gateway', () => {
     expect(legacyCalls()).toEqual([]);
   });
 
+  it('blur and paste in the real form start a new undo step (spec §3.9)', async () => {
+    await enterEdit();
+    await input('edit-objective', 'One');
+    await input('edit-objective', 'One two');
+    element('edit-objective').dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    await input('edit-objective', 'One two three');
+    element('edit-objective').dispatchEvent(new Event('paste', { bubbles: true }));
+    await input('edit-objective', 'One two three PASTED');
+    await input('edit-objective', 'One two three PASTED more');
+    // typing after the paste is a step of its own
+    store.undo();
+    expect(store.draftObjective()).toBe('One two three PASTED');
+    store.undo();
+    expect(store.draftObjective()).toBe('One two three');
+    store.undo();
+    expect(store.draftObjective()).toBe('One two');
+    store.undo();
+    expect(store.draftObjective()).toBe(original.objective);
+  });
+
   it('disables invalid and clean saves, then saves real acknowledged data with metadata preserved', async () => {
     await enterEdit();
     await note.save();
@@ -293,7 +311,6 @@ describe('Sticky note DOM with actual edit store and gateway', () => {
         {
           id: 'second',
           statement: 'Edited second result',
-          owner: undefined,
           successMetric: undefined,
         },
       ],

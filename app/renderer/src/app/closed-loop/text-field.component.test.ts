@@ -126,4 +126,72 @@ describe('TextFieldComponent (spec §3.9a)', () => {
     fixture.detectChanges();
     expect(q<HTMLTextAreaElement>('f').readOnly).toBe(true);
   });
+
+  describe('IME composition', () => {
+    const area = (): HTMLTextAreaElement => q<HTMLTextAreaElement>('f');
+    const compose = (provisional: string): void => {
+      area().value = provisional;
+      area().dispatchEvent(new InputEvent('input', { bubbles: true, isComposing: true }));
+      fixture.detectChanges();
+    };
+
+    it('provisional text is not handed to the owner (never reaches an undo stack)', () => {
+      area().dispatchEvent(new Event('compositionstart', { bubbles: true }));
+      compose('n');
+      compose('ni');
+      compose('nihao');
+      expect(fixture.componentInstance.changes).toBe(0);
+      expect(fixture.componentInstance.value).toBe('');
+    });
+
+    it('the count is shown while composing, in grapheme units', () => {
+      area().dispatchEvent(new Event('compositionstart', { bubbles: true }));
+      compose('你好');
+      expect(text('f-count')).toBe('2/200');
+      compose('你好👨‍👩‍👧‍👦');
+      expect(text('f-count')).toBe('3/200');
+    });
+
+    it('an over-limit text only shows its error after the composition ended', () => {
+      fixture.componentInstance.max = 5;
+      fixture.detectChanges();
+      area().dispatchEvent(new Event('compositionstart', { bubbles: true }));
+      compose('一二三四五六七');
+      expect(text('f-count')).toBe('7/5');
+      expect(text('f-error')).toBe('');
+      expect(q('f').getAttribute('aria-invalid')).toBeNull();
+      expect(q('f-alert').textContent).toBe('');
+      expect(q('f-count').classList).not.toContain('field__count--over');
+      area().dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }));
+      fixture.detectChanges();
+      expect(fixture.componentInstance.value).toBe('一二三四五六七');
+      expect(text('f-error')).toContain('超出 2 个字符');
+      expect(q('f').getAttribute('aria-invalid')).toBe('true');
+    });
+
+    it('compositionend hands over the final text exactly once, even if an input event follows', () => {
+      area().dispatchEvent(new Event('compositionstart', { bubbles: true }));
+      compose('你');
+      compose('你好');
+      area().dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }));
+      area().dispatchEvent(new InputEvent('input', { bubbles: true, isComposing: false }));
+      fixture.detectChanges();
+      expect(fixture.componentInstance.changes).toBe(1);
+      expect(fixture.componentInstance.value).toBe('你好');
+      expect(text('f-count')).toBe('2/200');
+    });
+
+    it('normal typing afterwards is handed over again, also the same text as before (after undo)', () => {
+      area().dispatchEvent(new Event('compositionstart', { bubbles: true }));
+      compose('你好');
+      area().dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }));
+      type('你好a');
+      expect(fixture.componentInstance.changes).toBe(2);
+      // the owner undid it; the user types the same text again
+      fixture.componentInstance.value = '你好';
+      fixture.detectChanges();
+      type('你好a');
+      expect(fixture.componentInstance.changes).toBe(3);
+    });
+  });
 });

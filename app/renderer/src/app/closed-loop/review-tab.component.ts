@@ -1,9 +1,12 @@
+import { DOCUMENT } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
   EventEmitter,
   HostListener,
   Output,
+  DestroyRef,
+  ElementRef,
   computed,
   effect,
   inject,
@@ -14,7 +17,9 @@ import { TEXT_LIMITS, type KrStatus } from '@clarityokr/contracts';
 
 import { ButtonComponent } from '../shared/components/button.component';
 import { SkeletonComponent } from '../shared/components/skeleton.component';
+import { ToastHostComponent } from '../shared/components/toast-host.component';
 import { ToastService } from '../shared/components/toast.service';
+import { announceAgain } from './announce';
 import { ClosedLoopStore } from './closed-loop.store';
 import { COPY, STATUS_ICON, STATUS_LABEL, formatRelativeTime } from './copy';
 import { REVIEW_KEYS, ReviewStore, type ReviewKey } from './review.store';
@@ -38,7 +43,7 @@ interface SnapshotRow {
 @Component({
   selector: 'clarityokr-review-tab',
   standalone: true,
-  imports: [ButtonComponent, SkeletonComponent, TextFieldComponent],
+  imports: [ButtonComponent, SkeletonComponent, TextFieldComponent, ToastHostComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (store.currentId() === null) {
@@ -213,6 +218,7 @@ interface SnapshotRow {
               }
             </div>
           }
+          <clarityokr-toast-host [docked]="true" />
           <div class="review__bar" data-testid="review-bar">
             <span class="review__bar-text">
               @if (review.dirty()) {
@@ -259,6 +265,7 @@ export class ReviewTabComponent {
   readonly store = inject(ClosedLoopStore);
   readonly review = inject(ReviewStore);
   private readonly toasts = inject(ToastService);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   readonly savedLive = signal('');
   readonly memory = computed(() => this.store.storageMode() === 'memory');
@@ -317,7 +324,11 @@ export class ReviewTabComponent {
     );
   });
 
+  private readonly doc = inject(DOCUMENT);
+  private gone = false;
+
   constructor() {
+    inject(DestroyRef).onDestroy(() => (this.gone = true));
     void this.store.ensureStorageMode();
     effect(() => {
       const id = this.store.currentId();
@@ -370,17 +381,26 @@ export class ReviewTabComponent {
   onShortcut(event: KeyboardEvent): void {
     if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return;
     if (event.key.toLowerCase() !== 's') return;
+    if (event.isComposing) return; // an IME is still composing: Ctrl+S is not for us yet
     event.preventDefault();
     void this.save();
   }
 
   async save(): Promise<void> {
     const saved = await this.review.save();
-    if (!saved) return;
+    // No reply, or a reply for text that was thrown away / a tab that is gone: say nothing.
+    if (!saved || this.gone) return;
     this.toasts.show({
       kind: 'success',
       message: this.memory() ? this.t.savedToastMemory : this.t.savedToast,
     });
-    this.savedLive.set(this.t.savedLive(this.time(saved.snapshotAt)));
+    announceAgain(this.savedLive, this.t.savedLive(this.time(saved.snapshotAt)));
+    // The docked toast takes room from the scroll area: keep the focused box in sight.
+    setTimeout(() => {
+      const active = this.doc.activeElement;
+      if (active instanceof HTMLElement && this.host.nativeElement.contains(active)) {
+        active.scrollIntoView?.({ block: 'nearest' });
+      }
+    }, 0);
   }
 }

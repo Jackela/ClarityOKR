@@ -16,7 +16,6 @@ interface DraftKeyResult {
   id: string;
   statement: string;
   successMetric: string;
-  owner: string;
 }
 
 /**
@@ -64,7 +63,6 @@ describe('EditModeStore', () => {
       id: `kr-${Math.random().toString(36).slice(2)}`,
       statement: '默认关键结果',
       successMetric: '指标 >= 90%',
-      owner: '测试团队',
       ...overrides,
     };
   }
@@ -80,19 +78,16 @@ describe('EditModeStore', () => {
           id: 'kr-1',
           statement: '将交付周期从 4 周缩短到 2 周',
           successMetric: '周期 <= 14 天',
-          owner: '研发团队',
         }),
         buildKeyResult({
           id: 'kr-2',
           statement: '代码审查通过率提升到 90%',
           successMetric: '通过率 >= 90%',
-          owner: '开发团队',
         }),
         buildKeyResult({
           id: 'kr-3',
           statement: '自动化测试覆盖率提升到 80%',
           successMetric: '覆盖率 >= 80%',
-          owner: 'QA团队',
         }),
       ],
     };
@@ -323,26 +318,16 @@ describe('EditModeStore', () => {
       expect(kr?.successMetric).toBe('新的指标 >= 95%');
     });
 
-    it('should update key result owner', () => {
-      store.updateKeyResult('kr-1', { owner: '新团队' });
-
-      const state = store.getState();
-      const kr = state.draftKeyResults.find((k) => k.id === 'kr-1');
-      expect(kr?.owner).toBe('新团队');
-    });
-
     it('should update multiple fields at once', () => {
       store.updateKeyResult('kr-1', {
         statement: '新描述',
         successMetric: '新指标',
-        owner: '新团队',
       });
 
       const state = store.getState();
       const kr = state.draftKeyResults.find((k) => k.id === 'kr-1');
       expect(kr?.statement).toBe('新描述');
       expect(kr?.successMetric).toBe('新指标');
-      expect(kr?.owner).toBe('新团队');
     });
 
     it('should not modify other key results when updating one', () => {
@@ -532,7 +517,7 @@ describe('EditModeStore', () => {
       store.cancelEdits();
       store.enterEditMode(store.getState().originalObjective, store.getState().originalKeyResults);
 
-      store.updateKeyResult('kr-1', { owner: '新团队' });
+      store.updateKeyResult('kr-1', { successMetric: '另一个指标' });
       expect(store.getState().isDirty).toBe(true);
     });
 
@@ -705,13 +690,6 @@ describe('EditModeStore', () => {
       expect(state.isValid).toBe(true);
     });
 
-    it('should allow empty owner (optional field)', () => {
-      store.updateKeyResult('kr-1', { owner: '' });
-
-      const state = store.getState();
-      expect(state.isValid).toBe(true);
-    });
-
     it('should accumulate multiple validation errors', () => {
       store.updateObjective('');
       store.updateKeyResult('kr-1', { statement: '' });
@@ -812,7 +790,6 @@ describe('EditModeStore', () => {
       store.updateKeyResult('kr-1', {
         statement: '完整的KR描述',
         successMetric: '指标 >= 100%',
-        owner: '完整团队名称',
       });
 
       const state = store.getState();
@@ -821,7 +798,6 @@ describe('EditModeStore', () => {
         id: 'kr-1',
         statement: '完整的KR描述',
         successMetric: '指标 >= 100%',
-        owner: '完整团队名称',
       });
     });
 

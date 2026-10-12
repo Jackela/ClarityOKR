@@ -10,6 +10,8 @@ import {
   signal,
 } from '@angular/core';
 
+import { countGraphemes } from '@clarityokr/contracts';
+
 import { COPY } from './copy';
 import { evaluateText, type TextLimitKind, type TextLimitState } from './text-limit';
 
@@ -44,6 +46,8 @@ import { evaluateText, type TextLimitKind, type TextLimitState } from './text-li
         [class.field__input--invalid]="invalid"
         [style.min-height.px]="minHeight"
         (input)="onInput($event)"
+        (compositionstart)="composing = true"
+        (compositionend)="onCompositionEnd($event)"
       ></textarea>
       <div class="field__foot">
         <span class="field__error" [id]="errorId" [attr.data-testid]="testId + '-error'">
@@ -64,7 +68,7 @@ import { evaluateText, type TextLimitKind, type TextLimitState } from './text-li
           @if (limit.kind === 'too_long') {
             <span aria-hidden="true">⚠ </span>
           }
-          {{ limit.count }}/{{ limit.limit }}
+          {{ liveCount() ?? limit.count }}/{{ limit.limit }}
         </span>
       </div>
       <span class="sr-only" role="alert" [attr.data-testid]="testId + '-alert'">{{
@@ -103,6 +107,11 @@ export class TextFieldComponent implements OnChanges {
 
   readonly alertText = signal('');
   readonly statusText = signal('');
+  /** While an IME composes: the count of the text as it is now (display only). */
+  readonly liveCount = signal<number | null>(null);
+  composing = false;
+  /** The text emitted by `compositionend`; an `input` event right after it with the same text is a duplicate. */
+  private composedText: string | null = null;
 
   limit: TextLimitState = evaluateText('', 200);
   private previous: TextLimitKind = 'ok';
@@ -160,8 +169,33 @@ export class TextFieldComponent implements OnChanges {
     this.input.nativeElement.focus();
   }
 
+  /**
+   * While an IME composes (拼音 etc.) the text in the box is provisional: it is neither checked
+   * against the limit nor handed to the owner (so it never reaches the undo stack). Only the
+   * count is shown. The final text is emitted once, when the composition ends.
+   */
   onInput(event: Event): void {
     const text = (event.target as HTMLTextAreaElement).value;
+    if ((event as InputEvent).isComposing || this.composing) {
+      this.composing = true;
+      this.liveCount.set(countGraphemes(text));
+      return;
+    }
+    // Some engines fire `input` after `compositionend` with the same final text.
+    if (text === this.composedText) {
+      this.composedText = null;
+      return;
+    }
+    this.composedText = null;
+    this.valueChange.emit(text);
+  }
+
+  onCompositionEnd(event: Event): void {
+    this.composing = false;
+    this.liveCount.set(null);
+    const text = (event.target as HTMLTextAreaElement).value;
+    this.composedText = text;
+    setTimeout(() => (this.composedText = null), 0);
     this.valueChange.emit(text);
   }
 }

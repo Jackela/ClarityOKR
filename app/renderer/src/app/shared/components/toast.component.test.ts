@@ -122,11 +122,13 @@ describe('Toast (spec §2.6)', () => {
     expect(run).toHaveBeenCalledTimes(1);
   });
 
-  it('sits 56px higher when a bottom bar is showing', () => {
+  it('docked: in the flow (not fixed), 8px above whatever follows it', () => {
     toasts.show({ kind: 'success', message: 'x' });
-    fixture.componentRef.setInput('raised', true);
+    fixture.componentRef.setInput('docked', true);
     flush();
-    expect(q('toast-success')!.classList).toContain('toast--raised');
+    const toast = q('toast-success')!;
+    expect(toast.classList).toContain('toast--docked');
+    expect(getComputedStyle(toast).position).not.toBe('fixed');
   });
 
   it('dismiss(id) ignores a toast that was already replaced', () => {

@@ -66,12 +66,13 @@ export interface OkrDraftResponse {
 /** Schema for validating LLM OKR generation responses (used in regeneration) */
 export const llmOkrGenerationResponseSchema = z.object({
   objective: z.string().min(1),
-  keyResults: z.array(z.object({
-    id: z.string().min(1),
-    statement: z.string().min(1),
-    successMetric: z.string().optional(),
-    owner: z.string().optional(),
-  })),
+  keyResults: z.array(
+    z.object({
+      id: z.string().min(1),
+      statement: z.string().min(1),
+      successMetric: z.string().optional(),
+    }),
+  ),
 });
 
 /** Type for LLM OKR generation response */

@@ -2,7 +2,7 @@
  * OKR View Mode Component
  *
  * Displays the OKR in read-only mode, showing the list of
- * key results with their metrics and owner badges.
+ * key results with their metrics.
  *
  * @usage
  * ```html
@@ -43,13 +43,6 @@ import type { KeyResultViewModel } from './types.js';
           <div class="okr-view-mode__item-badges">
             <span *ngIf="kr.metricLabel" class="okr-view-mode__badge" data-testid="sticky-kr-badge">
               {{ kr.metricLabel }}
-            </span>
-            <span
-              *ngIf="kr.ownerLabel"
-              class="okr-view-mode__badge okr-view-mode__badge--owner"
-              data-testid="sticky-kr-badge"
-            >
-              {{ kr.ownerLabel }}
             </span>
           </div>
         </li>
@@ -106,11 +99,6 @@ import type { KeyResultViewModel } from './types.js';
         border-radius: var(--radius-full);
         font-size: var(--font-size-xs);
         color: var(--color-text-secondary);
-      }
-
-      .okr-view-mode__badge--owner {
-        background: var(--color-success-light);
-        color: var(--color-success);
       }
 
       @media (prefers-reduced-motion: reduce) {

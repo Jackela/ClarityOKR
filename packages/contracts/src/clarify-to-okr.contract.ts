@@ -58,7 +58,6 @@ export interface KeyResult {
   id: string;
   statement: string;
   successMetric?: string;
-  owner?: string;
 }
 
 export type RegenerationPolicy = 'overwrite' | 'append';

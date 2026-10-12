@@ -63,12 +63,14 @@ export const clarificationSessionSchema = z.object({
   pendingQuestionId: z.string().optional().nullable(),
 });
 
-export const keyResultSchema = z.object({
-  id: z.string().min(1),
-  statement: graphemeText(TEXT_LIMITS.keyResult).refine((v) => v.length > 0, 'empty'),
-  successMetric: graphemeText(TEXT_LIMITS.successMetric).optional(),
-  owner: z.string().optional(),
-});
+export const keyResultSchema = z
+  .object({
+    id: z.string().min(1),
+    statement: graphemeText(TEXT_LIMITS.keyResult).refine((v) => v.length > 0, 'empty'),
+    successMetric: graphemeText(TEXT_LIMITS.successMetric).optional(),
+    // There is no owner field any more; a document that still carries one is rejected.
+  })
+  .strict();
 
 export const manualEditRecordSchema = z.object({
   id: z.string().min(1),

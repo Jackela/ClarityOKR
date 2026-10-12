@@ -10,7 +10,7 @@ const document: OKRDocument = {
   objective: 'Original objective',
   keyResults: [
     { id: 'a', statement: 'First result' },
-    { id: 'b', statement: 'Second result', owner: 'Team', successMetric: '90%' },
+    { id: 'b', statement: 'Second result', successMetric: '90%' },
   ],
   generatedAt: time,
   regenerationPolicy: 'append',
@@ -64,7 +64,6 @@ describe('Actual sticky service transport, projection and persistence ownership'
     expect(service.hasStickyNote()).toBe(true);
     expect(service.currentViewModel()?.keyResults[0]).toMatchObject({
       metricLabel: null,
-      ownerLabel: null,
     });
     const persisted = {
       ...document,

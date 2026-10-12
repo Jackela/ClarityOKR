@@ -15,6 +15,8 @@ import { DialogComponent } from './dialog.component';
         cancelLabel="继续编辑"
         confirmLabel="放弃"
         [danger]="danger"
+        [confirmDisabled]="disabled"
+        [confirmNote]="note"
         (cancelled)="cancelled = cancelled + 1; open = false"
         (confirmed)="confirmed = confirmed + 1; open = false"
       />
@@ -24,6 +26,8 @@ import { DialogComponent } from './dialog.component';
 class Host {
   open = false;
   danger = true;
+  disabled = false;
+  note = '';
   cancelled = 0;
   confirmed = 0;
 }
@@ -117,5 +121,91 @@ describe('DialogComponent (spec §2.6, T8)', () => {
     q('[data-testid="dialog-confirm"]').click();
     fixture.detectChanges();
     expect(fixture.componentInstance.confirmed).toBe(1);
+  });
+
+  describe('modal behaviour', () => {
+    const key = (init: KeyboardEventInit, target: EventTarget = document.body): KeyboardEvent => {
+      const event = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init });
+      target.dispatchEvent(event);
+      fixture.detectChanges();
+      return event;
+    };
+
+    it('everything behind it is inert, and comes back when it closes', () => {
+      expect(q('#opener').hasAttribute('inert')).toBe(true);
+      expect(q('.scrim').closest('[inert]')).toBeNull();
+      q('[data-testid="dialog-cancel"]').click();
+      fixture.detectChanges();
+      expect(q('#opener').hasAttribute('inert')).toBe(false);
+      expect(document.querySelectorAll('[inert]')).toHaveLength(0);
+    });
+
+    it('a press on the scrim keeps the focus in the dialog (mousedown is cancelled)', () => {
+      const down = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+      q('[data-testid="dialog-scrim"]').dispatchEvent(down);
+      expect(down.defaultPrevented).toBe(true);
+      expect(document.activeElement).toBe(q('[data-testid="dialog-cancel"]'));
+      expect(fixture.componentInstance.cancelled).toBe(0);
+    });
+
+    it('a press on a button is left alone', () => {
+      const down = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+      q('[data-testid="dialog-confirm"]').dispatchEvent(down);
+      expect(down.defaultPrevented).toBe(false);
+    });
+
+    it('Esc still cancels when the focus fell out of the box (e.g. to <body>)', () => {
+      (document.activeElement as HTMLElement).blur();
+      expect(document.activeElement).toBe(document.body);
+      expect(key({ key: 'Escape' }).defaultPrevented).toBe(true);
+      expect(fixture.componentInstance.cancelled).toBe(1);
+    });
+
+    it('Tab from outside the box comes back to the first button, Shift+Tab to the last', () => {
+      (document.activeElement as HTMLElement).blur();
+      key({ key: 'Tab' });
+      expect(document.activeElement).toBe(q('[data-testid="dialog-cancel"]'));
+      (document.activeElement as HTMLElement).blur();
+      key({ key: 'Tab', shiftKey: true });
+      expect(document.activeElement).toBe(q('[data-testid="dialog-confirm"]'));
+    });
+
+    it('the listener is gone after it closes', () => {
+      q('[data-testid="dialog-cancel"]').click();
+      fixture.detectChanges();
+      key({ key: 'Escape' });
+      expect(fixture.componentInstance.cancelled).toBe(1);
+    });
+  });
+
+  describe('a confirm answer that is not available yet', () => {
+    beforeEach(() => {
+      fixture.componentInstance.disabled = true;
+      fixture.componentInstance.note = '正在保存，请稍候。';
+      fixture.detectChanges();
+    });
+
+    it('is aria-disabled (still focusable), explained beside the buttons, and does nothing', () => {
+      const confirm = q('[data-testid="dialog-confirm"]');
+      expect(confirm.getAttribute('aria-disabled')).toBe('true');
+      expect((confirm as HTMLButtonElement).disabled).toBe(false);
+      expect(q('[data-testid="dialog-note"]').textContent).toBe('正在保存，请稍候。');
+      expect(q('[data-testid="dialog-note"]').getAttribute('role')).toBe('status');
+      expect(confirm.getAttribute('aria-describedby')).toBe(q('[data-testid="dialog-note"]').id);
+      confirm.click();
+      expect(fixture.componentInstance.confirmed).toBe(0);
+      confirm.focus();
+      expect(document.activeElement).toBe(confirm);
+    });
+
+    it('works again when it becomes available, and the note goes away', () => {
+      fixture.componentInstance.disabled = false;
+      fixture.componentInstance.note = '';
+      fixture.detectChanges();
+      expect(q('[data-testid="dialog-note"]')).toBeNull();
+      expect(q('[data-testid="dialog-confirm"]').getAttribute('aria-disabled')).toBeNull();
+      q('[data-testid="dialog-confirm"]').click();
+      expect(fixture.componentInstance.confirmed).toBe(1);
+    });
   });
 });

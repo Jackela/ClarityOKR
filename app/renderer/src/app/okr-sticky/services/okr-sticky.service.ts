@@ -26,8 +26,6 @@ export interface KeyResultViewModel {
   statement: string;
   /** Display label for the success metric (null if not specified) */
   metricLabel: string | null;
-  /** Display label for the owner/assignee (null if not specified) */
-  ownerLabel: string | null;
 }
 
 /**
@@ -123,7 +121,6 @@ export class OkrStickyService implements OnDestroy {
         id: kr.id,
         statement: kr.statement,
         metricLabel: kr.successMetric ?? null,
-        ownerLabel: kr.owner ?? null,
       })),
       generatedAt: document.generatedAt,
       lastEditedAt: document.lastEditedAt ?? null,

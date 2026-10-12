@@ -103,7 +103,6 @@ describe('Actual session-to-draft boundary', () => {
         id: expect.any(String),
         statement: 'Result without metric',
         successMetric: undefined,
-        owner: undefined,
       },
     ]);
   });

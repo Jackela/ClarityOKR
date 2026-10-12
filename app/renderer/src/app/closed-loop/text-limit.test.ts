@@ -1,4 +1,5 @@
 import * as contracts from '@clarityokr/contracts';
+import { countGraphemes, updateOKRRequestSchema } from '@clarityokr/contracts';
 
 import { evaluateText } from './text-limit';
 
@@ -59,4 +60,30 @@ describe('evaluateText (spec §3.9a)', () => {
       expect(evaluateText(text, 200).invalid).toBe(!contracts.checkText(text, 200).ok);
     }
   });
+});
+
+describe('the renderer verdict equals the main-process schema verdict (one counting function)', () => {
+  const CORPUS = [
+    '目'.repeat(200),
+    '目'.repeat(201),
+    '👨‍👩‍👧‍👦'.repeat(200),
+    '👨‍👩‍👧‍👦'.repeat(201),
+    '🇨🇳'.repeat(200),
+    'e\u0301'.repeat(201),
+    'a' + '\u0301'.repeat(40),
+    'x',
+  ];
+
+  it.each(CORPUS.map((text) => [`${[...text].length} code points`, text]))(
+    'objective of %s: evaluateText().invalid === !updateOKRRequestSchema',
+    (_label, text) => {
+      const main = updateOKRRequestSchema.safeParse({
+        id: 'okr-1',
+        objective: text,
+        keyResults: [{ id: 'kr-1', statement: 'x' }],
+      });
+      expect(evaluateText(text as string, 200).invalid).toBe(!main.success);
+      expect(evaluateText(text as string, 200).count).toBe(countGraphemes(text as string));
+    },
+  );
 });

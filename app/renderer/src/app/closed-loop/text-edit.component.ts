@@ -38,6 +38,7 @@ export type TextSaveFailure = 'none' | 'failed' | 'over_limit';
       data-testid="text-edit"
       (keydown)="onKeydown($event)"
       (focusout)="onFocusOut($event)"
+      (paste)="onPaste($event)"
     >
       <div class="edit__body">
         <p class="edit__explain" data-testid="edit-explain">{{ t.explain }}</p>
@@ -189,6 +190,8 @@ export class TextEditComponent implements AfterViewInit {
   @Output() undo = new EventEmitter<void>();
   @Output() redo = new EventEmitter<void>();
   @Output() save = new EventEmitter<void>();
+  /** The current undo step ends here (blur, paste): the next typing starts a new one. */
+  @Output() boundary = new EventEmitter<void>();
   @Output() cancel = new EventEmitter<void>();
 
   readonly t = COPY.edit;
@@ -226,21 +229,43 @@ export class TextEditComponent implements AfterViewInit {
   onObjective(value: string): void {
     this.touch('objective');
     this.objectiveChange.emit(value);
+    this.endPaste();
   }
 
   onStatement(id: string, value: string): void {
     this.touch(id);
     this.statementChange.emit({ id, value });
+    this.endPaste();
   }
 
   onMetric(id: string, value: string): void {
     this.metricChange.emit({ id, value });
+    this.endPaste();
+  }
+
+  private pasting = false;
+
+  /** A paste is its own undo step: end the running one before the pasted text arrives. */
+  onPaste(event: ClipboardEvent): void {
+    if (!(event.target instanceof HTMLTextAreaElement)) return;
+    this.boundary.emit();
+    this.pasting = true;
+    // The `input` event of the paste follows at once; if there is none, forget the flag.
+    setTimeout(() => (this.pasting = false), 0);
+  }
+
+  /** ...and so is the typing after it: the pasted text is never merged into later input. */
+  private endPaste(): void {
+    if (!this.pasting) return;
+    this.pasting = false;
+    this.boundary.emit();
   }
 
   /** Leaving a field marks it touched (so an empty new key result shows its error). */
   onFocusOut(event: FocusEvent): void {
     const target = event.target;
     if (!(target instanceof HTMLTextAreaElement)) return;
+    this.boundary.emit();
     if (target.id === 'edit-objective') this.touch('objective');
     else if (target.id.startsWith('edit-kr-')) this.touch(target.id.slice('edit-kr-'.length));
   }
@@ -261,6 +286,9 @@ export class TextEditComponent implements AfterViewInit {
   }
 
   onKeydown(event: KeyboardEvent): void {
+    // An IME is composing: Esc ends the composition, Ctrl/⌘+Z belongs to the IME. None of it is
+    // ours (no cancel, no undo, no save) until the composition is over.
+    if (event.isComposing || event.keyCode === 229) return;
     const mod = event.ctrlKey || event.metaKey;
     const key = event.key.toLowerCase();
     if (mod && !event.altKey) {

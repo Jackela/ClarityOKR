@@ -161,6 +161,24 @@ describe('ReviewStore (spec §5)', () => {
     expect(store.dirty()).toBe(false);
   });
 
+  it('discard() invalidates a save that is still in flight: its reply is not adopted', async () => {
+    api['getReview']!.mockResolvedValue(ok({ review: null }));
+    await store.load('a');
+    store.setSection('wentWell', '要放弃的');
+    const d = deferred<ReturnType<typeof ok>>();
+    api['saveReview']!.mockReturnValue(d.promise);
+    const saving = store.save();
+    expect(store.saving()).toBe(true);
+    store.discard();
+    expect(store.saving()).toBe(false);
+    expect(store.draft().wentWell).toBe('');
+    d.resolve(ok({ review: record({ wentWell: '要放弃的' }) }));
+    expect(await saving).toBeNull();
+    expect(store.review()).toBeNull();
+    expect(store.dirty()).toBe(false);
+    expect(store.draft().wentWell).toBe('');
+  });
+
   it('loading another OKR drops the draft of the first', async () => {
     api['getReview']!.mockResolvedValue(ok({ review: null }));
     await store.load('a');

@@ -25,7 +25,7 @@ import { ToastService } from './toast.service';
         <div
           class="toast"
           [class.toast--error]="item.kind === 'error'"
-          [class.toast--raised]="raised"
+          [class.toast--docked]="docked"
           [attr.role]="item.kind === 'error' ? 'alert' : 'status'"
           [attr.data-testid]="'toast-' + item.kind"
           (mouseenter)="pause()"
@@ -87,8 +87,12 @@ import { ToastService } from './toast.service';
         box-shadow: var(--shadow-lg);
         animation: toast-in var(--duration-fast, 150ms) var(--ease-out, ease-out);
       }
-      .toast--raised {
-        bottom: 72px;
+      /* In the flow of the review column: above its bottom bar with an 8px gap, and the area
+         above shrinks instead of being covered. */
+      .toast--docked {
+        position: static;
+        flex: none;
+        margin: 0 16px 8px;
       }
       .toast__text {
         min-width: 0;
@@ -153,8 +157,12 @@ import { ToastService } from './toast.service';
   ],
 })
 export class ToastHostComponent implements OnDestroy {
-  /** A bottom bar is showing: sit 56px higher (spec §2.6). */
-  @Input() raised = false;
+  /**
+   * Take part in the layout (a column with a bottom bar below): the toast sits in the flow
+   * right above that bar, 8px apart, so it never covers anything. Otherwise it floats at the
+   * bottom of the window.
+   */
+  @Input() docked = false;
 
   readonly toasts = inject(ToastService);
 

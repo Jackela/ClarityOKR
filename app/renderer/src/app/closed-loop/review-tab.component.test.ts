@@ -6,6 +6,7 @@ import { OkrStickyService } from '../okr-sticky/services/okr-sticky.service';
 import { ToastService } from '../shared/components/toast.service';
 import { ClosedLoopApi } from './closed-loop-api.service';
 import { ClosedLoopStore } from './closed-loop.store';
+import { ReviewStore } from './review.store';
 import { ReviewTabComponent } from './review-tab.component';
 import { makeDetail, makeKr } from './testing/fixtures';
 
@@ -352,7 +353,56 @@ describe('ReviewTabComponent (spec §5, T7, C4)', () => {
       expect(toasts.current()).toMatchObject({ kind: 'success', message: '复盘已保存。' });
       expect(text('review-state')).toMatch(/^已保存 · /);
       expect(text('review-snapshot-tag')).toMatch(/^快照 · /);
+      await new Promise((resolve) => setTimeout(resolve, 100)); // the live region is rewritten
+      fixture.detectChanges();
       expect(text('review-saved-live')).toMatch(/^复盘已保存，进度快照为 .+ 时的状态。$/);
+    });
+
+    it('a second save with the same snapshot time is announced again (cleared, then rewritten)', async () => {
+      await show({ review: review() });
+      api['saveReview']!.mockResolvedValue(ok({ review: review() }));
+      const sentence = /^复盘已保存，进度快照为 .+ 时的状态。$/;
+      const wait = async (): Promise<void> => {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        fixture.detectChanges();
+      };
+      await type('wentWell', '第一次');
+      q('review-save')!.click();
+      await settle();
+      await wait();
+      expect(text('review-saved-live')).toMatch(sentence);
+      await type('wentWell', '第二次');
+      q('review-save')!.click();
+      await settle();
+      // right after the save the region is EMPTY (that is what makes a screen reader speak again)
+      expect(text('review-saved-live')).toBe('');
+      await wait();
+      expect(text('review-saved-live')).toMatch(sentence);
+    });
+
+    it('a save that finishes after the tab is gone shows no toast', async () => {
+      await show();
+      await type('wentWell', '好');
+      let release: (value: unknown) => void = () => undefined;
+      api['saveReview']!.mockReturnValue(new Promise((r) => (release = r)));
+      const pending = fixture.componentInstance.save();
+      fixture.destroy();
+      release(ok({ review: review() }));
+      await pending;
+      expect(toasts.current()).toBeNull();
+    });
+
+    it('a save whose text was discarded meanwhile shows no toast and adopts nothing', async () => {
+      await show();
+      await type('wentWell', '好');
+      let release: (value: unknown) => void = () => undefined;
+      api['saveReview']!.mockReturnValue(new Promise((r) => (release = r)));
+      const pending = fixture.componentInstance.save();
+      TestBed.inject(ReviewStore).discard();
+      release(ok({ review: review() }));
+      await pending;
+      expect(toasts.current()).toBeNull();
+      expect(TestBed.inject(ReviewStore).review()).toBeNull();
     });
 
     it('while saving: button loading, areas read-only, 正在保存复盘… announced', async () => {
@@ -452,6 +502,14 @@ describe('ReviewTabComponent (spec §5, T7, C4)', () => {
         press({ key: 's', ctrlKey: true });
         await type('wentWell', ' ');
         press({ key: 's', ctrlKey: true });
+        await settle();
+        expect(api['saveReview']).not.toHaveBeenCalled();
+      });
+
+      it('ignores Ctrl+S while an IME is composing', async () => {
+        await show();
+        await type('wentWell', '好');
+        press({ key: 's', ctrlKey: true, isComposing: true });
         await settle();
         expect(api['saveReview']).not.toHaveBeenCalled();
       });

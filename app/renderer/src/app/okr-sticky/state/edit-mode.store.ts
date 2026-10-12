@@ -6,7 +6,10 @@ import { createDraftKeyResults, recalculateState } from './edit-mode.utils.js';
 
 export type { EditModeState, DraftKeyResult, ValidationError } from './edit-mode.types.js';
 
-/** Typing in the same field within this window is one undo step. */
+/**
+ * Typing in the SAME field with less than this between two inputs is one undo step. A new step
+ * starts on: another field, a paste, after undo / redo, and on blur (spec §3.9).
+ */
 const COALESCE_MS = 1000;
 
 function snapshotOf(objective: string, keyResults: readonly DraftKeyResult[]): TextSnapshot {
@@ -246,10 +249,7 @@ export class EditModeStore {
     this._state.update((state) =>
       recalculateState({
         ...state,
-        draftKeyResults: [
-          ...state.draftKeyResults,
-          { id, statement: '', successMetric: '', owner: '' },
-        ],
+        draftKeyResults: [...state.draftKeyResults, { id, statement: '', successMetric: '' }],
       }),
     );
     this.record(`add:${id}`, false);
@@ -284,7 +284,6 @@ export class EditModeStore {
       id: kr.id,
       statement: kr.statement,
       successMetric: kr.successMetric || undefined,
-      owner: kr.owner || undefined,
     }));
 
     this._state.set({
@@ -341,6 +340,14 @@ export class EditModeStore {
     this.lastKey = null;
   }
 
+  /**
+   * Ends the current undo step: the next typing starts a new one (spec §3.9). Called on blur
+   * and around a paste; undo / redo / switching to another field do it by themselves.
+   */
+  breakCoalescing(): void {
+    this.lastKey = null;
+  }
+
   // === History plumbing ===
 
   private record(key: string, coalesce = true): void {
@@ -381,7 +388,6 @@ export class EditModeStore {
           id: kr.id,
           statement: kr.statement,
           successMetric: kr.successMetric,
-          owner: previous.get(kr.id)?.owner ?? original.get(kr.id)?.owner ?? '',
         })),
       });
     });

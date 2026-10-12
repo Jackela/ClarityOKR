@@ -200,6 +200,90 @@ describe('StickyShellComponent', () => {
       expect(q<HTMLTextAreaElement>('review-wentWell').value).toBe('');
     });
 
+    describe('a save is in flight when the user wants to leave (design ruling)', () => {
+      let release: (value: unknown) => void = () => undefined;
+      const savedRecord = {
+        objectiveId: 'okr-1',
+        wentWell: '写了一半',
+        fellShort: '',
+        nextSteps: '',
+        snapshot: [],
+        savedAt: '2026-10-10T08:00:00.000Z',
+        snapshotAt: '2026-10-10T08:00:00.000Z',
+      };
+      const startSaveThenLeave = async (): Promise<void> => {
+        await type('写了一半');
+        api['saveReview']!.mockReturnValue(new Promise((r) => (release = r)));
+        q('review-save').click();
+        fixture.detectChanges();
+        q('tab-history').click();
+        fixture.detectChanges();
+      };
+
+      it('「放弃修改」 is aria-disabled with 正在保存，请稍候。 and does nothing', async () => {
+        await startSaveThenLeave();
+        const confirm = q('dialog-confirm');
+        expect(confirm.getAttribute('aria-disabled')).toBe('true');
+        expect(q('dialog-note').textContent).toBe('正在保存，请稍候。');
+        expect(q('review-save').getAttribute('aria-busy')).toBe('true');
+        confirm.click();
+        fixture.detectChanges();
+        expect(q('review-leave-dialog')).not.toBeNull();
+        expect(q('tab-review').getAttribute('aria-selected')).toBe('true');
+        expect(q<HTMLTextAreaElement>('review-wentWell').value).toBe('写了一半');
+      });
+
+      it('on success the dialog closes by itself and the leave goes on (and it IS saved)', async () => {
+        await startSaveThenLeave();
+        release({ ok: true, data: { review: savedRecord } });
+        await settle();
+        await settle();
+        expect(q('review-leave-dialog')).toBeNull();
+        expect(q('tab-history').getAttribute('aria-selected')).toBe('true');
+        expect(api['saveReview']).toHaveBeenCalledTimes(1);
+        api['getReview']!.mockResolvedValue({ ok: true, data: { review: savedRecord } });
+        q('tab-review').click();
+        fixture.detectChanges();
+        await settle();
+        expect(q<HTMLTextAreaElement>('review-wentWell').value).toBe('写了一半');
+      });
+
+      it('on failure 「放弃修改」 is clickable again and the text is still there', async () => {
+        await startSaveThenLeave();
+        release({ ok: false, error: { code: 'INTERNAL', message: 'x' } });
+        await settle();
+        await settle();
+        const confirm = q('dialog-confirm');
+        expect(confirm.getAttribute('aria-disabled')).toBeNull();
+        expect(q('dialog-note')).toBeNull();
+        expect(q('tab-review').getAttribute('aria-selected')).toBe('true');
+        confirm.click();
+        fixture.detectChanges();
+        await settle();
+        expect(q('tab-history').getAttribute('aria-selected')).toBe('true');
+        expect(q('review-leave-dialog')).toBeNull();
+      });
+
+      it('Esc (继续编辑) while saving closes the dialog and the save still finishes on the review', async () => {
+        await startSaveThenLeave();
+        q('dialog-cancel').click();
+        fixture.detectChanges();
+        release({ ok: true, data: { review: savedRecord } });
+        await settle();
+        await settle();
+        expect(q('tab-review').getAttribute('aria-selected')).toBe('true');
+        expect(q('review-state').textContent).toContain('已保存');
+      });
+
+      it('the dialog is modal: the shell behind it is inert', async () => {
+        await startSaveThenLeave();
+        expect(q('tab-review').closest('[inert]')).not.toBeNull();
+        q('dialog-cancel').click();
+        fixture.detectChanges();
+        expect(document.querySelectorAll('[inert]')).toHaveLength(0);
+      });
+    });
+
     it('Esc in the dialog keeps editing', async () => {
       await type('x');
       document.dispatchEvent(

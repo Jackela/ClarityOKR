@@ -4,8 +4,10 @@ import {
   HostListener,
   Input,
   ViewChild,
+  effect,
   inject,
   signal,
+  untracked,
 } from '@angular/core';
 
 import { OkrStickyNoteComponent } from '../okr-sticky/components/okr-sticky-note.component';
@@ -94,19 +96,44 @@ export type StickyTabId = 'note' | 'review' | 'history';
           [confirmLabel]="copy.review.leave"
           [danger]="true"
           testId="review-leave-dialog"
+          [confirmDisabled]="review.saving()"
+          [confirmNote]="review.saving() ? copy.review.leaveSaving : ''"
           (cancelled)="leaveTarget.set(null)"
           (confirmed)="leave(target)"
         />
       }
-      <clarityokr-toast-host [raised]="tab() === 'review'" />
+      @if (tab() !== 'review') {
+        <clarityokr-toast-host />
+      }
     </div>
   `,
   styles: [
     `
       :host {
         display: block;
-        min-height: 100vh;
+        height: 100vh;
         background: var(--glass-bg);
+      }
+      /* The window does not scroll: the tab bar stays, the panel scrolls, and the review keeps
+         its bottom bar (with a toast above it) outside the scrolling part. */
+      .shell {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+      }
+      .shell__panel {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+      }
+      #panel-review {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      #panel-review > clarityokr-review-tab {
+        flex: 1 1 auto;
+        min-height: 0;
       }
       [hidden] {
         display: none !important;
@@ -143,7 +170,23 @@ export class StickyShellComponent {
 
   private readonly store = inject(ClosedLoopStore);
   private readonly editor = inject(EditModeStore);
-  private readonly review = inject(ReviewStore);
+  readonly review = inject(ReviewStore);
+
+  constructor() {
+    // The leave dialog is open and a save was started: when it succeeds the text is no longer
+    // unsaved, the dialog closes by itself and the leave goes on. On failure the text is still
+    // there (dirty) and 「放弃修改」 is clickable again.
+    effect(() => {
+      const target = this.leaveTarget();
+      const saving = this.review.saving();
+      const dirty = this.review.dirty();
+      if (target === null || saving || dirty) return;
+      untracked(() => {
+        this.leaveTarget.set(null);
+        this.go(target);
+      });
+    });
+  }
 
   blockedReason(): string | null {
     if (this.store.operationBusy()) return COPY.history.blockedBusy;
@@ -164,6 +207,8 @@ export class StickyShellComponent {
 
   /** The user confirmed 「放弃修改」. */
   leave(id: StickyTabId): void {
+    // Never throw away text that a save is still sending (the dialog button is disabled then).
+    if (this.review.saving()) return;
     this.leaveTarget.set(null);
     this.review.discard();
     this.go(id);

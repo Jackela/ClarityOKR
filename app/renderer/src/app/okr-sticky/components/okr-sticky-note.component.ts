@@ -34,7 +34,7 @@
  * const viewModel: OkrStickyViewModel = {
  *   objective: 'Improve team productivity',
  *   keyResults: [
- *     { id: 'kr1', statement: 'Reduce deployment time by 50%', metricLabel: 'Time', ownerLabel: 'DevOps' }
+ *     { id: 'kr1', statement: 'Reduce deployment time by 50%', metricLabel: 'Time' }
  *   ],
  *   generatedAt: new Date(),
  *   hasManualEdits: true
@@ -57,6 +57,7 @@ import {
 } from '@angular/core';
 import type { KeyResultRecord } from '@clarityokr/contracts';
 
+import { announceAgain } from '../../closed-loop/announce';
 import { ClosedLoopStore } from '../../closed-loop/closed-loop.store';
 import { COPY, formatMonthDay, formatRelativeTime, STATUS_LABEL } from '../../closed-loop/copy';
 import { KrRowComponent } from '../../closed-loop/kr-row.component';
@@ -121,21 +122,10 @@ function newKeyResultId(): string {
           (metricChange)="editor.updateKeyResult($event.id, { successMetric: $event.value })"
           (undo)="editor.undo()"
           (redo)="editor.redo()"
+          (boundary)="editor.breakCoalescing()"
           (save)="save()"
           (cancel)="cancel()"
         />
-        @if (discardOpen()) {
-          <clarityokr-dialog
-            [title]="t.edit.discardTitle"
-            [body]="t.edit.discardBody"
-            [cancelLabel]="t.edit.keepEditing"
-            [confirmLabel]="t.edit.discard"
-            [danger]="true"
-            testId="discard-dialog"
-            (cancelled)="discardOpen.set(false)"
-            (confirmed)="discard()"
-          />
-        }
       } @else {
         @if (showPinBanner()) {
           @switch (store.pinNotice()) {
@@ -378,6 +368,19 @@ function newKeyResultId(): string {
         <p role="alert" data-testid="sticky-error">{{ error() }}</p>
       }
     </section>
+    <!-- Outside the section: its backdrop-filter would make the fixed dialog relative to it. -->
+    @if (editor.isEditing() && discardOpen()) {
+      <clarityokr-dialog
+        [title]="t.edit.discardTitle"
+        [body]="t.edit.discardBody"
+        [cancelLabel]="t.edit.keepEditing"
+        [confirmLabel]="t.edit.discard"
+        [danger]="true"
+        testId="discard-dialog"
+        (cancelled)="discardOpen.set(false)"
+        (confirmed)="discard()"
+      />
+    }
   `,
   styleUrls: ['./okr-sticky-note.component.scss'],
 })
@@ -506,7 +509,6 @@ export class OkrStickyNoteComponent implements OnChanges {
         id: kr.id,
         statement: kr.statement,
         successMetric: kr.metricLabel ?? undefined,
-        owner: kr.ownerLabel ?? undefined,
       })),
       this.okr.id,
       newId,
@@ -543,11 +545,10 @@ export class OkrStickyNoteComponent implements OnChanges {
           id: kr.id,
           statement: kr.statement,
           successMetric: kr.successMetric || undefined,
-          owner: kr.owner || undefined,
         })),
       });
       this.editor.saveEdits();
-      this.textSavedLive.set(COPY.edit.saved);
+      announceAgain(this.textSavedLive, COPY.edit.saved);
       this.focusEditButton();
     } catch (error) {
       // The text stays in the form; never show the raw error.

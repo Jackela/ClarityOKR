@@ -4,7 +4,7 @@ import { VALIDATION_LIMITS } from './edit-mode.types';
 describe('Actual edit draft, validation and commit contract', () => {
   const originals = [
     { id: 'a', statement: 'First result' },
-    { id: 'b', statement: 'Second result', owner: 'Team', successMetric: '90%' },
+    { id: 'b', statement: 'Second result', successMetric: '90%' },
   ];
   it('keeps originals intact, saves valid edits, and resets dirty state', () => {
     const store = new EditModeStore();
@@ -13,12 +13,12 @@ describe('Actual edit draft, validation and commit contract', () => {
     store.enterEditMode('Original objective', originals);
     expect(store.originalObjective()).toBe('Original objective');
     expect(store.originalKeyResults()).toEqual(originals);
-    expect(store.draftKeyResults()[0]).toMatchObject({ owner: '', successMetric: '' });
+    expect(store.draftKeyResults()[0]).toMatchObject({ successMetric: '' });
+    expect(store.draftKeyResults()[0]).not.toHaveProperty('owner');
     expect(store.isDirty()).toBe(false);
     store.updateObjective('Updated objective');
     store.updateKeyResult('a', {
       statement: 'Updated first',
-      owner: 'Owner',
       successMetric: '75%',
     });
     expect(store.isDirty()).toBe(true);
@@ -27,10 +27,7 @@ describe('Actual edit draft, validation and commit contract', () => {
     const saved = store.saveEdits();
     expect(saved).toEqual({
       objective: 'Updated objective',
-      keyResults: [
-        { id: 'a', statement: 'Updated first', owner: 'Owner', successMetric: '75%' },
-        originals[1],
-      ],
+      keyResults: [{ id: 'a', statement: 'Updated first', successMetric: '75%' }, originals[1]],
     });
     expect(store.isEditing()).toBe(false);
     expect(store.isDirty()).toBe(false);
@@ -44,9 +41,9 @@ describe('Actual edit draft, validation and commit contract', () => {
   it('reverts cancelled edits, treats unchanged metadata as clean and rejects unknown result IDs', () => {
     const store = new EditModeStore();
     store.enterEditMode('Objective', originals);
-    store.updateKeyResult('b', { owner: 'Team', successMetric: '90%' });
+    store.updateKeyResult('b', { successMetric: '90%' });
     expect(store.isDirty()).toBe(false);
-    store.updateKeyResult('b', { owner: 'Other' });
+    store.updateKeyResult('b', { successMetric: '80%' });
     expect(store.isDirty()).toBe(true);
     expect(() => store.updateKeyResult('missing', { statement: 'Invalid' })).toThrow('not found');
     store.updateObjective('Changed');
@@ -62,7 +59,6 @@ describe('Actual edit draft, validation and commit contract', () => {
     expect(store.originalKeyResults()).toEqual(originals);
     store.toggleEditMode();
     store.saveEdits();
-    expect(store.originalKeyResults()[0].owner).toBeUndefined();
   });
 
   it('provides actionable validation errors at empty and length boundaries', () => {
@@ -265,7 +261,7 @@ describe('Undo / redo of text edits (spec §3.9)', () => {
   it('progress is not part of the history: it only holds text', () => {
     store.updateObjective('Changed');
     const keys = Object.keys(store.getState().draftKeyResults[0]!).sort();
-    expect(keys).toEqual(['id', 'owner', 'statement', 'successMetric']);
+    expect(keys).toEqual(['id', 'statement', 'successMetric']);
   });
 });
 
@@ -290,5 +286,99 @@ describe('Limits are grapheme based (spec §3.9a)', () => {
     expect(store.errors()).toEqual([
       { field: 'objective', message: '内容里的特殊符号过多，请删减后再保存。' },
     ]);
+  });
+});
+
+describe('Undo coalescing (spec §3.9): same input, < 1000ms; every other boundary starts a step', () => {
+  let now = 1_000_000;
+  let store: EditModeStore;
+  const type = (value: string, after = 100): void => {
+    now += after;
+    store.updateObjective(value);
+  };
+
+  beforeEach(() => {
+    now = 1_000_000;
+    jest.spyOn(Date, 'now').mockImplementation(() => now);
+    store = new EditModeStore();
+    store.enterEditMode('Start', [{ id: 'a', statement: 'First' }], 'okr-1');
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  it('consecutive typing in the same input within 1000ms is ONE step', () => {
+    type('S1');
+    type('S12');
+    type('S123', 999);
+    store.undo();
+    expect(store.draftObjective()).toBe('Start');
+    expect(store.canUndo()).toBe(false);
+  });
+
+  it('a gap of 1000ms or more starts a new step (the boundary is exclusive)', () => {
+    type('S1');
+    type('S12', 1000);
+    store.undo();
+    expect(store.draftObjective()).toBe('S1');
+    store.undo();
+    expect(store.draftObjective()).toBe('Start');
+  });
+
+  it('switching to another input starts a new step, and coming back does too', () => {
+    type('S1');
+    now += 100;
+    store.updateKeyResult('a', { statement: 'First!' });
+    type('S12');
+    store.undo();
+    expect(store.draftObjective()).toBe('S1');
+    store.undo();
+    expect(store.draftKeyResults()[0]?.statement).toBe('First');
+    store.undo();
+    expect(store.draftObjective()).toBe('Start');
+  });
+
+  it('the metric and the text of one key result are different inputs', () => {
+    now += 10;
+    store.updateKeyResult('a', { statement: 'First!' });
+    now += 10;
+    store.updateKeyResult('a', { successMetric: 'm' });
+    store.undo();
+    expect(store.draftKeyResults()[0]).toMatchObject({ statement: 'First!', successMetric: '' });
+  });
+
+  it('typing right after an undo starts a new step (it never merges into the undone one)', () => {
+    type('S1');
+    type('S12', 1000);
+    store.undo();
+    type('S1x', 10);
+    store.undo();
+    expect(store.draftObjective()).toBe('S1');
+    expect(store.canRedo()).toBe(true);
+  });
+
+  it('typing right after a redo starts a new step', () => {
+    type('S1');
+    type('S12', 1000);
+    store.undo();
+    store.redo();
+    type('S12x', 10);
+    store.undo();
+    expect(store.draftObjective()).toBe('S12');
+  });
+
+  it('breakCoalescing() (blur, paste) starts a new step even within 1000ms in the same input', () => {
+    type('S1');
+    store.breakCoalescing();
+    type('S12', 10);
+    store.undo();
+    expect(store.draftObjective()).toBe('S1');
+    store.undo();
+    expect(store.draftObjective()).toBe('Start');
+  });
+
+  it('without a boundary the very same sequence is one step (control for the test above)', () => {
+    type('S1');
+    type('S12', 10);
+    store.undo();
+    expect(store.draftObjective()).toBe('Start');
   });
 });

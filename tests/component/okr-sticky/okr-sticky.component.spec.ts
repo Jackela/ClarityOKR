@@ -74,13 +74,11 @@ function createOkrViewModel(overrides: Partial<OkrStickyViewModel> = {}): OkrSti
         id: 'kr-1',
         statement: '将迭代周期缩短到 3 周',
         metricLabel: '周期 <= 21 天',
-        ownerLabel: '运营团队',
       },
       {
         id: 'kr-2',
         statement: '将上线缺陷率控制在 0.5%',
         metricLabel: null,
-        ownerLabel: null,
       },
     ],
     generatedAt: '2025-10-31T10:12:00.000Z',
@@ -159,19 +157,16 @@ describe('OkrStickyNoteComponent', () => {
             id: 'kr-1',
             statement: 'First key result',
             metricLabel: null,
-            ownerLabel: null,
           },
           {
             id: 'kr-2',
             statement: 'Second key result',
             metricLabel: null,
-            ownerLabel: null,
           },
           {
             id: 'kr-3',
             statement: 'Third key result',
             metricLabel: null,
-            ownerLabel: null,
           },
         ],
       });
@@ -257,7 +252,7 @@ describe('OkrStickyNoteComponent', () => {
       expect(manualEditsBadge).toBeNull();
     });
 
-    it('should display metric and owner badges on key results', () => {
+    it('should display the metric badge on key results', () => {
       // Arrange
       const viewModel = createOkrViewModel({
         keyResults: [
@@ -265,7 +260,6 @@ describe('OkrStickyNoteComponent', () => {
             id: 'kr-1',
             statement: 'Test KR',
             metricLabel: 'Metric Label',
-            ownerLabel: 'Owner Label',
           },
         ],
       });
@@ -278,7 +272,6 @@ describe('OkrStickyNoteComponent', () => {
       const badges = fixture.nativeElement.querySelectorAll('[data-testid="sticky-kr-badge"]');
       const badgeTexts = Array.from(badges).map((el) => (el as Element).textContent?.trim());
       expect(badgeTexts).toContain('Metric Label');
-      expect(badgeTexts).toContain('Owner Label');
     });
   });
 

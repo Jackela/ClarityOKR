@@ -8,12 +8,12 @@ describe('OkrViewModeComponent', () => {
   let component: OkrViewModeComponent;
 
   const keyResults: KeyResultViewModel[] = [
-    { id: 'kr-1', statement: '缩短迭代周期', metricLabel: '周期 <= 21 天', ownerLabel: '运营团队' },
-    { id: 'kr-2', statement: '降低缺陷率', metricLabel: null, ownerLabel: null },
-    { id: 'kr-3', statement: '提升覆盖率', metricLabel: '覆盖率 >= 80%', ownerLabel: '开发团队' },
-    { id: 'kr-4', statement: '优化构建时间', metricLabel: null, ownerLabel: 'DevOps' },
-    { id: 'kr-5', statement: '改进文档', metricLabel: '文档完整', ownerLabel: null },
-    { id: 'kr-6', statement: '用户满意度', metricLabel: 'NPS >= 50', ownerLabel: '产品团队' },
+    { id: 'kr-1', statement: '缩短迭代周期', metricLabel: '周期 <= 21 天' },
+    { id: 'kr-2', statement: '降低缺陷率', metricLabel: null },
+    { id: 'kr-3', statement: '提升覆盖率', metricLabel: '覆盖率 >= 80%' },
+    { id: 'kr-4', statement: '优化构建时间', metricLabel: null },
+    { id: 'kr-5', statement: '改进文档', metricLabel: '文档完整' },
+    { id: 'kr-6', statement: '用户满意度', metricLabel: 'NPS >= 50' },
   ];
 
   beforeEach(async () => {
@@ -39,17 +39,17 @@ describe('OkrViewModeComponent', () => {
     expect(items[1].textContent).toContain('降低缺陷率');
   });
 
-  it('should render metric and owner badges when present', () => {
+  it('should render the metric badge when present and never an owner badge', () => {
     component.keyResults = [keyResults[0]];
     fixture.detectChanges();
 
     const badges = fixture.nativeElement.querySelectorAll('[data-testid="sticky-kr-badge"]');
     const badgeTexts = Array.from(badges).map((el) => (el as HTMLElement).textContent?.trim());
     expect(badgeTexts).toContain('周期 <= 21 天');
-    expect(badgeTexts).toContain('运营团队');
+    expect(badgeTexts).toHaveLength(1);
   });
 
-  it('should not render badges when metricLabel and ownerLabel are null', () => {
+  it('should not render badges when metricLabel is null', () => {
     component.keyResults = [keyResults[1]];
     fixture.detectChanges();
 

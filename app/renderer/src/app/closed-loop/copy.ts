@@ -113,6 +113,7 @@ export const COPY = {
     loading: '正在读取复盘…',
     leaveTitle: '放弃未保存的复盘修改？',
     leaveBody: '你写的内容还没有保存。',
+    leaveSaving: '正在保存，请稍候。',
     keepEditing: '继续编辑',
     leave: '放弃修改',
     saveOverLimit: '没能保存：内容超出字数上限。',

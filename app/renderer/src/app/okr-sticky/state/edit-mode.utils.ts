@@ -12,7 +12,6 @@ export function createDraftKeyResults(keyResults: KeyResult[]): DraftKeyResult[]
     id: kr.id,
     statement: kr.statement,
     successMetric: kr.successMetric ?? '',
-    owner: kr.owner ?? '',
   }));
 }
 
@@ -31,8 +30,7 @@ export function calculateDirty(state: EditModeState): boolean {
     if (
       draft.id !== original.id ||
       draft.statement !== original.statement ||
-      draft.successMetric !== (original.successMetric ?? '') ||
-      draft.owner !== (original.owner ?? '')
+      draft.successMetric !== (original.successMetric ?? '')
     ) {
       return true;
     }

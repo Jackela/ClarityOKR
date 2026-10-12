@@ -16,7 +16,6 @@ export interface KeyResultViewModel {
   id: string;
   statement: string;
   metricLabel: string | null;
-  ownerLabel: string | null;
 }
 
 /**
@@ -42,6 +41,5 @@ export interface SaveEditsEvent {
     id: string;
     statement: string;
     successMetric?: string;
-    owner?: string;
   }>;
 }

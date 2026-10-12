@@ -21,9 +21,7 @@ const fail = (code: ClosedLoopError['code'] = 'INTERNAL') => ({
 const view: OkrStickyViewModel = {
   id: 'okr-1',
   objective: '提升团队交付节奏',
-  keyResults: [
-    { id: 'kr-1', statement: '把迭代周期缩短到 3 周', metricLabel: null, ownerLabel: null },
-  ],
+  keyResults: [{ id: 'kr-1', statement: '把迭代周期缩短到 3 周', metricLabel: null }],
   generatedAt: '2026-10-09T08:00:00.000Z',
   lastEditedAt: null,
   hasManualEdits: false,

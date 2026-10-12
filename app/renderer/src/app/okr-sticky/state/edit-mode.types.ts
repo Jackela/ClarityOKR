@@ -16,8 +16,6 @@ export interface DraftKeyResult {
   id: string;
   statement: string;
   successMetric: string;
-  /** Not editable any more (spec §0); carried through so a save never drops stored data. */
-  owner: string;
 }
 
 /** The text content of one point in the edit history (progress is never part of it). */

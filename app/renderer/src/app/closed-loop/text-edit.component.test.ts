@@ -23,13 +23,14 @@ import { TextEditComponent, type TextSaveFailure } from './text-edit.component';
     (redo)="log.push('redo')"
     (save)="log.push('save')"
     (cancel)="log.push('cancel')"
+    (boundary)="log.push('boundary')"
   />`,
 })
 class Host {
   objective = '提升团队交付效率';
   keyResults: DraftKeyResult[] = [
-    { id: 'a', statement: '把发布频率提到每周 3 次', successMetric: '', owner: '' },
-    { id: 'b', statement: '缺陷逃逸率降到 5% 以下', successMetric: '每周缺陷数', owner: '' },
+    { id: 'a', statement: '把发布频率提到每周 3 次', successMetric: '' },
+    { id: 'b', statement: '缺陷逃逸率降到 5% 以下', successMetric: '每周缺陷数' },
   ];
   canUndo = false;
   canRedo = false;
@@ -254,6 +255,103 @@ describe('TextEditComponent (spec §3.9, §3.9a, T13)', () => {
     });
   });
 
+  describe('IME composition (design ruling)', () => {
+    it('Esc during a composition only ends the composition: no cancel', () => {
+      host().log = [];
+      const event = key({ key: 'Escape', isComposing: true });
+      expect(event.defaultPrevented).toBe(false);
+      expect(host().log).toEqual([]);
+      key({ key: 'Escape' });
+      expect(host().log).toEqual(['cancel']);
+    });
+
+    it('keyCode 229 (what IMEs send) is treated as composing too', () => {
+      host().log = [];
+      area('edit-objective').dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Escape',
+          keyCode: 229,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+      expect(host().log).toEqual([]);
+    });
+
+    it('Ctrl/⌘+Z, Shift+Z, Y and Ctrl+Enter / S do nothing during a composition', () => {
+      host().canUndo = host().canRedo = host().canSave = true;
+      render();
+      host().log = [];
+      for (const init of [
+        { key: 'z', ctrlKey: true },
+        { key: 'z', metaKey: true, shiftKey: true },
+        { key: 'y', ctrlKey: true },
+        { key: 'Enter', ctrlKey: true },
+        { key: 's', ctrlKey: true },
+      ]) {
+        expect(key({ ...init, isComposing: true }).defaultPrevented).toBe(false);
+      }
+      expect(host().log).toEqual([]);
+    });
+
+    it('provisional composition text does not reach the owner; the final text does, once', () => {
+      host().log = [];
+      const field = area('edit-objective');
+      field.dispatchEvent(new Event('compositionstart', { bubbles: true }));
+      field.value = '目标ni';
+      field.dispatchEvent(new InputEvent('input', { bubbles: true, isComposing: true }));
+      field.value = '目标你';
+      field.dispatchEvent(new InputEvent('input', { bubbles: true, isComposing: true }));
+      render();
+      expect(host().log).toEqual([]);
+      field.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }));
+      render();
+      expect(host().log).toEqual(['objective']);
+    });
+  });
+
+  describe('undo step boundaries (spec §3.9)', () => {
+    const input = (id: string, value: string): void => {
+      area(id).value = value;
+      area(id).dispatchEvent(new Event('input', { bubbles: true }));
+      render();
+    };
+
+    it('leaving an input (blur) ends the step', () => {
+      host().log = [];
+      area('edit-objective').dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+      expect(host().log).toEqual(['boundary']);
+    });
+
+    it('a paste ends the running step before the pasted text, and the text after it', async () => {
+      host().log = [];
+      area('edit-objective').dispatchEvent(new Event('paste', { bubbles: true }));
+      input('edit-objective', '粘贴的内容');
+      input('edit-objective', '粘贴的内容再输入');
+      expect(host().log).toEqual(['boundary', 'objective', 'boundary', 'objective']);
+    });
+
+    it('a paste without an input event does not leave the flag behind', async () => {
+      jest.useFakeTimers();
+      try {
+        host().log = [];
+        area('edit-objective').dispatchEvent(new Event('paste', { bubbles: true }));
+        jest.runAllTimers();
+        input('edit-objective', '之后正常输入');
+        expect(host().log).toEqual(['boundary', 'objective']);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('plain typing emits no boundary', () => {
+      host().log = [];
+      input('edit-objective', '一');
+      input('edit-objective', '一二');
+      expect(host().log).toEqual(['objective', 'objective']);
+    });
+  });
+
   describe('validation', () => {
     const type = (id: string, text: string): void => {
       area(id).value = text;
@@ -277,10 +375,7 @@ describe('TextEditComponent (spec §3.9, §3.9a, T13)', () => {
     });
 
     it('an empty new key result shows its error once the focus leaves it', () => {
-      host().keyResults = [
-        ...host().keyResults,
-        { id: 'n', statement: '', successMetric: '', owner: '' },
-      ];
+      host().keyResults = [...host().keyResults, { id: 'n', statement: '', successMetric: '' }];
       render();
       expect(q('edit-kr-2-error')!.textContent!.trim()).toBe('');
       area('edit-kr-2').focus();

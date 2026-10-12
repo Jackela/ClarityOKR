@@ -36,7 +36,6 @@ class EditModeStoreMock {
       id: kr.id,
       statement: kr.statement,
       successMetric: kr.successMetric ?? '',
-      owner: kr.owner ?? '',
     }));
 
     this._state = {
@@ -94,7 +93,6 @@ class EditModeStoreMock {
       id: kr.id,
       statement: kr.statement,
       successMetric: kr.successMetric || undefined,
-      owner: kr.owner || undefined,
     }));
 
     this._state = {
@@ -123,7 +121,6 @@ class EditModeStoreMock {
       id: kr.id,
       statement: kr.statement,
       successMetric: kr.successMetric ?? '',
-      owner: kr.owner ?? '',
     }));
 
     this._state = {
@@ -166,8 +163,7 @@ class EditModeStoreMock {
 
       if (
         draft.statement !== original.statement ||
-        draft.successMetric !== (original.successMetric ?? '') ||
-        draft.owner !== (original.owner ?? '')
+        draft.successMetric !== (original.successMetric ?? '')
       ) {
         return true;
       }

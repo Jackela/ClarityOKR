@@ -38,6 +38,46 @@ async function axe(page: Page, name: string): Promise<void> {
   expect(violations, `${name}: ${JSON.stringify(violations, null, 2)}`).toEqual([]);
 }
 
+/** The confirm dialog: centred, ≥24px from the top, both buttons fully inside the window. */
+async function expectDialogCentred(page: Page, testId: string): Promise<void> {
+  const geometry = await page.evaluate((id) => {
+    const rect = (el: Element | null) => {
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { left: r.left, right: r.right, top: r.top, bottom: r.bottom };
+    };
+    const dialog = document.querySelector(`[data-testid="${id}"]`);
+    return {
+      width: document.documentElement.clientWidth,
+      height: document.documentElement.clientHeight,
+      dialog: rect(dialog),
+      cancel: rect(dialog?.querySelector('[data-testid="dialog-cancel"]') ?? null),
+      confirm: rect(dialog?.querySelector('[data-testid="dialog-confirm"]') ?? null),
+    };
+  }, testId);
+  const { width, height, dialog, cancel, confirm } = geometry;
+  expect(dialog).not.toBeNull();
+  for (const box of [dialog!, cancel!, confirm!]) {
+    expect(box.left).toBeGreaterThanOrEqual(0);
+    expect(box.top).toBeGreaterThanOrEqual(0);
+    expect(box.right).toBeLessThanOrEqual(width);
+    expect(box.bottom).toBeLessThanOrEqual(height);
+  }
+  expect(dialog!.top).toBeGreaterThanOrEqual(24);
+  expect(height - dialog!.bottom).toBeGreaterThanOrEqual(24);
+  expect(Math.abs((dialog!.left + dialog!.right) / 2 - width / 2)).toBeLessThanOrEqual(2);
+  expect(Math.abs((dialog!.top + dialog!.bottom) / 2 - height / 2)).toBeLessThanOrEqual(2);
+}
+
+/** The element is behind a modal: it, or an ancestor, is `inert`. */
+async function expectInert(page: Page, testId: string): Promise<void> {
+  const inert = await page.evaluate(
+    (id) => document.querySelector(`[data-testid="${id}"]`)?.closest('[inert]') !== null,
+    testId,
+  );
+  expect(inert, `${testId} is inert behind the dialog`).toBe(true);
+}
+
 const setTheme = (page: Page, theme: 'light' | 'dark'): Promise<void> =>
   page.evaluate((value) => document.documentElement.setAttribute('data-theme', value), theme);
 
@@ -152,6 +192,13 @@ test.describe('closed loop: review tab and text edit (D1b-1)', () => {
     const dialog = sticky.getByTestId('review-leave-dialog');
     await expect(dialog).toBeVisible();
     await expect(sticky.getByTestId('dialog-cancel')).toBeFocused();
+    await expectDialogCentred(sticky, 'review-leave-dialog');
+    // a click on the scrim does nothing, keeps the focus in the dialog, Esc still works, and
+    // the shell behind it is inert
+    await sticky.getByTestId('dialog-scrim').click({ position: { x: 4, y: 4 } });
+    await expect(dialog).toBeVisible();
+    await expect(sticky.getByTestId('dialog-cancel')).toBeFocused();
+    await expectInert(sticky, 'tab-review');
     await shot(sticky, 'D1b-05-review-leave-confirm');
     await axe(sticky, 'review leave confirm');
     await setTheme(sticky, 'dark');
@@ -215,8 +262,8 @@ test.describe('closed loop: review tab and text edit (D1b-1)', () => {
     // undo / redo with the keyboard and the buttons
     await expect(sticky.getByTestId('edit-undo')).toBeDisabled();
     await objective.fill('第一版目标');
-    // typing within the coalescing window is ONE undo step; pause so these are two
-    await sticky.waitForTimeout(1200);
+    // leaving the box (blur) ends the undo step, so the next typing is a step of its own
+    await sticky.getByTestId('edit-metric-0').focus();
     await objective.fill('第二版目标');
     await expect(sticky.getByTestId('edit-undo')).toBeEnabled();
     await sticky.keyboard.press('Control+z');
@@ -258,6 +305,13 @@ test.describe('closed loop: review tab and text edit (D1b-1)', () => {
     // cancel with changes asks; 继续编辑 keeps, 放弃 reverts to the last saved state
     await sticky.getByTestId('edit-cancel').click();
     await expect(sticky.getByTestId('discard-dialog')).toBeVisible();
+    await expect(sticky.getByTestId('dialog-cancel')).toBeFocused();
+    await expect(sticky.getByTestId('dialog-cancel')).toHaveText('继续编辑');
+    await expectDialogCentred(sticky, 'discard-dialog');
+    // click on the scrim, then Esc: still "继续编辑"
+    await sticky.getByTestId('dialog-scrim').click({ position: { x: 4, y: 4 } });
+    await expect(sticky.getByTestId('dialog-cancel')).toBeFocused();
+    await expectInert(sticky, 'edit-save');
     await shot(sticky, 'D1b-12-text-edit-discard-confirm');
     await axe(sticky, 'text edit discard confirm');
     await sticky.getByTestId('dialog-cancel').click();
