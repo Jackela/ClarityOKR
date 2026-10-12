@@ -25,7 +25,7 @@
  * ```html
  * <clarityokr-sticky-note
  *   [okr]="okrViewModel"
- *   (addKr)="onAddKeyResult()">
+ *   >
  * </clarityokr-sticky-note>
  * ```
  *
@@ -34,7 +34,7 @@
  * const viewModel: OkrStickyViewModel = {
  *   objective: 'Improve team productivity',
  *   keyResults: [
- *     { id: 'kr1', statement: 'Reduce deployment time by 50%', metricLabel: 'Time', ownerLabel: 'DevOps' }
+ *     { id: 'kr1', statement: 'Reduce deployment time by 50%', metricLabel: 'Time' }
  *   ],
  *   generatedAt: new Date(),
  *   hasManualEdits: true
@@ -48,27 +48,27 @@ import {
   ChangeDetectionStrategy,
   Component,
   type ElementRef,
-  EventEmitter,
   Inject,
   Input,
   type OnChanges,
-  Output,
   ViewChild,
   inject,
   signal,
 } from '@angular/core';
 import type { KeyResultRecord } from '@clarityokr/contracts';
 
+import { announceAgain } from '../../closed-loop/announce';
 import { ClosedLoopStore } from '../../closed-loop/closed-loop.store';
 import { COPY, formatMonthDay, formatRelativeTime, STATUS_LABEL } from '../../closed-loop/copy';
 import { KrRowComponent } from '../../closed-loop/kr-row.component';
 import { OverallProgressComponent } from '../../closed-loop/overall-progress.component';
 import { PeriodPickerComponent } from '../../closed-loop/period-picker.component';
+import { DialogComponent } from '../../shared/components/dialog.component';
 import { SkeletonComponent } from '../../shared/components/skeleton.component';
+import { TextEditComponent, type TextSaveFailure } from '../../closed-loop/text-edit.component';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 import { OkrStickyService, type OkrStickyViewModel } from '../services/okr-sticky.service';
 import { EditModeStore } from '../state/edit-mode.store';
-import { OkrEditModeComponent } from './okr-edit-mode.component';
 
 /**
  * Component that renders an OKR as a sticky note card.
@@ -78,13 +78,21 @@ import { OkrEditModeComponent } from './okr-edit-mode.component';
  * results and the existing text edit / regenerate / copy actions. The progress data comes
  * from {@link ClosedLoopStore}; the text of the OKR still comes from the view model.
  */
+const MAX_KEY_RESULTS = 10;
+
+function newKeyResultId(): string {
+  const crypto = globalThis.crypto as { randomUUID?: () => string } | undefined;
+  return crypto?.randomUUID ? crypto.randomUUID() : `kr-${Math.random().toString(36).slice(2)}`;
+}
+
 @Component({
   selector: 'clarityokr-sticky-note',
   standalone: true,
   imports: [
     CommonModule,
     TranslatePipe,
-    OkrEditModeComponent,
+    TextEditComponent,
+    DialogComponent,
     KrRowComponent,
     OverallProgressComponent,
     PeriodPickerComponent,
@@ -100,23 +108,24 @@ import { OkrEditModeComponent } from './okr-edit-mode.component';
       [attr.aria-busy]="store.detailState() === 'loading' ? 'true' : null"
     >
       @if (editor.isEditing()) {
-        <fieldset
-          [disabled]="busy()"
-          [attr.aria-busy]="busy()"
-          [attr.aria-label]="'common.edit' | translate"
-          class="sticky-note__edit-fields"
-        >
-          <clarityokr-okr-edit-mode
-            [draftObjective]="editor.draftObjective()"
-            [draftKeyResults]="editor.draftKeyResults()"
-            [errors]="editor.errors()"
-            [canSave]="editor.isValid() && editor.isDirty() && !busy()"
-            (objectiveChange)="editor.updateObjective($event)"
-            (keyResultChange)="editor.updateKeyResult($event.id, { statement: $event.statement })"
-            (save)="save()"
-            (cancel)="cancel()"
-          />
-        </fieldset>
+        <clarityokr-text-edit
+          [objective]="editor.draftObjective()"
+          [keyResults]="editor.draftKeyResults()"
+          [canUndo]="editor.canUndo()"
+          [canRedo]="editor.canRedo()"
+          [canSave]="editor.isValid() && editor.isDirty() && !busy()"
+          [saving]="busy()"
+          [saveError]="editError()"
+          [focusTarget]="focusTarget()"
+          (objectiveChange)="editor.updateObjective($event)"
+          (statementChange)="editor.updateKeyResult($event.id, { statement: $event.value })"
+          (metricChange)="editor.updateKeyResult($event.id, { successMetric: $event.value })"
+          (undo)="editor.undo()"
+          (redo)="editor.redo()"
+          (boundary)="editor.breakCoalescing()"
+          (save)="save()"
+          (cancel)="cancel()"
+        />
       } @else {
         @if (showPinBanner()) {
           @switch (store.pinNotice()) {
@@ -168,6 +177,7 @@ import { OkrEditModeComponent } from './okr-edit-mode.component';
             </span>
           }
           <button
+            #editBtn
             type="button"
             class="sticky-note__text-btn sticky-note__edit"
             data-testid="edit-button"
@@ -219,7 +229,9 @@ import { OkrEditModeComponent } from './okr-edit-mode.component';
                     type="button"
                     class="sticky-note__text-btn"
                     data-testid="sticky-add-kr"
-                    (click)="addKr.emit()"
+                    [attr.aria-disabled]="atKrLimit() ? 'true' : null"
+                    [attr.title]="atKrLimit() ? t.edit.maxKrs : null"
+                    (click)="addKr()"
                   >
                     ＋ {{ t.addShort }}
                   </button>
@@ -269,7 +281,7 @@ import { OkrEditModeComponent } from './okr-edit-mode.component';
                       [n]="i + 1"
                       [info]="d.progress[kr.id]"
                       [blocked]="busy()"
-                      (addMetric)="beginEdit()"
+                      (addMetric)="beginEdit(false, $event)"
                     ></li>
                   }
                 </ol>
@@ -349,10 +361,26 @@ import { OkrEditModeComponent } from './okr-edit-mode.component';
           <span role="status" data-testid="copy-success">{{ 'common.copied' | translate }}</span>
         }
       }
+      <span class="sr-only sr-only--flow" role="status" data-testid="text-saved-live">{{
+        textSavedLive()
+      }}</span>
       @if (error()) {
         <p role="alert" data-testid="sticky-error">{{ error() }}</p>
       }
     </section>
+    <!-- Outside the section: its backdrop-filter would make the fixed dialog relative to it. -->
+    @if (editor.isEditing() && discardOpen()) {
+      <clarityokr-dialog
+        [title]="t.edit.discardTitle"
+        [body]="t.edit.discardBody"
+        [cancelLabel]="t.edit.keepEditing"
+        [confirmLabel]="t.edit.discard"
+        [danger]="true"
+        testId="discard-dialog"
+        (cancelled)="discardOpen.set(false)"
+        (confirmed)="discard()"
+      />
+    }
   `,
   styleUrls: ['./okr-sticky-note.component.scss'],
 })
@@ -364,8 +392,13 @@ export class OkrStickyNoteComponent implements OnChanges {
   readonly removedOpen = signal(false);
   readonly periodAnnouncement = signal('');
   readonly t = COPY;
+  readonly editError = signal<TextSaveFailure>('none');
+  readonly discardOpen = signal(false);
+  readonly focusTarget = signal<{ id: string; field: 'statement' | 'metric' } | null>(null);
+  readonly textSavedLive = signal('');
 
   @ViewChild('title') private title?: ElementRef<HTMLElement>;
+  @ViewChild('editBtn') private editBtn?: ElementRef<HTMLElement>;
 
   constructor(
     @Inject(EditModeStore) readonly editor: EditModeStore,
@@ -374,8 +407,16 @@ export class OkrStickyNoteComponent implements OnChanges {
 
   readonly store = inject(ClosedLoopStore);
 
+  private lastOkrId: string | null = null;
+
   ngOnChanges(): void {
-    this.store.syncDocument(this.okr?.id ?? null);
+    const id = this.okr?.id ?? null;
+    // Undo only reaches back inside one OKR (spec §3.9).
+    if (id !== this.lastOkrId) {
+      this.editor.clearHistory();
+      this.lastOkrId = id;
+    }
+    this.store.syncDocument(id);
   }
 
   detail() {
@@ -435,45 +476,101 @@ export class OkrStickyNoteComponent implements OnChanges {
     this.title?.nativeElement.focus();
   }
 
-  beginEdit(): void {
+  /** Active key results at the 10-item limit of an OKR: no more can be added. */
+  atKrLimit(): boolean {
+    return (this.okr?.keyResults.length ?? 0) >= MAX_KEY_RESULTS;
+  }
+
+  /** 「＋ 添加」: opens the text form with an empty key result at the end, focused (§3.10). */
+  addKr(): void {
+    if (this.atKrLimit()) return;
+    this.beginEdit(true);
+  }
+
+  /**
+   * Opens the text edit form. `addKeyResult` appends an empty key result; `metricOf` puts the
+   * focus into that key result's metric (the 「添加度量」 entry).
+   */
+  beginEdit(addKeyResult = false, metricOf?: string): void {
     if (!this.okr || this.busy()) return;
+    this.editError.set('none');
+    this.discardOpen.set(false);
+    const newId = addKeyResult ? newKeyResultId() : undefined;
+    this.focusTarget.set(
+      newId
+        ? { id: newId, field: 'statement' }
+        : metricOf
+          ? { id: metricOf, field: 'metric' }
+          : null,
+    );
     this.editor.enterEditMode(
       this.okr.objective,
       this.okr.keyResults.map((kr) => ({
         id: kr.id,
         statement: kr.statement,
         successMetric: kr.metricLabel ?? undefined,
-        owner: kr.ownerLabel ?? undefined,
       })),
+      this.okr.id,
+      newId,
     );
   }
 
-  /** Cancel local edits only while no gateway operation is pending. */
+  /** Esc / 取消: with unsaved changes ask first (spec §3.9). */
   cancel(): void {
     if (!this.editor.isEditing() || this.busy()) return;
+    if (this.editor.isDirty()) {
+      this.discardOpen.set(true);
+      return;
+    }
+    this.discard();
+  }
+
+  discard(): void {
+    this.discardOpen.set(false);
+    if (!this.editor.isEditing()) return;
     this.editor.cancelEdits();
+    this.focusEditButton();
   }
 
   async save(): Promise<void> {
     if (!this.editor.isValid() || !this.editor.isDirty() || this.busy()) return;
     const state = this.editor.getState();
-    await this.perform(async () => {
+    this.editError.set('none');
+    this.busy.set(true);
+    this.store.operationBusy.set(true);
+    try {
       await this.gateway.saveEdits({
         objective: state.draftObjective,
         keyResults: state.draftKeyResults.map((kr) => ({
           id: kr.id,
           statement: kr.statement,
           successMetric: kr.successMetric || undefined,
-          owner: kr.owner || undefined,
         })),
       });
       this.editor.saveEdits();
-    });
+      announceAgain(this.textSavedLive, COPY.edit.saved);
+      this.focusEditButton();
+    } catch (error) {
+      // The text stays in the form; never show the raw error.
+      const message = error instanceof Error ? error.message : String(error);
+      this.editError.set(/too_long|cluster_too_long/.test(message) ? 'over_limit' : 'failed');
+    } finally {
+      this.busy.set(false);
+      this.store.operationBusy.set(false);
+    }
+  }
+
+  private focusEditButton(): void {
+    setTimeout(() => this.editBtn?.nativeElement.focus(), 0);
   }
 
   async regenerate(policy: 'overwrite' | 'append'): Promise<void> {
     this.showPolicies.set(false);
-    await this.perform(() => this.gateway.regenerate(policy));
+    await this.perform(async () => {
+      await this.gateway.regenerate(policy);
+      // New text: the undo history of the old text no longer applies (spec §3.9).
+      this.editor.clearHistory();
+    });
   }
 
   async copy(): Promise<void> {
@@ -506,14 +603,6 @@ export class OkrStickyNoteComponent implements OnChanges {
    * and editing. When null, the component renders nothing.
    */
   @Input() okr: OkrStickyViewModel | null = null;
-
-  /**
-   * Event emitted when the user clicks the "Add Key Result" button.
-   *
-   * Parent components should listen to this event to handle adding
-   * new key results to the OKR.
-   */
-  @Output() addKr = new EventEmitter<void>();
 
   /**
    * TrackBy function for key results to optimize rendering performance.

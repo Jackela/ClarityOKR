@@ -8,6 +8,9 @@ import {
   type OkrDetail,
   type OkrListReply,
   type PinReply,
+  type ReviewReply,
+  type SaveReviewRequest,
+  type StorageModeName,
   type ProgressChangeReply,
   type ReplaceProgressRequest,
   type SetPeriodReply,
@@ -54,6 +57,33 @@ export class ClosedLoopApi {
 
   replaceProgress(request: ReplaceProgressRequest): Promise<IpcResult<ProgressChangeReply>> {
     return this.call(IPC_CHANNELS.KR_REPLACE_PROGRESS, request);
+  }
+
+  getReview(request: OkrIdRequest): Promise<IpcResult<ReviewReply>> {
+    return this.call(IPC_CHANNELS.REVIEW_GET, request);
+  }
+
+  saveReview(request: SaveReviewRequest): Promise<IpcResult<ReviewReply>> {
+    return this.call(IPC_CHANNELS.REVIEW_SAVE, request);
+  }
+
+  /**
+   * Where this run keeps its data. The channel takes no arguments and answers a bare
+   * `{ storageMode }` (no path). Anything unexpected counts as "normal": the memory-mode
+   * wording is only added when the main process says so.
+   */
+  async getStorageMode(): Promise<StorageModeName> {
+    const bridge = typeof window === 'undefined' ? undefined : window.clarifyOkr;
+    if (!bridge) return 'normal';
+    try {
+      const reply = (await bridge.invoke(IPC_CHANNELS.STORAGE_STATE_GET, undefined)) as {
+        storageMode?: unknown;
+      } | null;
+      const mode = reply?.storageMode;
+      return mode === 'memory' || mode === 'fresh-file' ? mode : 'normal';
+    } catch {
+      return 'normal';
+    }
   }
 
   private async call<T>(channel: string, payload: unknown): Promise<IpcResult<T>> {

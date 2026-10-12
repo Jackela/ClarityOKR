@@ -1,0 +1,82 @@
+:host {
+  display: block;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field__label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.field__input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 48px;
+  max-height: 240px;
+  padding: 12px;
+  border: 1px solid var(--color-border-control);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  line-height: 21px;
+  resize: none;
+  /* grows with its content (Chromium); the max-height then scrolls inside */
+  field-sizing: content;
+
+  &::placeholder {
+    color: var(--color-text-secondary);
+  }
+
+  &:hover:not(:focus):not([readonly]) {
+    border-color: var(--color-text-secondary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-brand-primary);
+    outline-offset: 2px;
+    border-color: var(--color-brand-primary);
+  }
+
+  &[readonly] {
+    background: var(--color-bg-secondary);
+  }
+}
+
+.field__input--invalid {
+  /* 2px: the extra pixel is taken from the padding so the box does not jump */
+  border: 2px solid var(--notice-error-fg);
+  padding: 11px;
+}
+
+.field__foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  min-height: 16px;
+  font-size: var(--font-size-xs);
+  line-height: 16px;
+}
+
+.field__error {
+  color: var(--notice-error-fg);
+}
+
+.field__count {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.field__count--over {
+  color: var(--notice-error-fg);
+}

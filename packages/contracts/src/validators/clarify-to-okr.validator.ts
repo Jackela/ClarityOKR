@@ -1,5 +1,20 @@
 import { z } from 'zod';
 
+import { TEXT_LIMITS, checkText } from '../okr-model.js';
+
+/**
+ * Text that must stay within a grapheme limit (spec §3.9a). The same `checkText` the renderer's
+ * forms use; nothing is truncated, over-long text is rejected.
+ */
+function graphemeText(limit: number) {
+  return z.string().superRefine((value, ctx) => {
+    const check = checkText(value, limit);
+    if (!check.ok) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: check.reason });
+    }
+  });
+}
+
 export const clarificationOptionSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1).max(40),
@@ -48,12 +63,14 @@ export const clarificationSessionSchema = z.object({
   pendingQuestionId: z.string().optional().nullable(),
 });
 
-export const keyResultSchema = z.object({
-  id: z.string().min(1),
-  statement: z.string().min(1).max(180),
-  successMetric: z.string().optional(),
-  owner: z.string().optional(),
-});
+export const keyResultSchema = z
+  .object({
+    id: z.string().min(1),
+    statement: graphemeText(TEXT_LIMITS.keyResult).refine((v) => v.length > 0, 'empty'),
+    successMetric: graphemeText(TEXT_LIMITS.successMetric).optional(),
+    // There is no owner field any more; a document that still carries one is rejected.
+  })
+  .strict();
 
 export const manualEditRecordSchema = z.object({
   id: z.string().min(1),
@@ -65,7 +82,7 @@ export const manualEditRecordSchema = z.object({
 
 export const okrDocumentSchema = z.object({
   id: z.string().min(1),
-  objective: z.string().min(1).max(200),
+  objective: graphemeText(TEXT_LIMITS.objective).refine((v) => v.length > 0, 'empty'),
   keyResults: z.array(keyResultSchema).min(1).max(10),
   sourceSessionId: z.string().min(1),
   generatedAt: z.string().datetime(),

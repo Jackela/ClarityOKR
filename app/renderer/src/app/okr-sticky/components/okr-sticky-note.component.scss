@@ -39,11 +39,6 @@
   color: var(--color-warning);
 }
 
-.sticky-note__badge--owner {
-  background: var(--color-success-light);
-  color: var(--color-success);
-}
-
 .sticky-note__action {
   align-self: flex-start;
   padding: var(--space-2) var(--space-3);
@@ -353,4 +348,10 @@
 
 .sticky-note__footer {
   margin-top: var(--space-3);
+}
+
+/* A live region that takes its own 1px in the flow, so two hidden regions never share a spot. */
+.sr-only--flow {
+  position: static;
+  margin: 0;
 }

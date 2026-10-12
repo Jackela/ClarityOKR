@@ -50,7 +50,7 @@ export interface TabItem {
       }
       .tabs__tab {
         flex: 1;
-        min-width: 96px;
+        min-width: 80px;
         height: 32px;
         border: 0;
         border-radius: 8px;

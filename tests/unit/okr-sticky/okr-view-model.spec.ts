@@ -10,7 +10,6 @@ interface KeyResultViewModel {
   id: string;
   statement: string;
   metricLabel: string | null;
-  ownerLabel: string | null;
 }
 
 interface OkrStickyViewModel {
@@ -45,7 +44,6 @@ describe('OkrProjectionService', () => {
       id: `kr-${Math.random().toString(36).slice(2)}`,
       statement: '默认关键结果',
       successMetric: undefined,
-      owner: undefined,
       ...overrides,
     };
   }
@@ -62,30 +60,25 @@ describe('OkrProjectionService', () => {
           id: 'kr-1',
           statement: '将交付周期从 4 周缩短到 2 周',
           successMetric: '周期 <= 14 天',
-          owner: '研发团队',
         }),
         buildKeyResult({
           id: 'kr-2',
           statement: '代码审查通过率提升到 90%',
           successMetric: '通过率 >= 90%',
-          owner: undefined,
         }),
         buildKeyResult({
           id: 'kr-3',
           statement: '自动化测试覆盖率提升到 80%',
           successMetric: '覆盖率 >= 80%',
-          owner: 'QA团队',
         }),
         buildKeyResult({
           id: 'kr-4',
           statement: '生产环境故障恢复时间控制在 30 分钟内',
-          owner: '运维团队',
         }),
         buildKeyResult({
           id: 'kr-5',
           statement: '每月发布版本数增加到 4 个',
           successMetric: '版本数 >= 4/月',
-          owner: '产品团队',
         }),
       ],
       sourceSessionId: 'session-123',
@@ -128,11 +121,7 @@ describe('OkrProjectionService', () => {
         id: 'kr-1',
         statement: '将交付周期从 4 周缩短到 2 周',
         metricLabel: '周期 <= 14 天',
-        ownerLabel: '研发团队',
       });
-
-      // Verify KR without owner has null ownerLabel
-      expect(viewModel.keyResults[1].ownerLabel).toBeNull();
 
       // Verify KR without successMetric has null metricLabel
       expect(viewModel.keyResults[3].metricLabel).toBeNull();
@@ -283,22 +272,6 @@ describe('OkrProjectionService', () => {
       expect(viewModel.keyResults[0].metricLabel).toBeNull();
     });
 
-    it('should handle missing owner on KeyResult', () => {
-      const okr = buildOKRDocument({
-        keyResults: [
-          buildKeyResult({
-            id: 'kr-1',
-            statement: '没有负责人的关键结果',
-            owner: undefined,
-          }),
-        ],
-      });
-
-      const viewModel = service.project(okr);
-
-      expect(viewModel.keyResults[0].ownerLabel).toBeNull();
-    });
-
     it('should handle KeyResult with all optional fields missing', () => {
       const okr = buildOKRDocument({
         keyResults: [
@@ -315,7 +288,6 @@ describe('OkrProjectionService', () => {
         id: 'kr-minimal',
         statement: '最小化关键结果',
         metricLabel: null,
-        ownerLabel: null,
       });
     });
   });
@@ -354,7 +326,6 @@ describe('OkrProjectionService', () => {
             id: 'kr-1',
             statement: '测试',
             successMetric: '',
-            owner: '',
           }),
         ],
       });
@@ -363,7 +334,6 @@ describe('OkrProjectionService', () => {
 
       // Empty strings should be treated as null/empty for display
       expect(viewModel.keyResults[0].metricLabel).toBe('');
-      expect(viewModel.keyResults[0].ownerLabel).toBe('');
     });
   });
 });

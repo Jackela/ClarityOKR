@@ -35,7 +35,6 @@ interface EditFormData {
     id: string;
     statement: string;
     metricLabel: string | null;
-    ownerLabel: string | null;
   }>;
 }
 
@@ -150,13 +149,11 @@ function createOkrViewModel(overrides: Partial<OkrStickyViewModel> = {}): OkrSti
         id: 'kr-1',
         statement: '将迭代周期缩短到 3 周',
         metricLabel: '周期 <= 21 天',
-        ownerLabel: '运营团队',
       },
       {
         id: 'kr-2',
         statement: '将上线缺陷率控制在 0.5%',
         metricLabel: null,
-        ownerLabel: null,
       },
     ],
     generatedAt: '2025-10-31T10:12:00.000Z',
@@ -174,7 +171,6 @@ function createEditFormData(viewModel: OkrStickyViewModel): EditFormData {
       id: kr.id,
       statement: kr.statement,
       metricLabel: kr.metricLabel,
-      ownerLabel: kr.ownerLabel,
     })),
   };
 }
@@ -292,7 +288,7 @@ describe('OkrStickyNoteComponent - Edit Mode', () => {
       // Arrange
       const viewModel = createOkrViewModel({
         objective: 'Test Objective',
-        keyResults: [{ id: 'kr-1', statement: 'First KR', metricLabel: null, ownerLabel: null }],
+        keyResults: [{ id: 'kr-1', statement: 'First KR', metricLabel: null }],
       });
       component.okr = viewModel;
       mockEditStore.enterEditMode(createEditFormData(viewModel));
@@ -501,8 +497,8 @@ describe('OkrStickyNoteComponent - Edit Mode', () => {
       // Arrange
       const viewModel = createOkrViewModel({
         keyResults: [
-          { id: 'kr-1', statement: 'First', metricLabel: null, ownerLabel: null },
-          { id: 'kr-2', statement: 'Second', metricLabel: null, ownerLabel: null },
+          { id: 'kr-1', statement: 'First', metricLabel: null },
+          { id: 'kr-2', statement: 'Second', metricLabel: null },
         ],
       });
       component.okr = viewModel;
@@ -742,9 +738,9 @@ describe('OkrStickyNoteComponent - Edit Mode', () => {
       // Arrange
       const viewModel = createOkrViewModel({
         keyResults: [
-          { id: 'kr-1', statement: 'First', metricLabel: null, ownerLabel: null },
-          { id: 'kr-2', statement: 'Second', metricLabel: null, ownerLabel: null },
-          { id: 'kr-3', statement: 'Third', metricLabel: null, ownerLabel: null },
+          { id: 'kr-1', statement: 'First', metricLabel: null },
+          { id: 'kr-2', statement: 'Second', metricLabel: null },
+          { id: 'kr-3', statement: 'Third', metricLabel: null },
         ],
       });
       component.okr = viewModel;

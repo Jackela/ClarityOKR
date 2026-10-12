@@ -210,16 +210,14 @@ test.describe('Edit, Regenerate, and Copy OKR Workflow', () => {
     await forceClick(stickyWindowPage, '[data-testid="edit-button"]');
 
     // Verify edit mode is active (save and cancel buttons should appear)
-    const saveBtnVisible = await waitForElement(stickyWindowPage, '[data-testid="save-button"]', {
+    const saveBtnVisible = await waitForElement(stickyWindowPage, '[data-testid="edit-save"]', {
       timeout: 5000,
     });
     expect(saveBtnVisible).toBe(true);
 
-    const cancelBtnVisible = await waitForElement(
-      stickyWindowPage,
-      '[data-testid="cancel-button"]',
-      { timeout: 5000 },
-    );
+    const cancelBtnVisible = await waitForElement(stickyWindowPage, '[data-testid="edit-cancel"]', {
+      timeout: 5000,
+    });
     expect(cancelBtnVisible).toBe(true);
 
     // ==========================================
@@ -227,14 +225,14 @@ test.describe('Edit, Regenerate, and Copy OKR Workflow', () => {
     // ==========================================
     const objectiveInputVisible = await waitForElement(
       stickyWindowPage,
-      '[data-testid="objective-input"]',
+      '[data-testid="edit-objective"]',
       { timeout: 5000 },
     );
     expect(objectiveInputVisible).toBe(true);
 
     // Clear and modify the objective text
     await stickyWindowPage.evaluate(() => {
-      const input = document.querySelector('[data-testid="objective-input"]') as HTMLInputElement;
+      const input = document.querySelector('[data-testid="edit-objective"]') as HTMLTextAreaElement;
       if (input) {
         input.value = '优化团队开发效率';
         input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -244,7 +242,7 @@ test.describe('Edit, Regenerate, and Copy OKR Workflow', () => {
     // ==========================================
     // Step 4: Save changes
     // ==========================================
-    await forceClick(stickyWindowPage, '[data-testid="save-button"]');
+    await forceClick(stickyWindowPage, '[data-testid="edit-save"]');
 
     // Wait for edit mode to close
     await waitForStateChange(stickyWindowPage, {
@@ -419,7 +417,7 @@ test.describe('Edit, Regenerate, and Copy OKR Workflow', () => {
     await forceClick(stickyWindowPage, '[data-testid="edit-button"]');
 
     await stickyWindowPage.evaluate(() => {
-      const input = document.querySelector('[data-testid="objective-input"]') as HTMLInputElement;
+      const input = document.querySelector('[data-testid="edit-objective"]') as HTMLTextAreaElement;
       if (input) {
         input.value = '完全不同的目标';
         input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -429,7 +427,10 @@ test.describe('Edit, Regenerate, and Copy OKR Workflow', () => {
     // ==========================================
     // Click cancel button
     // ==========================================
-    await forceClick(stickyWindowPage, '[data-testid="cancel-button"]');
+    await forceClick(stickyWindowPage, '[data-testid="edit-cancel"]');
+    // text was changed, so cancelling asks first (spec §3.9): 放弃
+    await waitForElement(stickyWindowPage, '[data-testid="dialog-confirm"]', { timeout: 5000 });
+    await forceClick(stickyWindowPage, '[data-testid="dialog-confirm"]');
 
     // Wait for edit mode to close
     await waitForStateChange(stickyWindowPage, {

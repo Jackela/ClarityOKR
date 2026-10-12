@@ -325,6 +325,8 @@ test.describe('closed loop: progress, history, period (D1a)', () => {
     // history tab (arrow keys move between tabs)
     await sticky.getByTestId('tab-note').focus();
     await sticky.keyboard.press('ArrowRight');
+    await expect(sticky.getByTestId('tab-review')).toHaveAttribute('aria-selected', 'true');
+    await sticky.keyboard.press('ArrowRight');
     await expect(sticky.getByTestId('tab-history')).toHaveAttribute('aria-selected', 'true');
     await expect(sticky.getByTestId('history-item')).toHaveCount(1);
     await expect(sticky.getByTestId('history-item')).toContainText('提高团队效率');

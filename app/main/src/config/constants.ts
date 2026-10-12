@@ -15,12 +15,10 @@ export const CLARIFICATION_CONFIG = {
     first: {
       statementTemplate: (intent: string) => `为"${intent}"设定可衡量的流程节奏`,
       successMetric: '每周复盘 1 次',
-      owner: '团队负责人',
     },
     second: {
       statementTemplate: (intent: string) => `建立 ${intent} 成果指标追踪`,
       successMetric: '关键指标提升 15%',
-      owner: undefined,
     },
   },
 

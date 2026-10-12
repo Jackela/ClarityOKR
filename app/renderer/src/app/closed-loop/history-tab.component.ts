@@ -162,7 +162,21 @@ const PAGE_STEP = 5;
                         ><span class="sr-only">，</span>
                       }
                       @if (item.pinned) {
-                        <span><span aria-hidden="true">📌 </span>{{ copy.history.pinned }}</span
+                        <span class="item__pinned" data-testid="history-pinned"
+                          ><svg
+                            class="item__pin-icon"
+                            viewBox="0 0 16 16"
+                            width="14"
+                            height="14"
+                            aria-hidden="true"
+                            focusable="false"
+                          >
+                            <path
+                              d="M9.5 1.5 14.5 6.5 12.6 7.2 10.4 9.4 10.9 12.1 9.9 13.1 6.8 10 3 13.8 2.2 13 6 9.2 2.9 6.1 3.9 5.1 6.6 5.6 8.8 3.4Z"
+                              fill="currentColor"
+                            />
+                          </svg>
+                          {{ copy.history.pinned }}</span
                         ><span class="sr-only">，</span>
                       }
                       <span>{{ copy.history.updatedAt(time(item.updatedAt)) }}</span>

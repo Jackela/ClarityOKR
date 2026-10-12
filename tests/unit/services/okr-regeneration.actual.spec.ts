@@ -9,7 +9,7 @@ import type { OkrAgentService } from '@clarityokr/main/services/okr-agent.servic
 
 const response = {
   objective: 'Generated objective',
-  keyResults: [{ id: 'generated', statement: 'Measurable result', owner: 'Team' }],
+  keyResults: [{ id: 'generated', statement: 'Measurable result' }],
 };
 const time = '2026-10-09T00:00:00.000Z';
 describe('Actual regeneration persistence and failure boundaries', () => {

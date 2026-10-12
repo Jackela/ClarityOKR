@@ -26,8 +26,6 @@ export interface KeyResultViewModel {
   statement: string;
   /** Display label for the success metric (null if not specified) */
   metricLabel: string | null;
-  /** Display label for the owner/assignee (null if not specified) */
-  ownerLabel: string | null;
 }
 
 /**
@@ -123,7 +121,6 @@ export class OkrStickyService implements OnDestroy {
         id: kr.id,
         statement: kr.statement,
         metricLabel: kr.successMetric ?? null,
-        ownerLabel: kr.owner ?? null,
       })),
       generatedAt: document.generatedAt,
       lastEditedAt: document.lastEditedAt ?? null,
@@ -227,37 +224,6 @@ export class OkrStickyService implements OnDestroy {
   async reopenSticky(): Promise<void> {
     const bridge = this.ensureBridge();
     await bridge.invoke(IPC_CHANNELS.STICKY_REOPEN, undefined);
-  }
-
-  /**
-   * 添加 Key Result
-   *
-   * 在本地状态中动态添加一个新的 Key Result。
-   * 这是一个本地操作，不涉及 IPC 调用。
-   */
-  addKeyResult(): void {
-    const current = this._viewModel();
-    if (!current) return;
-
-    const id =
-      globalThis.crypto && 'randomUUID' in globalThis.crypto
-        ? (globalThis.crypto as { randomUUID: () => string }).randomUUID()
-        : Math.random().toString(36).slice(2);
-
-    const next: OkrStickyViewModel = {
-      ...current,
-      keyResults: [
-        ...current.keyResults,
-        {
-          id,
-          statement: 'New Key Result',
-          metricLabel: null,
-          ownerLabel: null,
-        },
-      ],
-    };
-
-    this._viewModel.set(next);
   }
 
   /**

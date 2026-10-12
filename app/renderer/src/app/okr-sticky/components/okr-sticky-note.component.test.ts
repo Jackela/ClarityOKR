@@ -27,13 +27,11 @@ describe('OkrStickyNoteComponent', () => {
         id: 'kr-1',
         statement: '将迭代周期缩短到 3 周',
         metricLabel: '周期 <= 21 天',
-        ownerLabel: '运营团队',
       },
       {
         id: 'kr-2',
         statement: '将上线缺陷率控制在 0.5%',
         metricLabel: null,
-        ownerLabel: null,
       },
     ],
     generatedAt: '2025-10-31T10:12:00.000Z',
@@ -112,14 +110,10 @@ describe('OkrStickyNoteComponent', () => {
 @Component({
   standalone: true,
   imports: [OkrStickyNoteComponent],
-  template: `<clarityokr-sticky-note
-    [okr]="gateway.viewModel()"
-    (addKr)="additions = additions + 1"
-  />`,
+  template: `<clarityokr-sticky-note [okr]="gateway.viewModel()" />`,
 })
 class StickyInteractionHost {
   readonly gateway = inject(OkrStickyService);
-  additions = 0;
 }
 
 describe('Sticky note DOM with actual edit store and gateway', () => {
@@ -129,7 +123,7 @@ describe('Sticky note DOM with actual edit store and gateway', () => {
     sourceSessionId: 'component-session',
     objective: 'Original objective',
     keyResults: [
-      { id: 'first', statement: 'First result', owner: 'Team', successMetric: '90%' },
+      { id: 'first', statement: 'First result', successMetric: '90%' },
       { id: 'second', statement: 'Second result' },
     ],
     generatedAt: time,
@@ -181,7 +175,7 @@ describe('Sticky note DOM with actual edit store and gateway', () => {
   }
 
   async function input(testId: string, text: string): Promise<void> {
-    const control = element<HTMLInputElement>(testId);
+    const control = element<HTMLTextAreaElement>(testId);
     control.value = text;
     control.dispatchEvent(new Event('input', { bubbles: true }));
     fixture.detectChanges();
@@ -253,40 +247,62 @@ describe('Sticky note DOM with actual edit store and gateway', () => {
   it('edits actual inputs, cancels without IPC, and emits the single add-key-result control', async () => {
     const additions = fixture.nativeElement.querySelectorAll('[data-testid="sticky-add-kr"]');
     expect(additions.length).toBe(1);
-    additions.forEach((button: HTMLButtonElement) => button.click());
-    expect(fixture.componentInstance.additions).toBe(1);
     await enterEdit();
-    expect(element<HTMLInputElement>('objective-input').value).toBe(original.objective);
-    expect(element<HTMLButtonElement>('save-button').disabled).toBe(true);
-    await input('objective-input', 'Unsaved objective');
-    await input('kr-input-0', 'Unsaved result');
+    expect(element<HTMLTextAreaElement>('edit-objective').value).toBe(original.objective);
+    expect(element<HTMLButtonElement>('edit-save').disabled).toBe(true);
+    await input('edit-objective', 'Unsaved objective');
+    await input('edit-kr-0', 'Unsaved result');
     expect(store.draftObjective()).toBe('Unsaved objective');
     expect(store.draftKeyResults()[0].statement).toBe('Unsaved result');
-    element('cancel-button').click();
+    element('edit-cancel').click();
+    await render();
+    // unsaved changes: asks first (spec §3.9); 放弃 throws them away
+    expect(element('discard-dialog').textContent).toContain('放弃未保存的修改？');
+    element('dialog-confirm').click();
     await render();
     expect(store.isEditing()).toBe(false);
     expect(element('sticky-objective').textContent).toBe(original.objective);
     expect(legacyCalls()).toEqual([]);
   });
 
+  it('blur and paste in the real form start a new undo step (spec §3.9)', async () => {
+    await enterEdit();
+    await input('edit-objective', 'One');
+    await input('edit-objective', 'One two');
+    element('edit-objective').dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    await input('edit-objective', 'One two three');
+    element('edit-objective').dispatchEvent(new Event('paste', { bubbles: true }));
+    await input('edit-objective', 'One two three PASTED');
+    await input('edit-objective', 'One two three PASTED more');
+    // typing after the paste is a step of its own
+    store.undo();
+    expect(store.draftObjective()).toBe('One two three PASTED');
+    store.undo();
+    expect(store.draftObjective()).toBe('One two three');
+    store.undo();
+    expect(store.draftObjective()).toBe('One two');
+    store.undo();
+    expect(store.draftObjective()).toBe(original.objective);
+  });
+
   it('disables invalid and clean saves, then saves real acknowledged data with metadata preserved', async () => {
     await enterEdit();
     await note.save();
     expect(legacyCalls()).toEqual([]);
-    await input('objective-input', ' ');
+    await input('edit-objective', ' ');
     expect(store.isValid()).toBe(false);
-    expect(element<HTMLButtonElement>('save-button').disabled).toBe(true);
+    expect(element<HTMLButtonElement>('edit-save').disabled).toBe(true);
     expect(fixture.nativeElement.querySelector('[role="alert"]')).not.toBeNull();
     await note.save();
     expect(legacyCalls()).toEqual([]);
-    await input('objective-input', 'Edited objective');
-    await input('kr-input-1', 'Edited second result');
+    await input('edit-objective', 'Edited objective');
+    await input('edit-kr-1', 'Edited second result');
     const acknowledged = {
       ...edited(),
       keyResults: [original.keyResults[0], { id: 'second', statement: 'Edited second result' }],
     };
     invoke.mockResolvedValueOnce(acknowledged);
-    await clickAndWait('save-button', 'save');
+    await clickAndWait('edit-save', 'save');
     expect(invoke).toHaveBeenCalledWith(IPC_CHANNELS.OKR_UPDATE, {
       id: original.id,
       objective: 'Edited objective',
@@ -295,7 +311,6 @@ describe('Sticky note DOM with actual edit store and gateway', () => {
         {
           id: 'second',
           statement: 'Edited second result',
-          owner: undefined,
           successMetric: undefined,
         },
       ],
@@ -308,24 +323,26 @@ describe('Sticky note DOM with actual edit store and gateway', () => {
 
   it('keeps editable drafts and shows failure when saving is rejected, allowing a retry', async () => {
     await enterEdit();
-    await input('objective-input', 'Edited objective');
+    await input('edit-objective', 'Edited objective');
     invoke.mockImplementationOnce(async () => {
       throw new Error('Save rejected');
     });
-    await clickAndWait('save-button', 'save');
+    await clickAndWait('edit-save', 'save');
     expect(store.isEditing()).toBe(true);
     expect(store.draftObjective()).toBe('Edited objective');
-    expect(element('sticky-error').textContent).toBe('Save rejected');
+    // the raw error is never shown; the text stays and the form says so
+    expect(element('edit-save-failed').textContent).toContain('没能保存，你写的内容还在。');
+    expect(fixture.nativeElement.textContent).not.toContain('Save rejected');
     expect(note.busy()).toBe(false);
     invoke.mockResolvedValueOnce(edited());
-    await clickAndWait('save-button', 'save');
+    await clickAndWait('edit-save', 'save');
     expect(store.isEditing()).toBe(false);
     expect(note.error()).toBeNull();
   });
 
   it('does not cancel an acknowledged save while its IPC response is pending', async () => {
     await enterEdit();
-    await input('objective-input', 'Edited objective');
+    await input('edit-objective', 'Edited objective');
     let resolve: (value: unknown) => void = () => {
       throw new Error('Missing controlled response');
     };
@@ -335,16 +352,16 @@ describe('Sticky note DOM with actual edit store and gateway', () => {
           resolve = done;
         }),
     );
-    element('save-button').click();
+    element('edit-save').click();
     fixture.detectChanges();
     try {
       expect(note.busy()).toBe(true);
-      expect(element('cancel-button').matches(':disabled')).toBe(true);
-      expect(element('objective-input').matches(':disabled')).toBe(true);
+      expect(element('edit-cancel').matches(':disabled')).toBe(true);
+      expect(element<HTMLTextAreaElement>('edit-objective').readOnly).toBe(true);
       await note.save();
       expect(legacyCalls()).toHaveLength(1);
       note.cancel();
-      element('cancel-button').click();
+      element('edit-cancel').click();
       fixture.detectChanges();
       expect(store.isEditing()).toBe(true);
     } finally {

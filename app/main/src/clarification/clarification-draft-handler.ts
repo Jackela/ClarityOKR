@@ -136,7 +136,6 @@ export class ClarificationDraftHandler implements IClarificationDraftHandler {
           typeof kr?.target !== 'undefined' && typeof kr?.measurement === 'string'
             ? `${String(kr.target)} ${kr.measurement}`
             : undefined,
-        owner: undefined,
       })),
       sourceSessionId: session.id,
       generatedAt: new Date().toISOString(),

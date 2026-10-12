@@ -175,3 +175,15 @@
   gap: 8px;
   padding: 0 16px;
 }
+
+/* spec §4: the pin is an icon in the secondary colour next to the word, not an emoji */
+.item__pinned {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-text-secondary);
+}
+
+.item__pin-icon {
+  flex-shrink: 0;
+}

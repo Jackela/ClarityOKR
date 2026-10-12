@@ -106,18 +106,12 @@ import { ThemeToggleComponent } from './shared/components/theme-toggle.component
 
         @if (hasStickyNote()) {
           <section class="result-panel" data-testid="okr-summary" aria-label="OKR">
-            <clarityokr-sticky-note
-              [okr]="stickyViewModel()"
-              (addKr)="onAddKeyResult()"
-            ></clarityokr-sticky-note>
+            <clarityokr-sticky-note [okr]="stickyViewModel()"></clarityokr-sticky-note>
           </section>
         }
       </main>
     } @else {
-      <clarityokr-sticky-shell
-        [okr]="stickyViewModel()"
-        (addKr)="onAddKeyResult()"
-      ></clarityokr-sticky-shell>
+      <clarityokr-sticky-shell [okr]="stickyViewModel()"></clarityokr-sticky-shell>
     }
   `,
   styleUrls: ['./app.component.scss'],
@@ -239,10 +233,6 @@ export class AppComponent implements OnDestroy {
         this.state.setError({ message, recoverable: true });
       },
     });
-  }
-
-  onAddKeyResult(): void {
-    this.stickyGateway.addKeyResult();
   }
 
   async reopenSticky(): Promise<void> {

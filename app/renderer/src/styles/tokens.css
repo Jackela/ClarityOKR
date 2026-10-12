@@ -144,6 +144,12 @@
   --notice-info-bar: #2563eb;
   --notice-error-bg: #fef2f2;
   --notice-error-fg: #b91c1c;
+  /* Toast (spec §2.6, §6.5): dark pill on light theme, light pill on dark theme */
+  --toast-bg: #1d1d1f;
+  --toast-fg: #ffffff;
+  --toast-detail: #d1d1d6;
+  --toast-action: #93c5fd;
+  --toast-error-title: #fca5a5;
   --notice-warn-bg: #fffbeb;
   --notice-warn-fg: #92400e;
 
@@ -498,6 +504,11 @@
   --notice-info-bar: #60a5fa;
   --notice-error-bg: #3b1f1f;
   --notice-error-fg: #f87171;
+  --toast-bg: #f5f5f7;
+  --toast-fg: #1d1d1f;
+  --toast-detail: #3a3a3c;
+  --toast-action: #1d4ed8;
+  --toast-error-title: #b91c1c;
   --notice-warn-bg: #40361f;
   --notice-warn-fg: #fbbf24;
 

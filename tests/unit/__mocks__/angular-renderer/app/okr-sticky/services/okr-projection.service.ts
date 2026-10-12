@@ -5,7 +5,6 @@ export interface KeyResultViewModel {
   id: string;
   statement: string;
   metricLabel: string | null;
-  ownerLabel: string | null;
 }
 
 export interface OkrStickyViewModel {
@@ -29,7 +28,6 @@ export class OkrProjectionService {
         id: kr.id,
         statement: kr.statement,
         metricLabel: kr.successMetric ?? null,
-        ownerLabel: kr.owner ?? null,
       })),
       generatedAt: document.generatedAt,
       lastEditedAt: document.lastEditedAt ?? null,

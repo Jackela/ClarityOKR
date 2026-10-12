@@ -397,6 +397,106 @@ describe('ClosedLoopStore', () => {
       expect(api['open']).not.toHaveBeenCalled();
     });
 
+    describe('A → B → A: a reply for the first visit of A is dropped (request sequence)', () => {
+      async function goAba(start: () => Promise<unknown>): Promise<{ done: Promise<unknown> }> {
+        await openFirst();
+        const done = start();
+        await switchToB();
+        api['open']!.mockResolvedValueOnce(
+          ok(makeDetail([makeKr({ id: 'kr-1', progress: null })], { id: 'a', pinned: false })),
+        );
+        await store.openFromHistory('a');
+        return { done };
+      }
+
+      it('setPeriod: the old reply does not overwrite the fresh A, and A is read again', async () => {
+        const d = deferred<ReturnType<typeof ok>>();
+        api['setPeriod']!.mockReturnValue(d.promise);
+        const { done } = await goAba(() => store.setPeriod('2026-Q4' as never));
+        expect(store.detail()?.objective.id).toBe('a');
+        expect(store.detail()?.objective.period).toBeNull();
+        api['open']!.mockClear();
+        api['open']!.mockResolvedValue(
+          ok(makeDetail([makeKr()], { id: 'a', period: '2026-Q4' as never, pinned: false })),
+        );
+        d.resolve(ok({ okrId: 'a', period: '2026-Q4', updatedAt: '2026-10-11T00:00:00.000Z' }));
+        await done;
+        await jest.advanceTimersByTimeAsync(0);
+        // the write may have landed after the fresh read: read once more, show the truth
+        expect(api['open']).toHaveBeenCalledTimes(1);
+        expect(store.detail()?.objective.period).toBe('2026-Q4');
+      });
+
+      it('pin: the old reply neither changes A nor shows its notice', async () => {
+        const d = deferred<ReturnType<typeof ok>>();
+        api['pin']!.mockReturnValue(d.promise);
+        const { done } = await goAba(() => store.pin());
+        api['open']!.mockResolvedValue(ok(makeDetail([makeKr()], { id: 'a', pinned: false })));
+        d.resolve(ok({ okrId: 'a', pinned: true }));
+        await done;
+        await jest.advanceTimersByTimeAsync(0);
+        expect(store.pinNotice()).toBe('none');
+        expect(store.detail()?.objective.pinned).toBe(false);
+      });
+
+      it('progress: the old reply (90%) does not patch the fresh A (null)', async () => {
+        const d = deferred<ReturnType<typeof ok>>();
+        api['setProgress']!.mockReturnValue(d.promise);
+        const { done } = await goAba(() =>
+          store.setProgress({ krId: 'kr-1', status: 'done', value: 90 }),
+        );
+        api['open']!.mockResolvedValue(
+          ok(makeDetail([makeKr({ id: 'kr-1', progress: null })], { id: 'a' })),
+        );
+        d.resolve(ok(makeChange(makeKr({ id: 'kr-1', progress: 90 }), {}, true, 90)));
+        await done;
+        await jest.advanceTimersByTimeAsync(0);
+        expect(store.detail()!.objective.overallProgress).toBeNull();
+        expect(store.detail()!.objective.keyResults[0]!.progress).toBeNull();
+      });
+
+      it('read: a slow reload of the first visit cannot replace the newer detail', async () => {
+        await openFirst();
+        const slow = deferred<ReturnType<typeof ok>>();
+        api['open']!.mockReturnValueOnce(slow.promise);
+        const reload = store.reload(true);
+        api['open']!.mockResolvedValueOnce(
+          ok(makeDetail([makeKr({ statement: 'fresh' })], { id: 'a' })),
+        );
+        await store.reload(true);
+        slow.resolve(ok(makeDetail([makeKr({ statement: 'stale' })], { id: 'a' })));
+        await reload;
+        expect(store.detail()!.objective.keyResults[0]!.statement).toBe('fresh');
+      });
+
+      it('open: when two opens overlap only the latest one wins and reports no error', async () => {
+        await openFirst();
+        const first = deferred<ReturnType<typeof ok>>();
+        api['open']!.mockReturnValueOnce(first.promise);
+        const openB = store.openFromHistory('b');
+        api['open']!.mockResolvedValueOnce(ok(makeDetail([makeKr()], { id: 'c', pinned: false })));
+        expect(await store.openFromHistory('c')).toBe(true);
+        first.resolve(ok(makeDetail([makeKr()], { id: 'b', pinned: false })));
+        expect(await openB).toBe(false);
+        expect(store.currentId()).toBe('c');
+        expect(store.openError()).toBe(false);
+      });
+
+      it('two writes of one kind: the earlier reply is dropped, the later one applies', async () => {
+        await openFirst();
+        const d1 = deferred<ReturnType<typeof ok>>();
+        const d2 = deferred<ReturnType<typeof ok>>();
+        api['setPeriod']!.mockReturnValueOnce(d1.promise).mockReturnValueOnce(d2.promise);
+        const p1 = store.setPeriod('2026-Q3' as never);
+        const p2 = store.setPeriod('2026-Q4' as never);
+        d2.resolve(ok({ okrId: 'a', period: '2026-Q4', updatedAt: '2026-10-11T00:00:00.000Z' }));
+        await p2;
+        d1.resolve(ok({ okrId: 'a', period: '2026-Q3', updatedAt: '2026-10-10T00:00:00.000Z' }));
+        await p1;
+        expect(store.detail()?.objective.period).toBe('2026-Q4');
+      });
+    });
+
     it.each(['LATEST_IS_REVERT', 'NOTHING_TO_REVERT', 'NOT_FOUND', 'KEY_RESULT_REMOVED'] as const)(
       'N1: %s reloads the open OKR instead of leaving a stale state',
       async (code) => {
