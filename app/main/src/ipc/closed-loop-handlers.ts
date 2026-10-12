@@ -15,6 +15,7 @@ import {
   type IpcResult,
   type KeyResultRecord,
   type KrProgressInfo,
+  type CopyReply,
   type OkrDetail,
   type OkrListReply,
   type Parsed,
@@ -23,7 +24,7 @@ import {
   type ReviewReply,
   type SetPeriodReply,
 } from '@clarityokr/contracts';
-import type { IpcMain } from 'electron';
+import type { Clipboard, IpcMain } from 'electron';
 
 import { Logger } from '../core/logger.js';
 import type { ExportService } from '../export/export-service.js';
@@ -34,6 +35,8 @@ export interface ClosedLoopHandlerDeps {
   store: OkrStore;
   exportService: ExportService;
   restartService: AppRestartService;
+  /** The system clipboard (injected so tests never touch it). */
+  clipboard: Pick<Clipboard, 'writeText'>;
 }
 
 const NOT_FOUND_OKR = 'The OKR does not exist';
@@ -112,7 +115,7 @@ export function registerClosedLoopHandlers(
   ipcMain: Pick<IpcMain, 'handle'>,
   deps: ClosedLoopHandlerDeps,
 ): void {
-  const { store, exportService, restartService } = deps;
+  const { store, exportService, restartService, clipboard } = deps;
 
   function register<Req, Res>(
     channel: string,
@@ -240,6 +243,16 @@ export function registerClosedLoopHandlers(
   register(IPC_CHANNELS.EXPORT_SAVE, parseExportRequest, async ({ okrId, format }) => {
     const outcome = await exportService.export(okrId, format);
     return outcome ? ipcOk(outcome) : notFound(NOT_FOUND_OKR);
+  });
+
+  // 「复制为 Markdown」: the same text as the .md file, read from the store (no path, no dialog).
+  register(IPC_CHANNELS.CLIPBOARD_EXPORT, parseOkrIdRequest, ({ okrId }): IpcResult<CopyReply> => {
+    const markdown = exportService.renderMarkdownFor(okrId);
+    if (markdown === null) {
+      return notFound(NOT_FOUND_OKR);
+    }
+    clipboard.writeText(markdown);
+    return ipcOk({ copied: true });
   });
 
   register(IPC_CHANNELS.EXPORT_REVEAL, parseRevealRequest, ({ path }) => {

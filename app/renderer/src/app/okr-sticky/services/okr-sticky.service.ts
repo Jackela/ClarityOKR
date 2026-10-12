@@ -185,14 +185,6 @@ export class OkrStickyService implements OnDestroy {
     this.storeDocument(okrDocumentSchema.parse(result));
   }
 
-  async copy(): Promise<void> {
-    if (!this.document) throw new Error('No OKR to copy');
-    const copied = await this.ensureBridge().invoke(IPC_CHANNELS.CLIPBOARD_EXPORT, {
-      okrId: this.document.id,
-    });
-    if (copied !== true) throw new Error('Clipboard export failed');
-  }
-
   /**
    * Makes an OKR opened from the history the one that edit / regenerate / copy act on.
    * Built from the closed-loop detail, so no extra round trip is needed.

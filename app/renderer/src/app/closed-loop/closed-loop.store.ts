@@ -52,6 +52,8 @@ export class ClosedLoopStore implements OnDestroy {
   readonly pinNotice = signal<PinNotice>('none');
   /** A regeneration / text save is running: other OKRs cannot be opened meanwhile. */
   readonly operationBusy = signal(false);
+  /** A regeneration is running (the export entry is unavailable meanwhile, spec §6.4). */
+  readonly regenerating = signal(false);
 
   /**
    * Where this run keeps its data (asked once). Only the wording of "saved" messages depends

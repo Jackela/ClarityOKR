@@ -21,6 +21,7 @@ import { COPY } from './copy';
 import { HistoryTabComponent } from './history-tab.component';
 import { ReviewStore } from './review.store';
 import { ReviewTabComponent } from './review-tab.component';
+import { TopBarComponent } from './top-bar.component';
 
 export type StickyTabId = 'note' | 'review' | 'history';
 
@@ -40,10 +41,16 @@ export type StickyTabId = 'note' | 'review' | 'history';
     ReviewTabComponent,
     DialogComponent,
     ToastHostComponent,
+    TopBarComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="shell">
+      <clarityokr-top-bar />
+      <!-- right after the top bar in the DOM, so its buttons follow the control that made it -->
+      @if (tab() !== 'review') {
+        <clarityokr-toast-host />
+      }
       <clarityokr-tab-bar
         [tabs]="tabs"
         [selected]="tab()"
@@ -101,9 +108,6 @@ export type StickyTabId = 'note' | 'review' | 'history';
           (cancelled)="leaveTarget.set(null)"
           (confirmed)="leave(target)"
         />
-      }
-      @if (tab() !== 'review') {
-        <clarityokr-toast-host />
       }
     </div>
   `,

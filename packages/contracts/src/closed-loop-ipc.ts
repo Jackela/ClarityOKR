@@ -226,6 +226,11 @@ export type ExportReply =
   | { outcome: 'cancelled' }
   | { outcome: 'failed'; category: ExportFailureCategory };
 
+/** Reply of `clarityokr:clipboard:export`: the Markdown of the OKR is on the clipboard. */
+export interface CopyReply {
+  copied: true;
+}
+
 export interface RevealReply {
   revealed: true;
 }

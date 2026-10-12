@@ -140,6 +140,19 @@ describe('StickyShellComponent', () => {
     expect(panel('note').hidden).toBe(false);
   });
 
+  it('has the top bar with 导出 above the tabs (the first control in the Tab order)', () => {
+    const bar = q('top-bar');
+    expect(bar).not.toBeNull();
+    expect(bar.textContent).toContain('ClarityOKR');
+    const focusable = Array.from(
+      root().querySelectorAll<HTMLElement>('button:not([tabindex="-1"]), [tabindex="0"]'),
+    );
+    expect(focusable[0]).toBe(q('export-button'));
+    expect(
+      bar.compareDocumentPosition(q('tab-note')) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it('Ctrl/⌘+2 opens 复盘 and reads the review of the open OKR', async () => {
     const event = new KeyboardEvent('keydown', {
       key: '2',
@@ -282,6 +295,32 @@ describe('StickyShellComponent', () => {
         fixture.detectChanges();
         expect(document.querySelectorAll('[inert]')).toHaveLength(0);
       });
+    });
+
+    it('while the leave dialog is open Ctrl/⌘ + 1 / 2 / 3 and Ctrl/⌘+S do nothing', async () => {
+      await type('写了一半');
+      q('tab-note').click();
+      fixture.detectChanges();
+      expect(q('review-leave-dialog')).not.toBeNull();
+      for (const init of [
+        { key: '1', ctrlKey: true },
+        { key: '2', ctrlKey: true },
+        { key: '3', metaKey: true },
+        { key: 's', ctrlKey: true },
+      ]) {
+        document.body.dispatchEvent(
+          new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init }),
+        );
+        document.dispatchEvent(
+          new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init }),
+        );
+        fixture.detectChanges();
+        await settle();
+      }
+      expect(q('review-leave-dialog')).not.toBeNull();
+      expect(q('tab-review').getAttribute('aria-selected')).toBe('true');
+      expect(api['saveReview']).not.toHaveBeenCalled();
+      expect(q<HTMLTextAreaElement>('review-wentWell').value).toBe('写了一半');
     });
 
     it('Esc in the dialog keeps editing', async () => {

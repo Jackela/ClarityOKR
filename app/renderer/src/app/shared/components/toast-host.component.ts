@@ -8,7 +8,7 @@ import {
   untracked,
 } from '@angular/core';
 
-import { ToastService } from './toast.service';
+import { ToastService, type Toast } from './toast.service';
 
 /**
  * Renders the current toast at the bottom of the window (spec §2.6): success and neutral
@@ -26,6 +26,7 @@ import { ToastService } from './toast.service';
           class="toast"
           [class.toast--error]="item.kind === 'error'"
           [class.toast--docked]="docked"
+          [class.toast--stacked]="!!item.detail || item.actions.length > 0 || !!item.closeLabel"
           [attr.role]="item.kind === 'error' ? 'alert' : 'status'"
           [attr.data-testid]="'toast-' + item.kind"
           (mouseenter)="pause()"
@@ -36,13 +37,22 @@ import { ToastService } from './toast.service';
           <div class="toast__text">
             <div class="toast__message">{{ item.message }}</div>
             @if (item.detail) {
-              <div class="toast__detail" [title]="item.detail" data-testid="toast-detail">
-                {{ item.detail }}
+              <div
+                class="toast__detail"
+                [title]="item.detailFull ?? item.detail"
+                data-testid="toast-detail"
+              >
+                @if (item.detailFull) {
+                  <span aria-hidden="true">{{ item.detail }}</span>
+                  <span class="sr-only">{{ item.detailFull }}</span>
+                } @else {
+                  {{ item.detail }}
+                }
               </div>
             }
           </div>
           <div class="toast__actions">
-            @for (action of item.actions; track action.label) {
+            @for (action of item.actions; track $index) {
               <button
                 type="button"
                 class="toast__btn"
@@ -52,15 +62,26 @@ import { ToastService } from './toast.service';
                 {{ action.label }}
               </button>
             }
-            <button
-              type="button"
-              class="toast__btn toast__close"
-              aria-label="关闭通知"
-              data-testid="toast-close"
-              (click)="toasts.dismiss(item.id)"
-            >
-              <span aria-hidden="true">×</span>
-            </button>
+            @if (item.closeLabel) {
+              <button
+                type="button"
+                class="toast__btn"
+                data-testid="toast-close"
+                (click)="close(item)"
+              >
+                {{ item.closeLabel }}
+              </button>
+            } @else {
+              <button
+                type="button"
+                class="toast__btn toast__close"
+                aria-label="关闭通知"
+                data-testid="toast-close"
+                (click)="close(item)"
+              >
+                <span aria-hidden="true">×</span>
+              </button>
+            }
           </div>
         </div>
       }
@@ -89,6 +110,19 @@ import { ToastService } from './toast.service';
       }
       /* In the flow of the review column: above its bottom bar with an 8px gap, and the area
          above shrinks instead of being covered. */
+      /* A toast with a second line or buttons: the text gets the whole width, the buttons sit
+         on a row of their own below it (a 420px window leaves no room beside them). */
+      .toast--stacked {
+        flex-wrap: wrap;
+        row-gap: 4px;
+      }
+      .toast--stacked .toast__text {
+        flex: 1 1 100%;
+      }
+      .toast--stacked .toast__actions {
+        flex: 1 1 100%;
+        justify-content: flex-end;
+      }
       .toast--docked {
         position: static;
         flex: none;
@@ -187,6 +221,11 @@ export class ToastHostComponent implements OnDestroy {
 
   ngOnDestroy(): void {
     this.clear();
+  }
+
+  close(toast: Toast): void {
+    this.toasts.dismiss(toast.id);
+    toast.onClose?.();
   }
 
   pause(): void {

@@ -211,8 +211,7 @@
 }
 
 .sticky-note__section-actions,
-.sticky-note__policies,
-.sticky-note__footer {
+.sticky-note__policies {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
@@ -344,10 +343,6 @@
   padding: 0 var(--space-2);
   border-radius: var(--radius-full);
   background: var(--status-not_started-bg);
-}
-
-.sticky-note__footer {
-  margin-top: var(--space-3);
 }
 
 /* A live region that takes its own 1px in the flow, so two hidden regions never share a spot. */

@@ -45,7 +45,7 @@ import { ClarificationController } from './windows/clarification-controller.js';
 import { StickyWindowManager } from './windows/sticky-window-manager.js';
 import { registerRendererProtocol } from './windows/renderer-protocol.js';
 
-const { app, BrowserWindow, ipcMain, dialog, shell } = electron;
+const { app, BrowserWindow, ipcMain, dialog, shell, clipboard } = electron;
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const preloadPath = path.resolve(currentDir, 'bootstrap', 'preload.cjs');
@@ -91,6 +91,7 @@ wireClosedLoop({
   storageMode: openedDatabase.storageMode,
   dialog,
   shell,
+  clipboard,
   getDownloadsDir: () => app.getPath('downloads'),
   getFocusedWindow: () => BrowserWindow.getFocusedWindow(),
   relaunch: () => {

@@ -3,6 +3,7 @@ import { By } from '@angular/platform-browser';
 import type { OKRDocument } from '@clarityokr/contracts';
 import { Logger } from '../../core/services/logger.service';
 import { IPC_CHANNELS } from '../../shared/ipc-channel.tokens';
+import { ClosedLoopStore } from '../../closed-loop/closed-loop.store';
 import { makeDetail, makeKr } from '../../closed-loop/testing/fixtures';
 import { EditModeStore } from '../state/edit-mode.store';
 import { OkrStickyService } from '../services/okr-sticky.service';
@@ -152,10 +153,7 @@ describe('Sticky note DOM with actual edit store and gateway', () => {
     fixture.detectChanges();
   }
 
-  async function clickAndWait(
-    testId: string,
-    operation: 'save' | 'copy' | 'regenerate',
-  ): Promise<void> {
+  async function clickAndWait(testId: string, operation: 'save' | 'regenerate'): Promise<void> {
     // Observe the actual public async completion; no gateway/store behavior is replaced.
     const observed = jest.spyOn(note, operation);
     try {
@@ -374,18 +372,10 @@ describe('Sticky note DOM with actual edit store and gateway', () => {
     expect(legacyCalls()).toHaveLength(1);
   });
 
-  it('copies through the actual service and reports both success and permission failure', async () => {
-    invoke.mockResolvedValueOnce(true);
-    await clickAndWait('copy-button', 'copy');
-    expect(invoke).toHaveBeenCalledWith(IPC_CHANNELS.CLIPBOARD_EXPORT, { okrId: original.id });
-    expect(element('copy-success').textContent).toContain('已复制');
-    invoke.mockImplementationOnce(async () => {
-      throw 'Permission denied';
-    });
-    await clickAndWait('copy-button', 'copy');
+  it('has no 「复制」 button any more: copying is an item of the export menu', () => {
+    expect(fixture.nativeElement.querySelector('[data-testid="copy-button"]')).toBeNull();
     expect(fixture.nativeElement.querySelector('[data-testid="copy-success"]')).toBeNull();
-    expect(element('sticky-error').textContent).toBe('Permission denied');
-    expect(note.busy()).toBe(false);
+    expect(note).not.toHaveProperty('copy');
   });
 
   it.each(['overwrite', 'append'] as const)(
@@ -409,7 +399,7 @@ describe('Sticky note DOM with actual edit store and gateway', () => {
     },
   );
 
-  it('ignores edit requests while regeneration is pending and prevents duplicate copy dispatch', async () => {
+  it('ignores edit requests while regeneration is pending and says so in the store', async () => {
     let resolve: (value: unknown) => void = () => {
       throw new Error('Missing controlled response');
     };
@@ -420,25 +410,13 @@ describe('Sticky note DOM with actual edit store and gateway', () => {
         }),
     );
     const regenerating = note.regenerate('append');
+    expect(TestBed.inject(ClosedLoopStore).regenerating()).toBe(true);
     element('edit-button').click();
     expect(store.isEditing()).toBe(false);
     resolve({ ...original, objective: 'Regenerated objective' });
     await regenerating;
     await render();
-    invoke.mockClear();
-    invoke.mockImplementationOnce(
-      () =>
-        new Promise((done) => {
-          resolve = done;
-        }),
-    );
-    const copying = note.copy();
-    await note.copy();
-    expect(legacyCalls()).toHaveLength(1);
-    resolve(true);
-    await copying;
-    await render();
-    expect(element('copy-success')).not.toBeNull();
+    expect(TestBed.inject(ClosedLoopStore).regenerating()).toBe(false);
     expect(note.error()).toBeNull();
     note.cancel();
     expect(store.isEditing()).toBe(false);

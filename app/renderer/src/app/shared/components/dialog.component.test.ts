@@ -140,6 +140,37 @@ describe('DialogComponent (spec §2.6, T8)', () => {
       expect(document.querySelectorAll('[inert]')).toHaveLength(0);
     });
 
+    it('the page shortcuts Ctrl/⌘ + 1 / 2 / 3 / S are swallowed while it is open', () => {
+      const seen: string[] = [];
+      const spy = (event: Event): void => void seen.push((event as KeyboardEvent).key);
+      document.addEventListener('keydown', spy);
+      try {
+        for (const init of [
+          { key: '1', ctrlKey: true },
+          { key: '2', metaKey: true },
+          { key: '3', ctrlKey: true },
+          { key: 's', ctrlKey: true },
+          { key: 'S', metaKey: true },
+        ]) {
+          expect(key(init).defaultPrevented).toBe(true);
+          expect(key(init, document).defaultPrevented).toBe(true);
+        }
+        expect(seen).toEqual([]);
+        // other keys still reach the page
+        key({ key: 'a' });
+        key({ key: '2' }); // no modifier
+        expect(seen).toEqual(['a', '2']);
+      } finally {
+        document.removeEventListener('keydown', spy);
+      }
+    });
+
+    it('and work again after it closed', () => {
+      q('[data-testid="dialog-cancel"]').click();
+      fixture.detectChanges();
+      expect(key({ key: '2', ctrlKey: true }).defaultPrevented).toBe(false);
+    });
+
     it('a press on the scrim keeps the focus in the dialog (mousedown is cancelled)', () => {
       const down = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
       q('[data-testid="dialog-scrim"]').dispatchEvent(down);

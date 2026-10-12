@@ -165,6 +165,15 @@ export class ExportService {
     return { outcome: 'saved', format, fileName: basename(path), path };
   }
 
+  /**
+   * The Markdown of an OKR (the same text as the `.md` file) for the clipboard; `null` for an
+   * unknown id. Never touches the reveal permission.
+   */
+  renderMarkdownFor(okrId: string): string | null {
+    const source = this.deps.loadSource(okrId);
+    return source ? renderMarkdown(source) : null;
+  }
+
   /** True only for the path returned by the most recent successful export. */
   canReveal(path: string): boolean {
     return this.lastExportedPath !== null && path === this.lastExportedPath;

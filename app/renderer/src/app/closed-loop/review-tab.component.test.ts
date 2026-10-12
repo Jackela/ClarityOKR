@@ -506,6 +506,22 @@ describe('ReviewTabComponent (spec §5, T7, C4)', () => {
         expect(api['saveReview']).not.toHaveBeenCalled();
       });
 
+      it('ignores Ctrl+S with keyCode 229 (engines that only set that during a composition)', async () => {
+        await show();
+        await type('wentWell', '好');
+        const event = new KeyboardEvent('keydown', {
+          key: 's',
+          ctrlKey: true,
+          keyCode: 229,
+          bubbles: true,
+          cancelable: true,
+        });
+        document.dispatchEvent(event);
+        await settle();
+        expect(event.defaultPrevented).toBe(false);
+        expect(api['saveReview']).not.toHaveBeenCalled();
+      });
+
       it('ignores Ctrl+S while an IME is composing', async () => {
         await show();
         await type('wentWell', '好');
