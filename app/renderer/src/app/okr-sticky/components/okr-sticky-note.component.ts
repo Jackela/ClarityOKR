@@ -371,7 +371,9 @@ function newKeyResultId(): string {
           <span role="status" data-testid="copy-success">{{ 'common.copied' | translate }}</span>
         }
       }
-      <span class="sr-only" role="status" data-testid="text-saved-live">{{ textSavedLive() }}</span>
+      <span class="sr-only sr-only--flow" role="status" data-testid="text-saved-live">{{
+        textSavedLive()
+      }}</span>
       @if (error()) {
         <p role="alert" data-testid="sticky-error">{{ error() }}</p>
       }

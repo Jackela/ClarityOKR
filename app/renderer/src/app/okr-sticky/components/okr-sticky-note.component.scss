@@ -354,3 +354,9 @@
 .sticky-note__footer {
   margin-top: var(--space-3);
 }
+
+/* A live region that takes its own 1px in the flow, so two hidden regions never share a spot. */
+.sr-only--flow {
+  position: static;
+  margin: 0;
+}
