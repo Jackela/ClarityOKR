@@ -92,22 +92,11 @@ describe('ExportFlow (spec §6.3)', () => {
       expect(toast.autoDismissMs).toBe(8000);
     });
 
-    it('in memory mode the message says 「（仅本次运行）」 (the path stays out of it)', async () => {
-      api.getStorageMode.mockResolvedValue('memory');
-      TestBed.resetTestingModule();
-      TestBed.configureTestingModule({ providers: [{ provide: ClosedLoopApi, useValue: api }] });
-      const memoryFlow = TestBed.inject(ExportFlow);
-      TestBed.inject(ClosedLoopStore).currentId.set('okr-1');
+    it('has no 「（仅本次运行）」 suffix, also in memory mode (spec: only review saves carry it)', async () => {
+      store.storageMode.set('memory');
       api.exportOkr.mockResolvedValue(saved('/tmp/m.md'));
-      await memoryFlow.export('md');
-      expect(TestBed.inject(ToastService).current()!.message).toBe(
-        '已导出为 Markdown：m.md（仅本次运行）',
-      );
-      expect(TestBed.inject(ToastService).current()!.message).not.toContain('/tmp');
-    });
-
-    it('in normal and fresh-file mode there is no suffix', async () => {
-      expect(toasts.current()!.message).not.toContain('仅本次运行');
+      await flow.export('md');
+      expect(toasts.current()!.message).toBe('已导出为 Markdown：m.md');
     });
 
     it('JSON says JSON', async () => {

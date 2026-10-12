@@ -235,8 +235,8 @@ export const COPY = {
     disabledNoOkr: '没有可导出的内容',
     disabledRegenerating: '正在重新生成，完成后可导出',
     exporting: '正在导出…',
-    saved: (format: 'md' | 'json', fileName: string, memory = false): string =>
-      `已导出为 ${format === 'md' ? 'Markdown' : 'JSON'}：${fileName}${memory ? '（仅本次运行）' : ''}`,
+    saved: (format: 'md' | 'json', fileName: string): string =>
+      `已导出为 ${format === 'md' ? 'Markdown' : 'JSON'}：${fileName}`,
     reveal: '在文件夹中显示',
     copyPath: '复制路径',
     pathCopied: '已复制',

@@ -54,8 +54,6 @@ export class ExportFlow {
     if (!okrId || this.busy()) return;
     this.begin();
     try {
-      // Memory mode wording (asked once, answered from the cache afterwards).
-      await this.store.ensureStorageMode();
       const reply = await this.api.exportOkr({ okrId, format });
       if (!reply.ok) {
         this.showFailure(format, 'other');
@@ -132,7 +130,7 @@ export class ExportFlow {
     ];
     id = this.toasts.show({
       kind: 'success',
-      message: COPY.export.saved(format, fileName, this.store.storageMode() === 'memory'),
+      message: COPY.export.saved(format, fileName),
       detail: middleEllipsis(path),
       detailFull: path,
       onClose: () => this.focusTrigger(),
