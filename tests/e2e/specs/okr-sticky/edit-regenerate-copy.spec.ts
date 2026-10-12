@@ -352,35 +352,22 @@ test.describe('Edit, Regenerate, and Copy OKR Workflow', () => {
     expect(krTexts).toContain('文档覆盖率');
 
     // ==========================================
-    // Step 12: Click copy to clipboard
+    // Step 12: 「复制为 Markdown」 from the export menu (the old 「复制」 button is gone)
     // ==========================================
-    const copyBtnVisible = await waitForElement(stickyWindowPage, '[data-testid="copy-button"]', {
-      timeout: 5000,
-    });
-    expect(copyBtnVisible).toBe(true);
-
-    await forceClick(stickyWindowPage, '[data-testid="copy-button"]');
-
-    // Wait for copy success indicator
-    const copySuccessVisible = await waitForElement(
-      stickyWindowPage,
-      '[data-testid="copy-success"]',
-      { timeout: 5000 },
-    ).catch(() => false);
-
-    // Copy success indicator is optional, but if present it should be visible
-    if (copySuccessVisible) {
-      expect(copySuccessVisible).toBe(true);
-    }
+    await expect(stickyWindowPage.getByTestId('copy-button')).toHaveCount(0);
+    await stickyWindowPage.getByTestId('export-button').click();
+    await expect(stickyWindowPage.getByTestId('export-menu')).toBeVisible();
+    await stickyWindowPage.getByTestId('export-copy-md').click();
+    await expect(stickyWindowPage.getByTestId('toast-success')).toContainText('已复制到剪贴板。');
 
     // ==========================================
-    // Step 13: Verify clipboard contains markdown
+    // Step 13: Verify clipboard contains the Markdown of the .md export (renderMarkdown)
     // ==========================================
     const clipboardText = await electronApp.evaluate(({ clipboard }) => clipboard.readText());
 
-    expect(clipboardText).toContain('优化团队开发效率');
-    expect(clipboardText).toContain('## Objective');
-    expect(clipboardText).toContain('## Key Results');
+    expect(clipboardText).toContain('# 优化团队开发效率');
+    expect(clipboardText).toContain('## 关键结果');
+    expect(clipboardText).not.toContain('## Objective');
 
     // Verify all KRs are in the markdown
     expect(clipboardText).toContain('代码审查时间');

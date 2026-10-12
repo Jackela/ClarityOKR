@@ -381,7 +381,8 @@ export class ReviewTabComponent {
   onShortcut(event: KeyboardEvent): void {
     if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return;
     if (event.key.toLowerCase() !== 's') return;
-    if (event.isComposing) return; // an IME is still composing: Ctrl+S is not for us yet
+    // an IME is still composing (`isComposing`, or keyCode 229 on engines that only set that)
+    if (event.isComposing || event.keyCode === 229) return;
     event.preventDefault();
     void this.save();
   }

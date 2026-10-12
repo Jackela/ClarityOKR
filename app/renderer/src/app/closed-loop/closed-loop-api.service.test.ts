@@ -26,6 +26,9 @@ describe('ClosedLoopApi', () => {
     await api.setProgress({ krId: 'k', status: 'done', value: 100 });
     await api.revertProgress({ krId: 'k' });
     await api.replaceProgress({ krId: 'k', value: 5 });
+    await api.exportOkr({ okrId: 'a', format: 'json' });
+    await api.reveal({ path: '/x/a.json' });
+    await api.copyMarkdown({ okrId: 'a' });
     expect(invoke.mock.calls).toEqual([
       [IPC_CHANNELS.OKR_LIST, undefined],
       [IPC_CHANNELS.OKR_OPEN, { okrId: 'a' }],
@@ -34,6 +37,9 @@ describe('ClosedLoopApi', () => {
       [IPC_CHANNELS.KR_SET_PROGRESS, { krId: 'k', status: 'done', value: 100 }],
       [IPC_CHANNELS.KR_REVERT_PROGRESS, { krId: 'k' }],
       [IPC_CHANNELS.KR_REPLACE_PROGRESS, { krId: 'k', value: 5 }],
+      [IPC_CHANNELS.EXPORT_SAVE, { okrId: 'a', format: 'json' }],
+      [IPC_CHANNELS.EXPORT_REVEAL, { path: '/x/a.json' }],
+      [IPC_CHANNELS.CLIPBOARD_EXPORT, { okrId: 'a' }],
     ]);
   });
 

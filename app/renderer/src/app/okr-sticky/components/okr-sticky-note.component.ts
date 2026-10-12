@@ -344,22 +344,6 @@ function newKeyResultId(): string {
             </div>
           }
         }
-
-        @if (!busy()) {
-          <div class="sticky-note__footer">
-            <button
-              type="button"
-              class="sticky-note__text-btn"
-              data-testid="copy-button"
-              (click)="copy()"
-            >
-              {{ 'common.copy' | translate }}
-            </button>
-          </div>
-        }
-        @if (copied()) {
-          <span role="status" data-testid="copy-success">{{ 'common.copied' | translate }}</span>
-        }
       }
       <span class="sr-only sr-only--flow" role="status" data-testid="text-saved-live">{{
         textSavedLive()
@@ -387,7 +371,6 @@ function newKeyResultId(): string {
 export class OkrStickyNoteComponent implements OnChanges {
   readonly busy = signal(false);
   readonly error = signal<string | null>(null);
-  readonly copied = signal(false);
   readonly showPolicies = signal(false);
   readonly removedOpen = signal(false);
   readonly periodAnnouncement = signal('');
@@ -566,19 +549,17 @@ export class OkrStickyNoteComponent implements OnChanges {
 
   async regenerate(policy: 'overwrite' | 'append'): Promise<void> {
     this.showPolicies.set(false);
-    await this.perform(async () => {
-      await this.gateway.regenerate(policy);
-      // New text: the undo history of the old text no longer applies (spec §3.9).
-      this.editor.clearHistory();
-    });
-  }
-
-  async copy(): Promise<void> {
-    this.copied.set(false);
-    await this.perform(async () => {
-      await this.gateway.copy();
-      this.copied.set(true);
-    });
+    // The export entry is unavailable while the regeneration runs (spec §6.4).
+    this.store.regenerating.set(true);
+    try {
+      await this.perform(async () => {
+        await this.gateway.regenerate(policy);
+        // New text: the undo history of the old text no longer applies (spec §3.9).
+        this.editor.clearHistory();
+      });
+    } finally {
+      this.store.regenerating.set(false);
+    }
   }
 
   private async perform(operation: () => Promise<void>): Promise<void> {

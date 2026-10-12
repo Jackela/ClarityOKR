@@ -139,4 +139,58 @@ describe('Toast (spec §2.6)', () => {
     toasts.dismiss();
     expect(toasts.current()).toBeNull();
   });
+
+  it('a long text with detailFull: the short text is for the eyes, the full text is the tooltip and the accessible name', () => {
+    toasts.show({
+      kind: 'success',
+      message: 'm',
+      detail: '/Users/…/a.md',
+      detailFull: '/Users/me/long/a.md',
+    });
+    flush();
+    const detail = q('toast-detail')!;
+    expect(detail.title).toBe('/Users/me/long/a.md');
+    expect(detail.querySelector('[aria-hidden="true"]')!.textContent).toBe('/Users/…/a.md');
+    expect(detail.querySelector('.sr-only')!.textContent).toBe('/Users/me/long/a.md');
+  });
+
+  it('closeLabel: a text button 「关闭」 instead of ×, and onClose runs after it', () => {
+    const onClose = jest.fn();
+    toasts.show({ kind: 'error', message: 'e', closeLabel: '关闭', onClose });
+    flush();
+    const close = q('toast-close')!;
+    expect(close.textContent!.trim()).toBe('关闭');
+    expect(close.hasAttribute('aria-label')).toBe(false);
+    close.click();
+    flush();
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(q('toast-error')).toBeNull();
+  });
+
+  it('the × also reports onClose', () => {
+    const onClose = jest.fn();
+    toasts.show({ kind: 'success', message: 's', onClose });
+    flush();
+    q('toast-close')!.click();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('update() changes a toast in place: same id, the button keeps its DOM node and its focus', () => {
+    const id = toasts.show({
+      kind: 'success',
+      message: 's',
+      actions: [{ label: '复制路径', testId: 'a1', run: () => undefined }],
+    });
+    flush();
+    const button = q<HTMLButtonElement>('a1')!;
+    button.focus();
+    toasts.update(id, { actions: [{ label: '已复制', testId: 'a1', run: () => undefined }] });
+    flush();
+    expect(toasts.current()!.id).toBe(id);
+    expect(q('a1')).toBe(button);
+    expect(button.textContent!.trim()).toBe('已复制');
+    expect(document.activeElement).toBe(button);
+    toasts.update(id + 1, { message: 'nope' });
+    expect(toasts.current()!.message).toBe('s');
+  });
 });

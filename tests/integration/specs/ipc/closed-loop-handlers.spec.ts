@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import BetterSqlite3 from 'better-sqlite3';
 import type { Database } from 'better-sqlite3';
 import { ALLOWED_CHANNELS, IPC_CHANNELS, type IpcResult } from '@clarityokr/contracts';
+import { Logger } from '../../../../app/main/src/core/logger.js';
 import { ExportService } from '../../../../app/main/src/export/export-service.js';
 import { registerClosedLoopHandlers } from '../../../../app/main/src/ipc/closed-loop-handlers.js';
 import { AppRestartService } from '../../../../app/main/src/lifecycle/restart-service.js';
@@ -23,6 +24,7 @@ const CLOSED_LOOP_CHANNELS = [
   IPC_CHANNELS.REVIEW_SAVE,
   IPC_CHANNELS.EXPORT_SAVE,
   IPC_CHANNELS.EXPORT_REVEAL,
+  IPC_CHANNELS.CLIPBOARD_EXPORT,
   IPC_CHANNELS.APP_RESTART,
 ];
 
@@ -51,10 +53,12 @@ interface Harness {
   db: Database;
   store: OkrStore;
   ipc: FakeIpcMain;
+  exportService: ExportService;
   setNow: (iso: string) => void;
   relaunch: ReturnType<typeof jest.fn>;
   showSaveDialog: ReturnType<typeof jest.fn>;
   showItemInFolder: ReturnType<typeof jest.fn>;
+  writeText: ReturnType<typeof jest.fn>;
   setStorageMode: (mode: 'normal' | 'fresh-file' | 'memory') => void;
 }
 
@@ -68,6 +72,7 @@ function createHarness(): Harness {
   const relaunch = jest.fn();
   const showSaveDialog = jest.fn();
   const showItemInFolder = jest.fn();
+  const writeText = jest.fn();
   const exportService = new ExportService({
     loadSource: (id) => loadExportSource(store, id),
     showSaveDialog,
@@ -81,18 +86,25 @@ function createHarness(): Harness {
     relaunch,
   });
   const ipc = new FakeIpcMain();
-  registerClosedLoopHandlers(ipc as never, { store, exportService, restartService });
+  registerClosedLoopHandlers(ipc as never, {
+    store,
+    exportService,
+    restartService,
+    clipboard: { writeText },
+  });
   return {
     dir,
     db,
     store,
     ipc,
+    exportService,
     setNow: (iso) => {
       now = new Date(iso);
     },
     relaunch,
     showSaveDialog,
     showItemInFolder,
+    writeText,
     setStorageMode: (mode) => {
       storageMode = mode;
     },
@@ -854,6 +866,32 @@ describe('closed-loop IPC handlers (real OkrStore on a temp database)', () => {
       expect(h.showSaveDialog).not.toHaveBeenCalled();
     });
 
+    it('no log line and no error report ever carries the export path (success, failure, reveal)', async () => {
+      const spies = (['info', 'warn', 'error'] as const).map((level) =>
+        jest.spyOn(Logger, level).mockImplementation(() => undefined),
+      );
+      try {
+        const okr = create();
+        const ok = join(h.dir, 'logged-ok.md');
+        h.showSaveDialog.mockResolvedValue(ok);
+        await h.ipc.invoke(IPC_CHANNELS.EXPORT_SAVE, { okrId: okr.id, format: 'md' });
+        await h.ipc.invoke(IPC_CHANNELS.EXPORT_REVEAL, { path: ok });
+        await h.ipc.invoke(IPC_CHANNELS.EXPORT_REVEAL, { path: join(h.dir, 'other.md') });
+        h.showSaveDialog.mockResolvedValue(join(h.dir, 'no-such-dir', 'x.md'));
+        await h.ipc.invoke(IPC_CHANNELS.EXPORT_SAVE, { okrId: okr.id, format: 'md' });
+        const logged = JSON.stringify(spies.flatMap((spy) => spy.mock.calls));
+        expect(logged).not.toContain(h.dir);
+        expect(logged).not.toContain('logged-ok');
+        expect(logged).not.toContain('no-such-dir');
+        // the failure itself is logged, by category only
+        expect(logged).toContain('not_found');
+        // and the channel the renderer reports errors on is not touched by an export
+        expect([...h.ipc.handlers.keys()]).not.toContain(IPC_CHANNELS.ERROR_REPORT);
+      } finally {
+        for (const spy of spies) spy.mockRestore();
+      }
+    });
+
     it('reveal accepts only the path of the last successful export', async () => {
       const okr = create();
       const first = join(h.dir, 'a.md');
@@ -922,6 +960,57 @@ describe('closed-loop IPC handlers (real OkrStore on a temp database)', () => {
         ok: false,
         error: { code: 'INTERNAL', message: 'Something went wrong' },
       });
+    });
+  });
+
+  describe('clarityokr:clipboard:export (复制为 Markdown)', () => {
+    it('puts exactly the Markdown of the .md file on the clipboard, with no dialog and no path', async () => {
+      const okr = create();
+      const r = await h.ipc.invoke(IPC_CHANNELS.CLIPBOARD_EXPORT, { okrId: okr.id });
+      expect(r).toEqual({ ok: true, data: { copied: true } });
+      expect(h.writeText).toHaveBeenCalledTimes(1);
+      const copied = h.writeText.mock.calls[0]![0] as string;
+      expect(copied).toBe(h.exportService.renderMarkdownFor(okr.id));
+      expect(copied).toContain('# Ship the closed loop');
+      expect(copied).not.toContain('## Objective');
+      expect(h.showSaveDialog).not.toHaveBeenCalled();
+      // the same text a file export writes
+      const target = join(h.dir, 'same.md');
+      h.showSaveDialog.mockResolvedValue(target);
+      await h.ipc.invoke(IPC_CHANNELS.EXPORT_SAVE, { okrId: okr.id, format: 'md' });
+      expect(readFileSync(target, 'utf8')).toBe(copied);
+    });
+
+    it('an OKR that is not in the store is NOT_FOUND and nothing is copied', async () => {
+      const r = await h.ipc.invoke(IPC_CHANNELS.CLIPBOARD_EXPORT, { okrId: 'nope' });
+      expectFailure(r, 'NOT_FOUND');
+      expect(h.writeText).not.toHaveBeenCalled();
+    });
+
+    it('rejects wrong types, missing ids and extra fields without touching the clipboard', async () => {
+      create();
+      for (const payload of [
+        undefined,
+        null,
+        {},
+        { okrId: 5 },
+        { okrId: '' },
+        { okrId: 'a', text: 'x' },
+      ]) {
+        const r = await h.ipc.invoke(IPC_CHANNELS.CLIPBOARD_EXPORT, payload);
+        expect(r.ok).toBe(false);
+      }
+      expect(h.writeText).not.toHaveBeenCalled();
+    });
+
+    it('a failing clipboard is INTERNAL with a generic message', async () => {
+      const okr = create();
+      h.writeText.mockImplementation(() => {
+        throw new Error('/secret/path clipboard failure');
+      });
+      const r = await h.ipc.invoke(IPC_CHANNELS.CLIPBOARD_EXPORT, { okrId: okr.id });
+      expectFailure(r, 'INTERNAL');
+      expect(JSON.stringify(r)).not.toContain('secret');
     });
   });
 

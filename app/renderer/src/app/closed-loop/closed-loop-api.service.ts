@@ -2,12 +2,17 @@ import { Injectable } from '@angular/core';
 import {
   IPC_CHANNELS,
   ipcFail,
+  type CopyReply,
+  type ExportReply,
+  type ExportRequest,
   type IpcResult,
   type KrIdRequest,
   type OkrIdRequest,
   type OkrDetail,
   type OkrListReply,
   type PinReply,
+  type RevealReply,
+  type RevealRequest,
   type ReviewReply,
   type SaveReviewRequest,
   type StorageModeName,
@@ -65,6 +70,21 @@ export class ClosedLoopApi {
 
   saveReview(request: SaveReviewRequest): Promise<IpcResult<ReviewReply>> {
     return this.call(IPC_CHANNELS.REVIEW_SAVE, request);
+  }
+
+  /** Opens the system save dialog in the main process; the reply never has a path unless saved. */
+  exportOkr(request: ExportRequest): Promise<IpcResult<ExportReply>> {
+    return this.call(IPC_CHANNELS.EXPORT_SAVE, request);
+  }
+
+  /** Only the path of the last successful export is accepted by the main process. */
+  reveal(request: RevealRequest): Promise<IpcResult<RevealReply>> {
+    return this.call(IPC_CHANNELS.EXPORT_REVEAL, request);
+  }
+
+  /** 「复制为 Markdown」: the main process puts the same text as the .md file on the clipboard. */
+  copyMarkdown(request: OkrIdRequest): Promise<IpcResult<CopyReply>> {
+    return this.call(IPC_CHANNELS.CLIPBOARD_EXPORT, request);
   }
 
   /**

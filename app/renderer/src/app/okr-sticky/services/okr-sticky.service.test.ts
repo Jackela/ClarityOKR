@@ -58,7 +58,7 @@ describe('Actual sticky service transport, projection and persistence ownership'
     Reflect.deleteProperty(window, 'clarifyOkr');
   });
 
-  it('hydrates persisted identity, saves acknowledged server content, regenerates and copies that identity', async () => {
+  it('hydrates persisted identity, saves acknowledged server content, regenerates that identity', async () => {
     service.ngOnDestroy();
     await create(document);
     expect(service.hasStickyNote()).toBe(true);
@@ -97,11 +97,6 @@ describe('Actual sticky service transport, projection and persistence ownership'
       sessionId: 'session',
       policy: 'overwrite',
     });
-    invoke.mockResolvedValueOnce(false);
-    await expect(service.copy()).rejects.toThrow('Clipboard');
-    invoke.mockResolvedValueOnce(true);
-    await service.copy();
-    expect(invoke).toHaveBeenLastCalledWith(IPC_CHANNELS.CLIPBOARD_EXPORT, { okrId: document.id });
     invoke.mockResolvedValueOnce(undefined);
     await service.reopenSticky();
     expect(invoke).toHaveBeenLastCalledWith(IPC_CHANNELS.STICKY_REOPEN, undefined);
@@ -134,7 +129,6 @@ describe('Actual sticky service transport, projection and persistence ownership'
   it('keeps local view edits separate from persisted identity and enforces no-document guards', async () => {
     expect(service.viewModel()).toBeNull();
     for (const operation of [
-      () => service.copy(),
       () => service.regenerate('append'),
       () => service.saveEdits({ objective: 'Edit', keyResults: document.keyResults }),
     ]) {

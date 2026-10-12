@@ -14,6 +14,9 @@ import { DOCUMENT } from '@angular/common';
 
 let nextId = 0;
 
+/** Keys (with Ctrl/⌘) that belong to the page behind a dialog and are ignored while it is open. */
+const SWALLOWED_KEYS: ReadonlySet<string> = new Set(['1', '2', '3', 's']);
+
 /**
  * Confirmation dialog (spec §2.6): centred, modal, at most two buttons. The safe answer is
  * always the "cancel" button (first); it holds the focus when the dialog opens, Tab cycles
@@ -241,6 +244,17 @@ export class DialogComponent implements OnInit, OnDestroy {
   }
 
   onKeydown(event: KeyboardEvent): void {
+    // The app's global shortcuts (Ctrl/⌘ + 1 / 2 / 3 switch the tab, + S saves the review) do
+    // nothing while a dialog is open: the dialog is modal, the page behind it is not in play.
+    if (
+      (event.ctrlKey || event.metaKey) &&
+      !event.altKey &&
+      SWALLOWED_KEYS.has(event.key.toLowerCase())
+    ) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      return;
+    }
     if (event.key === 'Escape') {
       event.preventDefault();
       event.stopPropagation();

@@ -1,9 +1,7 @@
 import path from 'node:path';
 
 import type { OKRDocument } from '@clarityokr/contracts';
-import { BrowserWindow, ipcMain } from 'electron';
-import { IPC_CHANNELS, clipboardExportRequestSchema } from '@clarityokr/contracts';
-import { ClipboardExporterService } from './clipboard-exporter.js';
+import { BrowserWindow } from 'electron';
 
 import { IPCChannels } from '../bootstrap/ipc-channels.js';
 import { Logger } from '../core/logger.js';
@@ -34,12 +32,8 @@ export interface StickyWindowConfig {
 export class StickyWindowManager {
   private window: BrowserWindow | null = null;
   private lastDocument: OKRDocument | null = null;
-  private readonly clipboardExporter: ClipboardExporterService;
 
-  constructor(private readonly config: StickyWindowConfig) {
-    this.clipboardExporter = new ClipboardExporterService(config.actionLogWriter);
-    this.registerIpcHandlers();
-  }
+  constructor(private readonly config: StickyWindowConfig) {}
 
   /**
    * Creates and opens the sticky window with the specified OKR document.
@@ -221,18 +215,5 @@ export class StickyWindowManager {
     this.window.webContents.send(IPCChannels.OKR_GENERATE, {
       okr: document,
     });
-  }
-
-  /**
-   * Registers IPC handlers for sticky window operations.
-   */
-  private registerIpcHandlers(): void {
-    ipcMain.handle(IPC_CHANNELS.CLIPBOARD_EXPORT, async (_event, payload: unknown) => {
-      const { okrId } = clipboardExportRequestSchema.parse(payload);
-      const document = await this.config.okrRepository.findById(okrId);
-      if (!document) throw new Error('OKR not found');
-      return this.clipboardExporter.exportOkrToClipboard(document, document.sourceSessionId);
-    });
-    Logger.info('[main] Clipboard export IPC handler registered');
   }
 }

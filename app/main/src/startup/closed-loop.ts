@@ -1,5 +1,5 @@
 import type { StorageModeName } from '@clarityokr/contracts';
-import type { BrowserWindow, Dialog, IpcMain, Shell } from 'electron';
+import type { BrowserWindow, Clipboard, Dialog, IpcMain, Shell } from 'electron';
 
 import { ExportService, type SaveDialogRequest } from '../export/export-service.js';
 import type { ExportSource } from '../export/export-document.js';
@@ -13,6 +13,7 @@ export interface ClosedLoopWiringDeps {
   storageMode: StorageModeName;
   dialog: Pick<Dialog, 'showSaveDialog'>;
   shell: Pick<Shell, 'showItemInFolder'>;
+  clipboard: Pick<Clipboard, 'writeText'>;
   getDownloadsDir: () => string;
   getFocusedWindow: () => BrowserWindow | null;
   /** `app.relaunch()` followed by `app.quit()`. */
@@ -59,6 +60,11 @@ export function wireClosedLoop(deps: ClosedLoopWiringDeps): {
     dbHasData: () => deps.store.hasAnyData(),
     relaunch: deps.relaunch,
   });
-  registerClosedLoopHandlers(deps.ipcMain, { store: deps.store, exportService, restartService });
+  registerClosedLoopHandlers(deps.ipcMain, {
+    store: deps.store,
+    exportService,
+    restartService,
+    clipboard: deps.clipboard,
+  });
   return { exportService, restartService };
 }
