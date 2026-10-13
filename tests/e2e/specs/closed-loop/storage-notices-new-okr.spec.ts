@@ -100,6 +100,7 @@ test.describe('D1c: memory mode', () => {
     // 「导出当前 OKR」 opens the same menu; Esc brings the focus back to it
     await sticky.getByTestId('memory-export').click();
     await expect(sticky.getByTestId('export-menu')).toBeVisible();
+    await expect(sticky.getByTestId('export-md')).toBeFocused();
     await sticky.keyboard.press('Escape');
     await expect(sticky.getByTestId('export-menu')).toHaveCount(0);
     await expect(sticky.getByTestId('memory-export')).toBeFocused();

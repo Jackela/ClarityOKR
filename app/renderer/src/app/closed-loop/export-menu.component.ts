@@ -345,6 +345,13 @@ export class ExportMenuComponent implements OnInit, OnDestroy {
   }
 
   onTriggerKeydown(event: KeyboardEvent): void {
+    // Esc right after opening (before the first item took the focus) still closes the menu.
+    if (event.key === 'Escape' && this.open()) {
+      event.preventDefault();
+      event.stopPropagation();
+      this.closeAndFocusTrigger();
+      return;
+    }
     if (event.key === 'ArrowDown') {
       event.preventDefault();
       if (!this.reason && !this.flow.busy()) this.openMenu();

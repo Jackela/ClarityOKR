@@ -72,8 +72,24 @@ export async function expectInert(page: Page, testId: string): Promise<void> {
   expect(inert, `${testId} is inert behind the dialog`).toBe(true);
 }
 
+/**
+ * Switches the theme and waits until the colour transitions it starts have ended, so a
+ * screenshot / axe run right after it never sees half-blended colours.
+ */
 export const setTheme = (page: Page, theme: 'light' | 'dark'): Promise<void> =>
-  page.evaluate((value) => document.documentElement.setAttribute('data-theme', value), theme);
+  page.evaluate(async (value) => {
+    document.documentElement.setAttribute('data-theme', value);
+    const frame = (): Promise<void> =>
+      new Promise((resolve) => requestAnimationFrame(() => resolve()));
+    await frame();
+    await frame();
+    await Promise.all(
+      document
+        .getAnimations()
+        .filter((a) => a.effect?.getComputedTiming().iterations !== Infinity)
+        .map((a) => a.finished.catch(() => undefined)),
+    );
+  }, theme);
 
 export const mockFor = (title: string): MockResponseConfig => ({
   nextQuestion: (callNumber) =>
