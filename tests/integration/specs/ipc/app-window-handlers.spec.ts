@@ -83,9 +83,18 @@ function setup(options: SetupOptions = {}) {
     relaunch,
   });
   let alwaysOnTop = true;
+  /** N15: as main.ts composes it: no tray + last visible window → 「隐藏」 asks to quit. */
+  let hideQuitsNow = false;
   const sticky = {
     isSticky: (id: number) => id === STICKY,
-    hide: jest.fn(),
+    hide: jest.fn((): boolean => {
+      if (hideQuitsNow) {
+        void exit.requestQuit();
+        return false;
+      }
+      return true;
+    }),
+    hideQuits: () => hideQuitsNow,
     isAlwaysOnTop: () => alwaysOnTop,
     setAlwaysOnTop: jest.fn((enabled: boolean) => {
       alwaysOnTop = enabled;
@@ -106,6 +115,9 @@ function setup(options: SetupOptions = {}) {
     quit,
     relaunch,
     sticky,
+    setHideQuits: (value: boolean) => {
+      hideQuitsNow = value;
+    },
     main: windows.get(MAIN)!,
     stickyWindow: windows.get(STICKY)!,
   };
@@ -215,7 +227,7 @@ describe('clarityokr:app:restart (D2: dialog in the main window, combined decisi
     // 先不重启 → the sticky window hears it; the main window clears its wizard flag; now direct.
     await h.ipc.invoke(
       IPC_CHANNELS.APP_EXIT_ANSWER,
-      { kind: 'restart', confirmed: false },
+      { requestId: 1, kind: 'restart', confirmed: false },
       new FakeSender(MAIN),
     );
     expect(h.stickyWindow.sent).toEqual([[RESULT, { outcome: 'cancelled' }]]);
@@ -252,7 +264,7 @@ describe('clarityokr:app:restart (D2: dialog in the main window, combined decisi
     expect(
       await h.ipc.invoke(
         IPC_CHANNELS.APP_EXIT_ANSWER,
-        { kind: 'restart', confirmed: true },
+        { requestId: 1, kind: 'restart', confirmed: true },
         new FakeSender(MAIN),
       ),
     ).toEqual({ ok: true, data: { accepted: true } });
@@ -261,7 +273,7 @@ describe('clarityokr:app:restart (D2: dialog in the main window, combined decisi
     expect(
       await h.ipc.invoke(
         IPC_CHANNELS.APP_EXIT_ANSWER,
-        { kind: 'restart', confirmed: true },
+        { requestId: 1, kind: 'restart', confirmed: true },
         new FakeSender(MAIN),
       ),
     ).toMatchObject({ ok: false, error: { code: 'INVALID_REQUEST' } });
@@ -290,7 +302,7 @@ describe('clarityokr:app:restart (D2: dialog in the main window, combined decisi
     await h.ipc.invoke(IPC_CHANNELS.APP_RESTART, { unsaved: NONE }, new FakeSender(STICKY));
     await h.ipc.invoke(
       IPC_CHANNELS.APP_EXIT_ANSWER,
-      { kind: 'restart', confirmed: true },
+      { requestId: 1, kind: 'restart', confirmed: true },
       new FakeSender(MAIN),
     );
     expect(h.stickyWindow.sent).toEqual([[RESULT, { outcome: 'failed' }]]);
@@ -345,21 +357,21 @@ describe('clarityokr:app:exit-answer / exit-pending (quit confirmation)', () => 
     expect(
       await h.ipc.invoke(
         IPC_CHANNELS.APP_EXIT_ANSWER,
-        { kind: 'quit', confirmed: true },
+        { requestId: 1, kind: 'quit', confirmed: true },
         new FakeSender(MAIN),
       ),
     ).toMatchObject({ ok: false, error: { code: 'INVALID_REQUEST' } });
     expect(h.quit).not.toHaveBeenCalled();
     expect(
       await h.ipc.invoke(IPC_CHANNELS.APP_EXIT_PENDING, undefined, new FakeSender(STICKY)),
-    ).toMatchObject({ ok: true, data: { pending: { kind: 'quit' } } });
+    ).toMatchObject({ ok: true, data: { pending: { requestId: 1, kind: 'quit' } } });
     expect(await h.ipc.invoke(IPC_CHANNELS.APP_EXIT_PENDING, {}, new FakeSender(MAIN))).toEqual({
       ok: true,
       data: { pending: null },
     });
     await h.ipc.invoke(
       IPC_CHANNELS.APP_EXIT_ANSWER,
-      { kind: 'quit', confirmed: true },
+      { requestId: 1, kind: 'quit', confirmed: true },
       new FakeSender(STICKY),
     );
     expect(h.quit).toHaveBeenCalledTimes(1);
@@ -376,10 +388,11 @@ describe('clarityokr:app:exit-answer / exit-pending (quit confirmation)', () => 
 
   it.each([
     [undefined, 'payload'],
-    [{ kind: 'quit' }, 'confirmed'],
-    [{ kind: 'close', confirmed: true }, 'kind'],
-    [{ kind: 'quit', confirmed: 1 }, 'confirmed'],
-    [{ kind: 'quit', confirmed: true, extra: 1 }, 'extra'],
+    [{ requestId: 1, kind: 'quit' }, 'confirmed'],
+    [{ requestId: 1, kind: 'close', confirmed: true }, 'kind'],
+    [{ kind: 'quit', confirmed: true }, 'requestId'],
+    [{ requestId: 1, kind: 'quit', confirmed: 1 }, 'confirmed'],
+    [{ requestId: 1, kind: 'quit', confirmed: true, extra: 1 }, 'extra'],
   ])('exit-answer rejects %j', async (payload, field) => {
     const h = setup();
     expect(await h.ipc.invoke(IPC_CHANNELS.APP_EXIT_ANSWER, payload)).toMatchObject({
@@ -417,18 +430,49 @@ describe('window:hide / get-state / set-always-on-top (sticky window only)', () 
     expect(h.sticky.hide).toHaveBeenCalledTimes(1);
   });
 
+  it('N15: without a tray, 「隐藏」 on the last visible window quits (nothing unsaved → at once)', async () => {
+    const h = setup();
+    h.setHideQuits(true);
+    const s = new FakeSender(STICKY);
+    expect(await h.ipc.invoke(IPC_CHANNELS.WINDOW_GET_STATE, undefined, s)).toMatchObject({
+      data: { hideQuits: true },
+    });
+    expect(await h.ipc.invoke(IPC_CHANNELS.WINDOW_HIDE, undefined, s)).toEqual({
+      ok: true,
+      data: { hidden: false },
+    });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(h.quit).toHaveBeenCalledTimes(1);
+  });
+
+  it('N15: … and with something unsaved it goes to the quit confirmation instead', async () => {
+    const h = setup();
+    h.setHideQuits(true);
+    await h.ipc.invoke(
+      IPC_CHANNELS.APP_REPORT_UNSAVED,
+      { reviewDraft: true },
+      new FakeSender(STICKY),
+    );
+    await h.ipc.invoke(IPC_CHANNELS.WINDOW_HIDE, undefined, new FakeSender(STICKY));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(h.quit).not.toHaveBeenCalled();
+    expect(h.stickyWindow.sent).toEqual([
+      ['clarityokr:app:confirm-exit', expect.objectContaining({ kind: 'quit' })],
+    ]);
+  });
+
   it('get-state / set-always-on-top round-trip', async () => {
     const h = setup();
     const s = new FakeSender(STICKY);
     expect(await h.ipc.invoke(IPC_CHANNELS.WINDOW_GET_STATE, undefined, s)).toEqual({
       ok: true,
-      data: { alwaysOnTop: true },
+      data: { alwaysOnTop: true, hideQuits: false },
     });
     expect(
       await h.ipc.invoke(IPC_CHANNELS.WINDOW_SET_ALWAYS_ON_TOP, { enabled: false }, s),
     ).toEqual({
       ok: true,
-      data: { alwaysOnTop: false },
+      data: { alwaysOnTop: false, hideQuits: false },
     });
     expect(h.sticky.setAlwaysOnTop).toHaveBeenCalledWith(false);
   });

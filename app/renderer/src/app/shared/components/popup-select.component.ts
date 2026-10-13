@@ -39,6 +39,7 @@ export interface PopupOption {
       [attr.aria-expanded]="open"
       [attr.aria-label]="ariaLabel"
       [attr.aria-disabled]="disabled ? 'true' : null"
+      [attr.title]="disabled && disabledTitle ? disabledTitle : null"
       [attr.data-testid]="testId"
       (click)="onTriggerClick()"
       (keydown)="onTriggerKeydown($event)"
@@ -135,7 +136,7 @@ export interface PopupOption {
         font-variant-numeric: tabular-nums;
       }
       .trigger[aria-disabled='true'] {
-        opacity: 0.6;
+        opacity: 0.5;
         cursor: not-allowed;
       }
       .popup {
@@ -194,6 +195,8 @@ export class PopupSelectComponent {
   @Input() tone: string | null = null;
   @Input() disabled = false;
   @Input() testId?: string;
+  /** Tooltip shown while disabled (e.g. 「正在重新生成，完成后可用」). */
+  @Input() disabledTitle: string | null = null;
   @Output() selected = new EventEmitter<string | null>();
 
   @ViewChild('trigger', { static: true }) private trigger!: ElementRef<HTMLButtonElement>;

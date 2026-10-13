@@ -261,95 +261,27 @@ test.describe('Edit, Regenerate, and Copy OKR Workflow', () => {
     expect(keyResultsAfterEdit.length).toBe(3);
 
     // ==========================================
-    // Step 6: Click regenerate
+    // Step 6–8: 「↻ 重新生成 ▾」 → 「重新生成全部关键结果…」 → confirm (spec §3.7, D3).
+    // The model returns no known ids, so all three are new and the old ones are removed.
     // ==========================================
-    const regenerateBtnVisible = await waitForElement(
-      stickyWindowPage,
-      '[data-testid="regenerate-button"]',
-      { timeout: 5000 },
-    );
-    expect(regenerateBtnVisible).toBe(true);
-
-    await forceClick(stickyWindowPage, '[data-testid="regenerate-button"]');
-
-    // ==========================================
-    // Step 7: Select 'overwrite' policy
-    // ==========================================
-    const policyOverwriteVisible = await waitForElement(
-      stickyWindowPage,
-      '[data-testid="policy-overwrite"]',
-      { timeout: 5000 },
-    );
-    expect(policyOverwriteVisible).toBe(true);
-
-    // Set mock response for regeneration
     mockServer.setResponses(getRegenerateOverwriteMockConfig());
-
-    await forceClick(stickyWindowPage, '[data-testid="policy-overwrite"]');
-
-    // Wait for regeneration to complete
-    await waitForStateChange(stickyWindowPage, {
-      from: '[data-testid="policy-overwrite"]',
-      to: '[data-testid="sticky-objective"]',
-      timeout: 15000,
-    });
-
-    // ==========================================
-    // Step 8: Verify OKR regenerated (overwrite)
-    // ==========================================
+    await stickyWindowPage.getByTestId('regenerate-button').click();
+    await stickyWindowPage.getByTestId('regenerate-button-option-1').click();
+    await stickyWindowPage.getByTestId('dialog-confirm').click();
+    await expect(stickyWindowPage.getByTestId('regen-banner')).toContainText(
+      '重新生成完成：保留 0 条，新增 3 条，移除 3 条。',
+      { timeout: 15000 },
+    );
     await expect(stickyWindowPage.getByTestId('sticky-key-result').first()).toContainText('1天');
     const regeneratedObjective = await stickyPage.getObjective();
     expect(regeneratedObjective).toContain('优化团队开发效率'); // Title should remain
 
     const regeneratedKeyResults = await stickyPage.getKeyResults();
     expect(regeneratedKeyResults.length).toBe(3);
-    // Verify new KRs from overwrite
     expect(regeneratedKeyResults[0]).toContain('1天'); // Changed from 2天
     expect(regeneratedKeyResults[1]).toContain('90%'); // Changed from 80%
     expect(regeneratedKeyResults[2]).toContain('3次/周'); // Changed from 2次/周
-
-    // ==========================================
-    // Step 9: Click regenerate again
-    // ==========================================
-    await forceClick(stickyWindowPage, '[data-testid="regenerate-button"]');
-
-    // ==========================================
-    // Step 10: Select 'append' policy
-    // ==========================================
-    const policyAppendVisible = await waitForElement(
-      stickyWindowPage,
-      '[data-testid="policy-append"]',
-      { timeout: 5000 },
-    );
-    expect(policyAppendVisible).toBe(true);
-
-    // Set mock response for append regeneration
-    mockServer.setResponses(getRegenerateAppendMockConfig());
-
-    await forceClick(stickyWindowPage, '[data-testid="policy-append"]');
-
-    // Wait for regeneration to complete
-    await waitForStateChange(stickyWindowPage, {
-      from: '[data-testid="policy-append"]',
-      to: '[data-testid="sticky-key-result"]',
-      timeout: 15000,
-    });
-
-    // ==========================================
-    // Step 11: Verify KRs appended
-    // ==========================================
-    await expect(stickyWindowPage.getByTestId('sticky-key-result')).toHaveCount(6);
-    const appendedKeyResults = await stickyPage.getKeyResults();
-    // Should have 3 original + 2 appended = 5 KRs
-    expect(appendedKeyResults.length).toBe(6);
-
-    // Verify original KRs still exist
-    expect(appendedKeyResults[0]).toContain('1天');
-
-    // Verify appended KRs exist
-    const krTexts = appendedKeyResults.join(' ');
-    expect(krTexts).toContain('Bug修复时间');
-    expect(krTexts).toContain('文档覆盖率');
+    await expect(stickyWindowPage.getByTestId('removed-section')).toBeVisible();
 
     // ==========================================
     // Step 12: 「复制为 Markdown」 from the export menu (the old 「复制」 button is gone)

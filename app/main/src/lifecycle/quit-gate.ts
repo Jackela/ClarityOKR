@@ -42,6 +42,14 @@ export class QuitGate {
     }
   }
 
+  /**
+   * N16: Windows is ending the session (log off / shut down): it will not wait for a dialog.
+   * Windows may really close now and a `before-quit` goes through.
+   */
+  sessionEnd(): void {
+    this.open();
+  }
+
   private open(): void {
     this.allowed = true;
     this.quitting = true;
@@ -69,10 +77,36 @@ export interface HideableWindow {
   isDestroyed(): boolean;
 }
 
-export function hideOnClose(window: HideableWindow, isQuitting: () => boolean): void {
+/**
+ * N15 (spec §1.2a), Windows / Linux: without a tray icon a hidden app cannot be called back,
+ * so hiding (「隐藏」 or closing) the LAST visible window is a quit instead. macOS keeps hiding
+ * (the Dock calls it back).
+ */
+export function hideQuits(input: {
+  platform: string;
+  trayAvailable: boolean;
+  otherVisible: boolean;
+}): boolean {
+  return input.platform !== 'darwin' && !input.trayAvailable && !input.otherVisible;
+}
+
+/**
+ * Closing hides the window. When `quitInstead()` says so (N15) the close goes to the quit
+ * confirmation (`requestQuit`) instead; the window stays until that quit really happens.
+ */
+export function hideOnClose(
+  window: HideableWindow,
+  isQuitting: () => boolean,
+  quitInstead: () => boolean = () => false,
+  requestQuit: () => void = () => undefined,
+): void {
   window.on('close', (event) => {
     if (isQuitting() || window.isDestroyed()) return;
     event.preventDefault();
+    if (quitInstead()) {
+      requestQuit();
+      return;
+    }
     window.hide();
   });
 }

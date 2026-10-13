@@ -74,7 +74,11 @@ export interface AppWindowHandlerDeps {
   /** The sticky note window; only its renderer may hide it or switch 「窗口始终在最前」. */
   sticky: {
     isSticky: (senderId: number) => boolean;
-    hide: () => void;
+    /** Hides the sticky window; false = it was the last visible one without a tray (N15),
+     *  so a quit was asked instead. */
+    hide: () => boolean;
+    /** N15: whether 「隐藏」 would quit right now (the tooltip says so). */
+    hideQuits: () => boolean;
     isAlwaysOnTop: () => boolean;
     setAlwaysOnTop: (enabled: boolean) => void;
   };
@@ -163,8 +167,7 @@ export function registerAppWindowHandlers(
       const parsed = parseEmptyRequest(payload);
       if (!parsed.ok) return parsed;
       if (!deps.sticky.isSticky(senderId(event))) return ipcFail('INVALID_REQUEST', NOT_STICKY);
-      deps.sticky.hide();
-      return ipcOk({ hidden: true });
+      return ipcOk({ hidden: deps.sticky.hide() });
     },
   );
 
@@ -174,7 +177,10 @@ export function registerAppWindowHandlers(
       const parsed = parseEmptyRequest(payload);
       if (!parsed.ok) return parsed;
       if (!deps.sticky.isSticky(senderId(event))) return ipcFail('INVALID_REQUEST', NOT_STICKY);
-      return ipcOk({ alwaysOnTop: deps.sticky.isAlwaysOnTop() });
+      return ipcOk({
+        alwaysOnTop: deps.sticky.isAlwaysOnTop(),
+        hideQuits: deps.sticky.hideQuits(),
+      });
     },
   );
 
@@ -185,7 +191,10 @@ export function registerAppWindowHandlers(
       if (!parsed.ok) return parsed;
       if (!deps.sticky.isSticky(senderId(event))) return ipcFail('INVALID_REQUEST', NOT_STICKY);
       deps.sticky.setAlwaysOnTop(parsed.value.enabled);
-      return ipcOk({ alwaysOnTop: deps.sticky.isAlwaysOnTop() });
+      return ipcOk({
+        alwaysOnTop: deps.sticky.isAlwaysOnTop(),
+        hideQuits: deps.sticky.hideQuits(),
+      });
     },
   );
 

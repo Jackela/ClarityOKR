@@ -59,6 +59,33 @@ describe('TopBarComponent (spec §1.2 / §1.2a: drag area, 「⋯」, 「隐藏�
     expect(q('hide-button').getAttribute('aria-describedby')).toBe(tooltip.id);
   });
 
+  it('N15: the tooltip says 「退出…」 only while hiding would quit (asked again on hover / focus)', async () => {
+    const hideArea = q('hide-button').parentElement!;
+    api.getWindowState.mockResolvedValue({
+      ok: true,
+      data: { alwaysOnTop: true, hideQuits: true },
+    });
+    hideArea.dispatchEvent(new MouseEvent('mouseenter'));
+    await settle();
+    expect(q('hide-tooltip').textContent!.trim()).toBe(
+      '退出 ClarityOKR（没有托盘图标，隐藏后无法唤回）',
+    );
+    // the accessible name follows the tooltip: the button now quits
+    expect(q('hide-button').getAttribute('aria-label')).toBe(
+      '退出 ClarityOKR（没有托盘图标，隐藏后无法唤回）',
+    );
+    // another window became visible again → the original text
+    api.getWindowState.mockResolvedValue({
+      ok: true,
+      data: { alwaysOnTop: true, hideQuits: false },
+    });
+    q('hide-button').dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    await settle();
+    expect(q('hide-tooltip').textContent!.trim()).toBe('隐藏便签（应用仍在运行，不是退出）');
+    // back to the hide name together with the tooltip
+    expect(q('hide-button').getAttribute('aria-label')).toBe('隐藏便签');
+  });
+
   it('「隐藏」 hides through window:hide without any dialog', async () => {
     q('hide-button').click();
     await settle();

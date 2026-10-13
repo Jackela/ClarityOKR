@@ -70,6 +70,8 @@ export class ExitCoordinator {
   private exiting = false;
   /** N13: a quit asked while the restart dialog was open; it continues once that one ends. */
   private quitQueued = false;
+  /** N12: each dialog gets its own id; an answer must name the one that is open. */
+  private nextRequestId = 1;
   private readonly restartOrigins = new Map<number, ExitWindow>();
 
   constructor(private readonly deps: ExitCoordinatorDeps) {}
@@ -96,7 +98,10 @@ export class ExitCoordinator {
       this.deps.quit();
       return 'quitting';
     }
-    await this.open({ kind: 'quit', confirmation }, confirmation.dialogWindow);
+    await this.open(
+      { requestId: this.nextRequestId++, kind: 'quit', confirmation },
+      confirmation.dialogWindow,
+    );
     return 'confirm_pending';
   }
 
@@ -113,13 +118,18 @@ export class ExitCoordinator {
     }
     if (origin) this.restartOrigins.set(origin.id, origin);
     // §7a.4: the restart dialog is always in the main window, even when asked from the sticky.
-    await this.open({ kind: 'restart', confirmation }, 'main');
+    await this.open({ requestId: this.nextRequestId++, kind: 'restart', confirmation }, 'main');
     return { outcome: 'confirm_pending' };
   }
 
   answer(senderId: number, answer: ExitAnswer): IpcResult<ExitAnswerReply> {
     const pending = this.pending;
-    if (!pending || pending.host?.id !== senderId || pending.event.kind !== answer.kind) {
+    if (
+      !pending ||
+      pending.host?.id !== senderId ||
+      pending.event.kind !== answer.kind ||
+      pending.event.requestId !== answer.requestId
+    ) {
       return ipcFail('INVALID_REQUEST', 'No such dialog is open in this window');
     }
     this.pending = null;

@@ -12,6 +12,7 @@ import {
   parseReplaceProgressRequest,
   parseRestartRequest,
   parseExitAnswer,
+  parseRegenerateKrsRequest,
   parseSetAlwaysOnTop,
   readConfirmExitEvent,
   readRestartResultEvent,
@@ -213,32 +214,55 @@ describe('request validators', () => {
 
 describe('D2 window / exit validators', () => {
   it('parseExitAnswer: kind quit|restart and a boolean confirmed, nothing else', () => {
-    expect(parseExitAnswer({ kind: 'quit', confirmed: false })).toEqual({
+    expect(parseExitAnswer({ requestId: 1, kind: 'quit', confirmed: false })).toEqual({
       ok: true,
-      value: { kind: 'quit', confirmed: false },
+      value: { requestId: 1, kind: 'quit', confirmed: false },
     });
-    expect(parseExitAnswer({ kind: 'restart', confirmed: true })).toEqual({
+    expect(parseExitAnswer({ requestId: 1, kind: 'restart', confirmed: true })).toEqual({
       ok: true,
-      value: { kind: 'restart', confirmed: true },
+      value: { requestId: 1, kind: 'restart', confirmed: true },
     });
     expect(reasonOf(parseExitAnswer(undefined))).toMatchObject({ field: 'payload' });
-    expect(reasonOf(parseExitAnswer({ confirmed: true }))).toMatchObject({
+    // N12: requestId is required, a positive integer
+    expect(reasonOf(parseExitAnswer({ kind: 'quit', confirmed: true }))).toMatchObject({
+      field: 'requestId',
+      reason: 'missing',
+    });
+    expect(
+      reasonOf(parseExitAnswer({ requestId: '1', kind: 'quit', confirmed: true })),
+    ).toMatchObject({
+      field: 'requestId',
+      reason: 'wrong_type',
+    });
+    expect(
+      reasonOf(parseExitAnswer({ requestId: 0, kind: 'quit', confirmed: true })),
+    ).toMatchObject({
+      field: 'requestId',
+      reason: 'below_min',
+    });
+    expect(reasonOf(parseExitAnswer({ requestId: 1, confirmed: true }))).toMatchObject({
       field: 'kind',
       reason: 'missing',
     });
-    expect(reasonOf(parseExitAnswer({ kind: 'exit', confirmed: true }))).toMatchObject({
+    expect(
+      reasonOf(parseExitAnswer({ requestId: 1, kind: 'exit', confirmed: true })),
+    ).toMatchObject({
       field: 'kind',
       reason: 'wrong_type',
     });
-    expect(reasonOf(parseExitAnswer({ kind: 'quit' }))).toMatchObject({
+    expect(reasonOf(parseExitAnswer({ requestId: 1, kind: 'quit' }))).toMatchObject({
       field: 'confirmed',
       reason: 'missing',
     });
-    expect(reasonOf(parseExitAnswer({ kind: 'quit', confirmed: 'yes' }))).toMatchObject({
+    expect(
+      reasonOf(parseExitAnswer({ requestId: 1, kind: 'quit', confirmed: 'yes' })),
+    ).toMatchObject({
       field: 'confirmed',
       reason: 'wrong_type',
     });
-    expect(reasonOf(parseExitAnswer({ kind: 'quit', confirmed: true, x: 1 }))).toMatchObject({
+    expect(
+      reasonOf(parseExitAnswer({ requestId: 1, kind: 'quit', confirmed: true, x: 1 })),
+    ).toMatchObject({
       field: 'x',
       reason: 'unknown_field',
     });
@@ -270,21 +294,38 @@ describe('D2 window / exit validators', () => {
       dbHasData: true,
       unsaved: { wizard: true, textEdit: false, reviewDraft: false },
     });
-    expect(readConfirmExitEvent({ kind: 'quit', confirmation })).toEqual({
+    expect(readConfirmExitEvent({ requestId: 1, kind: 'quit', confirmation })).toEqual({
+      requestId: 1,
       kind: 'quit',
       confirmation,
     });
     expect(readConfirmExitEvent(null)).toBeNull();
+    // N12: the dialog id is required (a positive integer)
+    expect(readConfirmExitEvent({ kind: 'quit', confirmation })).toBeNull();
+    expect(readConfirmExitEvent({ requestId: 0, kind: 'quit', confirmation })).toBeNull();
+    expect(readConfirmExitEvent({ requestId: 1.5, kind: 'quit', confirmation })).toBeNull();
     expect(readConfirmExitEvent({ kind: 'close', confirmation })).toBeNull();
-    expect(readConfirmExitEvent({ kind: 'quit' })).toBeNull();
+    expect(readConfirmExitEvent({ requestId: 1, kind: 'quit' })).toBeNull();
     expect(
-      readConfirmExitEvent({ kind: 'quit', confirmation: { ...confirmation, reasons: ['x'] } }),
+      readConfirmExitEvent({
+        requestId: 1,
+        kind: 'quit',
+        confirmation: { ...confirmation, reasons: ['x'] },
+      }),
     ).toBeNull();
     expect(
-      readConfirmExitEvent({ kind: 'quit', confirmation: { ...confirmation, windowsToShow: [1] } }),
+      readConfirmExitEvent({
+        requestId: 1,
+        kind: 'quit',
+        confirmation: { ...confirmation, windowsToShow: [1] },
+      }),
     ).toBeNull();
     expect(
-      readConfirmExitEvent({ kind: 'quit', confirmation: { ...confirmation, memoryOnly: 'no' } }),
+      readConfirmExitEvent({
+        requestId: 1,
+        kind: 'quit',
+        confirmation: { ...confirmation, memoryOnly: 'no' },
+      }),
     ).toBeNull();
   });
 
@@ -461,5 +502,28 @@ describe('truncateGraphemes (display only)', () => {
       '一二三四五六七八九十一二三四五六…',
     );
     expect(truncateGraphemes(`${FAMILY}${FAMILY}${FAMILY}`, 2)).toBe(`${FAMILY}${FAMILY}…`);
+  });
+});
+
+describe('parseRegenerateKrsRequest (§3.7)', () => {
+  it('accepts all (no krIds) and a de-duplicated selection', () => {
+    expect(parseRegenerateKrsRequest({ okrId: 'o' })).toEqual({ ok: true, value: { okrId: 'o' } });
+    expect(parseRegenerateKrsRequest({ okrId: 'o', krIds: ['a', 'a', 'b'] })).toEqual({
+      ok: true,
+      value: { okrId: 'o', krIds: ['a', 'b'] },
+    });
+  });
+
+  it.each([
+    [{ okrId: 'o', krIds: [] }, 'empty'],
+    [{ okrId: 'o', krIds: 'a' }, 'wrong_type'],
+    [{ okrId: 'o', krIds: [1] }, 'wrong_type'],
+    [{ okrId: 'o', krIds: [' '] }, 'empty'],
+    [{ okrId: 'o', krIds: Array.from({ length: 11 }, (_, i) => `k${i}`) }, 'above_max'],
+    [{ okrId: 'o', policy: 'overwrite' }, 'unknown_field'],
+  ])('rejects %j (%s)', (payload, reason) => {
+    const parsed = parseRegenerateKrsRequest(payload);
+    expect(parsed.ok).toBe(false);
+    if (!parsed.ok) expect(parsed.error.reason).toBe(reason);
   });
 });

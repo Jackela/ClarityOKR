@@ -50,8 +50,29 @@ const SLOW_SAVE_MS = 300;
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="kr__top">
-      <span class="kr__num" aria-hidden="true">{{ n }}</span>
-      <div class="kr__text" data-testid="kr-statement">{{ kr.statement }}</div>
+      @if (selecting) {
+        <label class="kr__check">
+          <input
+            type="checkbox"
+            class="kr__check-input"
+            data-testid="kr-select"
+            [checked]="selected"
+            [attr.aria-label]="copy.regen.selectLabel(n, kr.statement)"
+            (change)="toggle.emit(kr.id)"
+          />
+          <span class="kr__check-box" aria-hidden="true"></span>
+        </label>
+      } @else {
+        <span class="kr__num" aria-hidden="true">{{ n }}</span>
+      }
+      <div class="kr__text" data-testid="kr-statement">
+        @if (isNew) {
+          <span class="kr__new" data-testid="kr-new-tag"
+            ><span class="kr__new-dot" aria-hidden="true"></span>{{ copy.regen.newTag }}</span
+          >
+        }
+        {{ kr.statement }}
+      </div>
     </div>
 
     <div class="kr__indent">
@@ -226,6 +247,12 @@ export class KrRowComponent implements OnChanges, OnDestroy {
   @Input() now: Date = new Date();
   /** The user asked to add a metric: the note opens the text editor. */
   @Output() addMetric = new EventEmitter<string>();
+  /** §3.7 selection mode: a checkbox replaces the number. */
+  @Input() selecting = false;
+  @Input() selected = false;
+  /** Added by the last regeneration (the 「新增」 tag). */
+  @Input() isNew = false;
+  @Output() toggle = new EventEmitter<string>();
 
   readonly copy = COPY;
   readonly mode = signal<EditorMode>('none');

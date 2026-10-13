@@ -3,7 +3,10 @@ import type { BrowserWindow, Clipboard, Dialog, IpcMain, Shell } from 'electron'
 
 import { ExportService, type SaveDialogRequest } from '../export/export-service.js';
 import type { ExportSource } from '../export/export-document.js';
-import { registerClosedLoopHandlers } from '../ipc/closed-loop-handlers.js';
+import {
+  registerClosedLoopHandlers,
+  type ClosedLoopHandlerDeps,
+} from '../ipc/closed-loop-handlers.js';
 import { AppRestartService } from '../lifecycle/restart-service.js';
 import type { OkrStore } from '../persistence/okr-store/okr-store.js';
 
@@ -16,6 +19,7 @@ export interface ClosedLoopWiringDeps {
   clipboard: Pick<Clipboard, 'writeText'>;
   getDownloadsDir: () => string;
   getFocusedWindow: () => BrowserWindow | null;
+  regenerate?: ClosedLoopHandlerDeps['regenerate'];
 }
 
 /** Reads the data of one OKR for an export (null for an unknown id). */
@@ -61,6 +65,7 @@ export function wireClosedLoop(deps: ClosedLoopWiringDeps): {
     store: deps.store,
     exportService,
     clipboard: deps.clipboard,
+    ...(deps.regenerate ? { regenerate: deps.regenerate } : {}),
   });
   return { exportService, restartService };
 }

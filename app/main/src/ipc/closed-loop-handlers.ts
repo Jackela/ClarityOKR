@@ -7,6 +7,7 @@ import {
   parseKrIdRequest,
   parseOkrIdRequest,
   parseReplaceProgressRequest,
+  parseRegenerateKrsRequest,
   parseRevealRequest,
   parseSaveReviewRequest,
   parseSetPeriodRequest,
@@ -20,6 +21,8 @@ import {
   type Parsed,
   type PinReply,
   type ProgressChangeReply,
+  type RegenerateKrsReply,
+  type RegenerateKrsRequest,
   type ReviewReply,
   type SetPeriodReply,
 } from '@clarityokr/contracts';
@@ -34,6 +37,8 @@ export interface ClosedLoopHandlerDeps {
   exportService: ExportService;
   /** The system clipboard (injected so tests never touch it). */
   clipboard: Pick<Clipboard, 'writeText'>;
+  /** §3.7 regeneration (absent in tests that do not need it). */
+  regenerate?: (request: RegenerateKrsRequest) => Promise<IpcResult<RegenerateKrsReply>>;
 }
 
 const NOT_FOUND_OKR = 'The OKR does not exist';
@@ -145,6 +150,13 @@ export function registerClosedLoopHandlers(
     () => ({ ok: true, value: undefined }),
     () => ipcOk({ items: store.listObjectiveSummaries() }),
   );
+
+  const regenerate = deps.regenerate;
+  if (regenerate) {
+    register(IPC_CHANNELS.OKR_REGENERATE_KRS, parseRegenerateKrsRequest, (request) =>
+      regenerate(request),
+    );
+  }
 
   register(IPC_CHANNELS.OKR_OPEN, parseOkrIdRequest, ({ okrId }) => {
     const detail = readOkrDetail(store, okrId);

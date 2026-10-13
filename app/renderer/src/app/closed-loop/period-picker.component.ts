@@ -34,6 +34,7 @@ import { quarterOptions } from './progress-logic';
       [value]="value"
       [ariaLabel]="copy.period.label + '：' + (value ?? copy.period.none)"
       [disabled]="disabled"
+      [disabledTitle]="disabledTitle"
       (selected)="periodChange.emit($event)"
     >
       <span [class.period--none]="value === null">{{ value ?? copy.period.none }}</span>
@@ -55,6 +56,7 @@ import { quarterOptions } from './progress-logic';
 export class PeriodPickerComponent implements OnChanges {
   @Input() value: Period | null = null;
   @Input() disabled = false;
+  @Input() disabledTitle: string | null = null;
   @Input() now: Date = new Date();
   @Output() periodChange = new EventEmitter<string | null>();
 

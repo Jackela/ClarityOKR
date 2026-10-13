@@ -19,9 +19,11 @@
  *
  * @module main
  */
+import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { IPC_CHANNELS } from '@clarityokr/contracts';
 import electron from 'electron';
 import type {
   BrowserWindow as ElectronBrowserWindow,
@@ -35,6 +37,7 @@ import { OkrStore, OkrStoreRepository } from './persistence/okr-store/index.js';
 import { SqliteSessionRepository } from './persistence/sqlite-session-repository.js';
 import { OkrAgentService } from './services/okr-agent.service.js';
 import { OkrRegenerationService } from './services/okr-regeneration.service.js';
+import { KrRegenerationService } from './regenerate/kr-regeneration.service.js';
 
 import { resolveDbPath } from './startup/db-path.js';
 import { LegacyDatabaseNotice, registerLegacyNoticeHandlers } from './startup/legacy-notice.js';
@@ -43,7 +46,7 @@ import { wireClosedLoop } from './startup/closed-loop.js';
 import { registerStorageStateHandler } from './startup/storage-state.js';
 import { registerAppWindowHandlers, UnsavedRegistry } from './ipc/app-window-handlers.js';
 import { ExitCoordinator, type ExitWindow } from './lifecycle/exit-coordinator.js';
-import { QuitGate, guardBeforeQuit, hideOnClose } from './lifecycle/quit-gate.js';
+import { QuitGate, guardBeforeQuit, hideOnClose, hideQuits } from './lifecycle/quit-gate.js';
 import {
   appMenuTemplate,
   trayIconPath,
@@ -55,7 +58,18 @@ import { ClarificationController } from './windows/clarification-controller.js';
 import { StickyWindowManager } from './windows/sticky-window-manager.js';
 import { registerRendererProtocol } from './windows/renderer-protocol.js';
 
-const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, Menu, Tray, nativeImage } = electron;
+const {
+  app,
+  BrowserWindow,
+  ipcMain,
+  dialog,
+  shell,
+  clipboard,
+  Menu,
+  Tray,
+  nativeImage,
+  webContents,
+} = electron;
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const preloadPath = path.resolve(currentDir, 'bootstrap', 'preload.cjs');
@@ -122,6 +136,8 @@ const { restartService } = wireClosedLoop({
   clipboard,
   getDownloadsDir: () => app.getPath('downloads'),
   getFocusedWindow: () => BrowserWindow.getFocusedWindow(),
+  // §3.7: the services it needs are created just below; they exist by the first request.
+  regenerate: (request) => krRegeneration.regenerate(request),
 });
 
 const okrAgentService = new OkrAgentService();
@@ -130,7 +146,22 @@ const okrRegenerationService = new OkrRegenerationService(
   okrRepository,
   okrAgentService,
 );
-const stickyWindowManager = new StickyWindowManager({
+const krRegeneration = new KrRegenerationService({
+  store: okrStore,
+  turnsFor: (sessionId) => okrRegenerationService.turnsFor(sessionId),
+  generate: (context) => okrRegenerationService.generate(context),
+  newId: () => randomUUID(),
+  changed: (objective) => {
+    // The windows take the OKR text from the document; send them the new one.
+    void okrRepository.findById(objective.id).then((okr) => {
+      if (!okr) return;
+      for (const contents of webContents.getAllWebContents()) {
+        if (!contents.isDestroyed()) contents.send(IPC_CHANNELS.OKR_GENERATE, { okr });
+      }
+    });
+  },
+});
+const stickyWindowManager: StickyWindowManager = new StickyWindowManager({
   preloadPath,
   rendererDistPath,
   okrRepository,
@@ -139,6 +170,8 @@ const stickyWindowManager = new StickyWindowManager({
   sessionRepository,
   okrRegeneration: okrRegenerationService,
   isQuitting: () => quitGate.isQuitting(),
+  closeQuits: (): boolean => lastVisibleQuits(stickyWindowManager.getWindow()),
+  requestQuit: () => void exitCoordinator.requestQuit(),
 });
 
 let mainWindow: ElectronBrowserWindow | null = null;
@@ -209,7 +242,13 @@ async function createWindow(): Promise<void> {
   const contentsId = mainWindow.webContents.id;
   // Closing the main window hides it (like the sticky note): its wizard and unsaved state
   // stay, and the app keeps running in the tray (B2).
-  hideOnClose(mainWindow, () => quitGate.isQuitting());
+  const thisWindow = mainWindow;
+  hideOnClose(
+    mainWindow,
+    () => quitGate.isQuitting(),
+    () => lastVisibleQuits(thisWindow),
+    () => void exitCoordinator.requestQuit(),
+  );
   mainWindow.on('closed', () => {
     mainWindow = null;
     exitCoordinator.windowGone(contentsId);
@@ -315,13 +354,32 @@ registerAppWindowHandlers(ipcMain, {
   },
   sticky: {
     isSticky: (senderId) => stickyWindowManager.getWebContentsId() === senderId,
-    hide: () => stickyWindowManager.hideStickyWindow(),
+    hide: () => {
+      if (lastVisibleQuits(stickyWindowManager.getWindow())) {
+        void exitCoordinator.requestQuit();
+        return false;
+      }
+      stickyWindowManager.hideStickyWindow();
+      return true;
+    },
+    hideQuits: () => lastVisibleQuits(stickyWindowManager.getWindow()),
     isAlwaysOnTop: () => stickyWindowManager.isAlwaysOnTop(),
     setAlwaysOnTop: (enabled) => stickyWindowManager.setAlwaysOnTop(enabled),
   },
 });
 
 let tray: InstanceType<typeof Tray> | null = null;
+
+/**
+ * N15: hiding `window` would leave nothing to call the app back with (Windows / Linux, no
+ * tray icon, no other visible window), so it is a quit instead.
+ */
+function lastVisibleQuits(window: ElectronBrowserWindow | null): boolean {
+  const otherVisible = BrowserWindow.getAllWindows().some(
+    (w) => w !== window && !w.isDestroyed() && w.isVisible(),
+  );
+  return hideQuits({ platform: process.platform, trayAvailable: tray !== null, otherVisible });
+}
 
 function createTray(): void {
   try {
@@ -341,6 +399,24 @@ app.on('second-instance', () => {
   Logger.info('[main] Second launch: showing the sticky note');
   void showSticky();
 });
+
+// N16: Windows ends the session (log off / shut down) without waiting for a dialog.
+app.on('browser-window-created', (_event, window) => {
+  window.on('session-end', () => {
+    Logger.info('[main] The session is ending; quitting without the confirmation');
+    quitGate.sessionEnd();
+  });
+});
+
+if (testMode) {
+  // E2E only: run as if the tray icon could not be created (N15).
+  (globalThis as { __clarityokrE2E?: unknown }).__clarityokrE2E = {
+    dropTray: () => {
+      tray?.destroy();
+      tray = null;
+    },
+  };
+}
 
 void app.whenReady().then(() => {
   registerRendererProtocol(rendererDistPath, electron.protocol, electron.net);

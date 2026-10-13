@@ -299,6 +299,47 @@ export const COPY = {
   },
   /** §1.2c: the quit / restart answer was not taken (reject, ok:false or 5 s timeout). */
   exitAnswerFailed: '没能完成这次操作，请再试一次。',
+  /** §3.7 重新生成 */
+  regen: {
+    button: '重新生成',
+    /** §3.7 v2.9: tooltip on the controls locked while generating. */
+    lockedTooltip: '正在重新生成，完成后可用',
+    menuLabel: '重新生成',
+    selectSome: '重新生成选中的关键结果…',
+    all: '重新生成全部关键结果…',
+    selectLabel: (n: number, text: string) => `选择第 ${n} 条关键结果：${text}`,
+    selectedCount: (n: number) => `已选 ${n} 条`,
+    cancel: '取消',
+    regenerateSelected: '重新生成所选',
+    selectAtLeastOne: '请至少选一条',
+    confirmTitleSome: (n: number) => `重新生成所选的 ${n} 条关键结果？`,
+    confirmTitleAll: '重新生成全部关键结果？',
+    confirmBodySome: (n: number) =>
+      `会改写这 ${n} 条的文字和度量。能对应上原条目的，进度、状态和复盘都会保留，请在完成后确认进度是否仍然准确。`,
+    confirmBodyAll:
+      '会改写所有关键结果的文字和度量。能对应上原条目的，进度、状态和复盘都会保留，请在完成后确认进度是否仍然准确；对应不上的会被标为「已移除」，它们的进度记录仍留在历史里，但不会自动恢复。已保存的复盘不会改变。',
+    confirm: '重新生成',
+    running: '正在重新生成关键结果…',
+    newTag: '新增',
+    gotIt: '知道了',
+    viewRemoved: '查看已移除',
+    retry: '重试',
+    details: '查看详情',
+    updated: (n: number) =>
+      `已重新生成 ${n} 条关键结果：文字和度量已更新，进度和状态保留。请确认进度是否仍然准确。`,
+    reordered: '顺序已调整，进度和状态跟着各条关键结果保留。请确认进度是否仍然准确。',
+    changedMain: (k: number, a: number, r: number) =>
+      `重新生成完成：保留 ${k} 条，新增 ${a} 条，移除 ${r} 条。`,
+    changedConfirm: '请确认进度是否仍然准确。',
+    changedMissing: (k: number, m: number, r: number) =>
+      `保留的 ${k} 条文字和度量已更新，进度和状态保留，请确认进度是否仍然准确。其中 ${m} 条没有返回编号，已按新增处理，原有 ${r} 条移到了「已移除」，它们的进度记录仍在历史里。`,
+    partialUpdated: (n: number) =>
+      `已重新生成所选的 ${n} 条关键结果：文字和度量已更新，进度和状态保留。请确认进度是否仍然准确。`,
+    partialRemoved: (n: number, r: number) =>
+      `所选 ${n} 条中有 ${r} 条没有返回，已移到「已移除」，进度记录仍在历史里。其余已更新的请确认进度是否仍然准确。`,
+    failed: '重新生成失败，原来的关键结果没有改动。',
+    failedDetail: (code: string) => `错误代码：${code}`,
+  },
   /** §1.2c 退出确认 */
   quit: {
     title: '退出 ClarityOKR？',
@@ -318,6 +359,8 @@ export const COPY = {
     alwaysOnTop: '窗口始终在最前',
     hide: '隐藏便签',
     hideTooltip: '隐藏便签（应用仍在运行，不是退出）',
+    /** N15 (§1.2a): Windows / Linux, no tray icon, last visible window. */
+    hideQuitsTooltip: '退出 ClarityOKR（没有托盘图标，隐藏后无法唤回）',
   },
   /** §4.5a 新建 OKR */
   newOkr: {

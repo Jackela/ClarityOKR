@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import type { UnsavedFlags } from '@clarityokr/contracts';
 
 import { ClosedLoopApi } from './closed-loop-api.service';
-import { UNSAVED_RETRY_MS, UnsavedReporter } from './unsaved-reporter.service';
+import { UNSAVED_MAX_RETRIES, UNSAVED_RETRY_MS, UnsavedReporter } from './unsaved-reporter.service';
 
 const NONE: UnsavedFlags = { wizard: false, textEdit: false, reviewDraft: false };
 const OK = { ok: true, data: { recorded: true } };
@@ -86,5 +86,55 @@ describe('UnsavedReporter (N7: record only after the main process took it)', () 
     await settle();
     expect(api.reportUnsaved).toHaveBeenCalledTimes(2);
     expect(api.reportUnsaved).toHaveBeenLastCalledWith({ reviewDraft: true });
+  });
+
+  it('N14: a refused report (not transient) is not retried; the next change sends again', async () => {
+    api.reportUnsaved.mockResolvedValueOnce({
+      ok: false,
+      error: { code: 'INVALID_REQUEST', message: 'x' },
+    });
+    flags.set({ ...NONE, wizard: true });
+    await settle();
+    jest.advanceTimersByTime(UNSAVED_RETRY_MS * 10);
+    await settle();
+    expect(api.reportUnsaved).toHaveBeenCalledTimes(1);
+    flags.set({ ...NONE, wizard: true, reviewDraft: true });
+    await settle();
+    expect(api.reportUnsaved).toHaveBeenCalledTimes(2);
+    expect(api.reportUnsaved).toHaveBeenLastCalledWith({ wizard: true, reviewDraft: true });
+  });
+
+  it(`N14: transient failures are retried at most ${UNSAVED_MAX_RETRIES} times in a row`, async () => {
+    api.reportUnsaved.mockResolvedValue(FAIL);
+    flags.set({ ...NONE, textEdit: true });
+    await settle();
+    for (let i = 0; i < UNSAVED_MAX_RETRIES + 3; i++) {
+      jest.advanceTimersByTime(UNSAVED_RETRY_MS);
+      await settle();
+    }
+    expect(api.reportUnsaved).toHaveBeenCalledTimes(1 + UNSAVED_MAX_RETRIES);
+    // a change starts over (and succeeds)
+    api.reportUnsaved.mockResolvedValue(OK);
+    flags.set({ ...NONE });
+    flags.set({ ...NONE, textEdit: true, wizard: true });
+    await settle();
+    expect(api.reportUnsaved).toHaveBeenCalledTimes(2 + UNSAVED_MAX_RETRIES);
+  });
+
+  it('N14: the retry count resets after a success', async () => {
+    api.reportUnsaved.mockResolvedValueOnce(FAIL).mockResolvedValueOnce(OK);
+    flags.set({ ...NONE, wizard: true });
+    await settle();
+    jest.advanceTimersByTime(UNSAVED_RETRY_MS);
+    await settle();
+    expect(api.reportUnsaved).toHaveBeenCalledTimes(2);
+    api.reportUnsaved.mockResolvedValue(FAIL);
+    flags.set({ ...NONE });
+    await settle();
+    for (let i = 0; i < UNSAVED_MAX_RETRIES + 2; i++) {
+      jest.advanceTimersByTime(UNSAVED_RETRY_MS);
+      await settle();
+    }
+    expect(api.reportUnsaved).toHaveBeenCalledTimes(3 + UNSAVED_MAX_RETRIES);
   });
 });

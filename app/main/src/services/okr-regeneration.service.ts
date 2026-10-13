@@ -45,6 +45,35 @@ export class OkrRegenerationService {
     private readonly okrAgent: OkrAgentService,
   ) {}
 
+  /** The clarification answers of a session ([] when there is none), for a draft request. */
+  async turnsFor(sessionId: string | null): Promise<ClarificationContext['turns']> {
+    if (!sessionId) return [];
+    const session = await this.sessionRepo.getById(sessionId);
+    return session ? OkrRegenerationService.turnsOf(session) : [];
+  }
+
+  /** Asks the model for a fresh draft (the cache would answer the same draft again). */
+  async generate(context: ClarificationContext): Promise<unknown> {
+    this.okrAgent.clearCache();
+    return this.okrAgent.generateDraft(context);
+  }
+
+  private static turnsOf(
+    session: NonNullable<Awaited<ReturnType<ISessionRepository['getById']>>>,
+  ): ClarificationContext['turns'] {
+    return session.steps.map((step) => ({
+      questionId: step.id,
+      optionId:
+        session.selectedOptions
+          .filter(
+            (sel) =>
+              sel.promptId === step.id && step.options.some((opt) => opt.id === sel.optionId),
+          )
+          .at(-1)?.optionId ?? '',
+      timestamp: step.context ?? new Date().toISOString(),
+    }));
+  }
+
   /**
    * Regenerates an OKR with the specified policy.
    * Retrieves clarification context from session, calls LLM to generate new OKR draft,
@@ -84,17 +113,7 @@ export class OkrRegenerationService {
       // Existing key results are sent along (only when there are any) so the model can
       // return their ids; progress is only carried over for ids that come back.
       const context: ClarificationContext = {
-        turns: session.steps.map((step) => ({
-          questionId: step.id,
-          optionId:
-            session.selectedOptions
-              .filter(
-                (sel) =>
-                  sel.promptId === step.id && step.options.some((opt) => opt.id === sel.optionId),
-              )
-              .at(-1)?.optionId ?? '',
-          timestamp: step.context ?? new Date().toISOString(),
-        })),
+        turns: OkrRegenerationService.turnsOf(session),
         ...(currentOkr && currentOkr.keyResults.length > 0
           ? {
               existingKeyResults: currentOkr.keyResults.map((kr) => ({

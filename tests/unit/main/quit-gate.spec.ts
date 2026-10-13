@@ -4,6 +4,7 @@ import {
   QuitGate,
   guardBeforeQuit,
   hideOnClose,
+  hideQuits,
   type HideableWindow,
 } from '@clarityokr/main/lifecycle/quit-gate';
 
@@ -101,7 +102,11 @@ describe('QuitGate (B1: flags restored when relaunching fails)', () => {
       textEdit: false,
       reviewDraft: false,
     });
-    app.coordinator.answer(app.main.id, { kind: 'restart', confirmed: true }); // 放弃并重启
+    app.coordinator.answer(app.main.id, {
+      requestId: app.coordinator.pendingFor(app.main.id)?.requestId ?? 0,
+      kind: 'restart',
+      confirmed: true,
+    }); // 放弃并重启
     expect(app.calls.relaunch).toBe(1);
     expect(app.gate.isQuitting()).toBe(false);
 
@@ -111,7 +116,11 @@ describe('QuitGate (B1: flags restored when relaunching fails)', () => {
     expect(dialogs.at(-1)![1]).toMatchObject({ kind: 'quit' }); // … and asked
     expect(app.calls.quit).toBe(0);
 
-    app.coordinator.answer(app.main.id, { kind: 'quit', confirmed: true }); // 放弃并退出
+    app.coordinator.answer(app.main.id, {
+      requestId: app.coordinator.pendingFor(app.main.id)?.requestId ?? 0,
+      kind: 'quit',
+      confirmed: true,
+    }); // 放弃并退出
     expect(app.calls.quit).toBe(1);
     expect(app.beforeQuit()).toBe(false); // the real quit now passes
   });
@@ -124,7 +133,11 @@ describe('QuitGate (B1: flags restored when relaunching fails)', () => {
     await flush();
     const confirms = () => app.main.sent.filter(([c]) => c === 'clarityokr:app:confirm-exit');
     expect(confirms()).toHaveLength(1);
-    app.coordinator.answer(app.main.id, { kind: 'restart', confirmed: true });
+    app.coordinator.answer(app.main.id, {
+      requestId: app.coordinator.pendingFor(app.main.id)?.requestId ?? 0,
+      kind: 'restart',
+      confirmed: true,
+    });
     await flush();
     expect(app.calls.relaunch).toBe(1);
     expect(app.main.sent.at(-1)).toEqual(['clarityokr:app:restart-result', { outcome: 'failed' }]);
@@ -143,7 +156,11 @@ describe('QuitGate (B1: flags restored when relaunching fails)', () => {
       reviewDraft: false,
     });
     app.beforeQuit();
-    app.coordinator.answer(app.main.id, { kind: 'restart', confirmed: false });
+    app.coordinator.answer(app.main.id, {
+      requestId: app.coordinator.pendingFor(app.main.id)?.requestId ?? 0,
+      kind: 'restart',
+      confirmed: false,
+    });
     await flush();
     expect(app.coordinator.pendingFor(app.main.id)).toMatchObject({ kind: 'quit' });
   });
@@ -156,7 +173,11 @@ describe('QuitGate (B1: flags restored when relaunching fails)', () => {
       textEdit: false,
       reviewDraft: false,
     });
-    app.coordinator.answer(app.main.id, { kind: 'restart', confirmed: true });
+    app.coordinator.answer(app.main.id, {
+      requestId: app.coordinator.pendingFor(app.main.id)?.requestId ?? 0,
+      kind: 'restart',
+      confirmed: true,
+    });
     expect(app.calls.relaunch).toBe(1);
     expect(app.beforeQuit()).toBe(false);
   });
@@ -196,6 +217,29 @@ describe('hideOnClose (B2: closing the main window hides it)', () => {
     expect(window.hidden).toBe(true);
   });
 
+  it('N15: when hiding would quit, the close asks to quit instead and the window stays', () => {
+    const gate = new QuitGate();
+    const window = new PlainBrowserWindow();
+    let asked = 0;
+    let quitInstead = true;
+    hideOnClose(
+      window,
+      () => gate.isQuitting(),
+      () => quitInstead,
+      () => {
+        asked += 1;
+      },
+    );
+    expect(window.close()).toBe(false);
+    expect(window.hidden).toBe(false);
+    expect(asked).toBe(1);
+    // another window is visible again → a normal hide
+    quitInstead = false;
+    expect(window.close()).toBe(false);
+    expect(window.hidden).toBe(true);
+    expect(asked).toBe(1);
+  });
+
   it('closes for real once the app quits', () => {
     const gate = new QuitGate();
     const window = new PlainBrowserWindow();
@@ -220,5 +264,39 @@ describe('hideOnClose (B2: closing the main window hides it)', () => {
       // expected
     }
     expect(window.close()).toBe(false);
+  });
+});
+
+describe('hideQuits (N15, spec §1.2a)', () => {
+  it.each([
+    ['win32', false, false, true],
+    ['linux', false, false, true],
+    ['linux', false, true, false],
+    ['linux', true, false, false],
+    ['win32', true, false, false],
+    ['darwin', false, false, false],
+    ['darwin', false, true, false],
+  ] as const)(
+    '%s tray=%s otherVisible=%s → quits=%s',
+    (platform, trayAvailable, otherVisible, quits) => {
+      expect(hideQuits({ platform, trayAvailable, otherVisible })).toBe(quits);
+    },
+  );
+});
+
+describe('QuitGate.sessionEnd (N16: Windows session end)', () => {
+  it('lets before-quit through and windows really close, without a confirmation', () => {
+    const gate = new QuitGate();
+    let asked = 0;
+    let prevented = false;
+    gate.sessionEnd();
+    guardBeforeQuit(gate, () => (asked += 1), {
+      preventDefault: () => {
+        prevented = true;
+      },
+    });
+    expect(prevented).toBe(false);
+    expect(asked).toBe(0);
+    expect(gate.isQuitting()).toBe(true);
   });
 });
