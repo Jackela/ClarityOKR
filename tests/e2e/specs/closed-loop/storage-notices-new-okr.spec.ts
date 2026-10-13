@@ -129,33 +129,28 @@ test.describe('D1c: memory mode', () => {
     await expect(sticky.getByTestId('review-state')).toContainText('已保存（仅本次运行）· ');
     await sticky.getByTestId('tab-note').click();
 
-    // there is data: 「重启应用」 asks first (memory only → 「先不重启」 focused)
+    // there is data: 「重启应用」 asks first. D2: the dialog opens in the MAIN window
+    // (spec §7a.4); 「先不重启」 puts the focus back on 「重启应用」 in the sticky window.
     await breakRelaunch(electronApp);
     const restart = sticky.getByTestId('memory-restart');
     await restart.click();
-    const dialog = sticky.getByTestId('restart-dialog');
+    const dialog = mainWindow.getByTestId('restart-dialog');
     await expect(dialog).toBeVisible();
     await expect(dialog).toHaveAttribute('role', 'alertdialog');
     await expect(dialog).toContainText('重启 ClarityOKR？');
     await expect(dialog).toContainText('重启后本次运行的内容会丢失。');
-    await expect(sticky.getByTestId('dialog-cancel')).toBeFocused();
-    await expect(sticky.getByTestId('dialog-cancel')).toHaveText('先不重启');
-    await expectDialogCentred(sticky, 'restart-dialog');
-    await expectInert(sticky, 'top-bar');
-    await expectInert(sticky, 'memory-restart');
-    await shot(sticky, 'D1c-05-restart-confirm');
-    await axe(sticky, 'restart confirm');
-    await setTheme(sticky, 'dark');
-    await shot(sticky, 'D1c-06-restart-confirm-dark');
-    await axe(sticky, 'restart confirm (dark)');
-    await setTheme(sticky, 'light');
-    await sticky.keyboard.press('Escape');
+    await expect(mainWindow.getByTestId('dialog-cancel')).toBeFocused();
+    await expect(mainWindow.getByTestId('dialog-cancel')).toHaveText('先不重启');
+    await expect(sticky.getByTestId('restart-dialog')).toHaveCount(0);
+    await expect(restart).toHaveAttribute('aria-disabled', 'true');
+    await mainWindow.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);
     await expect(restart).toBeFocused();
+    await expect(restart).not.toHaveAttribute('aria-disabled', 'true');
 
     // 「放弃并重启」 → relaunch_failed: one alert line, the focus stays on 「重启应用」
     await restart.click();
-    await sticky.getByTestId('dialog-confirm').click();
+    await mainWindow.getByTestId('dialog-confirm').click();
     const failed = sticky.getByTestId('relaunch-failed');
     await expect(failed).toHaveCount(1);
     await expect(failed).toHaveAttribute('role', 'alert');
@@ -171,11 +166,12 @@ test.describe('D1c: memory mode', () => {
 
     // retry: still exactly one line
     await restart.click();
-    await sticky.getByTestId('dialog-confirm').click();
+    await mainWindow.getByTestId('dialog-confirm').click();
     await expect(failed).toHaveCount(1);
     await expect(restart).toBeFocused();
 
     // a wizard draft in the MAIN window joins the reasons of a restart asked from the sticky one
+    // (wait for the cancel to settle before the next click)
     await mainWindow.bringToFront();
     const newOkr = mainWindow.getByTestId('intent-input');
     if ((await newOkr.count()) === 0) {
@@ -189,7 +185,7 @@ test.describe('D1c: memory mode', () => {
         await restart.click();
         const visible = await dialog.isVisible();
         const text = visible ? await dialog.textContent() : '';
-        if (visible) await sticky.keyboard.press('Escape');
+        if (visible) await mainWindow.keyboard.press('Escape');
         return text;
       })
       .toContain('向导里已经填写的内容还没有保存，重启会丢掉这些内容。');

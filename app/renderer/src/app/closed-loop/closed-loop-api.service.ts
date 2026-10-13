@@ -26,6 +26,11 @@ import {
   type RestartRequest,
   type UnsavedReport,
   type UnsavedReportReply,
+  type ExitAnswer,
+  type ExitAnswerReply,
+  type ExitPendingReply,
+  type HideWindowReply,
+  type WindowStateReply,
 } from '@clarityokr/contracts';
 
 function isIpcResult(value: unknown): value is IpcResult<unknown> {
@@ -111,7 +116,10 @@ export class ClosedLoopApi {
     }
   }
 
-  /** 「重启应用」: same confirmation rule as quitting (`confirm_required`) unless `confirmed`. */
+  /**
+   * 「重启应用」: same confirmation rule as quitting. `confirm_pending` means the dialog is open
+   * in the main window; the outcome then arrives as `app:restart-result`.
+   */
   restart(request: RestartRequest): Promise<IpcResult<RestartReply>> {
     return this.call(IPC_CHANNELS.APP_RESTART, request);
   }
@@ -124,6 +132,30 @@ export class ClosedLoopApi {
   /** Tells the main process which unsaved-input flags of this window changed. */
   reportUnsaved(report: UnsavedReport): Promise<IpcResult<UnsavedReportReply>> {
     return this.call(IPC_CHANNELS.APP_REPORT_UNSAVED, report);
+  }
+
+  /** The answer to the quit / restart dialog shown in this window. */
+  exitAnswer(answer: ExitAnswer): Promise<IpcResult<ExitAnswerReply>> {
+    return this.call(IPC_CHANNELS.APP_EXIT_ANSWER, answer);
+  }
+
+  /** The quit / restart dialog this window should be showing (asked once when it loads). */
+  exitPending(): Promise<IpcResult<ExitPendingReply>> {
+    return this.call(IPC_CHANNELS.APP_EXIT_PENDING, undefined);
+  }
+
+  /** 「隐藏」: hides the sticky note window (the app keeps running). */
+  hideWindow(): Promise<IpcResult<HideWindowReply>> {
+    return this.call(IPC_CHANNELS.WINDOW_HIDE, undefined);
+  }
+
+  getWindowState(): Promise<IpcResult<WindowStateReply>> {
+    return this.call(IPC_CHANNELS.WINDOW_GET_STATE, undefined);
+  }
+
+  /** 「窗口始终在最前」 on / off. */
+  setAlwaysOnTop(enabled: boolean): Promise<IpcResult<WindowStateReply>> {
+    return this.call(IPC_CHANNELS.WINDOW_SET_ALWAYS_ON_TOP, { enabled });
   }
 
   /** `{ legacyDatabaseRetired }` (bare reply, no path). Anything unexpected counts as false. */
@@ -160,6 +192,17 @@ export class ClosedLoopApi {
     if (!bridge?.on) return () => undefined;
     try {
       return bridge.on(channel, () => listener());
+    } catch {
+      return () => undefined;
+    }
+  }
+
+  /** Like `onEvent`, with the event payload (the caller validates it). */
+  onPayload(channel: string, listener: (payload: unknown) => void): () => void {
+    const bridge = typeof window === 'undefined' ? undefined : window.clarifyOkr;
+    if (!bridge?.on) return () => undefined;
+    try {
+      return bridge.on(channel, (_event: unknown, payload: unknown) => listener(payload));
     } catch {
       return () => undefined;
     }

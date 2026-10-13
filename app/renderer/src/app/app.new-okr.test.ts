@@ -1,6 +1,7 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { IPC_CHANNELS } from '@clarityokr/contracts';
+import { NEVER, of } from 'rxjs';
 
 import { AppComponent } from './app.component';
 import { ClarificationOrchestratorService } from './clarification/services/clarification-orchestrator.service';
@@ -92,6 +93,25 @@ describe('AppComponent: 新建 OKR and the unsaved wizard flag', () => {
     expect(component.wizardDirty()).toBe(true);
   });
 
+  it('a new answer after 生成 OKR (the wizard still shows its questions) is unsaved again', async () => {
+    const gateway = TestBed.inject(OkrStickyService) as unknown as { generate: jest.Mock };
+    gateway.generate = jest.fn().mockResolvedValue({});
+    workflow.set('ready');
+    await component.onGenerate();
+    expect(component.wizardDirty()).toBe(false);
+    Object.assign(state, {
+      currentPrompt: () => ({ id: 'q3' }),
+      setLoading: jest.fn(),
+      setError: jest.fn(),
+    });
+    Object.assign(TestBed.inject(ClarificationOrchestratorService), {
+      recordSelection: () => of(null),
+      requestNextQuestion: () => NEVER,
+    });
+    component.onOptionSelected('opt-b');
+    expect(component.wizardDirty()).toBe(true);
+  });
+
   it('「继续当前向导」 keeps everything', () => {
     component.intentControl.setValue('提高效率');
     newOkr();
@@ -119,14 +139,18 @@ describe('AppComponent: 新建 OKR and the unsaved wizard flag', () => {
     }
   });
 
-  it('reports only the changed flag to the main process', () => {
-    TestBed.tick();
+  it('reports only the changed flag to the main process', async () => {
+    const settle = async (): Promise<void> => {
+      TestBed.tick();
+      for (let i = 0; i < 5; i++) await Promise.resolve();
+    };
+    await settle();
     expect(api.reportUnsaved).not.toHaveBeenCalled();
     component.intentControl.setValue('提高效率');
-    TestBed.tick();
+    await settle();
     expect(api.reportUnsaved).toHaveBeenLastCalledWith({ wizard: true });
     component.intentControl.setValue('');
-    TestBed.tick();
+    await settle();
     expect(api.reportUnsaved).toHaveBeenLastCalledWith({ wizard: false });
     expect(api.reportUnsaved).toHaveBeenCalledTimes(2);
   });

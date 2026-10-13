@@ -34,6 +34,7 @@ import { ThemeToggleComponent } from './shared/components/theme-toggle.component
 import { DialogComponent } from './shared/components/dialog.component';
 import { ClosedLoopApi } from './closed-loop/closed-loop-api.service';
 import { COPY } from './closed-loop/copy';
+import { ExitConfirmComponent } from './closed-loop/exit-confirm.component';
 import { StorageNoticesComponent } from './closed-loop/storage-notices.component';
 import { UnsavedReporter } from './closed-loop/unsaved-reporter.service';
 import { EditModeStore } from './okr-sticky/state/edit-mode.store';
@@ -51,6 +52,7 @@ import { EditModeStore } from './okr-sticky/state/edit-mode.store';
     ThemeToggleComponent,
     StorageNoticesComponent,
     DialogComponent,
+    ExitConfirmComponent,
   ],
   template: `
     @if (!isStickyShell) {
@@ -146,6 +148,8 @@ import { EditModeStore } from './okr-sticky/state/edit-mode.store';
     } @else {
       <clarityokr-sticky-shell [okr]="stickyViewModel()"></clarityokr-sticky-shell>
     }
+    <!-- Quit / restart confirmation (spec §1.2c), in whichever window the main process picks. -->
+    <clarityokr-exit-confirm />
   `,
   styleUrls: ['./app.component.scss'],
 })
@@ -303,6 +307,8 @@ export class AppComponent implements OnDestroy {
 
     this.llmBusy = true;
     this.state.setLoading(true);
+    // A new answer after 生成 OKR is new input again (unsaved until the next OKR).
+    this.okrGenerated.set(false);
 
     defer(() => this.orchestrator.recordSelection(this.currentSessionId, prompt.id, optionId))
       .pipe(
@@ -334,6 +340,7 @@ export class AppComponent implements OnDestroy {
   }
 
   onRetry(): void {
+    this.okrGenerated.set(false);
     const selections = this.state.getStateSnapshot().selections;
     const lastChoice = Object.entries(selections).at(-1);
     this.state.clearError();

@@ -148,9 +148,8 @@ export interface UnsavedFlags {
 }
 
 export interface RestartRequest {
+  /** The asking window's own flags; the main process ORs them with what every window reported. */
   unsaved: UnsavedFlags;
-  /** The user already answered the confirmation dialog with "discard and restart". */
-  confirmed?: boolean;
 }
 
 /** Payload of `clarityokr:app:report-unsaved`: only the flags this window owns. */
@@ -248,10 +247,59 @@ export interface RevealReply {
 
 export type RestartFailureCategory = 'relaunch_failed';
 
+/**
+ * - `restarting`: the app relaunches now (nothing to confirm);
+ * - `confirm_pending`: the restart dialog is open in the MAIN window (spec §7a.4); the answer
+ *   comes back to the asking window as `app:restart-result` (`cancelled` / `failed`), or the
+ *   app relaunches;
+ * - `failed`: relaunching did not work (no exception text, no path).
+ */
 export type RestartReply =
   | { outcome: 'restarting' }
-  | { outcome: 'confirm_required'; confirmation: ExitConfirmation }
+  | { outcome: 'confirm_pending' }
   | { outcome: 'failed'; category: RestartFailureCategory };
+
+export type ExitKind = 'quit' | 'restart';
+
+/** Main → renderer `clarityokr:app:confirm-exit`: open the quit / restart dialog in this window. */
+export interface ConfirmExitEvent {
+  kind: ExitKind;
+  confirmation: ExitConfirmation;
+}
+
+/** Renderer → main `clarityokr:app:exit-answer`: the user's answer to that dialog. */
+export interface ExitAnswer {
+  kind: ExitKind;
+  /** `true` = 「放弃并退出 / 放弃并重启」, `false` = the safe button or Esc. */
+  confirmed: boolean;
+}
+
+export interface ExitAnswerReply {
+  accepted: true;
+}
+
+/** Reply of `clarityokr:app:exit-pending`: the dialog this window should be showing, if any. */
+export interface ExitPendingReply {
+  pending: ConfirmExitEvent | null;
+}
+
+/** Main → renderer `clarityokr:app:restart-result`, sent to the window(s) that asked. */
+export interface RestartResultEvent {
+  outcome: 'cancelled' | 'failed';
+}
+
+/** Reply of `clarityokr:window:get-state` / `set-always-on-top`. */
+export interface WindowStateReply {
+  alwaysOnTop: boolean;
+}
+
+export interface SetAlwaysOnTopRequest {
+  enabled: boolean;
+}
+
+export interface HideWindowReply {
+  hidden: true;
+}
 
 // ---------------------------------------------------------------------------
 // Exit / restart confirmation (pure decision)
@@ -492,7 +540,7 @@ export function parseRevealRequest(payload: unknown): Parsed<RevealRequest> {
 }
 
 export function parseRestartRequest(payload: unknown): Parsed<RestartRequest> {
-  const record = asRecord(payload, ['unsaved', 'confirmed']);
+  const record = asRecord(payload, ['unsaved']);
   if (isFailure(record)) return record;
   const unsavedRaw = record.unsaved;
   if (unsavedRaw === undefined) return invalid('unsaved', 'missing');
@@ -512,14 +560,7 @@ export function parseRestartRequest(payload: unknown): Parsed<RestartRequest> {
     if (typeof flag !== 'boolean') return invalid(`unsaved.${name}`, 'wrong_type');
     flags[name] = flag;
   }
-  const confirmed = record.confirmed;
-  if (confirmed !== undefined && typeof confirmed !== 'boolean') {
-    return invalid('confirmed', 'wrong_type');
-  }
-  return {
-    ok: true,
-    value: confirmed === undefined ? { unsaved: flags } : { unsaved: flags, confirmed },
-  };
+  return { ok: true, value: { unsaved: flags } };
 }
 
 /** Channels without a request body accept `undefined`/`null` or an empty object only. */
@@ -542,4 +583,58 @@ export function parseUnsavedReport(payload: unknown): Parsed<UnsavedReport> {
   }
   if (Object.keys(value).length === 0) return invalid('payload', 'missing', 'No flag was reported');
   return { ok: true, value };
+}
+
+export function parseExitAnswer(payload: unknown): Parsed<ExitAnswer> {
+  const record = asRecord(payload, ['kind', 'confirmed']);
+  if (isFailure(record)) return record;
+  const kind = record.kind;
+  if (kind === undefined) return invalid('kind', 'missing');
+  if (kind !== 'quit' && kind !== 'restart') return invalid('kind', 'wrong_type');
+  const confirmed = record.confirmed;
+  if (confirmed === undefined) return invalid('confirmed', 'missing');
+  if (typeof confirmed !== 'boolean') return invalid('confirmed', 'wrong_type');
+  return { ok: true, value: { kind, confirmed } };
+}
+
+export function parseSetAlwaysOnTop(payload: unknown): Parsed<SetAlwaysOnTopRequest> {
+  const record = asRecord(payload, ['enabled']);
+  if (isFailure(record)) return record;
+  const enabled = record.enabled;
+  if (enabled === undefined) return invalid('enabled', 'missing');
+  if (typeof enabled !== 'boolean') return invalid('enabled', 'wrong_type');
+  return { ok: true, value: { enabled } };
+}
+
+const REASONS: readonly string[] = EXIT_CONFIRM_REASON_ORDER;
+
+/**
+ * Renderer-side check of a `confirm-exit` event payload (the main process is trusted, but a
+ * malformed event must never open a broken dialog). Returns `null` when it does not fit.
+ */
+export function readConfirmExitEvent(payload: unknown): ConfirmExitEvent | null {
+  if (typeof payload !== 'object' || payload === null) return null;
+  const { kind, confirmation } = payload as Rec;
+  if (kind !== 'quit' && kind !== 'restart') return null;
+  if (typeof confirmation !== 'object' || confirmation === null) return null;
+  const c = confirmation as Rec;
+  if (
+    typeof c.needsConfirm !== 'boolean' ||
+    typeof c.memoryOnly !== 'boolean' ||
+    (c.dialogWindow !== 'main' && c.dialogWindow !== 'sticky') ||
+    !Array.isArray(c.reasons) ||
+    !c.reasons.every((r) => typeof r === 'string' && REASONS.includes(r)) ||
+    !Array.isArray(c.windowsToShow) ||
+    !c.windowsToShow.every((w) => w === 'main' || w === 'sticky')
+  ) {
+    return null;
+  }
+  return { kind, confirmation: c as unknown as ExitConfirmation };
+}
+
+/** Renderer-side check of a `restart-result` event payload. */
+export function readRestartResultEvent(payload: unknown): RestartResultEvent | null {
+  if (typeof payload !== 'object' || payload === null) return null;
+  const outcome = (payload as Rec).outcome;
+  return outcome === 'cancelled' || outcome === 'failed' ? { outcome } : null;
 }

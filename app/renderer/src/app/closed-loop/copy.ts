@@ -297,6 +297,28 @@ export const COPY = {
     keepEditing: '继续编辑',
     confirm: '放弃并重启',
   },
+  /** §1.2c: the quit / restart answer was not taken (reject, ok:false or 5 s timeout). */
+  exitAnswerFailed: '没能完成这次操作，请再试一次。',
+  /** §1.2c 退出确认 */
+  quit: {
+    title: '退出 ClarityOKR？',
+    reasons: {
+      wizard: '向导里已经填写的内容还没有保存，退出会丢掉这些内容。',
+      text_edit: '你对关键结果文字的修改还没有提交，退出会丢掉这些修改。',
+      review_draft: '复盘里写的内容还没有保存，退出会丢掉这些内容。',
+      memory_data: '本次运行的内容没有保存到文件，退出后会全部丢失。',
+    },
+    notNow: '先不退出',
+    keepEditing: '继续编辑',
+    confirm: '放弃并退出',
+  },
+  /** §1.2 / §1.2a 便签顶栏：「⋯」与「隐藏」 */
+  window: {
+    more: '更多',
+    alwaysOnTop: '窗口始终在最前',
+    hide: '隐藏便签',
+    hideTooltip: '隐藏便签（应用仍在运行，不是退出）',
+  },
   /** §4.5a 新建 OKR */
   newOkr: {
     button: '新建 OKR',

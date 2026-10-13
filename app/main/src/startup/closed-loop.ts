@@ -1,4 +1,4 @@
-import type { StorageModeName, UnsavedFlags } from '@clarityokr/contracts';
+import type { StorageModeName } from '@clarityokr/contracts';
 import type { BrowserWindow, Clipboard, Dialog, IpcMain, Shell } from 'electron';
 
 import { ExportService, type SaveDialogRequest } from '../export/export-service.js';
@@ -16,10 +16,6 @@ export interface ClosedLoopWiringDeps {
   clipboard: Pick<Clipboard, 'writeText'>;
   getDownloadsDir: () => string;
   getFocusedWindow: () => BrowserWindow | null;
-  /** `app.relaunch()` followed by `app.quit()`. */
-  relaunch: () => void;
-  /** Aggregated `app:report-unsaved` flags of every window. */
-  reportedUnsaved?: () => UnsavedFlags;
 }
 
 /** Reads the data of one OKR for an export (null for an unknown id). */
@@ -60,14 +56,11 @@ export function wireClosedLoop(deps: ClosedLoopWiringDeps): {
   const restartService = new AppRestartService({
     getStorageMode: () => deps.storageMode,
     dbHasData: () => deps.store.hasAnyData(),
-    relaunch: deps.relaunch,
   });
   registerClosedLoopHandlers(deps.ipcMain, {
     store: deps.store,
     exportService,
-    restartService,
     clipboard: deps.clipboard,
-    reportedUnsaved: deps.reportedUnsaved,
   });
   return { exportService, restartService };
 }

@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
-import type { ExitConfirmation, StorageModeName } from '@clarityokr/contracts';
+import type { StorageModeName } from '@clarityokr/contracts';
 
 import { Logger } from '../core/services/logger.service';
 import { OkrStickyService } from '../okr-sticky/services/okr-sticky.service';
@@ -20,20 +20,11 @@ class Host {
   win: 'main' | 'sticky' = 'main';
 }
 
-const confirmation = (
-  reasons: ExitConfirmation['reasons'],
-  memoryOnly = false,
-): ExitConfirmation => ({
-  needsConfirm: true,
-  reasons,
-  memoryOnly,
-  dialogWindow: 'main',
-  windowsToShow: ['main'],
-});
-
 describe('StorageNoticesComponent (spec §7 / §7a / §1.2c)', () => {
   let fixture: ComponentFixture<Host>;
   let api: Record<string, jest.Mock>;
+  const listeners = new Map<string, (payload: unknown) => void>();
+  const emit = (channel: string, payload: unknown): void => listeners.get(channel)?.(payload);
   const root = (): HTMLElement => fixture.nativeElement;
   const q = <T extends HTMLElement = HTMLElement>(id: string): T =>
     root().querySelector(`[data-testid="${id}"]`) as T;
@@ -56,6 +47,10 @@ describe('StorageNoticesComponent (spec §7 / §7a / §1.2c)', () => {
       ackLegacyNotice: jest.fn().mockResolvedValue(true),
       restart: jest.fn(),
       reportUnsaved: jest.fn().mockResolvedValue({ ok: true, data: { recorded: true } }),
+      onPayload: jest.fn((channel: string, listener: (payload: unknown) => void) => {
+        listeners.set(channel, listener);
+        return () => listeners.delete(channel);
+      }),
     };
     await TestBed.configureTestingModule({
       imports: [Host],
@@ -119,75 +114,51 @@ describe('StorageNoticesComponent (spec §7 / §7a / §1.2c)', () => {
       expect(q('restart-dialog')).toBeNull();
     });
 
-    it('memory data only: the restart dialog, 「先不重启」 focused; cancel → focus back on 「重启应用」', async () => {
-      api.restart.mockResolvedValue({
-        ok: true,
-        data: { outcome: 'confirm_required', confirmation: confirmation(['memory_data'], true) },
-      });
-      q('memory-restart').focus();
+    it('confirm_pending: no dialog in this component, the button stays busy until the result', async () => {
+      api.restart.mockResolvedValue({ ok: true, data: { outcome: 'confirm_pending' } });
       q('memory-restart').click();
       await settle();
-      const dialog = q('restart-dialog');
-      expect(dialog.getAttribute('role')).toBe('alertdialog');
-      expect(dialog.textContent).toContain('重启 ClarityOKR？');
-      expect(dialog.textContent).toContain('重启后本次运行的内容会丢失。');
-      expect(document.activeElement?.textContent?.trim()).toBe('先不重启');
-      expect(q('dialog-confirm').textContent!.trim()).toBe('放弃并重启');
-      document.dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
-      );
-      await settle();
       expect(q('restart-dialog')).toBeNull();
-      expect(document.activeElement).toBe(q('memory-restart'));
+      expect(q('memory-restart').getAttribute('aria-disabled')).toBe('true');
+      q('memory-restart').click();
+      await settle();
       expect(api.restart).toHaveBeenCalledTimes(1);
     });
 
-    it('several reasons: one sentence per line in the fixed order, safe button 「继续编辑」', async () => {
-      api.restart.mockResolvedValue({
-        ok: true,
-        data: {
-          outcome: 'confirm_required',
-          confirmation: confirmation(['memory_data', 'wizard', 'review_draft']),
-        },
-      });
+    it('restart-result cancelled (先不重启 in the main window) → enabled again, focus on 「重启应用」', async () => {
+      api.restart.mockResolvedValue({ ok: true, data: { outcome: 'confirm_pending' } });
       q('memory-restart').click();
       await settle();
-      expect(root().querySelector('.dialog__body')!.textContent).toBe(
-        [
-          '向导里已经填写的内容还没有保存，重启会丢掉这些内容。',
-          '复盘里写的内容还没有保存，重启会丢掉这些内容。',
-          '重启后本次运行的内容会丢失。',
-        ].join('\n'),
-      );
-      expect(q('dialog-cancel').textContent!.trim()).toBe('继续编辑');
+      (document.getElementById('typing') as HTMLInputElement).focus();
+      emit('clarityokr:app:restart-result', { outcome: 'cancelled' });
+      await settle();
+      expect(q('memory-restart').getAttribute('aria-disabled')).toBeNull();
+      expect(document.activeElement).toBe(q('memory-restart'));
+      expect(q('relaunch-failed')).toBeNull();
     });
 
-    it('「放弃并重启」 sends confirmed:true; relaunch_failed → ONE alert line, focus on 「重启应用」', async () => {
-      api.restart
-        .mockResolvedValueOnce({
-          ok: true,
-          data: { outcome: 'confirm_required', confirmation: confirmation(['memory_data'], true) },
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          data: { outcome: 'failed', category: 'relaunch_failed' },
-        });
-      q('memory-restart').focus();
+    it('restart-result failed (放弃并重启 then relaunch_failed) → ONE alert line, focus on 「重启应用」', async () => {
+      api.restart.mockResolvedValue({ ok: true, data: { outcome: 'confirm_pending' } });
       q('memory-restart').click();
       await settle();
-      q('dialog-confirm').click();
+      emit('clarityokr:app:restart-result', { outcome: 'failed' });
       await settle();
-      expect(api.restart).toHaveBeenLastCalledWith({
-        unsaved: { wizard: false, textEdit: false, reviewDraft: false },
-        confirmed: true,
-      });
-      expect(q('restart-dialog')).toBeNull();
       expect(all('relaunch-failed')).toHaveLength(1);
       const line = q('relaunch-failed');
       expect(line.getAttribute('role')).toBe('alert');
       expect(line.textContent!.trim()).toBe('重启没有成功，请手动关闭后重新打开应用');
       expect(document.activeElement).toBe(q('memory-restart'));
       expect(q('memory-restart').getAttribute('aria-disabled')).toBeNull();
+    });
+
+    it('a malformed restart-result is ignored', async () => {
+      api.restart.mockResolvedValue({ ok: true, data: { outcome: 'confirm_pending' } });
+      q('memory-restart').click();
+      await settle();
+      emit('clarityokr:app:restart-result', { outcome: 'boom' });
+      emit('clarityokr:app:restart-result', null);
+      await settle();
+      expect(q('memory-restart').getAttribute('aria-disabled')).toBe('true');
     });
 
     it('a retry removes the line first and adds it again on a new failure (never two)', async () => {

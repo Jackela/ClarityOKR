@@ -41,9 +41,15 @@ const SWALLOWED_KEYS: ReadonlySet<string> = new Set(['1', '2', '3', 's']);
         [attr.aria-labelledby]="titleId"
         [attr.aria-describedby]="bodyId"
         [attr.data-testid]="testId"
+        [attr.aria-busy]="busy ? 'true' : null"
       >
         <h2 class="dialog__title" [id]="titleId">{{ title }}</h2>
         <p class="dialog__body" [id]="bodyId">{{ body }}</p>
+        @if (error) {
+          <p class="dialog__error" role="alert" data-testid="dialog-error">
+            <span aria-hidden="true">⚠ </span>{{ error }}
+          </p>
+        }
         <div class="dialog__actions">
           @if (confirmNote) {
             <span class="dialog__note" [id]="noteId" role="status" data-testid="dialog-note">{{
@@ -55,7 +61,8 @@ const SWALLOWED_KEYS: ReadonlySet<string> = new Set(['1', '2', '3', 's']);
             type="button"
             class="dialog__btn"
             data-testid="dialog-cancel"
-            (click)="cancelled.emit()"
+            [attr.aria-disabled]="busy ? 'true' : null"
+            (click)="onCancel()"
           >
             {{ cancelLabel }}
           </button>
@@ -64,7 +71,7 @@ const SWALLOWED_KEYS: ReadonlySet<string> = new Set(['1', '2', '3', 's']);
             type="button"
             class="dialog__btn dialog__btn--confirm"
             [class.dialog__btn--danger]="danger"
-            [attr.aria-disabled]="confirmDisabled ? 'true' : null"
+            [attr.aria-disabled]="confirmDisabled || busy ? 'true' : null"
             [attr.aria-describedby]="confirmNote ? noteId : null"
             data-testid="dialog-confirm"
             (click)="onConfirm()"
@@ -101,6 +108,18 @@ const SWALLOWED_KEYS: ReadonlySet<string> = new Set(['1', '2', '3', 's']);
         margin: 0 0 8px;
         font-size: var(--font-size-base);
         font-weight: var(--font-weight-semibold);
+      }
+      .dialog__error {
+        margin: 0 0 16px;
+        color: #b91c1c;
+        font-size: var(--font-size-sm);
+        line-height: 20px;
+      }
+      :host-context([data-theme='dark']) .dialog__error {
+        color: #fca5a5;
+      }
+      .dialog__btn[aria-disabled='true'] {
+        cursor: progress;
       }
       .dialog__body {
         margin: 0 0 16px;
@@ -163,6 +182,13 @@ export class DialogComponent implements OnInit, OnDestroy {
   @Input() testId = 'dialog';
   /** The confirm answer cannot be given right now (kept focusable, `aria-disabled`). */
   @Input() confirmDisabled = false;
+  /** One inline `role=alert` line above the buttons (e.g. the answer could not be delivered). */
+  @Input() error = '';
+  /**
+   * Waiting for the answer to be taken: both buttons are `aria-disabled` (still focusable), clicks
+   * and Esc do nothing.
+   */
+  @Input() busy = false;
   /** Says why, beside the buttons (「正在保存，请稍候。」). */
   @Input() confirmNote = '';
   @Output() confirmed = new EventEmitter<void>();
@@ -211,8 +237,13 @@ export class DialogComponent implements OnInit, OnDestroy {
     if (opener?.isConnected) opener.focus();
   }
 
+  onCancel(): void {
+    if (this.busy) return;
+    this.cancelled.emit();
+  }
+
   onConfirm(): void {
-    if (this.confirmDisabled) return;
+    if (this.confirmDisabled || this.busy) return;
     this.confirmed.emit();
   }
 
@@ -264,7 +295,7 @@ export class DialogComponent implements OnInit, OnDestroy {
     if (event.key === 'Escape') {
       event.preventDefault();
       event.stopPropagation();
-      this.cancelled.emit();
+      if (!this.busy) this.cancelled.emit();
       return;
     }
     if (event.key !== 'Tab') return;

@@ -5,7 +5,7 @@
     "intentPlaceholder": "例如：提高团队交付效率",
     "startClarification": "开始澄清",
     "intentRequired": "请输入至少3个字符",
-    "reopenSticky": "重新打开目标便签"
+    "reopenSticky": "重开便签"
   },
   "common": {
     "loading": "正在加载...",

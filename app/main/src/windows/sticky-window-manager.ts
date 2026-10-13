@@ -32,6 +32,8 @@ export interface StickyWindowConfig {
 export class StickyWindowManager {
   private window: BrowserWindow | null = null;
   private lastDocument: OKRDocument | null = null;
+  /** 「窗口始终在最前」 (the ⋯ menu); on by default, kept for this run. */
+  private alwaysOnTop = true;
 
   constructor(private readonly config: StickyWindowConfig) {}
 
@@ -58,7 +60,7 @@ export class StickyWindowManager {
       minHeight: 400,
       backgroundColor: '#ffffff',
       title: 'ClarityOKR Sticky',
-      alwaysOnTop: true,
+      alwaysOnTop: this.alwaysOnTop,
       type: 'panel',
       titleBarStyle: 'hidden',
       frame: false,
@@ -71,7 +73,7 @@ export class StickyWindowManager {
     });
 
     this.window.setTitle('ClarityOKR Sticky');
-    this.window.setAlwaysOnTop(true, 'screen-saver');
+    this.applyAlwaysOnTop();
     this.window.setFullScreenable(false);
     this.window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
     Logger.info('[main] sticky window always-on-top state', this.window.isAlwaysOnTop());
@@ -105,7 +107,7 @@ export class StickyWindowManager {
 
     this.window.webContents.on('did-finish-load', () => {
       this.window?.setTitle('ClarityOKR Sticky');
-      this.window?.setAlwaysOnTop(true, 'screen-saver');
+      this.applyAlwaysOnTop();
       this.window?.setFullScreenable(false);
       this.window?.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
       Logger.info(
@@ -117,6 +119,50 @@ export class StickyWindowManager {
 
     this.window.show();
     return this.window;
+  }
+
+  /** `webContents.id` of the sticky window's renderer (null when there is none). */
+  getWebContentsId(): number | null {
+    return this.window && !this.window.isDestroyed() ? this.window.webContents.id : null;
+  }
+
+  getWindow(): BrowserWindow | null {
+    return this.window && !this.window.isDestroyed() ? this.window : null;
+  }
+
+  isAlwaysOnTop(): boolean {
+    const window = this.getWindow();
+    return window ? window.isAlwaysOnTop() : this.alwaysOnTop;
+  }
+
+  setAlwaysOnTop(enabled: boolean): void {
+    this.alwaysOnTop = enabled;
+    this.applyAlwaysOnTop();
+    Logger.info('[main] sticky window always-on-top set', enabled);
+  }
+
+  /**
+   * Shows and focuses the sticky note: the existing window, or a new one with the last
+   * document. Returns false when there is nothing to show (no sticky note this run).
+   */
+  async bringToFront(): Promise<boolean> {
+    const window = this.getWindow();
+    if (window) {
+      if (window.isMinimized()) window.restore();
+      window.show();
+      window.focus();
+      return true;
+    }
+    if (!this.lastDocument) return false;
+    await this.reopenStickyWindow();
+    return this.getWindow() !== null;
+  }
+
+  private applyAlwaysOnTop(): void {
+    const window = this.getWindow();
+    if (!window) return;
+    if (this.alwaysOnTop) window.setAlwaysOnTop(true, 'screen-saver');
+    else window.setAlwaysOnTop(false);
   }
 
   /**
