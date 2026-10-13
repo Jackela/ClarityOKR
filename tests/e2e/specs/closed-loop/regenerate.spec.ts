@@ -207,6 +207,22 @@ test.describe('D3: regenerate (§3.7)', () => {
     await expect(sticky.getByTestId('regen-progress')).toHaveCount(1);
     await expect(button).toHaveAttribute('aria-disabled', 'true');
     await expect(sticky.locator('.regen-live')).toHaveText('正在重新生成关键结果…');
+    await expect(sticky.getByTestId('regen-spinner')).toHaveCount(1);
+    await expect(sticky.getByTestId('regen-icon')).toHaveCount(0);
+    await expect(sticky.getByTestId('edit-button')).toHaveAttribute('aria-disabled', 'true');
+    await expect(sticky.getByTestId('sticky-add-kr')).toHaveAttribute('aria-disabled', 'true');
+    const picker = sticky.getByTestId('period-picker');
+    await expect(picker).toHaveAttribute('aria-disabled', 'true');
+    await expect(picker).toHaveAttribute('title', '正在重新生成，完成后可用');
+    const quarter = await picker.textContent();
+    await picker.focus();
+    await sticky.keyboard.press('ArrowDown');
+    await sticky.keyboard.press('Enter');
+    await expect(picker).toHaveAttribute('aria-expanded', 'false');
+    await expect(picker).toHaveText(quarter ?? '');
+    await picker.hover();
+    await shot(sticky, 'D3-15-period-locked-running');
+    await sticky.mouse.move(5, 200);
     await shot(sticky, 'D3-11-regenerate-running');
     await setTheme(sticky, 'dark');
     await shot(sticky, 'D3-12-regenerate-running-dark');
@@ -254,8 +270,23 @@ test.describe('D3: N15 — no tray icon (Windows / Linux)', () => {
     await sticky.getByTestId('hide-button').hover();
     await expect(tooltip).toHaveText('退出 ClarityOKR（没有托盘图标，隐藏后无法唤回）');
     await expect(tooltip).toBeVisible();
-    await expect(sticky.getByTestId('hide-button')).toHaveAttribute('aria-label', '隐藏便签');
+    await expect(sticky.getByTestId('hide-button')).toHaveAttribute(
+      'aria-label',
+      '退出 ClarityOKR（没有托盘图标，隐藏后无法唤回）',
+    );
     await shot(sticky, 'D3-13-hide-tooltip-no-tray');
+    // Evidence: the accessible name equals the tooltip sentence.
+    const label = await sticky.getByTestId('hide-button').getAttribute('aria-label');
+    await sticky.evaluate((text) => {
+      const el = document.createElement('pre');
+      el.id = 'e2e-aria-evidence';
+      el.textContent = `hide-button aria-label = ${text}`;
+      el.style.cssText =
+        'position:fixed;left:8px;right:8px;bottom:8px;white-space:pre-wrap;margin:0;padding:6px 8px;background:#111;color:#fff;font:12px monospace;z-index:99999';
+      document.body.appendChild(el);
+    }, label);
+    await shot(sticky, 'D3-16-hide-aria-label-no-tray');
+    await sticky.evaluate(() => document.getElementById('e2e-aria-evidence')?.remove());
     await setTheme(sticky, 'dark');
     await shot(sticky, 'D3-14-hide-tooltip-no-tray-dark');
     await setTheme(sticky, 'light');

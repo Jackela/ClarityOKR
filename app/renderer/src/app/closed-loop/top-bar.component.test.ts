@@ -70,6 +70,10 @@ describe('TopBarComponent (spec §1.2 / §1.2a: drag area, 「⋯」, 「隐藏�
     expect(q('hide-tooltip').textContent!.trim()).toBe(
       '退出 ClarityOKR（没有托盘图标，隐藏后无法唤回）',
     );
+    // the accessible name follows the tooltip: the button now quits
+    expect(q('hide-button').getAttribute('aria-label')).toBe(
+      '退出 ClarityOKR（没有托盘图标，隐藏后无法唤回）',
+    );
     // another window became visible again → the original text
     api.getWindowState.mockResolvedValue({
       ok: true,
@@ -78,7 +82,7 @@ describe('TopBarComponent (spec §1.2 / §1.2a: drag area, 「⋯」, 「隐藏�
     q('hide-button').dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
     await settle();
     expect(q('hide-tooltip').textContent!.trim()).toBe('隐藏便签（应用仍在运行，不是退出）');
-    // the icon / name do not change
+    // back to the hide name together with the tooltip
     expect(q('hide-button').getAttribute('aria-label')).toBe('隐藏便签');
   });
 

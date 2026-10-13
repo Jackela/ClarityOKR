@@ -113,7 +113,11 @@ describe('OkrStickyNoteComponent regeneration (§3.7)', () => {
   it('entry: 「↻ 重新生成 ▾」 menu button with the two items', async () => {
     await show();
     const button = q('regenerate-button');
-    expect(button.textContent).toContain('↻ 重新生成');
+    expect(button.textContent!.replace(/\s+/g, ' ')).toContain('↻ 重新生成');
+    expect(q('regen-icon')).not.toBeNull();
+    expect(q('regen-spinner')).toBeNull();
+    expect(q('edit-button').getAttribute('aria-disabled')).toBeNull();
+    expect(q('sticky-add-kr').getAttribute('aria-disabled')).toBeNull();
     expect(button.getAttribute('aria-haspopup')).toBe('menu');
     button.click();
     fixture.detectChanges();
@@ -182,6 +186,39 @@ describe('OkrStickyNoteComponent regeneration (§3.7)', () => {
       '正在重新生成关键结果…',
     );
     expect(q('regenerate-button').getAttribute('aria-disabled')).toBe('true');
+    // Only the spinner while running: it replaces ↻ (§3.7).
+    expect(q('regen-spinner')).not.toBeNull();
+    expect(q('regen-icon')).toBeNull();
+    expect(q('regenerate-button').textContent).not.toContain('↻');
+    // Every other edit control is disabled and says so.
+    for (const id of ['edit-button', 'sticky-add-kr']) {
+      expect(q(id).getAttribute('aria-disabled')).toBe('true');
+    }
+    q('sticky-add-kr').click();
+    q('edit-button').click();
+    fixture.detectChanges();
+    expect(TestBed.inject(EditModeStore).isEditing()).toBe(false);
+    // N19: the quarter picker is disabled and a change is ignored while regenerating.
+    const picker = q('period-picker');
+    expect(picker.getAttribute('aria-disabled')).toBe('true');
+    expect(picker.hasAttribute('disabled')).toBe(false);
+    expect(picker.getAttribute('title')).toBe('正在重新生成，完成后可用');
+    const before = picker.textContent;
+    for (const key of ['ArrowDown', 'Enter', ' ']) {
+      picker.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+    }
+    picker.click();
+    fixture.detectChanges();
+    expect(picker.getAttribute('aria-expanded')).toBe('false');
+    expect(document.querySelector('[role="listbox"]')).toBeNull();
+    expect(picker.textContent).toBe(before);
+    for (const id of ['edit-button', 'sticky-add-kr']) {
+      expect(q(id).hasAttribute('disabled')).toBe(false);
+      expect(q(id).getAttribute('title')).toBe('正在重新生成，完成后可用');
+    }
+    api['setPeriod']!.mockClear();
+    await fixture.componentInstance.onPeriod('2026-Q4');
+    expect(api['setPeriod']).not.toHaveBeenCalled();
     const detail = makeDetail(krs().map((k) => (k.id === 'kr-2' ? { ...k, statement: 'B2' } : k)));
     resolve(
       ok({ detail, summary: summary({ outcome: 'partial_updated', requested: 1, kept: 1 }) }),
@@ -259,6 +296,7 @@ describe('OkrStickyNoteComponent regeneration (§3.7)', () => {
     const banner = q('regen-failed');
     expect(banner.getAttribute('role')).toBe('alert');
     expect(banner.textContent).toContain('重新生成失败，原来的关键结果没有改动。');
+    expect(banner.querySelector('.regen-banner__main')!.textContent!.trim()).toMatch(/^⚠/);
     expect(banner.textContent).not.toContain('x');
     expect(q('regen-details').textContent).toContain('查看详情');
     expect(

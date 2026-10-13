@@ -79,7 +79,7 @@ import { ExportMenuComponent } from './export-menu.component';
             type="button"
             class="bar__btn"
             data-testid="hide-button"
-            [attr.aria-label]="w.hide"
+            [attr.aria-label]="hideQuits() ? w.hideQuitsTooltip : w.hide"
             aria-describedby="hide-tooltip"
             (click)="hide()"
           >

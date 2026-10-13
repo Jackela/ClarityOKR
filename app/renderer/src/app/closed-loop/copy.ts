@@ -301,7 +301,9 @@ export const COPY = {
   exitAnswerFailed: '没能完成这次操作，请再试一次。',
   /** §3.7 重新生成 */
   regen: {
-    button: '↻ 重新生成',
+    button: '重新生成',
+    /** §3.7 v2.9: tooltip on the controls locked while generating. */
+    lockedTooltip: '正在重新生成，完成后可用',
     menuLabel: '重新生成',
     selectSome: '重新生成选中的关键结果…',
     all: '重新生成全部关键结果…',

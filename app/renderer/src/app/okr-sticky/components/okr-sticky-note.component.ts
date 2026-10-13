@@ -174,7 +174,8 @@ function newKeyResultId(): string {
         <div class="sticky-note__toprow">
           <clarityokr-period-picker
             [value]="store.detail()?.objective?.period ?? null"
-            [disabled]="busy() || store.detail() === null"
+            [disabled]="busy() || regen.isRunning() || store.detail() === null"
+            [disabledTitle]="regen.isRunning() ? t.regen.lockedTooltip : null"
             (periodChange)="onPeriod($event)"
           />
           @if (viewModel.lastEditedAt) {
@@ -192,6 +193,8 @@ function newKeyResultId(): string {
             type="button"
             class="sticky-note__text-btn sticky-note__edit"
             data-testid="edit-button"
+            [attr.aria-disabled]="editBlocked() ? 'true' : null"
+            [attr.title]="regen.isRunning() ? t.regen.lockedTooltip : null"
             (click)="beginEdit()"
           >
             {{ t.edit.action }}
@@ -276,7 +279,9 @@ function newKeyResultId(): string {
                     data-testid="regen-failed"
                   >
                     <div class="regen-banner__text">
-                      <p class="regen-banner__main">{{ t.regen.failed }}</p>
+                      <p class="regen-banner__main">
+                        <span aria-hidden="true">⚠ </span>{{ t.regen.failed }}
+                      </p>
                       <details class="regen-banner__details">
                         <summary data-testid="regen-details">{{ t.regen.details }}</summary>
                         <p>{{ t.regen.failedDetail(failedCode()) }}</p>
@@ -313,8 +318,10 @@ function newKeyResultId(): string {
                     type="button"
                     class="sticky-note__text-btn"
                     data-testid="sticky-add-kr"
-                    [attr.aria-disabled]="atKrLimit() ? 'true' : null"
-                    [attr.title]="atKrLimit() ? t.edit.maxKrs : null"
+                    [attr.aria-disabled]="atKrLimit() || editBlocked() ? 'true' : null"
+                    [attr.title]="
+                      regen.isRunning() ? t.regen.lockedTooltip : atKrLimit() ? t.edit.maxKrs : null
+                    "
                     (click)="addKr()"
                   >
                     ＋ {{ t.addShort }}
@@ -330,7 +337,13 @@ function newKeyResultId(): string {
                     (selected)="onRegenMenu($event)"
                   >
                     @if (regen.isRunning()) {
-                      <span class="regen-menu__spinner" aria-hidden="true"></span>
+                      <span
+                        class="regen-menu__spinner"
+                        data-testid="regen-spinner"
+                        aria-hidden="true"
+                      ></span>
+                    } @else {
+                      <span aria-hidden="true" data-testid="regen-icon">↻</span>
                     }
                     {{ t.regen.button }} <span aria-hidden="true">▾</span>
                   </clarityokr-popup-select>
@@ -587,6 +600,7 @@ export class OkrStickyNoteComponent implements OnChanges {
   }
 
   async onPeriod(value: string | null): Promise<void> {
+    if (this.busy() || this.regen.isRunning()) return;
     const period = value as Parameters<ClosedLoopStore['setPeriod']>[0];
     const result = await this.store.setPeriod(period);
     this.periodAnnouncement.set(
@@ -604,13 +618,18 @@ export class OkrStickyNoteComponent implements OnChanges {
   }
 
   /** Active key results at the 10-item limit of an OKR: no more can be added. */
+  /** Text edit / add entries are blocked while busy, selecting or regenerating (§3.7). */
+  editBlocked(): boolean {
+    return this.busy() || this.regen.isRunning() || this.regen.selecting();
+  }
+
   atKrLimit(): boolean {
     return (this.okr?.keyResults.length ?? 0) >= MAX_KEY_RESULTS;
   }
 
   /** 「＋ 添加」: opens the text form with an empty key result at the end, focused (§3.10). */
   addKr(): void {
-    if (this.atKrLimit()) return;
+    if (this.atKrLimit() || this.editBlocked()) return;
     this.beginEdit(true);
   }
 

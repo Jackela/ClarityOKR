@@ -234,6 +234,16 @@
   background: var(--color-bg-secondary);
 }
 
+/* Same faded look as the disabled 「重新生成」 trigger (§3.7). */
+.sticky-note__text-btn[aria-disabled='true'] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sticky-note__text-btn[aria-disabled='true']:hover {
+  background: var(--color-bg-primary);
+}
+
 .sticky-note .sticky-note__list {
   gap: 0;
   border: 1px solid var(--color-border);
@@ -365,7 +375,7 @@
   font-size: var(--font-size-sm);
 }
 .regen-menu ::ng-deep .trigger--plain[aria-disabled='true'] {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 .regen-menu ::ng-deep .popup {
