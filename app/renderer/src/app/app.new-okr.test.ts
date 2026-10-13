@@ -119,14 +119,18 @@ describe('AppComponent: 新建 OKR and the unsaved wizard flag', () => {
     }
   });
 
-  it('reports only the changed flag to the main process', () => {
-    TestBed.tick();
+  it('reports only the changed flag to the main process', async () => {
+    const settle = async (): Promise<void> => {
+      TestBed.tick();
+      for (let i = 0; i < 5; i++) await Promise.resolve();
+    };
+    await settle();
     expect(api.reportUnsaved).not.toHaveBeenCalled();
     component.intentControl.setValue('提高效率');
-    TestBed.tick();
+    await settle();
     expect(api.reportUnsaved).toHaveBeenLastCalledWith({ wizard: true });
     component.intentControl.setValue('');
-    TestBed.tick();
+    await settle();
     expect(api.reportUnsaved).toHaveBeenLastCalledWith({ wizard: false });
     expect(api.reportUnsaved).toHaveBeenCalledTimes(2);
   });
