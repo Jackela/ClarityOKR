@@ -41,6 +41,7 @@ type MenuAction = { kind: 'export'; format: ExportFormat } | { kind: 'copy' };
         [attr.aria-busy]="flow.slow() ? 'true' : null"
         [attr.title]="reason"
         [class.export__btn--disabled]="reason"
+        [class.export__btn--memory]="variant === 'memory'"
         [attr.data-testid]="testId"
         (click)="onTriggerClick()"
         (keydown)="onTriggerKeydown($event)"
@@ -65,6 +66,7 @@ type MenuAction = { kind: 'export'; format: ExportFormat } | { kind: 'copy' };
       @if (open()) {
         <div
           class="export__menu"
+          [class.export__menu--start]="variant === 'memory'"
           role="menu"
           [attr.aria-label]="t.menuLabel"
           data-testid="export-menu"
@@ -163,6 +165,33 @@ type MenuAction = { kind: 'export'; format: ExportFormat } | { kind: 'copy' };
         background: var(--color-bg-primary);
         box-shadow: var(--shadow-lg);
       }
+      .export__menu--start {
+        right: auto;
+        left: 0;
+      }
+      /* Memory-mode bar (§7a.3): solid white, dark red text, white 2px focus ring. */
+      .export__btn--memory {
+        min-width: 96px;
+        padding: 0 16px;
+        background: #ffffff;
+        color: var(--memory-bar-bg);
+        font-weight: var(--font-weight-semibold);
+      }
+      .export__btn--memory:hover {
+        background: #fee2e2;
+      }
+      .export__btn--memory:active {
+        background: #fecaca;
+      }
+      .export__btn--memory.export__btn--disabled,
+      .export__btn--memory.export__btn--disabled:hover {
+        background: #ffffff;
+        color: var(--memory-bar-bg);
+        opacity: 0.7;
+      }
+      .export__btn--memory:focus-visible {
+        outline-color: #ffffff;
+      }
       .export__item {
         display: flex;
         flex-direction: column;
@@ -212,6 +241,18 @@ type MenuAction = { kind: 'export'; format: ExportFormat } | { kind: 'copy' };
           white-space: nowrap;
         }
       }
+      @media (max-width: 359px) {
+        .export__btn--memory .export__icon {
+          display: none;
+        }
+        .export__btn--memory .export__label {
+          position: static;
+          width: auto;
+          height: auto;
+          overflow: visible;
+          clip: auto;
+        }
+      }
       @keyframes export-spin {
         to {
           transform: rotate(360deg);
@@ -228,6 +269,8 @@ type MenuAction = { kind: 'export'; format: ExportFormat } | { kind: 'copy' };
 export class ExportMenuComponent implements OnInit, OnDestroy {
   @Input() label: string = COPY.export.button;
   @Input() testId = 'export-button';
+  /** `memory`: the solid white button of the memory-mode bar (spec §7a.3), menu anchored left. */
+  @Input() variant: 'toolbar' | 'memory' = 'toolbar';
 
   readonly flow = inject(ExportFlow);
   readonly t = COPY.export;
@@ -270,12 +313,18 @@ export class ExportMenuComponent implements OnInit, OnDestroy {
     return this.flow.disabledReason;
   }
 
+  /**
+   * Two menus can live in one window (top bar and the memory-mode bar's 「导出当前 OKR」): the
+   * one that was opened last owns the focus return.
+   */
+  private readonly focusSelf = (): void => this.trigger.nativeElement.focus();
+
   ngOnInit(): void {
-    this.flow.registerTrigger(() => this.trigger.nativeElement.focus());
+    this.flow.registerTrigger(this.focusSelf);
   }
 
   ngOnDestroy(): void {
-    this.flow.registerTrigger(null);
+    this.flow.releaseTrigger(this.focusSelf);
   }
 
   /** A press outside closes the menu (without moving the focus: the target takes it). */
@@ -342,6 +391,7 @@ export class ExportMenuComponent implements OnInit, OnDestroy {
   }
 
   private openMenu(): void {
+    this.flow.registerTrigger(this.focusSelf);
     this.open.set(true);
     // Rendered after the next change detection.
     setTimeout(() => this.entries()[0]?.focus(), 0);

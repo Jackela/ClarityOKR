@@ -36,10 +36,17 @@ export class ExportFlow {
 
   private trigger: (() => void) | null = null;
   private slowTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Puts 「复制路径」 back after 2s; a new click (or a new toast) restarts / drops it. */
+  private copyLabelTimer: ReturnType<typeof setTimeout> | undefined;
 
   /** The control that started the flow takes the focus back after a toast closes / a dialog ends. */
   registerTrigger(restoreFocus: (() => void) | null): void {
     this.trigger = restoreFocus;
+  }
+
+  /** Drops the trigger only when it is still the given one (another menu may have taken over). */
+  releaseTrigger(restoreFocus: () => void): void {
+    if (this.trigger === restoreFocus) this.trigger = null;
   }
 
   /** Why the entry is unavailable, or `null` when it can be used. */
@@ -52,6 +59,8 @@ export class ExportFlow {
   async export(format: ExportFormat): Promise<void> {
     const okrId = this.store.currentId();
     if (!okrId || this.busy()) return;
+    // The title as shown when the export started (the success toast names it).
+    const title = this.store.detail()?.objective.title;
     this.begin();
     try {
       const reply = await this.api.exportOkr({ okrId, format });
@@ -61,7 +70,7 @@ export class ExportFlow {
       }
       const outcome = reply.data;
       if (outcome.outcome === 'saved') {
-        this.showSaved(outcome.format, outcome.fileName, outcome.path);
+        this.showSaved(outcome.format, outcome.fileName, outcome.path, title);
       } else if (outcome.outcome === 'cancelled') {
         this.toasts.show({
           kind: 'neutral',
@@ -111,7 +120,8 @@ export class ExportFlow {
     void this.copyMarkdown();
   }
 
-  private showSaved(format: ExportFormat, fileName: string, path: string): void {
+  private showSaved(format: ExportFormat, fileName: string, path: string, title?: string): void {
+    this.clearCopyLabelTimer();
     let id = 0;
     const setCopyLabel = (label: string): void => {
       this.toasts.update(id, { actions: actions(label) });
@@ -130,7 +140,7 @@ export class ExportFlow {
     ];
     id = this.toasts.show({
       kind: 'success',
-      message: COPY.export.saved(format, fileName),
+      message: COPY.export.saved(format, fileName, title),
       detail: middleEllipsis(path),
       detailFull: path,
       onClose: () => this.focusTrigger(),
@@ -176,7 +186,16 @@ export class ExportFlow {
   private async copyPath(path: string, setLabel: (label: string) => void): Promise<void> {
     const ok = await writeClipboardText(path);
     setLabel(ok ? COPY.export.pathCopied : COPY.export.pathCopyFailed);
-    setTimeout(() => setLabel(COPY.export.copyPath), 2000);
+    this.clearCopyLabelTimer();
+    this.copyLabelTimer = setTimeout(() => {
+      this.copyLabelTimer = undefined;
+      setLabel(COPY.export.copyPath);
+    }, 2000);
+  }
+
+  private clearCopyLabelTimer(): void {
+    if (this.copyLabelTimer !== undefined) clearTimeout(this.copyLabelTimer);
+    this.copyLabelTimer = undefined;
   }
 
   private begin(): void {

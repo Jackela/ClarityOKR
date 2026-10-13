@@ -1,6 +1,17 @@
 import { CommonModule } from '@angular/common';
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
-import { Component, computed, type OnDestroy, Renderer2 } from '@angular/core';
+import {
+  Component,
+  Injector,
+  NgZone,
+  Renderer2,
+  computed,
+  inject,
+  signal,
+  type OnDestroy,
+} from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { IPC_CHANNELS } from '@clarityokr/contracts';
 import { ReactiveFormsModule, FormControl, Validators } from '@angular/forms';
 import { Subject, defer } from 'rxjs';
 import { finalize, switchMap, takeUntil } from 'rxjs/operators';
@@ -20,6 +31,12 @@ import { OkrStickyNoteComponent } from './okr-sticky/components/okr-sticky-note.
 import { Logger } from './core/services/logger.service';
 import { TranslatePipe } from './shared/pipes/translate.pipe';
 import { ThemeToggleComponent } from './shared/components/theme-toggle.component';
+import { DialogComponent } from './shared/components/dialog.component';
+import { ClosedLoopApi } from './closed-loop/closed-loop-api.service';
+import { COPY } from './closed-loop/copy';
+import { StorageNoticesComponent } from './closed-loop/storage-notices.component';
+import { UnsavedReporter } from './closed-loop/unsaved-reporter.service';
+import { EditModeStore } from './okr-sticky/state/edit-mode.store';
 
 @Component({
   selector: 'clarityokr-root',
@@ -32,14 +49,18 @@ import { ThemeToggleComponent } from './shared/components/theme-toggle.component
     StickyShellComponent,
     TranslatePipe,
     ThemeToggleComponent,
+    StorageNoticesComponent,
+    DialogComponent,
   ],
   template: `
     @if (!isStickyShell) {
       <a href="#main-content" class="skip-link">{{ 'common.skipToContent' | translate }}</a>
+      <!-- Full-width bars above the content (spec §7 / §7a): memory, fresh file, legacy. -->
+      <clarityokr-storage-notices window="main" />
       <main id="main-content" class="app-shell" tabindex="-1">
         <section class="intent-panel">
           <div class="intent-header">
-            <h1 class="headline">ClarityOKR</h1>
+            <h1 class="headline" id="main-heading" tabindex="-1">ClarityOKR</h1>
             <div class="intent-header__actions">
               @if (hasStickyNote()) {
                 <button
@@ -109,6 +130,18 @@ import { ThemeToggleComponent } from './shared/components/theme-toggle.component
             <clarityokr-sticky-note [okr]="stickyViewModel()"></clarityokr-sticky-note>
           </section>
         }
+        @if (newOkrConfirm()) {
+          <clarityokr-dialog
+            [title]="newOkrCopy.confirmTitle"
+            [body]="newOkrCopy.confirmBody"
+            [cancelLabel]="newOkrCopy.keep"
+            [confirmLabel]="newOkrCopy.restart"
+            [danger]="true"
+            testId="new-okr-dialog"
+            (cancelled)="keepWizard()"
+            (confirmed)="restartWizard()"
+          />
+        }
       </main>
     } @else {
       <clarityokr-sticky-shell [okr]="stickyViewModel()"></clarityokr-sticky-shell>
@@ -138,13 +171,93 @@ export class AppComponent implements OnDestroy {
     typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).get('view') === 'sticky';
 
+  readonly newOkrCopy = COPY.newOkr;
+  /** The current clarification already produced an OKR (the state machine stays in `ready`). */
+  private readonly okrGenerated = signal(false);
+  /** §4.5a: 「新建 OKR」 arrived while the wizard holds input. */
+  readonly newOkrConfirm = signal(false);
+
+  private readonly intentValue = toSignal(this.intentControl.valueChanges, { initialValue: '' });
+  private readonly editor = inject(EditModeStore);
+  private readonly closedLoopApi = inject(ClosedLoopApi);
+  private readonly zone = inject(NgZone);
+  private unsubscribeNewOkr: () => void = () => undefined;
+
+  /**
+   * The wizard holds input that is not an OKR yet: a typed goal, or a clarification that started
+   * and did not complete (answers, a question on screen, an error to retry).
+   */
+  readonly wizardDirty = computed(() => {
+    const workflow = this.state.workflowState();
+    if (workflow === 'completed' || (this.okrGenerated() && workflow !== 'idle')) return false;
+    if (workflow !== 'idle') return true;
+    return this.intentValue().trim().length > 0 || this.state.history().length > 0;
+  });
+
   constructor(
     readonly state: ClarificationStateMachine,
     private readonly orchestrator: ClarificationOrchestratorService,
     private readonly stickyGateway: OkrStickyService,
     private readonly logger: Logger,
     private readonly renderer: Renderer2,
-  ) {}
+  ) {
+    if (this.isStickyShell) return;
+    inject(UnsavedReporter).watch(
+      computed(() => ({
+        wizard: this.wizardDirty(),
+        textEdit: this.editor.isEditing() && this.editor.isDirty(),
+        reviewDraft: false,
+      })),
+      inject(Injector),
+    );
+    this.unsubscribeNewOkr = this.closedLoopApi.onEvent(IPC_CHANNELS.WIZARD_NEW_OKR, () =>
+      this.zone.run(() => this.onNewOkr()),
+    );
+  }
+
+  /** 「新建 OKR」 from the sticky window (spec §4.5 / §4.5a); the window is already shown. */
+  onNewOkr(): void {
+    if (this.newOkrConfirm()) return;
+    if (this.wizardDirty()) {
+      this.newOkrConfirm.set(true);
+      return;
+    }
+    this.resetWizard();
+  }
+
+  /** 「继续当前向导」 / Esc: nothing is lost; the focus goes back to where it was. */
+  keepWizard(): void {
+    this.newOkrConfirm.set(false);
+    // The dialog gives the focus back to the field that had it; when the window had no focus
+    // before (the click came from the sticky window), the wizard's first field takes it.
+    setTimeout(() => {
+      if (document.activeElement === document.body || document.activeElement === null) {
+        this.focusWizardStart();
+      }
+    }, 0);
+  }
+
+  /** 「重新开始」: back to step one, focus in its first field. */
+  restartWizard(): void {
+    this.newOkrConfirm.set(false);
+    this.resetWizard();
+  }
+
+  private resetWizard(): void {
+    this.okrGenerated.set(false);
+    this.state.reset();
+    this.intentControl.reset('');
+    setTimeout(() => this.focusWizardStart(), 0);
+  }
+
+  private focusWizardStart(): void {
+    const input = document.getElementById('intent-input');
+    if (input) {
+      input.focus();
+      return;
+    }
+    (document.querySelector('clarityokr-clarification-wizard') as HTMLElement | null)?.focus();
+  }
 
   beginClarification(event?: Event): void {
     event?.preventDefault();
@@ -154,6 +267,7 @@ export class AppComponent implements OnDestroy {
     }
 
     const intent = this.intentControl.value;
+    this.okrGenerated.set(false);
     this.state.reset();
     this.state.start(intent);
 
@@ -212,6 +326,8 @@ export class AppComponent implements OnDestroy {
 
     try {
       await this.stickyGateway.generate(this.currentSessionId, intent);
+      // The wizard's input is an OKR now: nothing unsaved is left in it.
+      this.okrGenerated.set(true);
     } catch (error) {
       this.logger.error('[renderer] generate failed', error);
     }
@@ -240,6 +356,7 @@ export class AppComponent implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.unsubscribeNewOkr();
     this.destroy$.next();
     this.destroy$.complete();
   }

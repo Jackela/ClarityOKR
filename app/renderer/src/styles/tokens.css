@@ -152,6 +152,12 @@
   --toast-error-title: #fca5a5;
   --notice-warn-bg: #fffbeb;
   --notice-warn-fg: #92400e;
+  /* Storage notices (spec §7 / §7a) */
+  --notice-warn-bar: #b45309;
+  --notice-legacy-error: #b91c1c;
+  --memory-bar-bg: #991b1b;
+  --memory-bar-edge: #7f1d1d;
+  --memory-bar-hover: #a93f3f;
 
   /* =====================================================
    * 3. FEEDBACK COLORS
@@ -511,6 +517,11 @@
   --toast-error-title: #b91c1c;
   --notice-warn-bg: #40361f;
   --notice-warn-fg: #fbbf24;
+  --notice-warn-bar: #fbbf24;
+  --notice-legacy-error: #f87171;
+  --memory-bar-bg: #7f1d1d;
+  --memory-bar-edge: #fecaca;
+  --memory-bar-hover: #934141;
 
   --shadow-focus-ring-error: 0 0 0 3px rgba(248, 113, 113, 0.25);
 }

@@ -4,6 +4,8 @@ import {
   HostListener,
   Input,
   ViewChild,
+  Injector,
+  computed,
   effect,
   inject,
   signal,
@@ -21,7 +23,9 @@ import { COPY } from './copy';
 import { HistoryTabComponent } from './history-tab.component';
 import { ReviewStore } from './review.store';
 import { ReviewTabComponent } from './review-tab.component';
+import { StorageNoticesComponent } from './storage-notices.component';
 import { TopBarComponent } from './top-bar.component';
+import { UnsavedReporter } from './unsaved-reporter.service';
 
 export type StickyTabId = 'note' | 'review' | 'history';
 
@@ -42,11 +46,13 @@ export type StickyTabId = 'note' | 'review' | 'history';
     DialogComponent,
     ToastHostComponent,
     TopBarComponent,
+    StorageNoticesComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="shell">
       <clarityokr-top-bar />
+      <clarityokr-storage-notices window="sticky" />
       <!-- right after the top bar in the DOM, so its buttons follow the control that made it -->
       @if (tab() !== 'review') {
         <clarityokr-toast-host />
@@ -177,6 +183,15 @@ export class StickyShellComponent {
   readonly review = inject(ReviewStore);
 
   constructor() {
+    // Unsaved input of this window, for the restart / quit confirmation (spec §1.2c).
+    inject(UnsavedReporter).watch(
+      computed(() => ({
+        wizard: false,
+        textEdit: this.editor.isEditing() && this.editor.isDirty(),
+        reviewDraft: this.review.dirty(),
+      })),
+      inject(Injector),
+    );
     // The leave dialog is open and a save was started: when it succeeds the text is no longer
     // unsaved, the dialog closes by itself and the leave goes on. On failure the text is still
     // there (dirty) and 「放弃修改」 is clickable again.

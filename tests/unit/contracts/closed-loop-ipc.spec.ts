@@ -3,7 +3,10 @@ import {
   decideExitConfirmation,
   ipcFail,
   ipcOk,
+  parseEmptyRequest,
   parseExportRequest,
+  parseUnsavedReport,
+  truncateGraphemes,
   parseKrIdRequest,
   parseOkrIdRequest,
   parseReplaceProgressRequest,
@@ -323,5 +326,50 @@ describe('decideExitConfirmation', () => {
         }
       }
     }
+  });
+});
+
+describe('D1c validators', () => {
+  it('parseEmptyRequest accepts nothing / null / {} and rejects anything else', () => {
+    expect(parseEmptyRequest(undefined)).toEqual({ ok: true, value: {} });
+    expect(parseEmptyRequest(null)).toEqual({ ok: true, value: {} });
+    expect(parseEmptyRequest({})).toEqual({ ok: true, value: {} });
+    expect(parseEmptyRequest({ okrId: 'x' })).toMatchObject({
+      ok: false,
+      error: { code: 'INVALID_REQUEST', field: 'okrId', reason: 'unknown_field' },
+    });
+    expect(parseEmptyRequest('x')).toMatchObject({ ok: false, error: { reason: 'wrong_type' } });
+    expect(parseEmptyRequest([])).toMatchObject({ ok: false, error: { reason: 'wrong_type' } });
+  });
+
+  it('parseUnsavedReport keeps only known boolean flags and needs at least one', () => {
+    expect(parseUnsavedReport({ wizard: true })).toEqual({ ok: true, value: { wizard: true } });
+    expect(parseUnsavedReport({ textEdit: false, reviewDraft: true })).toEqual({
+      ok: true,
+      value: { textEdit: false, reviewDraft: true },
+    });
+    expect(parseUnsavedReport({})).toMatchObject({ ok: false, error: { reason: 'missing' } });
+    expect(parseUnsavedReport({ wizard: 1 })).toMatchObject({
+      ok: false,
+      error: { field: 'wizard', reason: 'wrong_type' },
+    });
+    expect(parseUnsavedReport({ path: '/x' })).toMatchObject({
+      ok: false,
+      error: { field: 'path', reason: 'unknown_field' },
+    });
+    expect(parseUnsavedReport(null)).toMatchObject({ ok: false, error: { reason: 'wrong_type' } });
+  });
+});
+
+describe('truncateGraphemes (display only)', () => {
+  it('keeps short text and cuts long text after max graphemes with 「…」', () => {
+    expect(truncateGraphemes('短标题', 16)).toBe('短标题');
+    expect(truncateGraphemes('一二三四五六七八九十一二三四五六', 16)).toBe(
+      '一二三四五六七八九十一二三四五六',
+    );
+    expect(truncateGraphemes('一二三四五六七八九十一二三四五六七', 16)).toBe(
+      '一二三四五六七八九十一二三四五六…',
+    );
+    expect(truncateGraphemes(`${FAMILY}${FAMILY}${FAMILY}`, 2)).toBe(`${FAMILY}${FAMILY}…`);
   });
 });

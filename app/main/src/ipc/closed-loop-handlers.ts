@@ -23,6 +23,7 @@ import {
   type ProgressChangeReply,
   type ReviewReply,
   type SetPeriodReply,
+  type UnsavedFlags,
 } from '@clarityokr/contracts';
 import type { Clipboard, IpcMain } from 'electron';
 
@@ -37,6 +38,8 @@ export interface ClosedLoopHandlerDeps {
   restartService: AppRestartService;
   /** The system clipboard (injected so tests never touch it). */
   clipboard: Pick<Clipboard, 'writeText'>;
+  /** Flags reported by every window (`app:report-unsaved`); ORed into a restart request. */
+  reportedUnsaved?: () => UnsavedFlags;
 }
 
 const NOT_FOUND_OKR = 'The OKR does not exist';
@@ -262,7 +265,15 @@ export function registerClosedLoopHandlers(
     return ipcOk({ revealed: true as const });
   });
 
-  register(IPC_CHANNELS.APP_RESTART, parseRestartRequest, (request) =>
-    ipcOk(restartService.requestRestart(request)),
-  );
+  register(IPC_CHANNELS.APP_RESTART, parseRestartRequest, (request) => {
+    const reported = deps.reportedUnsaved?.();
+    const unsaved = reported
+      ? {
+          wizard: request.unsaved.wizard || reported.wizard,
+          textEdit: request.unsaved.textEdit || reported.textEdit,
+          reviewDraft: request.unsaved.reviewDraft || reported.reviewDraft,
+        }
+      : request.unsaved;
+    return ipcOk(restartService.requestRestart({ ...request, unsaved }));
+  });
 }

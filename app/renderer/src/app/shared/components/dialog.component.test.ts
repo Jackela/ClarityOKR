@@ -165,6 +165,29 @@ describe('DialogComponent (spec §2.6, T8)', () => {
       }
     });
 
+    it('N2: Ctrl/⌘ + C / V / X / A are NOT swallowed (copy and paste keep working in the dialog)', () => {
+      // The swallow lives only in DialogComponent's document-level *capture* keydown listener and
+      // is limited to SWALLOWED_KEYS (1 / 2 / 3 / S).
+      const seen: string[] = [];
+      const spy = (event: Event): void => void seen.push((event as KeyboardEvent).key);
+      document.addEventListener('keydown', spy);
+      try {
+        for (const init of [
+          { key: 'c', ctrlKey: true },
+          { key: 'v', ctrlKey: true },
+          { key: 'c', metaKey: true },
+          { key: 'v', metaKey: true },
+          { key: 'x', ctrlKey: true },
+          { key: 'a', ctrlKey: true },
+        ]) {
+          expect(key(init).defaultPrevented).toBe(false);
+        }
+        expect(seen).toEqual(['c', 'v', 'c', 'v', 'x', 'a']);
+      } finally {
+        document.removeEventListener('keydown', spy);
+      }
+    });
+
     it('and work again after it closed', () => {
       q('[data-testid="dialog-cancel"]').click();
       fixture.detectChanges();

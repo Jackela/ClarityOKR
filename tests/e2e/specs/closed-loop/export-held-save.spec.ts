@@ -1,3 +1,9 @@
+/*
+ * TODO(N5): the held review:save test below swaps the main-process handler through Electron's
+ * PRIVATE `ipcMain._invokeHandlers` map (there is no public API to replace a handle()). If an
+ * Electron upgrade renames it, that test fails loudly ("review:save is not registered"); replace
+ * it then with a test-only hook in the main process (guarded by E2E_TEST) instead.
+ */
 import {
   chmodSync,
   existsSync,
@@ -147,7 +153,7 @@ test.describe('closed loop: export UI (D1b-2)', () => {
     await openMenu(sticky);
     await menuItem(sticky, 'export-md').click();
     const success = sticky.getByTestId('toast-success');
-    await expect(success).toContainText('已导出为 Markdown：review.md');
+    await expect(success).toContainText('已导出「提高团队效率」为 Markdown：review.md');
     await expect(success).toHaveAttribute('role', 'status');
     await expect(success.getByTestId('toast-detail')).toHaveAttribute('title', mdPath);
     await expect(success.getByTestId('toast-reveal')).toHaveText('在文件夹中显示');
@@ -179,7 +185,9 @@ test.describe('closed loop: export UI (D1b-2)', () => {
     await stubSaveDialog(electronApp, [jsonPath]);
     await openMenu(sticky);
     await menuItem(sticky, 'export-json').click();
-    await expect(sticky.getByTestId('toast-success')).toContainText('已导出为 JSON：review.json');
+    await expect(sticky.getByTestId('toast-success')).toContainText(
+      '已导出「提高团队效率」为 JSON：review.json',
+    );
     await expect(sticky.getByTestId('toast-success')).toHaveCount(1);
     const json = JSON.parse(readFileSync(jsonPath, 'utf8'));
     expect(json.schemaVersion).toBe(1);
@@ -214,7 +222,7 @@ test.describe('closed loop: export UI (D1b-2)', () => {
     await openMenu(sticky);
     await menuItem(sticky, 'export-md').click();
     const alert = sticky.getByTestId('toast-error');
-    await expect(alert).toContainText('同名文件已存在，请换个名字再导出');
+    await expect(alert).toContainText('同名文件已存在，请换个名字再导出。');
     await expect(alert).toHaveAttribute('role', 'alert');
     await expect(alert.getByTestId('toast-retry')).toHaveText('重新选择位置');
     await expect(alert.getByTestId('toast-close')).toHaveText('关闭');
@@ -227,6 +235,13 @@ test.describe('closed loop: export UI (D1b-2)', () => {
     await sticky.waitForTimeout(100);
     await expect(alert).toBeVisible();
     await shot(sticky, 'D1b-25-export-exists');
+    // D1c: the error toast carries a ⚠ icon before the text (not colour alone)
+    await expect(alert.getByTestId('toast-error-icon')).toBeVisible();
+    await shot(sticky, 'D1c-18-error-toast-icon');
+    await setTheme(sticky, 'dark');
+    await shot(sticky, 'D1c-19-error-toast-icon-dark');
+    await axe(sticky, 'error toast with icon (dark)');
+    await setTheme(sticky, 'light');
     await axe(sticky, 'export exists error');
     await setTheme(sticky, 'dark');
     await shot(sticky, 'D1b-26-export-exists-dark');
@@ -235,7 +250,9 @@ test.describe('closed loop: export UI (D1b-2)', () => {
 
     // 重新选择位置 → the dialog again → a free name → saved
     await alert.getByTestId('toast-retry').click();
-    await expect(sticky.getByTestId('toast-success')).toContainText('已导出为 Markdown：fresh.md');
+    await expect(sticky.getByTestId('toast-success')).toContainText(
+      '已导出「提高团队效率」为 Markdown：fresh.md',
+    );
     expect(existsSync(freePath)).toBe(true);
     expect(readFileSync(join(dir, 'taken.md'), 'utf8')).toBe('precious');
 

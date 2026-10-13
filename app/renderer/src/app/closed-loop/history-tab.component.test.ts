@@ -62,7 +62,10 @@ describe('HistoryTabComponent', () => {
   }
 
   beforeEach(async () => {
-    api = { open: jest.fn() };
+    api = {
+      open: jest.fn(),
+      openWizard: jest.fn().mockResolvedValue({ ok: true, data: { opened: true } }),
+    };
     sticky = { openFromDetail: jest.fn() };
     await TestBed.configureTestingModule({
       imports: [Host],
@@ -79,6 +82,21 @@ describe('HistoryTabComponent', () => {
   });
 
   afterEach(() => fixture.nativeElement.remove());
+
+  describe('新建 OKR (§4.5)', () => {
+    it('is a native button in the header, before the list, and calls window:open-wizard', () => {
+      show([makeListItem({ id: 'a' })]);
+      const button = q<HTMLButtonElement>('history-new-okr');
+      expect(button.tagName).toBe('BUTTON');
+      expect(button.textContent!.trim()).toBe('新建 OKR');
+      expect(
+        button.compareDocumentPosition(root().querySelector('[role="listbox"]')!) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      button.click();
+      expect(api.openWizard).toHaveBeenCalledTimes(1);
+    });
+  });
 
   describe('page states', () => {
     it('loading: heading plus four skeletons in an aria-busy region', () => {

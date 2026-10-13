@@ -38,6 +38,9 @@ export const ALLOWED_CHANNELS = [
   'clarityokr:export:save',
   'clarityokr:export:reveal',
   'clarityokr:app:restart',
+  'clarityokr:window:open-wizard',
+  'clarityokr:wizard:new-okr',
+  'clarityokr:app:report-unsaved',
 ] as const;
 
 /**
@@ -95,6 +98,12 @@ export const IPC_CHANNELS = {
   EXPORT_REVEAL: 'clarityokr:export:reveal',
   /** Relaunch the app, through the same confirmation rule as quitting. */
   APP_RESTART: 'clarityokr:app:restart',
+  /** Show and focus the main window and ask its wizard to start a new OKR. Payload: none. */
+  WINDOW_OPEN_WIZARD: 'clarityokr:window:open-wizard',
+  /** Main → main-window renderer event: the user asked for a new OKR (no payload). */
+  WIZARD_NEW_OKR: 'clarityokr:wizard:new-okr',
+  /** A window reports which of its unsaved-input flags changed (partial `UnsavedFlags`). */
+  APP_REPORT_UNSAVED: 'clarityokr:app:report-unsaved',
 } as const;
 
 /**

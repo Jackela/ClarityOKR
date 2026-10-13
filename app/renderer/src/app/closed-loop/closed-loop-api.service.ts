@@ -21,6 +21,11 @@ import {
   type SetPeriodReply,
   type SetPeriodRequest,
   type SetProgressRequest,
+  type OpenWizardReply,
+  type RestartReply,
+  type RestartRequest,
+  type UnsavedReport,
+  type UnsavedReportReply,
 } from '@clarityokr/contracts';
 
 function isIpcResult(value: unknown): value is IpcResult<unknown> {
@@ -103,6 +108,60 @@ export class ClosedLoopApi {
       return mode === 'memory' || mode === 'fresh-file' ? mode : 'normal';
     } catch {
       return 'normal';
+    }
+  }
+
+  /** 「重启应用」: same confirmation rule as quitting (`confirm_required`) unless `confirmed`. */
+  restart(request: RestartRequest): Promise<IpcResult<RestartReply>> {
+    return this.call(IPC_CHANNELS.APP_RESTART, request);
+  }
+
+  /** 「新建 OKR」: the main process shows the main window and resets / asks in its wizard. */
+  openWizard(): Promise<IpcResult<OpenWizardReply>> {
+    return this.call(IPC_CHANNELS.WINDOW_OPEN_WIZARD, undefined);
+  }
+
+  /** Tells the main process which unsaved-input flags of this window changed. */
+  reportUnsaved(report: UnsavedReport): Promise<IpcResult<UnsavedReportReply>> {
+    return this.call(IPC_CHANNELS.APP_REPORT_UNSAVED, report);
+  }
+
+  /** `{ legacyDatabaseRetired }` (bare reply, no path). Anything unexpected counts as false. */
+  async getLegacyNotice(): Promise<boolean> {
+    const bridge = typeof window === 'undefined' ? undefined : window.clarifyOkr;
+    if (!bridge) return false;
+    try {
+      const reply = (await bridge.invoke(IPC_CHANNELS.LEGACY_NOTICE_GET, undefined)) as {
+        legacyDatabaseRetired?: unknown;
+      } | null;
+      return reply?.legacyDatabaseRetired === true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** `{ acknowledged }`; false (or any failure) means the state file could not be saved. */
+  async ackLegacyNotice(): Promise<boolean> {
+    const bridge = typeof window === 'undefined' ? undefined : window.clarifyOkr;
+    if (!bridge) return false;
+    try {
+      const reply = (await bridge.invoke(IPC_CHANNELS.LEGACY_NOTICE_ACK, undefined)) as {
+        acknowledged?: unknown;
+      } | null;
+      return reply?.acknowledged === true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Subscribes to a main → renderer event; returns the unsubscribe function. */
+  onEvent(channel: string, listener: () => void): () => void {
+    const bridge = typeof window === 'undefined' ? undefined : window.clarifyOkr;
+    if (!bridge?.on) return () => undefined;
+    try {
+      return bridge.on(channel, () => listener());
+    } catch {
+      return () => undefined;
     }
   }
 

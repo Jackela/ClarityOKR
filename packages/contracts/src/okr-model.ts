@@ -50,6 +50,19 @@ export function countGraphemes(text: string): number {
   return count;
 }
 
+/**
+ * Display helper (not a limit): the first `max` user-perceived characters plus 「…」 when the
+ * text is longer. Emoji and combining sequences are never split.
+ */
+export function truncateGraphemes(text: string, max: number): string {
+  const kept: string[] = [];
+  for (const { segment } of segmenter.segment(text)) {
+    if (kept.length === max) return `${kept.join('')}…`;
+    kept.push(segment);
+  }
+  return text;
+}
+
 export type TextCheck = { ok: true } | { ok: false; reason: 'too_long' | 'cluster_too_long' };
 
 /**

@@ -60,3 +60,25 @@ describe('closed-loop IPC channels (PR-C2)', () => {
     }
   });
 });
+
+describe('window / wizard / unsaved-report channels (D1c)', () => {
+  it.each([
+    ['WINDOW_OPEN_WIZARD', 'clarityokr:window:open-wizard'],
+    ['WIZARD_NEW_OKR', 'clarityokr:wizard:new-okr'],
+    ['APP_REPORT_UNSAVED', 'clarityokr:app:report-unsaved'],
+  ] as const)('%s is %s and allowlisted', (key, name) => {
+    expect(IPC_CHANNELS[key]).toBe(name);
+    expect(isAllowedChannel(name)).toBe(true);
+    expect(() => validateChannel(name)).not.toThrow();
+  });
+
+  it('look-alikes are rejected', () => {
+    for (const bad of [
+      'clarityokr:window:open',
+      'clarityokr:window:open-wizard:any',
+      'clarityokr:app:report',
+    ]) {
+      expect(isAllowedChannel(bad)).toBe(false);
+    }
+  });
+});

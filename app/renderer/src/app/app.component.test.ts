@@ -14,6 +14,8 @@ describe('root clarification recovery', () => {
     setLoading: jest.fn(),
     setError: jest.fn(),
     getStateSnapshot: jest.fn(() => ({ selections: {} as Record<string, string> })),
+    workflowState: () => 'idle',
+    history: () => [],
   };
   const orchestrator = { requestPrompt: jest.fn(), requestNextQuestion: jest.fn() };
   let component: AppComponent;
