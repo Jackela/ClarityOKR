@@ -11,6 +11,10 @@ import {
   parseOkrIdRequest,
   parseReplaceProgressRequest,
   parseRestartRequest,
+  parseExitAnswer,
+  parseSetAlwaysOnTop,
+  readConfirmExitEvent,
+  readRestartResultEvent,
   parseRevealRequest,
   parseSaveReviewRequest,
   parseSetPeriodRequest,
@@ -190,12 +194,13 @@ describe('request validators', () => {
     });
   });
 
-  it('parseRestartRequest reads three boolean flags and an optional confirmed', () => {
+  it('parseRestartRequest reads three boolean flags; confirmed is no longer accepted (D2)', () => {
     const unsaved = { wizard: true, textEdit: false, reviewDraft: true };
     expect(parseRestartRequest({ unsaved })).toEqual({ ok: true, value: { unsaved } });
-    expect(parseRestartRequest({ unsaved, confirmed: true })).toEqual({
-      ok: true,
-      value: { unsaved, confirmed: true },
+    // The answer comes from the dialog in the main window (app:exit-answer), never from here.
+    expect(reasonOf(parseRestartRequest({ unsaved, confirmed: true }))).toMatchObject({
+      field: 'confirmed',
+      reason: 'unknown_field',
     });
     expect(reasonOf(parseRestartRequest({ unsaved: { ...unsaved, wizard: 'yes' } }))).toMatchObject(
       {
@@ -203,6 +208,91 @@ describe('request validators', () => {
         reason: 'wrong_type',
       },
     );
+  });
+});
+
+describe('D2 window / exit validators', () => {
+  it('parseExitAnswer: kind quit|restart and a boolean confirmed, nothing else', () => {
+    expect(parseExitAnswer({ kind: 'quit', confirmed: false })).toEqual({
+      ok: true,
+      value: { kind: 'quit', confirmed: false },
+    });
+    expect(parseExitAnswer({ kind: 'restart', confirmed: true })).toEqual({
+      ok: true,
+      value: { kind: 'restart', confirmed: true },
+    });
+    expect(reasonOf(parseExitAnswer(undefined))).toMatchObject({ field: 'payload' });
+    expect(reasonOf(parseExitAnswer({ confirmed: true }))).toMatchObject({
+      field: 'kind',
+      reason: 'missing',
+    });
+    expect(reasonOf(parseExitAnswer({ kind: 'exit', confirmed: true }))).toMatchObject({
+      field: 'kind',
+      reason: 'wrong_type',
+    });
+    expect(reasonOf(parseExitAnswer({ kind: 'quit' }))).toMatchObject({
+      field: 'confirmed',
+      reason: 'missing',
+    });
+    expect(reasonOf(parseExitAnswer({ kind: 'quit', confirmed: 'yes' }))).toMatchObject({
+      field: 'confirmed',
+      reason: 'wrong_type',
+    });
+    expect(reasonOf(parseExitAnswer({ kind: 'quit', confirmed: true, x: 1 }))).toMatchObject({
+      field: 'x',
+      reason: 'unknown_field',
+    });
+  });
+
+  it('parseSetAlwaysOnTop: a boolean enabled, nothing else', () => {
+    expect(parseSetAlwaysOnTop({ enabled: false })).toEqual({
+      ok: true,
+      value: { enabled: false },
+    });
+    expect(reasonOf(parseSetAlwaysOnTop({}))).toMatchObject({
+      field: 'enabled',
+      reason: 'missing',
+    });
+    expect(reasonOf(parseSetAlwaysOnTop({ enabled: 1 }))).toMatchObject({
+      field: 'enabled',
+      reason: 'wrong_type',
+    });
+    expect(reasonOf(parseSetAlwaysOnTop({ enabled: true, level: 'x' }))).toMatchObject({
+      field: 'level',
+      reason: 'unknown_field',
+    });
+    expect(reasonOf(parseSetAlwaysOnTop([true]))).toMatchObject({ field: 'payload' });
+  });
+
+  it('readConfirmExitEvent accepts only a well-formed event', () => {
+    const confirmation = decideExitConfirmation({
+      storageMode: 'memory',
+      dbHasData: true,
+      unsaved: { wizard: true, textEdit: false, reviewDraft: false },
+    });
+    expect(readConfirmExitEvent({ kind: 'quit', confirmation })).toEqual({
+      kind: 'quit',
+      confirmation,
+    });
+    expect(readConfirmExitEvent(null)).toBeNull();
+    expect(readConfirmExitEvent({ kind: 'close', confirmation })).toBeNull();
+    expect(readConfirmExitEvent({ kind: 'quit' })).toBeNull();
+    expect(
+      readConfirmExitEvent({ kind: 'quit', confirmation: { ...confirmation, reasons: ['x'] } }),
+    ).toBeNull();
+    expect(
+      readConfirmExitEvent({ kind: 'quit', confirmation: { ...confirmation, windowsToShow: [1] } }),
+    ).toBeNull();
+    expect(
+      readConfirmExitEvent({ kind: 'quit', confirmation: { ...confirmation, memoryOnly: 'no' } }),
+    ).toBeNull();
+  });
+
+  it('readRestartResultEvent accepts cancelled / failed only', () => {
+    expect(readRestartResultEvent({ outcome: 'cancelled' })).toEqual({ outcome: 'cancelled' });
+    expect(readRestartResultEvent({ outcome: 'failed' })).toEqual({ outcome: 'failed' });
+    expect(readRestartResultEvent({ outcome: 'restarting' })).toBeNull();
+    expect(readRestartResultEvent('failed')).toBeNull();
   });
 });
 

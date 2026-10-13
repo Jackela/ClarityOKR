@@ -42,11 +42,19 @@ import { openDatabaseSafely } from './startup/open-database.js';
 import { wireClosedLoop } from './startup/closed-loop.js';
 import { registerStorageStateHandler } from './startup/storage-state.js';
 import { registerAppWindowHandlers, UnsavedRegistry } from './ipc/app-window-handlers.js';
+import { ExitCoordinator, type ExitWindow } from './lifecycle/exit-coordinator.js';
+import {
+  appMenuTemplate,
+  trayIconPath,
+  trayMenuTemplate,
+  wireTray,
+  type ShellActions,
+} from './lifecycle/tray-and-menu.js';
 import { ClarificationController } from './windows/clarification-controller.js';
 import { StickyWindowManager } from './windows/sticky-window-manager.js';
 import { registerRendererProtocol } from './windows/renderer-protocol.js';
 
-const { app, BrowserWindow, ipcMain, dialog, shell, clipboard } = electron;
+const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, Menu, Tray, nativeImage } = electron;
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const preloadPath = path.resolve(currentDir, 'bootstrap', 'preload.cjs');
@@ -54,6 +62,23 @@ const rendererDistPath =
   process.env.E2E_TEST === '1' && process.env.E2E_RENDERER_DIR
     ? path.resolve(process.env.E2E_RENDERER_DIR)
     : path.resolve(currentDir, '../../renderer/dist');
+
+// e2e: every launch gets its own profile next to its database, so the single-instance lock of
+// one test app never makes another one exit.
+if (process.env.E2E_TEST && process.env.E2E_DB_PATH) {
+  app.setPath(
+    'userData',
+    path.join(path.dirname(path.resolve(process.env.E2E_DB_PATH)), 'profile'),
+  );
+}
+
+// Single instance (spec §1.2a): a second launch only brings the sticky note back (see
+// `second-instance` below) and exits before touching the database.
+if (!app.requestSingleInstanceLock()) {
+  Logger.info('[main] Another instance is running; handing over and exiting');
+  app.exit(0);
+  await new Promise<never>(() => undefined);
+}
 
 const dbPath = resolveDbPath({
   e2eTest: Boolean(process.env.E2E_TEST),
@@ -87,9 +112,8 @@ const okrRepository = new OkrStoreRepository(okrStore);
 const actionLogWriter = new SQLiteActionLogWriter(connectionManager);
 
 const unsavedRegistry = new UnsavedRegistry();
-wireClosedLoop({
+const { restartService } = wireClosedLoop({
   ipcMain,
-  reportedUnsaved: () => unsavedRegistry.aggregate(),
   store: okrStore,
   storageMode: openedDatabase.storageMode,
   dialog,
@@ -97,11 +121,6 @@ wireClosedLoop({
   clipboard,
   getDownloadsDir: () => app.getPath('downloads'),
   getFocusedWindow: () => BrowserWindow.getFocusedWindow(),
-  relaunch: () => {
-    isQuitting = true;
-    app.relaunch();
-    app.quit();
-  },
 });
 
 const okrAgentService = new OkrAgentService();
@@ -122,7 +141,10 @@ const stickyWindowManager = new StickyWindowManager({
 });
 
 let mainWindow: ElectronBrowserWindow | null = null;
+/** Windows may close for real (the sticky note stops hiding itself on close). */
 let isQuitting = false;
+/** The quit confirmation was passed (or not needed): `before-quit` lets the quit through. */
+let quitAllowed = false;
 
 // Instantiate IPC controllers once the process starts.
 const clarificationController = new ClarificationController(
@@ -185,8 +207,10 @@ async function createWindow(): Promise<void> {
     await mainWindow.loadFile(indexPath);
   }
 
+  const contentsId = mainWindow.webContents.id;
   mainWindow.on('closed', () => {
     mainWindow = null;
+    exitCoordinator.windowGone(contentsId);
   });
 
   mainWindow.webContents.on('did-finish-load', () => {
@@ -201,31 +225,134 @@ async function createWindow(): Promise<void> {
   );
 }
 
+/** Shows and focuses the main window, creating it when needed. Returns whether it was created. */
+async function ensureMainWindow(): Promise<{ window: ElectronBrowserWindow; created: boolean }> {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    await createWindow();
+    const created = mainWindow as unknown as ElectronBrowserWindow;
+    created.show();
+    created.focus();
+    return { window: created, created: true };
+  }
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+  return { window: mainWindow, created: false };
+}
+
+function toExitWindow(window: ElectronBrowserWindow): ExitWindow {
+  const contents = window.webContents;
+  return {
+    id: contents.id,
+    send: (channel, payload) => {
+      if (!contents.isDestroyed()) contents.send(channel, payload);
+    },
+    isDestroyed: () => window.isDestroyed() || contents.isDestroyed(),
+    focus: () => {
+      if (window.isDestroyed()) return;
+      if (window.isMinimized()) window.restore();
+      window.show();
+      window.focus();
+    },
+  };
+}
+
+/** 显示便签: the sticky note, or the main window when there is no sticky note this run. */
+async function showSticky(): Promise<void> {
+  try {
+    if (await stickyWindowManager.bringToFront()) return;
+    await ensureMainWindow();
+  } catch (error) {
+    Logger.error('[main] Could not show the sticky note', error);
+  }
+}
+
+const exitCoordinator = new ExitCoordinator({
+  evaluate: (unsaved) => restartService.evaluate(unsaved),
+  reportedUnsaved: () => unsavedRegistry.aggregate(),
+  showWindow: async (which) => {
+    if (which === 'sticky') {
+      if (!(await stickyWindowManager.bringToFront())) return null;
+      const sticky = stickyWindowManager.getWindow();
+      return sticky ? toExitWindow(sticky) : null;
+    }
+    const { window, created } = await ensureMainWindow();
+    if (created && window.webContents.isLoading()) {
+      await new Promise<void>((resolve) => window.webContents.once('did-finish-load', resolve));
+    }
+    return toExitWindow(window);
+  },
+  quit: () => {
+    quitAllowed = true;
+    isQuitting = true;
+    app.quit();
+  },
+  relaunch: () => {
+    quitAllowed = true;
+    isQuitting = true;
+    app.relaunch();
+    app.quit();
+  },
+});
+
+const shellActions: ShellActions = {
+  showSticky: () => void showSticky(),
+  quit: () => void exitCoordinator.requestQuit(),
+};
+
 registerAppWindowHandlers(ipcMain, {
   unsaved: unsavedRegistry,
   showMainWindow: async () => {
-    if (!mainWindow || mainWindow.isDestroyed()) {
-      await createWindow();
-      mainWindow?.show();
-      mainWindow?.focus();
-      return null;
-    }
-    if (mainWindow.isMinimized()) mainWindow.restore();
-    mainWindow.show();
-    mainWindow.focus();
-    const contents = mainWindow.webContents;
+    const { window, created } = await ensureMainWindow();
+    if (created) return null;
+    const contents = window.webContents;
     return { send: (channel: string) => contents.send(channel) };
   },
+  exit: exitCoordinator,
+  windowOf: (senderId) => {
+    const window = BrowserWindow.getAllWindows().find(
+      (w) => !w.isDestroyed() && w.webContents.id === senderId,
+    );
+    return window ? toExitWindow(window) : null;
+  },
+  sticky: {
+    isSticky: (senderId) => stickyWindowManager.getWebContentsId() === senderId,
+    hide: () => stickyWindowManager.hideStickyWindow(),
+    isAlwaysOnTop: () => stickyWindowManager.isAlwaysOnTop(),
+    setAlwaysOnTop: (enabled) => stickyWindowManager.setAlwaysOnTop(enabled),
+  },
+});
+
+let tray: InstanceType<typeof Tray> | null = null;
+
+function createTray(): void {
+  try {
+    const iconPath = trayIconPath(path.resolve(currentDir, '../resources'), process.platform);
+    const image = nativeImage.createFromPath(iconPath);
+    if (process.platform === 'darwin') image.setTemplateImage(true);
+    tray = new Tray(image);
+    const menu = Menu.buildFromTemplate(trayMenuTemplate(shellActions));
+    wireTray(tray, menu, shellActions, process.platform);
+  } catch (error) {
+    // No tray on this desktop: the single-instance recall and the menu still work.
+    Logger.error('[main] Could not create the tray icon', error);
+  }
+}
+
+app.on('second-instance', () => {
+  Logger.info('[main] Second launch: showing the sticky note');
+  void showSticky();
 });
 
 void app.whenReady().then(() => {
   registerRendererProtocol(rendererDistPath, electron.protocol, electron.net);
+  Menu.setApplicationMenu(Menu.buildFromTemplate(appMenuTemplate(shellActions, process.platform)));
+  createTray();
   void createWindow();
 
+  // macOS Dock icon: show the sticky note.
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      void createWindow();
-    }
+    void showSticky();
   });
 });
 
@@ -235,15 +362,21 @@ void app.whenReady().then(() => {
  * On macOS, applications typically remain active until explicitly quit,
  * so we only quit on other platforms.
  */
-app.on('before-quit', () => {
-  isQuitting = true;
-  Logger.info('[main] Application is quitting, allowing windows to close');
+app.on('before-quit', (event: ElectronEvent) => {
+  if (quitAllowed) {
+    isQuitting = true;
+    Logger.info('[main] Application is quitting, allowing windows to close');
+    return;
+  }
+  // ⌘Q, the system, or anything else: same confirmation as the menu and the tray (§1.2c).
+  event.preventDefault();
+  void exitCoordinator.requestQuit();
 });
 
+// The app keeps running in the tray when its windows are closed or hidden; it quits only
+// through 退出 (menu / tray / ⌘Q).
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+  Logger.info('[main] All windows closed; still running in the tray');
 });
 
 /**

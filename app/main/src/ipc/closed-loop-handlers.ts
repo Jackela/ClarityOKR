@@ -7,7 +7,6 @@ import {
   parseKrIdRequest,
   parseOkrIdRequest,
   parseReplaceProgressRequest,
-  parseRestartRequest,
   parseRevealRequest,
   parseSaveReviewRequest,
   parseSetPeriodRequest,
@@ -23,23 +22,18 @@ import {
   type ProgressChangeReply,
   type ReviewReply,
   type SetPeriodReply,
-  type UnsavedFlags,
 } from '@clarityokr/contracts';
 import type { Clipboard, IpcMain } from 'electron';
 
 import { Logger } from '../core/logger.js';
 import type { ExportService } from '../export/export-service.js';
-import type { AppRestartService } from '../lifecycle/restart-service.js';
 import type { OkrStore } from '../persistence/okr-store/okr-store.js';
 
 export interface ClosedLoopHandlerDeps {
   store: OkrStore;
   exportService: ExportService;
-  restartService: AppRestartService;
   /** The system clipboard (injected so tests never touch it). */
   clipboard: Pick<Clipboard, 'writeText'>;
-  /** Flags reported by every window (`app:report-unsaved`); ORed into a restart request. */
-  reportedUnsaved?: () => UnsavedFlags;
 }
 
 const NOT_FOUND_OKR = 'The OKR does not exist';
@@ -118,7 +112,7 @@ export function registerClosedLoopHandlers(
   ipcMain: Pick<IpcMain, 'handle'>,
   deps: ClosedLoopHandlerDeps,
 ): void {
-  const { store, exportService, restartService, clipboard } = deps;
+  const { store, exportService, clipboard } = deps;
 
   function register<Req, Res>(
     channel: string,
@@ -263,17 +257,5 @@ export function registerClosedLoopHandlers(
       return ipcFail('PATH_NOT_ALLOWED', 'Only the file that was just exported can be revealed');
     }
     return ipcOk({ revealed: true as const });
-  });
-
-  register(IPC_CHANNELS.APP_RESTART, parseRestartRequest, (request) => {
-    const reported = deps.reportedUnsaved?.();
-    const unsaved = reported
-      ? {
-          wizard: request.unsaved.wizard || reported.wizard,
-          textEdit: request.unsaved.textEdit || reported.textEdit,
-          reviewDraft: request.unsaved.reviewDraft || reported.reviewDraft,
-        }
-      : request.unsaved;
-    return ipcOk(restartService.requestRestart({ ...request, unsaved }));
   });
 }

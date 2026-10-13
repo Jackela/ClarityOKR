@@ -41,6 +41,13 @@ export const ALLOWED_CHANNELS = [
   'clarityokr:window:open-wizard',
   'clarityokr:wizard:new-okr',
   'clarityokr:app:report-unsaved',
+  'clarityokr:app:confirm-exit',
+  'clarityokr:app:exit-answer',
+  'clarityokr:app:exit-pending',
+  'clarityokr:app:restart-result',
+  'clarityokr:window:hide',
+  'clarityokr:window:get-state',
+  'clarityokr:window:set-always-on-top',
 ] as const;
 
 /**
@@ -104,6 +111,20 @@ export const IPC_CHANNELS = {
   WIZARD_NEW_OKR: 'clarityokr:wizard:new-okr',
   /** A window reports which of its unsaved-input flags changed (partial `UnsavedFlags`). */
   APP_REPORT_UNSAVED: 'clarityokr:app:report-unsaved',
+  /** Main → renderer event: show the quit / restart dialog (`ConfirmExitEvent`). */
+  APP_CONFIRM_EXIT: 'clarityokr:app:confirm-exit',
+  /** The answer to that dialog (`ExitAnswer`); only the window hosting it may answer. */
+  APP_EXIT_ANSWER: 'clarityokr:app:exit-answer',
+  /** A window that just loaded asks whether it should be showing the dialog. Payload: none. */
+  APP_EXIT_PENDING: 'clarityokr:app:exit-pending',
+  /** Main → renderer event to the window(s) that asked for a restart (`RestartResultEvent`). */
+  APP_RESTART_RESULT: 'clarityokr:app:restart-result',
+  /** 「隐藏」: hide the sticky window (the app keeps running). Payload: none. */
+  WINDOW_HIDE: 'clarityokr:window:hide',
+  /** `{ alwaysOnTop }` of the sticky window. Payload: none. */
+  WINDOW_GET_STATE: 'clarityokr:window:get-state',
+  /** 「窗口始终在最前」 switch: `{ enabled: boolean }`. */
+  WINDOW_SET_ALWAYS_ON_TOP: 'clarityokr:window:set-always-on-top',
 } as const;
 
 /**

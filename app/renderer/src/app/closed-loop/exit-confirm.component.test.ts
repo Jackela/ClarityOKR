@@ -1,0 +1,178 @@
+import { Component } from '@angular/core';
+import { TestBed, type ComponentFixture } from '@angular/core/testing';
+import type { ConfirmExitEvent, ExitConfirmation } from '@clarityokr/contracts';
+
+import { ClosedLoopApi } from './closed-loop-api.service';
+import { ExitConfirmComponent } from './exit-confirm.component';
+
+@Component({
+  standalone: true,
+  imports: [ExitConfirmComponent],
+  template: `
+    <main id="behind">
+      <input id="typing" />
+      <button type="button" data-testid="memory-export">导出当前 OKR</button>
+    </main>
+    <clarityokr-exit-confirm />
+  `,
+})
+class Host {}
+
+const confirmation = (
+  reasons: ExitConfirmation['reasons'],
+  memoryOnly = false,
+): ExitConfirmation => ({
+  needsConfirm: true,
+  reasons,
+  memoryOnly,
+  dialogWindow: 'main',
+  windowsToShow: ['main'],
+});
+
+describe('ExitConfirmComponent (spec §1.2c quit / §7a.4 restart dialog)', () => {
+  let fixture: ComponentFixture<Host>;
+  let api: Record<string, jest.Mock>;
+  let pushEvent: (payload: unknown) => void = () => undefined;
+  const q = <T extends HTMLElement = HTMLElement>(id: string): T =>
+    document.querySelector(`[data-testid="${id}"]`) as T;
+  const settle = async (): Promise<void> => {
+    for (let i = 0; i < 3; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      fixture.detectChanges();
+    }
+  };
+
+  async function create(pending: ConfirmExitEvent | null = null): Promise<void> {
+    api = {
+      onPayload: jest.fn((channel: string, listener: (payload: unknown) => void) => {
+        if (channel === 'clarityokr:app:confirm-exit') pushEvent = listener;
+        return () => undefined;
+      }),
+      exitPending: jest.fn().mockResolvedValue({ ok: true, data: { pending } }),
+      exitAnswer: jest.fn().mockResolvedValue({ ok: true, data: { accepted: true } }),
+    };
+    await TestBed.configureTestingModule({
+      imports: [Host],
+      providers: [{ provide: ClosedLoopApi, useValue: api }],
+    }).compileComponents();
+    fixture = TestBed.createComponent(Host);
+    document.body.appendChild(fixture.nativeElement);
+    fixture.detectChanges();
+    await settle();
+  }
+
+  afterEach(() => fixture?.nativeElement.remove());
+
+  it('quit, one reason: alertdialog with the quit copy, 「继续编辑」 focused, 「放弃并退出」 danger', async () => {
+    await create();
+    (document.getElementById('typing') as HTMLInputElement).focus();
+    pushEvent({ kind: 'quit', confirmation: confirmation(['review_draft']) });
+    await settle();
+    const dialog = q('quit-dialog');
+    expect(dialog.getAttribute('role')).toBe('alertdialog');
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
+    expect(dialog.textContent).toContain('退出 ClarityOKR？');
+    expect(dialog.textContent).toContain('复盘里写的内容还没有保存，退出会丢掉这些内容。');
+    expect(document.activeElement?.textContent?.trim()).toBe('继续编辑');
+    expect(q('dialog-confirm').textContent!.trim()).toBe('放弃并退出');
+    expect(q('dialog-confirm').className).toContain('danger');
+    expect(document.getElementById('behind')!.hasAttribute('inert')).toBe(true);
+  });
+
+  it('quit, several reasons: one line each in the fixed order', async () => {
+    await create();
+    pushEvent({
+      kind: 'quit',
+      confirmation: confirmation(['memory_data', 'text_edit', 'wizard', 'review_draft']),
+    });
+    await settle();
+    expect(document.querySelector('.dialog__body')!.textContent).toBe(
+      [
+        '向导里已经填写的内容还没有保存，退出会丢掉这些内容。',
+        '你对关键结果文字的修改还没有提交，退出会丢掉这些修改。',
+        '复盘里写的内容还没有保存，退出会丢掉这些内容。',
+        '本次运行的内容没有保存到文件，退出后会全部丢失。',
+      ].join('\n'),
+    );
+  });
+
+  it('Esc = 「继续编辑」: answers confirmed:false and gives the focus back', async () => {
+    await create();
+    const input = document.getElementById('typing') as HTMLInputElement;
+    input.focus();
+    pushEvent({ kind: 'quit', confirmation: confirmation(['text_edit']) });
+    await settle();
+    document.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+    );
+    await settle();
+    expect(q('quit-dialog')).toBeNull();
+    expect(api.exitAnswer).toHaveBeenCalledWith({ kind: 'quit', confirmed: false });
+    expect(document.activeElement).toBe(input);
+  });
+
+  it('「放弃并退出」 answers confirmed:true', async () => {
+    await create();
+    pushEvent({ kind: 'quit', confirmation: confirmation(['wizard']) });
+    await settle();
+    q('dialog-confirm').click();
+    await settle();
+    expect(api.exitAnswer).toHaveBeenCalledWith({ kind: 'quit', confirmed: true });
+    expect(q('quit-dialog')).toBeNull();
+  });
+
+  it('memory only: 「先不退出」; focus was outside the window → lands on 「导出当前 OKR」', async () => {
+    await create();
+    (document.activeElement as HTMLElement | null)?.blur();
+    pushEvent({ kind: 'quit', confirmation: confirmation(['memory_data'], true) });
+    await settle();
+    expect(document.querySelector('.dialog__body')!.textContent).toBe(
+      '本次运行的内容没有保存到文件，退出后会全部丢失。',
+    );
+    expect(q('dialog-cancel').textContent!.trim()).toBe('先不退出');
+    q('dialog-cancel').click();
+    await settle();
+    expect(document.activeElement).toBe(q('memory-export'));
+  });
+
+  it('restart version: title, memory sentence, 「先不重启」 / 「放弃并重启」, answer kind restart', async () => {
+    await create();
+    pushEvent({ kind: 'restart', confirmation: confirmation(['memory_data'], true) });
+    await settle();
+    const dialog = q('restart-dialog');
+    expect(dialog.textContent).toContain('重启 ClarityOKR？');
+    expect(dialog.textContent).toContain('重启后本次运行的内容会丢失。');
+    expect(q('dialog-cancel').textContent!.trim()).toBe('先不重启');
+    expect(q('dialog-confirm').textContent!.trim()).toBe('放弃并重启');
+    q('dialog-confirm').click();
+    await settle();
+    expect(api.exitAnswer).toHaveBeenCalledWith({ kind: 'restart', confirmed: true });
+  });
+
+  it('restart with an unsaved draft too: safe button 「继续编辑」', async () => {
+    await create();
+    pushEvent({ kind: 'restart', confirmation: confirmation(['wizard', 'memory_data']) });
+    await settle();
+    expect(q('dialog-cancel').textContent!.trim()).toBe('继续编辑');
+  });
+
+  it('a window that loads while a dialog is pending shows it (exit-pending)', async () => {
+    await create({ kind: 'quit', confirmation: confirmation(['wizard']) });
+    expect(api.exitPending).toHaveBeenCalledTimes(1);
+    expect(q('quit-dialog')).not.toBeNull();
+  });
+
+  it.each([
+    [null],
+    ['quit'],
+    [{ kind: 'exit', confirmation: confirmation(['wizard']) }],
+    [{ kind: 'quit', confirmation: { ...confirmation(['wizard']), reasons: ['boom'] } }],
+    [{ kind: 'quit', confirmation: { ...confirmation(['wizard']), dialogWindow: 'x' } }],
+  ])('a malformed event %j opens nothing', async (payload) => {
+    await create();
+    pushEvent(payload);
+    await settle();
+    expect(q('quit-dialog')).toBeNull();
+    expect(q('restart-dialog')).toBeNull();
+  });
+});

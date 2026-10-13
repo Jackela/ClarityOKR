@@ -50,7 +50,6 @@ describe('wireClosedLoop (Electron glue with fake dialog / shell / app)', () => 
       shell: { showItemInFolder } as never,
       getDownloadsDir: () => dir,
       getFocusedWindow: () => window as never,
-      relaunch: jest.fn(),
     });
     const result = await invoke(IPC_CHANNELS.EXPORT_SAVE, { okrId: 'o1', format: 'md' });
     expect(result).toMatchObject({ ok: true, data: { outcome: 'saved', fileName: 'chosen.md' } });
@@ -86,7 +85,6 @@ describe('wireClosedLoop (Electron glue with fake dialog / shell / app)', () => 
       shell: { showItemInFolder: jest.fn() } as never,
       getDownloadsDir: () => dir,
       getFocusedWindow: () => null,
-      relaunch: jest.fn(),
     });
     expect(await invoke(IPC_CHANNELS.EXPORT_SAVE, { okrId: 'o1', format: 'json' })).toEqual({
       ok: true,
@@ -103,29 +101,25 @@ describe('wireClosedLoop (Electron glue with fake dialog / shell / app)', () => 
     ]);
   });
 
-  it('restart goes through the confirmation rule with the real storage mode and database', async () => {
-    const relaunch = jest.fn();
-    wireClosedLoop({
+  it('the restart rule uses the real storage mode and database; app:restart lives elsewhere (D2)', async () => {
+    const { restartService } = wireClosedLoop({
       ipcMain: ipcMain as never,
       store,
       storageMode: 'memory',
       dialog: { showSaveDialog: jest.fn() } as never,
       shell: { showItemInFolder: jest.fn() } as never,
+      clipboard: { writeText: jest.fn() } as never,
       getDownloadsDir: () => dir,
       getFocusedWindow: () => null,
-      relaunch,
     });
     const none = { wizard: false, textEdit: false, reviewDraft: false };
-    expect(await invoke(IPC_CHANNELS.APP_RESTART, { unsaved: none })).toMatchObject({
-      ok: true,
-      data: { outcome: 'confirm_required' },
+    expect(restartService.evaluate(none)).toMatchObject({
+      needsConfirm: true,
+      reasons: ['memory_data'],
     });
-    expect(relaunch).not.toHaveBeenCalled();
     store.deleteAllObjectives();
-    expect(await invoke(IPC_CHANNELS.APP_RESTART, { unsaved: none })).toMatchObject({
-      ok: true,
-      data: { outcome: 'restarting' },
-    });
-    expect(relaunch).toHaveBeenCalledTimes(1);
+    expect(restartService.evaluate(none)).toMatchObject({ needsConfirm: false });
+    // Registered by registerAppWindowHandlers (it needs the sender window).
+    await expect(invoke(IPC_CHANNELS.APP_RESTART, { unsaved: none })).rejects.toThrow();
   });
 });

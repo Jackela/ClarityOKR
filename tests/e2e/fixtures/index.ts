@@ -199,7 +199,9 @@ export const test = base.extend<E2EFixtures>({
         childProcess.stderr?.off('data', stderrHandler);
         childProcess.stdout?.off('data', stdoutHandler);
 
-        // 关闭应用
+        // 关闭应用。退出会经过退出确认（D2：before-quit 被拦截，测试里 app.quit 也可能被替换），
+        // 所以先用 app.exit 直接结束进程，不触发 before-quit。
+        await exitWithoutConfirmation(app);
         await app.close().catch((err) => {
           console.error('[fixture] Error closing Electron app:', err);
         });
@@ -271,5 +273,14 @@ export const test = base.extend<E2EFixtures>({
 });
 
 export { expect } from '@playwright/test';
+/** Ends the app without the quit confirmation (`app.exit` does not emit `before-quit`). */
+export async function exitWithoutConfirmation(app: ElectronApplication): Promise<void> {
+  await app
+    .evaluate(({ app: electronApp }) => {
+      setImmediate(() => electronApp.exit(0));
+    })
+    .catch(() => {});
+}
+
 export { ROOT, launchElectronApp, findStickyWindow } from '../helpers/build-check';
 export type { ElectronApplication, Page };

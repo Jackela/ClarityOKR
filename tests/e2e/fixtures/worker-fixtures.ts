@@ -241,6 +241,11 @@ export const workerTest = base.extend<TestFixtures, WorkerFixtures>({
         // 清理旧的实例
         if (workerElectronApp) {
           try {
+            await workerElectronApp
+              .evaluate(({ app }) => {
+                setImmediate(() => app.exit(0));
+              })
+              .catch(() => {});
             await workerElectronApp.close();
           } catch (err) {
             console.error('[worker] Error closing previous Electron app:', err);
@@ -344,6 +349,11 @@ export async function cleanupWorker() {
   console.log('[cleanupWorker] Cleaning up worker resources...');
 
   if (workerElectronApp) {
+    await workerElectronApp
+      .evaluate(({ app }) => {
+        setImmediate(() => app.exit(0));
+      })
+      .catch(() => {});
     await workerElectronApp.close();
     workerElectronApp = null;
   }

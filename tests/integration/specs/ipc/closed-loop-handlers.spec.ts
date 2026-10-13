@@ -8,7 +8,6 @@ import { ALLOWED_CHANNELS, IPC_CHANNELS, type IpcResult } from '@clarityokr/cont
 import { Logger } from '../../../../app/main/src/core/logger.js';
 import { ExportService } from '../../../../app/main/src/export/export-service.js';
 import { registerClosedLoopHandlers } from '../../../../app/main/src/ipc/closed-loop-handlers.js';
-import { AppRestartService } from '../../../../app/main/src/lifecycle/restart-service.js';
 import { OkrStore, applySchema } from '../../../../app/main/src/persistence/okr-store/index.js';
 import { loadExportSource } from '../../../../app/main/src/startup/closed-loop.js';
 
@@ -25,7 +24,6 @@ const CLOSED_LOOP_CHANNELS = [
   IPC_CHANNELS.EXPORT_SAVE,
   IPC_CHANNELS.EXPORT_REVEAL,
   IPC_CHANNELS.CLIPBOARD_EXPORT,
-  IPC_CHANNELS.APP_RESTART,
 ];
 
 const T0 = '2026-10-11T00:00:00.000Z';
@@ -55,11 +53,9 @@ interface Harness {
   ipc: FakeIpcMain;
   exportService: ExportService;
   setNow: (iso: string) => void;
-  relaunch: ReturnType<typeof jest.fn>;
   showSaveDialog: ReturnType<typeof jest.fn>;
   showItemInFolder: ReturnType<typeof jest.fn>;
   writeText: ReturnType<typeof jest.fn>;
-  setStorageMode: (mode: 'normal' | 'fresh-file' | 'memory') => void;
 }
 
 function createHarness(): Harness {
@@ -68,8 +64,6 @@ function createHarness(): Harness {
   applySchema(db);
   let now = new Date(T0);
   const store = new OkrStore(db, () => now);
-  let storageMode: 'normal' | 'fresh-file' | 'memory' = 'normal';
-  const relaunch = jest.fn();
   const showSaveDialog = jest.fn();
   const showItemInFolder = jest.fn();
   const writeText = jest.fn();
@@ -80,16 +74,10 @@ function createHarness(): Harness {
     getDownloadsDir: () => dir,
     now: () => new Date(2026, 9, 11, 12, 0, 0),
   });
-  const restartService = new AppRestartService({
-    getStorageMode: () => storageMode,
-    dbHasData: () => store.hasAnyData(),
-    relaunch,
-  });
   const ipc = new FakeIpcMain();
   registerClosedLoopHandlers(ipc as never, {
     store,
     exportService,
-    restartService,
     clipboard: { writeText },
   });
   return {
@@ -101,13 +89,9 @@ function createHarness(): Harness {
     setNow: (iso) => {
       now = new Date(iso);
     },
-    relaunch,
     showSaveDialog,
     showItemInFolder,
     writeText,
-    setStorageMode: (mode) => {
-      storageMode = mode;
-    },
   };
 }
 
@@ -1011,120 +995,6 @@ describe('closed-loop IPC handlers (real OkrStore on a temp database)', () => {
       const r = await h.ipc.invoke(IPC_CHANNELS.CLIPBOARD_EXPORT, { okrId: okr.id });
       expectFailure(r, 'INTERNAL');
       expect(JSON.stringify(r)).not.toContain('secret');
-    });
-  });
-
-  describe('clarityokr:app:restart (same confirmation rule as quit)', () => {
-    const none = { wizard: false, textEdit: false, reviewDraft: false };
-
-    it('restarts immediately in normal mode with nothing unsaved', async () => {
-      create();
-      expect(await h.ipc.invoke(IPC_CHANNELS.APP_RESTART, { unsaved: none })).toEqual({
-        ok: true,
-        data: { outcome: 'restarting' },
-      });
-      expect(h.relaunch).toHaveBeenCalledTimes(1);
-    });
-
-    it('a throwing relaunch is reported as relaunch_failed without leaking text, and later calls work', async () => {
-      create();
-      h.relaunch.mockImplementationOnce(() => {
-        throw new Error(`boom ${h.dir}`);
-      });
-      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
-      const r = await h.ipc.invoke(IPC_CHANNELS.APP_RESTART, { unsaved: none });
-      expect(r).toEqual({ ok: true, data: { outcome: 'failed', category: 'relaunch_failed' } });
-      expect(JSON.stringify(r)).not.toContain(h.dir);
-      expect(await h.ipc.invoke(IPC_CHANNELS.APP_RESTART, { unsaved: none })).toEqual({
-        ok: true,
-        data: { outcome: 'restarting' },
-      });
-      expect(h.relaunch).toHaveBeenCalledTimes(2);
-      errorSpy.mockRestore();
-    });
-
-    it('memory mode WITH data asks first, and relaunches only after confirmed:true', async () => {
-      h.setStorageMode('memory');
-      create();
-      const first = await h.ipc.invoke<{
-        outcome: string;
-        confirmation: { reasons: string[]; memoryOnly: boolean };
-      }>(IPC_CHANNELS.APP_RESTART, { unsaved: none });
-      expect(first).toMatchObject({
-        ok: true,
-        data: {
-          outcome: 'confirm_required',
-          confirmation: { needsConfirm: true, reasons: ['memory_data'], memoryOnly: true },
-        },
-      });
-      expect(h.relaunch).not.toHaveBeenCalled();
-      expect(
-        await h.ipc.invoke(IPC_CHANNELS.APP_RESTART, { unsaved: none, confirmed: true }),
-      ).toEqual({
-        ok: true,
-        data: { outcome: 'restarting' },
-      });
-      expect(h.relaunch).toHaveBeenCalledTimes(1);
-      // A second request while restarting does not relaunch twice.
-      await h.ipc.invoke(IPC_CHANNELS.APP_RESTART, { unsaved: none, confirmed: true });
-      expect(h.relaunch).toHaveBeenCalledTimes(1);
-    });
-
-    it('memory mode with an EMPTY database restarts without asking', async () => {
-      h.setStorageMode('memory');
-      expect(await h.ipc.invoke(IPC_CHANNELS.APP_RESTART, { unsaved: none })).toEqual({
-        ok: true,
-        data: { outcome: 'restarting' },
-      });
-      expect(h.relaunch).toHaveBeenCalledTimes(1);
-    });
-
-    it('unsaved wizard / text edit / review draft ask even in normal mode', async () => {
-      const r = await h.ipc.invoke<{ confirmation: { reasons: string[]; dialogWindow: string } }>(
-        IPC_CHANNELS.APP_RESTART,
-        { unsaved: { wizard: true, textEdit: true, reviewDraft: true } },
-      );
-      expect(r).toMatchObject({
-        ok: true,
-        data: {
-          outcome: 'confirm_required',
-          confirmation: { reasons: ['wizard', 'text_edit', 'review_draft'], dialogWindow: 'main' },
-        },
-      });
-      expect(h.relaunch).not.toHaveBeenCalled();
-    });
-
-    it.each([
-      [undefined, 'payload', 'wrong_type'],
-      [{}, 'unsaved', 'missing'],
-      [{ unsaved: 'yes' }, 'unsaved', 'wrong_type'],
-      [{ unsaved: { wizard: true, textEdit: false } }, 'unsaved.reviewDraft', 'missing'],
-      [
-        { unsaved: { wizard: 1, textEdit: false, reviewDraft: false } },
-        'unsaved.wizard',
-        'wrong_type',
-      ],
-      [
-        { unsaved: { wizard: true, textEdit: false, reviewDraft: false, extra: 1 } },
-        'unsaved.extra',
-        'unknown_field',
-      ],
-      [
-        { unsaved: { wizard: false, textEdit: false, reviewDraft: false }, confirmed: 'true' },
-        'confirmed',
-        'wrong_type',
-      ],
-      [
-        { unsaved: { wizard: false, textEdit: false, reviewDraft: false }, force: true },
-        'force',
-        'unknown_field',
-      ],
-    ])('rejects %j without relaunching', async (payload, field, reason) => {
-      expectFailure(await h.ipc.invoke(IPC_CHANNELS.APP_RESTART, payload), 'INVALID_REQUEST', {
-        field,
-        reason,
-      });
-      expect(h.relaunch).not.toHaveBeenCalled();
     });
   });
 

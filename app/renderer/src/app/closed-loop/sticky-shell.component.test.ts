@@ -58,6 +58,10 @@ describe('StickyShellComponent', () => {
       getLegacyNotice: jest.fn().mockResolvedValue(true),
       ackLegacyNotice: jest.fn(),
       onEvent: jest.fn().mockReturnValue(() => undefined),
+      onPayload: jest.fn().mockReturnValue(() => undefined),
+      getWindowState: jest.fn().mockResolvedValue({ ok: true, data: { alwaysOnTop: true } }),
+      setAlwaysOnTop: jest.fn(),
+      hideWindow: jest.fn().mockResolvedValue({ ok: true, data: { hidden: true } }),
       list: jest.fn().mockResolvedValue({
         ok: true,
         data: {

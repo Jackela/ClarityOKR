@@ -8,11 +8,11 @@ import {
   type OnInit,
   ViewChild,
   computed,
+  effect,
   inject,
   signal,
 } from '@angular/core';
 
-import { DialogComponent } from '../shared/components/dialog.component';
 import { ClosedLoopApi } from './closed-loop-api.service';
 import { ClosedLoopStore } from './closed-loop.store';
 import { COPY } from './copy';
@@ -22,8 +22,9 @@ import { RestartFlow } from './restart-flow.service';
 /**
  * The bars right under the top bar (spec §7 / §7a), top to bottom:
  * 1. memory-mode bar (both windows): persistent, cannot be closed, red with white text,
- *    「导出当前 OKR」 (the same export menu) and 「重启应用」 (two-step restart; a failure adds
- *    one inline `role=alert` line under the buttons and the focus stays on the button);
+ *    「导出当前 OKR」 (the same export menu) and 「重启应用」 (the restart dialog opens in the main
+ *    window; a failure adds one inline `role=alert` line under the buttons, and after a failure
+ *    or a cancel the focus is on the button);
  * 2. fresh-file notice (main window): `role=status`, 「知道了」 hides it for this run only, no Esc;
  * 3. legacy-database notice (main window): only 「知道了」 (or Esc when no other popup is open)
  *    closes it, through `legacy-notice:ack`; a failed ack keeps it with an error line.
@@ -32,7 +33,7 @@ import { RestartFlow } from './restart-flow.service';
 @Component({
   selector: 'clarityokr-storage-notices',
   standalone: true,
-  imports: [ExportMenuComponent, DialogComponent],
+  imports: [ExportMenuComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (memory()) {
@@ -142,19 +143,6 @@ import { RestartFlow } from './restart-flow.service';
     }
     <!-- Polite announcements: the legacy notice when it shows, 「已确认。」 after the ack. -->
     <span class="sr-only" aria-live="polite" data-testid="notice-live">{{ live() }}</span>
-
-    @if (restart.confirmation()) {
-      <clarityokr-dialog
-        [title]="restartCopy.title"
-        [body]="restart.dialogBody()"
-        [cancelLabel]="restart.safeLabel()"
-        [confirmLabel]="restartCopy.confirm"
-        [danger]="true"
-        testId="restart-dialog"
-        (cancelled)="restart.cancel()"
-        (confirmed)="restart.confirm()"
-      />
-    }
   `,
   styles: [
     `
@@ -363,7 +351,6 @@ export class StorageNoticesComponent implements OnInit, OnDestroy {
   isMain = true;
 
   readonly t = COPY.storage;
-  readonly restartCopy = COPY.restart;
   readonly store = inject(ClosedLoopStore);
   readonly restart = inject(RestartFlow);
   private readonly api = inject(ClosedLoopApi);
@@ -382,12 +369,24 @@ export class StorageNoticesComponent implements OnInit, OnDestroy {
   @ViewChild('restartButton') private restartButton?: ElementRef<HTMLButtonElement>;
 
   private legacyFocused = false;
+  private lastFocusRequest = 0;
+
+  constructor() {
+    // The restart was cancelled or failed: the focus comes back to 「重启应用」 (§7a.4).
+    effect(() => {
+      const request = this.restart.focusRequest();
+      if (request === this.lastFocusRequest) return;
+      this.lastFocusRequest = request;
+      setTimeout(() => this.restartButton?.nativeElement.focus());
+    });
+  }
   private readonly onKeydown = (event: KeyboardEvent): void => this.onDocumentKeydown(event);
   private readonly onShown = (): void => {
     if (this.doc.visibilityState !== 'hidden') void this.checkLegacy();
   };
 
   ngOnInit(): void {
+    this.restart.listen();
     void this.store.ensureStorageMode();
     if (!this.isMain) return;
     void this.checkLegacy();
@@ -404,9 +403,8 @@ export class StorageNoticesComponent implements OnInit, OnDestroy {
   }
 
   async onRestart(): Promise<void> {
+    // A failure or a cancel puts the focus on 「重启应用」 (never on the error line).
     await this.restart.request();
-    // A direct failure: the focus stays on (or comes back to) 「重启应用」, never the error line.
-    if (this.restart.failed()) this.restartButton?.nativeElement.focus();
   }
 
   async ackLegacy(): Promise<void> {
