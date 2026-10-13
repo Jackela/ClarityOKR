@@ -307,6 +307,8 @@ export class AppComponent implements OnDestroy {
 
     this.llmBusy = true;
     this.state.setLoading(true);
+    // A new answer after 生成 OKR is new input again (unsaved until the next OKR).
+    this.okrGenerated.set(false);
 
     defer(() => this.orchestrator.recordSelection(this.currentSessionId, prompt.id, optionId))
       .pipe(
@@ -338,6 +340,7 @@ export class AppComponent implements OnDestroy {
   }
 
   onRetry(): void {
+    this.okrGenerated.set(false);
     const selections = this.state.getStateSnapshot().selections;
     const lastChoice = Object.entries(selections).at(-1);
     this.state.clearError();

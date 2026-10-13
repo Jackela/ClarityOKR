@@ -43,6 +43,7 @@ import { wireClosedLoop } from './startup/closed-loop.js';
 import { registerStorageStateHandler } from './startup/storage-state.js';
 import { registerAppWindowHandlers, UnsavedRegistry } from './ipc/app-window-handlers.js';
 import { ExitCoordinator, type ExitWindow } from './lifecycle/exit-coordinator.js';
+import { QuitGate, guardBeforeQuit, hideOnClose } from './lifecycle/quit-gate.js';
 import {
   appMenuTemplate,
   trayIconPath,
@@ -137,14 +138,12 @@ const stickyWindowManager = new StickyWindowManager({
   okrAgentService,
   sessionRepository,
   okrRegeneration: okrRegenerationService,
-  isQuitting: () => isQuitting,
+  isQuitting: () => quitGate.isQuitting(),
 });
 
 let mainWindow: ElectronBrowserWindow | null = null;
-/** Windows may close for real (the sticky note stops hiding itself on close). */
-let isQuitting = false;
-/** The quit confirmation was passed (or not needed): `before-quit` lets the quit through. */
-let quitAllowed = false;
+/** `quitting` (windows may really close) and `allowed` (before-quit lets the quit through). */
+const quitGate = new QuitGate();
 
 // Instantiate IPC controllers once the process starts.
 const clarificationController = new ClarificationController(
@@ -208,6 +207,9 @@ async function createWindow(): Promise<void> {
   }
 
   const contentsId = mainWindow.webContents.id;
+  // Closing the main window hides it (like the sticky note): its wizard and unsaved state
+  // stay, and the app keeps running in the tray (B2).
+  hideOnClose(mainWindow, () => quitGate.isQuitting());
   mainWindow.on('closed', () => {
     mainWindow = null;
     exitCoordinator.windowGone(contentsId);
@@ -282,17 +284,13 @@ const exitCoordinator = new ExitCoordinator({
     }
     return toExitWindow(window);
   },
-  quit: () => {
-    quitAllowed = true;
-    isQuitting = true;
-    app.quit();
-  },
-  relaunch: () => {
-    quitAllowed = true;
-    isQuitting = true;
-    app.relaunch();
-    app.quit();
-  },
+  quit: () => quitGate.quit(() => app.quit()),
+  // Both flags are restored when relaunching throws (B1).
+  relaunch: () =>
+    quitGate.relaunch(
+      () => app.relaunch(),
+      () => app.quit(),
+    ),
 });
 
 const shellActions: ShellActions = {
@@ -363,14 +361,9 @@ void app.whenReady().then(() => {
  * so we only quit on other platforms.
  */
 app.on('before-quit', (event: ElectronEvent) => {
-  if (quitAllowed) {
-    isQuitting = true;
-    Logger.info('[main] Application is quitting, allowing windows to close');
-    return;
-  }
   // ⌘Q, the system, or anything else: same confirmation as the menu and the tray (§1.2c).
-  event.preventDefault();
-  void exitCoordinator.requestQuit();
+  guardBeforeQuit(quitGate, () => exitCoordinator.requestQuit(), event);
+  if (quitGate.isQuitting()) Logger.info('[main] Application is quitting');
 });
 
 // The app keeps running in the tray when its windows are closed or hidden; it quits only

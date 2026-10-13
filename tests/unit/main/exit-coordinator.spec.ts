@@ -298,4 +298,57 @@ describe('ExitCoordinator: restart (§7a.4)', () => {
     h.coordinator.answer(h.main.id, { kind: 'restart', confirmed: false });
     expect(h.sticky.sent).toEqual([]);
   });
+
+  it('N13: a quit during the restart dialog continues to the quit dialog after 先不重启', async () => {
+    const h = setup('memory', true);
+    await h.coordinator.requestRestart(h.sticky, none);
+    expect(await h.coordinator.requestQuit()).toBe('confirm_pending');
+    expect(h.main.sent.filter(([c]) => c === CONFIRM)).toHaveLength(1);
+    h.coordinator.answer(h.main.id, { kind: 'restart', confirmed: false });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const dialogs = h.main.sent.filter(([c]) => c === CONFIRM);
+    expect(dialogs).toHaveLength(2);
+    expect(dialogs[1]![1]).toMatchObject({ kind: 'quit' });
+    expect(h.sticky.sent).toContainEqual([RESULT, { outcome: 'cancelled' }]);
+  });
+
+  it('N13: 放弃并重启 restarts with no quit confirm', async () => {
+    const h = setup('memory', true);
+    await h.coordinator.requestRestart(h.sticky, none);
+    await h.coordinator.requestQuit();
+    h.coordinator.answer(h.main.id, { kind: 'restart', confirmed: true });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(h.relaunch).toHaveBeenCalledTimes(1);
+    expect(h.main.sent.filter(([c]) => c === CONFIRM)).toHaveLength(1);
+    expect(h.quit).not.toHaveBeenCalled();
+  });
+
+  it('N13: relaunch_failed drops the recorded quit (only the inline error); a later quit asks again', async () => {
+    const h = setup('memory', true);
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    h.relaunch.mockImplementationOnce(() => {
+      throw new Error('x');
+    });
+    await h.coordinator.requestRestart(h.sticky, none);
+    await h.coordinator.requestQuit();
+    h.coordinator.answer(h.main.id, { kind: 'restart', confirmed: true });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(h.sticky.sent).toEqual([[RESULT, { outcome: 'failed' }]]);
+    expect(h.coordinator.pendingFor(h.main.id)).toBeNull();
+    expect(h.main.sent.filter(([c]) => c === CONFIRM)).toHaveLength(1);
+    expect(await h.coordinator.requestQuit()).toBe('confirm_pending');
+    expect(h.coordinator.pendingFor(h.main.id)).toMatchObject({ kind: 'quit' });
+    expect(h.quit).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
+  it('N13: a quit during a QUIT dialog is not queued twice', async () => {
+    const h = setup();
+    h.report({ wizard: true });
+    await h.coordinator.requestQuit();
+    await h.coordinator.requestQuit();
+    h.coordinator.answer(h.main.id, { kind: 'quit', confirmed: false });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(h.main.sent.filter(([c]) => c === CONFIRM)).toHaveLength(1);
+  });
 });

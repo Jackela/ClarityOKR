@@ -68,6 +68,8 @@ const or = (a: UnsavedFlags, b: UnsavedFlags): UnsavedFlags => ({
 export class ExitCoordinator {
   private pending: Pending | null = null;
   private exiting = false;
+  /** N13: a quit asked while the restart dialog was open; it continues once that one ends. */
+  private quitQueued = false;
   private readonly restartOrigins = new Map<number, ExitWindow>();
 
   constructor(private readonly deps: ExitCoordinatorDeps) {}
@@ -84,6 +86,7 @@ export class ExitCoordinator {
   async requestQuit(): Promise<QuitOutcome> {
     if (this.exiting) return 'quitting';
     if (this.pending) {
+      if (this.pending.event.kind === 'restart') this.quitQueued = true;
       this.pending.host?.focus();
       return 'confirm_pending';
     }
@@ -122,13 +125,18 @@ export class ExitCoordinator {
     this.pending = null;
     if (!answer.confirmed) {
       this.notifyOrigins({ outcome: 'cancelled' });
+      this.continueQueuedQuit();
       return ipcOk({ accepted: true });
     }
     if (answer.kind === 'quit') {
+      this.quitQueued = false;
       this.exiting = true;
       this.deps.quit();
-    } else if (!this.relaunch()) {
-      this.notifyOrigins({ outcome: 'failed' });
+    } else {
+      // 放弃并重启: the restart answers the quit too. If it fails (relaunch_failed) the recorded
+      // quit is dropped; only the inline error shows, and a later ⌘Q asks again (spec v2.8).
+      this.quitQueued = false;
+      if (!this.relaunch()) this.notifyOrigins({ outcome: 'failed' });
     }
     return ipcOk({ accepted: true });
   }
@@ -139,7 +147,15 @@ export class ExitCoordinator {
     if (this.pending?.host?.id === windowId) {
       this.pending = null;
       this.notifyOrigins({ outcome: 'cancelled' });
+      this.continueQueuedQuit();
     }
+  }
+
+  /** N13: after 「先不重启」 the quit asked meanwhile goes on to its own confirmation. */
+  private continueQueuedQuit(): void {
+    if (!this.quitQueued) return;
+    this.quitQueued = false;
+    void this.requestQuit();
   }
 
   private evaluate(unsaved: UnsavedFlags): ExitConfirmation {

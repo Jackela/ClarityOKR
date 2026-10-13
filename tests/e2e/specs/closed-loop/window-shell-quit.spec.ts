@@ -3,11 +3,13 @@ import { join } from 'node:path';
 import type { ElectronApplication, Page } from '@playwright/test';
 
 import { test, expect, cleanupPersistenceFiles } from '../../fixtures';
+import { ClarificationPage } from '../../page-objects';
 import {
   axe,
   expectDialogCentred,
   expectInert,
   invoke,
+  mockFor,
   openSticky,
   setTheme,
   shot,
@@ -278,11 +280,11 @@ function prepare(dir: string, mode: Mode): void {
   }
 }
 
-test.describe('D2: memory mode — restart dialog in the main window, quit memory-only', () => {
+test.describe('D2: memory mode — restart dialog in the main window, quit with wizard + memory', () => {
   // eslint-disable-next-line no-empty-pattern -- Playwright requires destructured fixture args.
   test.beforeEach(({}, testInfo) => prepare(testInfo.outputDir, 'memory'));
 
-  test('restart from the sticky note asks in the main window; quit asks 「先不退出」', async ({
+  test('memory only, then a wizard in the middle of its questions joins both dialogs', async ({
     electronApp,
     mainWindow,
     mockServer,
@@ -294,32 +296,18 @@ test.describe('D2: memory mode — restart dialog in the main window, quit memor
         throw new Error('relaunch refused (e2e)');
       };
     });
-
     const restart = sticky.getByTestId('memory-restart');
-    await restart.click();
     const dialog = mainWindow.getByTestId('restart-dialog');
+    const body = mainWindow.locator('.dialog__body');
+
+    // 1. memory only (the wizard's input already became the OKR): one line, 「先不重启」
+    await restart.click();
     await expect(dialog).toBeVisible();
     await expect(sticky.getByTestId('restart-dialog')).toHaveCount(0);
-    await expect(dialog).toContainText('重启 ClarityOKR？');
-    await expect(dialog).toContainText('重启后本次运行的内容会丢失。');
+    await expect(body).toHaveText('重启后本次运行的内容会丢失。');
     await expect(mainWindow.getByTestId('dialog-cancel')).toHaveText('先不重启');
     await expect(mainWindow.getByTestId('dialog-cancel')).toBeFocused();
     await expect(restart).toHaveAttribute('aria-disabled', 'true');
-    await expectDialogCentred(mainWindow, 'restart-dialog');
-    await expectInert(mainWindow, 'memory-bar');
-    await mainWindow.evaluate(() => window.scrollTo(0, 0));
-    await shot(mainWindow, 'D2-09-restart-confirm-main');
-    await axe(mainWindow, 'restart confirm (main)');
-    await setTheme(mainWindow, 'dark');
-    await shot(mainWindow, 'D2-10-restart-confirm-main-dark');
-    await axe(mainWindow, 'restart confirm (main, dark)');
-    await setTheme(mainWindow, 'light');
-
-    // a second click in the other window while it is open: still one dialog
-    await mainWindow.keyboard.press('Tab'); // stays inside the dialog
-    await expect(mainWindow.getByTestId('restart-dialog')).toHaveCount(1);
-
-    // 先不重启 → the focus goes back to 「重启应用」 in the sticky window
     await mainWindow.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);
     await expect(restart).toBeFocused();
@@ -332,23 +320,109 @@ test.describe('D2: memory mode — restart dialog in the main window, quit memor
     await expect(restart).toBeFocused();
     await expect(mainWindow.getByTestId('relaunch-failed')).toHaveCount(0);
 
-    // quit with only the in-memory reason: main window, 「先不退出」
+    // quit, memory only: 「先不退出」
     await clickAppMenu(electronApp, '退出');
     const quit = mainWindow.getByTestId('quit-dialog');
-    await expect(quit).toBeVisible();
-    await expect(mainWindow.locator('.dialog__body')).toHaveText(
-      '本次运行的内容没有保存到文件，退出后会全部丢失。',
-    );
+    await expect(body).toHaveText('本次运行的内容没有保存到文件，退出后会全部丢失。');
     await expect(mainWindow.getByTestId('dialog-cancel')).toHaveText('先不退出');
+    await mainWindow.keyboard.press('Escape');
+    await expect(quit).toHaveCount(0);
+
+    // 2. a NEW clarification in the middle of its questions (not generated yet)
+    await invoke(sticky, 'clarityokr:window:open-wizard');
+    const clarification = new ClarificationPage(mainWindow);
+    await mockServer.setResponses(mockFor('缩短交付周期'));
+    await clarification.startClarification('第二个目标：缩短交付周期');
+    await clarification.waitForOptions();
+    await clarification.answerQuestion(0);
+    await clarification.waitForOptions();
+    // question 2 is on screen (not the loading placeholder)
+    await expect(mainWindow.getByTestId('prompt-question')).toBeVisible();
+    await expect(mainWindow.getByTestId('clarification-option').first()).toBeVisible();
+
+    // restart from the sticky note: wizard line first, then the memory line; 「继续编辑」
+    await restart.click();
+    await expect(dialog).toBeVisible();
+    await expect(body).toHaveText(
+      ['向导里已经填写的内容还没有保存，重启会丢掉这些内容。', '重启后本次运行的内容会丢失。'].join(
+        '\n',
+      ),
+    );
+    await expect(mainWindow.getByTestId('dialog-cancel')).toHaveText('继续编辑');
+    await expect(mainWindow.getByTestId('dialog-cancel')).toBeFocused();
+    await expectDialogCentred(mainWindow, 'restart-dialog');
+    await expectInert(mainWindow, 'memory-bar');
     await mainWindow.evaluate(() => window.scrollTo(0, 0));
-    await shot(mainWindow, 'D2-11-quit-confirm-memory-only');
-    await axe(mainWindow, 'quit confirm memory only');
+    await shot(mainWindow, 'D2-09-restart-confirm-main');
+    await axe(mainWindow, 'restart confirm (main)');
     await setTheme(mainWindow, 'dark');
-    await shot(mainWindow, 'D2-12-quit-confirm-memory-only-dark');
-    await axe(mainWindow, 'quit confirm memory only (dark)');
+    await shot(mainWindow, 'D2-10-restart-confirm-main-dark');
+    await axe(mainWindow, 'restart confirm (main, dark)');
+    await setTheme(mainWindow, 'light');
+    await mainWindow.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    await expect(restart).toBeFocused();
+
+    // quit: the same two lines in the quit wording, 「继续编辑」
+    await clickAppMenu(electronApp, '退出');
+    await expect(quit).toBeVisible();
+    await expect(body).toHaveText(
+      [
+        '向导里已经填写的内容还没有保存，退出会丢掉这些内容。',
+        '本次运行的内容没有保存到文件，退出后会全部丢失。',
+      ].join('\n'),
+    );
+    await expect(mainWindow.getByTestId('dialog-cancel')).toHaveText('继续编辑');
+    await mainWindow.evaluate(() => window.scrollTo(0, 0));
+    await shot(mainWindow, 'D2-11-quit-confirm-wizard-memory');
+    await axe(mainWindow, 'quit confirm wizard + memory');
+    await setTheme(mainWindow, 'dark');
+    await shot(mainWindow, 'D2-12-quit-confirm-wizard-memory-dark');
+    await axe(mainWindow, 'quit confirm wizard + memory (dark)');
     await setTheme(mainWindow, 'light');
     await mainWindow.keyboard.press('Escape');
     await expect(quit).toHaveCount(0);
+    expect(await quitCalls(electronApp)).toBe(0);
+  });
+});
+
+test.describe('D2: closing the main window only hides it (B2, spec v2.8 §1.2c)', () => {
+  test('wizard draft survives a close: no confirm, flag kept, the quit confirm still names it', async ({
+    electronApp,
+    mainWindow,
+    mockServer,
+  }) => {
+    const sticky = await openSticky(electronApp, mainWindow, mockServer);
+    await stubQuit(electronApp);
+    await openWizardDraft(mainWindow, sticky, '关窗前写的目标');
+
+    const mainState = () =>
+      electronApp.evaluate(({ BrowserWindow }, title) => {
+        const w = BrowserWindow.getAllWindows().find(
+          (x) => !x.isDestroyed() && x.getTitle() !== title,
+        );
+        return w ? { exists: true, visible: w.isVisible() } : { exists: false, visible: false };
+      }, STICKY_TITLE);
+
+    // the window's close button
+    await electronApp.evaluate(({ BrowserWindow }, title) => {
+      BrowserWindow.getAllWindows()
+        .find((x) => x.getTitle() !== title)
+        ?.close();
+    }, STICKY_TITLE);
+    await expect.poll(mainState).toEqual({ exists: true, visible: false });
+    await expect(mainWindow.locator('[role="alertdialog"]')).toHaveCount(0);
+    await expect(sticky.locator('[role="alertdialog"]')).toHaveCount(0);
+    expect(await quitCalls(electronApp)).toBe(0);
+
+    // recall through the quit path: the unsaved flag was not cleared, the draft is there
+    await clickAppMenu(electronApp, '退出');
+    await expect.poll(mainState).toEqual({ exists: true, visible: true });
+    await expect(mainWindow.getByTestId('quit-dialog')).toContainText(
+      '向导里已经填写的内容还没有保存，退出会丢掉这些内容。',
+    );
+    await mainWindow.keyboard.press('Escape');
+    await expect(mainWindow.getByTestId('intent-input')).toHaveValue('关窗前写的目标');
     expect(await quitCalls(electronApp)).toBe(0);
   });
 });
