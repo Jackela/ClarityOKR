@@ -270,6 +270,51 @@ test.describe('D2: quit confirmation from both windows (§1.2c)', () => {
   });
 });
 
+test.describe('D2: the answer could not be taken (B3)', () => {
+  test('ok:false from the main process keeps the dialog with one alert line; focus on the button', async ({
+    electronApp,
+    mainWindow,
+    mockServer,
+  }) => {
+    const sticky = await openSticky(electronApp, mainWindow, mockServer);
+    await stubQuit(electronApp);
+    await sticky.getByTestId('tab-review').click();
+    await sticky.getByTestId('review-wentWell').fill('还没保存的复盘');
+    // the main process refuses every answer
+    await electronApp.evaluate(({ ipcMain }) => {
+      ipcMain.removeHandler('clarityokr:app:exit-answer');
+      ipcMain.handle('clarityokr:app:exit-answer', () => ({
+        ok: false,
+        error: { code: 'INTERNAL', message: 'refused (e2e)' },
+      }));
+    });
+    await clickAppMenu(electronApp, '退出');
+    const dialog = sticky.getByTestId('quit-dialog');
+    await expect(dialog).toBeVisible();
+    await sticky.getByTestId('dialog-confirm').click();
+    const error = sticky.getByTestId('dialog-error');
+    await expect(error).toHaveCount(1);
+    await expect(error).toHaveAttribute('role', 'alert');
+    await expect(error).toHaveText('⚠ 没能完成这次操作，请再试一次。');
+    await expect(dialog).toBeVisible();
+    await expect(sticky.getByTestId('dialog-confirm')).toBeFocused();
+    await expect(sticky.getByTestId('dialog-confirm')).not.toHaveAttribute('aria-disabled', 'true');
+    expect(await error.evaluate((el) => getComputedStyle(el).color)).toBe('rgb(185, 28, 28)');
+    expect(await quitCalls(electronApp)).toBe(0);
+    await shot(sticky, 'D2-13-answer-failed');
+    await axe(sticky, 'answer failed');
+    await setTheme(sticky, 'dark');
+    expect(await error.evaluate((el) => getComputedStyle(el).color)).toBe('rgb(252, 165, 165)');
+    await shot(sticky, 'D2-14-answer-failed-dark');
+    await axe(sticky, 'answer failed (dark)');
+    await setTheme(sticky, 'light');
+    // a second failure still shows ONE line
+    await sticky.getByTestId('dialog-cancel').click();
+    await expect(error).toHaveCount(1);
+    await expect(dialog).toBeVisible();
+  });
+});
+
 type Mode = 'memory';
 function prepare(dir: string, mode: Mode): void {
   mkdirSync(dir, { recursive: true });

@@ -297,6 +297,8 @@ export const COPY = {
     keepEditing: '继续编辑',
     confirm: '放弃并重启',
   },
+  /** §1.2c: the quit / restart answer was not taken (reject, ok:false or 5 s timeout). */
+  exitAnswerFailed: '没能完成这次操作，请再试一次。',
   /** §1.2c 退出确认 */
   quit: {
     title: '退出 ClarityOKR？',
