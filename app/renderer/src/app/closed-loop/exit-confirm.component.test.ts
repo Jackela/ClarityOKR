@@ -78,7 +78,7 @@ describe('ExitConfirmComponent (spec §1.2c quit / §7a.4 restart dialog)', () =
   it('quit, one reason: alertdialog with the quit copy, 「继续编辑」 focused, 「放弃并退出」 danger', async () => {
     await create();
     (document.getElementById('typing') as HTMLInputElement).focus();
-    pushEvent({ kind: 'quit', confirmation: confirmation(['review_draft']) });
+    pushEvent({ requestId: 1, kind: 'quit', confirmation: confirmation(['review_draft']) });
     await settle();
     const dialog = q('quit-dialog');
     expect(dialog.getAttribute('role')).toBe('alertdialog');
@@ -94,6 +94,7 @@ describe('ExitConfirmComponent (spec §1.2c quit / §7a.4 restart dialog)', () =
   it('quit, several reasons: one line each in the fixed order', async () => {
     await create();
     pushEvent({
+      requestId: 1,
       kind: 'quit',
       confirmation: confirmation(['memory_data', 'text_edit', 'wizard', 'review_draft']),
     });
@@ -112,31 +113,31 @@ describe('ExitConfirmComponent (spec §1.2c quit / §7a.4 restart dialog)', () =
     await create();
     const input = document.getElementById('typing') as HTMLInputElement;
     input.focus();
-    pushEvent({ kind: 'quit', confirmation: confirmation(['text_edit']) });
+    pushEvent({ requestId: 1, kind: 'quit', confirmation: confirmation(['text_edit']) });
     await settle();
     document.dispatchEvent(
       new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
     );
     await settle();
     expect(q('quit-dialog')).toBeNull();
-    expect(api.exitAnswer).toHaveBeenCalledWith({ kind: 'quit', confirmed: false });
+    expect(api.exitAnswer).toHaveBeenCalledWith({ requestId: 1, kind: 'quit', confirmed: false });
     expect(document.activeElement).toBe(input);
   });
 
   it('「放弃并退出」 answers confirmed:true', async () => {
     await create();
-    pushEvent({ kind: 'quit', confirmation: confirmation(['wizard']) });
+    pushEvent({ requestId: 1, kind: 'quit', confirmation: confirmation(['wizard']) });
     await settle();
     q('dialog-confirm').click();
     await settle();
-    expect(api.exitAnswer).toHaveBeenCalledWith({ kind: 'quit', confirmed: true });
+    expect(api.exitAnswer).toHaveBeenCalledWith({ requestId: 1, kind: 'quit', confirmed: true });
     expect(q('quit-dialog')).toBeNull();
   });
 
   it('memory only: 「先不退出」; focus was outside the window → lands on 「导出当前 OKR」', async () => {
     await create();
     (document.activeElement as HTMLElement | null)?.blur();
-    pushEvent({ kind: 'quit', confirmation: confirmation(['memory_data'], true) });
+    pushEvent({ requestId: 1, kind: 'quit', confirmation: confirmation(['memory_data'], true) });
     await settle();
     expect(document.querySelector('.dialog__body')!.textContent).toBe(
       '本次运行的内容没有保存到文件，退出后会全部丢失。',
@@ -149,7 +150,7 @@ describe('ExitConfirmComponent (spec §1.2c quit / §7a.4 restart dialog)', () =
 
   it('restart version: title, memory sentence, 「先不重启」 / 「放弃并重启」, answer kind restart', async () => {
     await create();
-    pushEvent({ kind: 'restart', confirmation: confirmation(['memory_data'], true) });
+    pushEvent({ requestId: 1, kind: 'restart', confirmation: confirmation(['memory_data'], true) });
     await settle();
     const dialog = q('restart-dialog');
     expect(dialog.textContent).toContain('重启 ClarityOKR？');
@@ -158,18 +159,22 @@ describe('ExitConfirmComponent (spec §1.2c quit / §7a.4 restart dialog)', () =
     expect(q('dialog-confirm').textContent!.trim()).toBe('放弃并重启');
     q('dialog-confirm').click();
     await settle();
-    expect(api.exitAnswer).toHaveBeenCalledWith({ kind: 'restart', confirmed: true });
+    expect(api.exitAnswer).toHaveBeenCalledWith({ requestId: 1, kind: 'restart', confirmed: true });
   });
 
   it('restart with an unsaved draft too: safe button 「继续编辑」', async () => {
     await create();
-    pushEvent({ kind: 'restart', confirmation: confirmation(['wizard', 'memory_data']) });
+    pushEvent({
+      requestId: 1,
+      kind: 'restart',
+      confirmation: confirmation(['wizard', 'memory_data']),
+    });
     await settle();
     expect(q('dialog-cancel').textContent!.trim()).toBe('继续编辑');
   });
 
   it('a window that loads while a dialog is pending shows it (exit-pending)', async () => {
-    await create({ kind: 'quit', confirmation: confirmation(['wizard']) });
+    await create({ requestId: 1, kind: 'quit', confirmation: confirmation(['wizard']) });
     expect(api.exitPending).toHaveBeenCalledTimes(1);
     expect(q('quit-dialog')).not.toBeNull();
   });
@@ -178,8 +183,20 @@ describe('ExitConfirmComponent (spec §1.2c quit / §7a.4 restart dialog)', () =
     [null],
     ['quit'],
     [{ kind: 'exit', confirmation: confirmation(['wizard']) }],
-    [{ kind: 'quit', confirmation: { ...confirmation(['wizard']), reasons: ['boom'] } }],
-    [{ kind: 'quit', confirmation: { ...confirmation(['wizard']), dialogWindow: 'x' } }],
+    [
+      {
+        requestId: 1,
+        kind: 'quit',
+        confirmation: { ...confirmation(['wizard']), reasons: ['boom'] },
+      },
+    ],
+    [
+      {
+        requestId: 1,
+        kind: 'quit',
+        confirmation: { ...confirmation(['wizard']), dialogWindow: 'x' },
+      },
+    ],
   ])('a malformed event %j opens nothing', async (payload) => {
     await create();
     pushEvent(payload);
@@ -204,7 +221,7 @@ describe('ExitConfirmComponent (spec §1.2c quit / §7a.4 restart dialog)', () =
     '%s keeps the dialog open with ONE inline alert; a retry that works closes it',
     async (_n, fail) => {
       await create();
-      pushEvent({ kind: 'quit', confirmation: confirmation(['wizard']) });
+      pushEvent({ requestId: 1, kind: 'quit', confirmation: confirmation(['wizard']) });
       await settle();
       api.exitAnswer.mockImplementationOnce(fail);
       q('dialog-confirm').click();
@@ -229,7 +246,7 @@ describe('ExitConfirmComponent (spec §1.2c quit / §7a.4 restart dialog)', () =
 
   it('while waiting: both buttons aria-disabled, clicks and Esc do nothing; then the failure', async () => {
     await create();
-    pushEvent({ kind: 'restart', confirmation: confirmation(['memory_data'], true) });
+    pushEvent({ requestId: 1, kind: 'restart', confirmation: confirmation(['memory_data'], true) });
     await settle();
     let resolve: (v: unknown) => void = () => undefined;
     api.exitAnswer.mockReturnValueOnce(new Promise((r) => (resolve = r)));
@@ -256,7 +273,7 @@ describe('ExitConfirmComponent (spec §1.2c quit / §7a.4 restart dialog)', () =
 
   it('no reply within 5 s counts as a failure (timeout)', async () => {
     await create();
-    pushEvent({ kind: 'quit', confirmation: confirmation(['wizard']) });
+    pushEvent({ requestId: 1, kind: 'quit', confirmation: confirmation(['wizard']) });
     await settle();
     jest.useFakeTimers();
     try {
@@ -284,8 +301,8 @@ describe('ExitConfirmComponent (spec §1.2c quit / §7a.4 restart dialog)', () =
   it('each new quit / restart re-queries exit-pending; the main process wins over the payload', async () => {
     await create();
     expect(api.exitPending).toHaveBeenCalledTimes(1); // on load
-    mainPending = { kind: 'quit', confirmation: confirmation(['review_draft']) };
-    listener({ kind: 'quit', confirmation: confirmation(['wizard']) });
+    mainPending = { requestId: 1, kind: 'quit', confirmation: confirmation(['review_draft']) };
+    listener({ requestId: 1, kind: 'quit', confirmation: confirmation(['wizard']) });
     await settle();
     expect(api.exitPending).toHaveBeenCalledTimes(2);
     expect(document.querySelector('.dialog__body')!.textContent).toBe(
@@ -293,7 +310,7 @@ describe('ExitConfirmComponent (spec §1.2c quit / §7a.4 restart dialog)', () =
     );
     q('dialog-cancel').click();
     await settle();
-    pushEvent({ kind: 'restart', confirmation: confirmation(['memory_data'], true) });
+    pushEvent({ requestId: 1, kind: 'restart', confirmation: confirmation(['memory_data'], true) });
     await settle();
     expect(api.exitPending).toHaveBeenCalledTimes(3);
     expect(q('restart-dialog')).not.toBeNull();
@@ -302,8 +319,80 @@ describe('ExitConfirmComponent (spec §1.2c quit / §7a.4 restart dialog)', () =
   it('if the re-query fails, the event payload is used', async () => {
     await create();
     api.exitPending.mockResolvedValueOnce({ ok: false, error: { code: 'INTERNAL', message: 'x' } });
-    listener({ kind: 'quit', confirmation: confirmation(['wizard']) });
+    listener({ requestId: 1, kind: 'quit', confirmation: confirmation(['wizard']) });
     await settle();
     expect(q('quit-dialog')).not.toBeNull();
+  });
+
+  it('N17: a failed answer whose dialog is no longer pending in main closes quietly', async () => {
+    await create();
+    pushEvent({ requestId: 1, kind: 'quit', confirmation: confirmation(['wizard']) });
+    await settle();
+    api.exitAnswer.mockResolvedValueOnce({ ok: false, error: { code: 'INTERNAL', message: 'x' } });
+    mainPending = null; // main handled it after all
+    q('dialog-confirm').click();
+    await settle();
+    expect(q('quit-dialog')).toBeNull();
+    expect(q('dialog-error')).toBeNull();
+  });
+
+  it('N17: a failed answer while main shows another dialog switches to that one', async () => {
+    await create();
+    pushEvent({ requestId: 1, kind: 'quit', confirmation: confirmation(['wizard']) });
+    await settle();
+    api.exitAnswer.mockResolvedValueOnce({ ok: false, error: { code: 'INTERNAL', message: 'x' } });
+    mainPending = {
+      requestId: 2,
+      kind: 'restart',
+      confirmation: confirmation(['memory_data'], true),
+    };
+    q('dialog-cancel').click();
+    await settle();
+    expect(q('quit-dialog')).toBeNull();
+    expect(q('restart-dialog')).not.toBeNull();
+    expect(q('dialog-error')).toBeNull();
+  });
+
+  it('N17: a reply after the 5 s timeout: error first, the late reply changes nothing, the retry closes quietly', async () => {
+    await create();
+    pushEvent({ requestId: 1, kind: 'quit', confirmation: confirmation(['wizard']) });
+    await settle();
+    let late: (v: unknown) => void = () => undefined;
+    api.exitAnswer.mockReturnValueOnce(new Promise((r) => (late = r)));
+    jest.useFakeTimers();
+    try {
+      q('dialog-confirm').click();
+      fixture.detectChanges();
+      jest.advanceTimersByTime(5000);
+      for (let i = 0; i < 8; i++) await Promise.resolve();
+      fixture.detectChanges();
+      jest.runOnlyPendingTimers();
+      fixture.detectChanges();
+    } finally {
+      jest.useRealTimers();
+    }
+    await settle();
+    // main still had it pending at the re-query: the failure line shows
+    expect(q('dialog-error')).not.toBeNull();
+    // the late reply arrives (main took the answer): the UI does not act on it by itself
+    mainPending = null;
+    late({ ok: true, data: { accepted: true } });
+    await settle();
+    expect(q('quit-dialog')).not.toBeNull();
+    expect(api.exitAnswer).toHaveBeenCalledTimes(1);
+    // retrying: main refuses (no such dialog) → re-query says not pending → closes, no error
+    api.exitAnswer.mockResolvedValueOnce({
+      ok: false,
+      error: { code: 'INVALID_REQUEST', message: 'x' },
+    });
+    q('dialog-confirm').click();
+    await settle();
+    expect(api.exitAnswer).toHaveBeenLastCalledWith({
+      requestId: 1,
+      kind: 'quit',
+      confirmed: true,
+    });
+    expect(q('quit-dialog')).toBeNull();
+    expect(q('dialog-error')).toBeNull();
   });
 });

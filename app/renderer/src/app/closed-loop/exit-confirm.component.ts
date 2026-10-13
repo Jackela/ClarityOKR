@@ -103,14 +103,27 @@ export class ExitConfirmComponent implements OnInit, OnDestroy {
     );
     this.busy.set(true);
     this.error.set(false);
-    const accepted = await this.send({ kind: pending.kind, confirmed });
-    this.busy.set(false);
+    const accepted = await this.send({
+      requestId: pending.requestId,
+      kind: pending.kind,
+      confirmed,
+    });
     if (!accepted) {
+      // N17: the answer may have arrived after all (late reply, lost reply). Ask the main
+      // process: if this dialog is no longer pending there, it was handled; close it quietly.
+      const stillPending = await this.stillPending(pending.requestId);
+      this.busy.set(false);
+      if (this.pending()?.requestId !== pending.requestId) return;
+      if (stillPending === false) {
+        this.pending.set(null);
+        return;
+      }
       // Keep the dialog; say so above the buttons and give the focus back to the button.
       this.error.set(true);
       setTimeout(() => clicked?.focus());
       return;
     }
+    this.busy.set(false);
     const memoryOnly = pending.confirmation.memoryOnly;
     this.pending.set(null);
     if (!confirmed && memoryOnly && this.focusWasOutside) {
@@ -119,6 +132,19 @@ export class ExitConfirmComponent implements OnInit, OnDestroy {
         this.document.querySelector<HTMLElement>('[data-testid="memory-export"]')?.focus(),
       );
     }
+  }
+
+  /**
+   * Whether the main process still has dialog `requestId` pending: `false` = it does not (or
+   * another one is pending, which is then shown), `null` = could not tell (query failed).
+   */
+  private async stillPending(requestId: number): Promise<boolean | null> {
+    const reply = await this.api.exitPending().catch(() => null);
+    if (!reply?.ok) return null;
+    const pending = reply.data.pending;
+    if (pending?.requestId === requestId) return true;
+    if (pending) this.show(pending);
+    return false;
   }
 
   /** ok + accepted within {@link EXIT_ANSWER_TIMEOUT_MS}; a reject, ok:false or timeout is false. */
@@ -151,8 +177,8 @@ export class ExitConfirmComponent implements OnInit, OnDestroy {
   }
 
   private show(event: ConfirmExitEvent): void {
-    if (this.pending()) {
-      // Already showing one (same dialog re-sent): keep its focus and error state.
+    if (this.pending()?.requestId === event.requestId) {
+      // Already showing this one (re-sent / re-queried): keep its focus and error state.
       this.pending.set(event);
       return;
     }

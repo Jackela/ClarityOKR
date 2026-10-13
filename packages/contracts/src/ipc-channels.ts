@@ -48,6 +48,7 @@ export const ALLOWED_CHANNELS = [
   'clarityokr:window:hide',
   'clarityokr:window:get-state',
   'clarityokr:window:set-always-on-top',
+  'clarityokr:okr:regenerate-krs',
 ] as const;
 
 /**
@@ -125,6 +126,8 @@ export const IPC_CHANNELS = {
   WINDOW_GET_STATE: 'clarityokr:window:get-state',
   /** 「窗口始终在最前」 switch: `{ enabled: boolean }`. */
   WINDOW_SET_ALWAYS_ON_TOP: 'clarityokr:window:set-always-on-top',
+  /** §3.7 regenerate all / the selected key results. `{ okrId, krIds? }` → `RegenerateKrsReply`. */
+  OKR_REGENERATE_KRS: 'clarityokr:okr:regenerate-krs',
 } as const;
 
 /**

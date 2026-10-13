@@ -5,6 +5,7 @@ import { BrowserWindow } from 'electron';
 
 import { IPCChannels } from '../bootstrap/ipc-channels.js';
 import { Logger } from '../core/logger.js';
+import { hideOnClose } from '../lifecycle/quit-gate.js';
 import type { OKRRepository } from '../persistence/okr-repository.types.js';
 import type { IActionLogWriter } from '../persistence/action-log-writer.js';
 import type { OkrAgentService } from '../services/okr-agent.service.js';
@@ -23,6 +24,9 @@ export interface StickyWindowConfig {
   sessionRepository: ISessionRepository;
   okrRegeneration: OkrRegenerationService;
   isQuitting: () => boolean;
+  /** N15: closing this window is a quit instead of a hide (no tray, last visible window). */
+  closeQuits?: () => boolean;
+  requestQuit?: () => void;
 }
 
 /**
@@ -86,19 +90,14 @@ export class StickyWindowManager {
     Logger.info('[main] sticky window content loaded');
 
     // Handle close event to hide instead of destroy (unless app is quitting)
-    this.window.on('close', (event) => {
-      if (this.window && !this.window.isDestroyed()) {
-        // If app is quitting, allow window to close normally
-        if (this.config.isQuitting()) {
-          return;
-        }
-        // Otherwise, prevent close and just hide the window
-        event.preventDefault();
-        this.window.hide();
-        // Keep reference so we can show it again via showStickyWindow()
-        Logger.info('[main] sticky window hidden on close');
-      }
-    });
+    // Closing hides (kept for showStickyWindow()) unless the app is quitting; without a tray
+    // on Windows / Linux closing the last visible window asks to quit instead (N15).
+    hideOnClose(
+      this.window,
+      () => this.config.isQuitting(),
+      () => this.config.closeQuits?.() ?? false,
+      () => this.config.requestQuit?.(),
+    );
 
     this.window.on('page-title-updated', (event) => {
       event.preventDefault();

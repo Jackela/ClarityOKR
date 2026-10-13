@@ -119,23 +119,51 @@ describe('ExitCoordinator: quit (§1.2c)', () => {
     const h = setup();
     h.report({ wizard: true });
     await h.coordinator.requestQuit();
-    expect(h.coordinator.answer(h.sticky.id, { kind: 'quit', confirmed: true }).ok).toBe(false);
-    expect(h.coordinator.answer(h.main.id, { kind: 'restart', confirmed: true }).ok).toBe(false);
+    expect(
+      h.coordinator.answer(h.sticky.id, {
+        requestId: h.coordinator.pendingFor(h.sticky.id)?.requestId ?? 0,
+        kind: 'quit',
+        confirmed: true,
+      }).ok,
+    ).toBe(false);
+    expect(
+      h.coordinator.answer(h.main.id, {
+        requestId: h.coordinator.pendingFor(h.main.id)?.requestId ?? 0,
+        kind: 'restart',
+        confirmed: true,
+      }).ok,
+    ).toBe(false);
     expect(h.quit).not.toHaveBeenCalled();
-    expect(h.coordinator.answer(h.main.id, { kind: 'quit', confirmed: true })).toEqual({
+    expect(
+      h.coordinator.answer(h.main.id, {
+        requestId: h.coordinator.pendingFor(h.main.id)?.requestId ?? 0,
+        kind: 'quit',
+        confirmed: true,
+      }),
+    ).toEqual({
       ok: true,
       data: { accepted: true },
     });
     expect(h.quit).toHaveBeenCalledTimes(1);
     // Already answered.
-    expect(h.coordinator.answer(h.main.id, { kind: 'quit', confirmed: true }).ok).toBe(false);
+    expect(
+      h.coordinator.answer(h.main.id, {
+        requestId: h.coordinator.pendingFor(h.main.id)?.requestId ?? 0,
+        kind: 'quit',
+        confirmed: true,
+      }).ok,
+    ).toBe(false);
   });
 
   it('「继续编辑」 → nothing quits; a later quit asks again', async () => {
     const h = setup();
     h.report({ wizard: true });
     await h.coordinator.requestQuit();
-    h.coordinator.answer(h.main.id, { kind: 'quit', confirmed: false });
+    h.coordinator.answer(h.main.id, {
+      requestId: h.coordinator.pendingFor(h.main.id)?.requestId ?? 0,
+      kind: 'quit',
+      confirmed: false,
+    });
     expect(h.quit).not.toHaveBeenCalled();
     expect(h.coordinator.pendingFor(h.main.id)).toBeNull();
     await h.coordinator.requestQuit();
@@ -200,7 +228,11 @@ describe('ExitCoordinator: restart (§7a.4)', () => {
   it('「先不重启」 → the asking window gets cancelled and the focus', async () => {
     const h = setup('memory', true);
     await h.coordinator.requestRestart(h.sticky, none);
-    h.coordinator.answer(h.main.id, { kind: 'restart', confirmed: false });
+    h.coordinator.answer(h.main.id, {
+      requestId: h.coordinator.pendingFor(h.main.id)?.requestId ?? 0,
+      kind: 'restart',
+      confirmed: false,
+    });
     expect(h.sticky.sent).toEqual([[RESULT, { outcome: 'cancelled' }]]);
     expect(h.sticky.focused).toBe(1);
     expect(h.relaunch).not.toHaveBeenCalled();
@@ -213,12 +245,20 @@ describe('ExitCoordinator: restart (§7a.4)', () => {
       throw new Error('spawn failed /secret');
     });
     await h.coordinator.requestRestart(h.sticky, none);
-    h.coordinator.answer(h.main.id, { kind: 'restart', confirmed: true });
+    h.coordinator.answer(h.main.id, {
+      requestId: h.coordinator.pendingFor(h.main.id)?.requestId ?? 0,
+      kind: 'restart',
+      confirmed: true,
+    });
     expect(h.sticky.sent).toEqual([[RESULT, { outcome: 'failed' }]]);
     expect(JSON.stringify(h.sticky.sent)).not.toContain('secret');
     expect(h.coordinator.isExiting()).toBe(false);
     await h.coordinator.requestRestart(h.sticky, none);
-    h.coordinator.answer(h.main.id, { kind: 'restart', confirmed: true });
+    h.coordinator.answer(h.main.id, {
+      requestId: h.coordinator.pendingFor(h.main.id)?.requestId ?? 0,
+      kind: 'restart',
+      confirmed: true,
+    });
     expect(h.relaunch).toHaveBeenCalledTimes(2);
     errorSpy.mockRestore();
   });
@@ -245,7 +285,11 @@ describe('ExitCoordinator: restart (§7a.4)', () => {
     expect(a).toEqual({ outcome: 'confirm_pending' });
     expect(b).toEqual({ outcome: 'confirm_pending' });
     expect(h.main.sent.filter(([c]) => c === CONFIRM)).toHaveLength(1);
-    h.coordinator.answer(h.main.id, { kind: 'restart', confirmed: false });
+    h.coordinator.answer(h.main.id, {
+      requestId: h.coordinator.pendingFor(h.main.id)?.requestId ?? 0,
+      kind: 'restart',
+      confirmed: false,
+    });
     expect(h.sticky.sent).toContainEqual([RESULT, { outcome: 'cancelled' }]);
     expect(h.main.sent).toContainEqual([RESULT, { outcome: 'cancelled' }]);
   });
@@ -277,7 +321,11 @@ describe('ExitCoordinator: restart (§7a.4)', () => {
     expect(await h.coordinator.requestRestart(h.sticky, none)).toEqual({
       outcome: 'confirm_pending',
     });
-    h.coordinator.answer(h.main.id, { kind: 'quit', confirmed: true });
+    h.coordinator.answer(h.main.id, {
+      requestId: h.coordinator.pendingFor(h.main.id)?.requestId ?? 0,
+      kind: 'quit',
+      confirmed: true,
+    });
     expect(h.quit).toHaveBeenCalledTimes(1);
     expect(h.relaunch).not.toHaveBeenCalled();
   });
@@ -295,7 +343,11 @@ describe('ExitCoordinator: restart (§7a.4)', () => {
     const h = setup('memory', true);
     await h.coordinator.requestRestart(h.sticky, none);
     h.sticky.destroyed = true;
-    h.coordinator.answer(h.main.id, { kind: 'restart', confirmed: false });
+    h.coordinator.answer(h.main.id, {
+      requestId: h.coordinator.pendingFor(h.main.id)?.requestId ?? 0,
+      kind: 'restart',
+      confirmed: false,
+    });
     expect(h.sticky.sent).toEqual([]);
   });
 
@@ -304,7 +356,11 @@ describe('ExitCoordinator: restart (§7a.4)', () => {
     await h.coordinator.requestRestart(h.sticky, none);
     expect(await h.coordinator.requestQuit()).toBe('confirm_pending');
     expect(h.main.sent.filter(([c]) => c === CONFIRM)).toHaveLength(1);
-    h.coordinator.answer(h.main.id, { kind: 'restart', confirmed: false });
+    h.coordinator.answer(h.main.id, {
+      requestId: h.coordinator.pendingFor(h.main.id)?.requestId ?? 0,
+      kind: 'restart',
+      confirmed: false,
+    });
     await new Promise((resolve) => setTimeout(resolve, 0));
     const dialogs = h.main.sent.filter(([c]) => c === CONFIRM);
     expect(dialogs).toHaveLength(2);
@@ -316,7 +372,11 @@ describe('ExitCoordinator: restart (§7a.4)', () => {
     const h = setup('memory', true);
     await h.coordinator.requestRestart(h.sticky, none);
     await h.coordinator.requestQuit();
-    h.coordinator.answer(h.main.id, { kind: 'restart', confirmed: true });
+    h.coordinator.answer(h.main.id, {
+      requestId: h.coordinator.pendingFor(h.main.id)?.requestId ?? 0,
+      kind: 'restart',
+      confirmed: true,
+    });
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(h.relaunch).toHaveBeenCalledTimes(1);
     expect(h.main.sent.filter(([c]) => c === CONFIRM)).toHaveLength(1);
@@ -331,7 +391,11 @@ describe('ExitCoordinator: restart (§7a.4)', () => {
     });
     await h.coordinator.requestRestart(h.sticky, none);
     await h.coordinator.requestQuit();
-    h.coordinator.answer(h.main.id, { kind: 'restart', confirmed: true });
+    h.coordinator.answer(h.main.id, {
+      requestId: h.coordinator.pendingFor(h.main.id)?.requestId ?? 0,
+      kind: 'restart',
+      confirmed: true,
+    });
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(h.sticky.sent).toEqual([[RESULT, { outcome: 'failed' }]]);
     expect(h.coordinator.pendingFor(h.main.id)).toBeNull();
@@ -347,8 +411,30 @@ describe('ExitCoordinator: restart (§7a.4)', () => {
     h.report({ wizard: true });
     await h.coordinator.requestQuit();
     await h.coordinator.requestQuit();
-    h.coordinator.answer(h.main.id, { kind: 'quit', confirmed: false });
+    h.coordinator.answer(h.main.id, {
+      requestId: h.coordinator.pendingFor(h.main.id)?.requestId ?? 0,
+      kind: 'quit',
+      confirmed: false,
+    });
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(h.main.sent.filter(([c]) => c === CONFIRM)).toHaveLength(1);
+  });
+
+  it('N12: an answer naming another dialog (stale requestId) is refused; the dialog stays', async () => {
+    const h = setup();
+    h.report({ wizard: true });
+    await h.coordinator.requestQuit();
+    const first = h.coordinator.pendingFor(h.main.id)!;
+    h.coordinator.answer(h.main.id, { requestId: first.requestId, kind: 'quit', confirmed: false });
+    await h.coordinator.requestQuit();
+    const second = h.coordinator.pendingFor(h.main.id)!;
+    expect(second.requestId).not.toBe(first.requestId);
+    // a late answer to the first dialog must not quit through the second one
+    expect(
+      h.coordinator.answer(h.main.id, { requestId: first.requestId, kind: 'quit', confirmed: true })
+        .ok,
+    ).toBe(false);
+    expect(h.quit).not.toHaveBeenCalled();
+    expect(h.coordinator.pendingFor(h.main.id)).toEqual(second);
   });
 });

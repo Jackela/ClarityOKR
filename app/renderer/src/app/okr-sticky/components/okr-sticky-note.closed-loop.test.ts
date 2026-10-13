@@ -354,6 +354,6 @@ describe('OkrStickyNoteComponent closed-loop states', () => {
     fixture.componentInstance.busy.set(true);
     fixture.detectChanges();
     expect(q('kr-progress-value').getAttribute('aria-disabled')).toBe('true');
-    expect(q('regenerate-button')).toBeNull();
+    expect(q('regenerate-button').getAttribute('aria-disabled')).toBe('true');
   });
 });

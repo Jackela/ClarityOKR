@@ -74,7 +74,7 @@ import { ExportMenuComponent } from './export-menu.component';
             </div>
           }
         </div>
-        <span class="hide">
+        <span class="hide" (mouseenter)="refreshHideState()" (focusin)="refreshHideState()">
           <button
             type="button"
             class="bar__btn"
@@ -88,7 +88,7 @@ import { ExportMenuComponent } from './export-menu.component';
             </svg>
           </button>
           <span id="hide-tooltip" class="tooltip" role="tooltip" data-testid="hide-tooltip">{{
-            w.hideTooltip
+            hideQuits() ? w.hideQuitsTooltip : w.hideTooltip
           }}</span>
         </span>
       </div>
@@ -223,6 +223,8 @@ export class TopBarComponent implements OnDestroy {
 
   readonly moreOpen = signal(false);
   readonly alwaysOnTop = signal(true);
+  /** N15: no tray icon and this is the last visible window, so 「隐藏」 quits (Win / Linux). */
+  readonly hideQuits = signal(false);
 
   @ViewChild('moreButton') private moreButton?: ElementRef<HTMLButtonElement>;
   @ViewChild('onTopItem') private onTopItem?: ElementRef<HTMLButtonElement>;
@@ -271,6 +273,12 @@ export class TopBarComponent implements OnDestroy {
       event.preventDefault();
       this.onTopItem?.nativeElement.focus();
     }
+  }
+
+  /** Asked again on hover / focus: other windows may have been shown or hidden meanwhile. */
+  async refreshHideState(): Promise<void> {
+    const state = await this.api.getWindowState();
+    if (state.ok) this.hideQuits.set(state.data.hideQuits === true);
   }
 
   async toggleAlwaysOnTop(): Promise<void> {

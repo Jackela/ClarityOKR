@@ -47,7 +47,8 @@ import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
-  type ElementRef,
+  ElementRef,
+  HostListener,
   Inject,
   Input,
   type OnChanges,
@@ -65,6 +66,12 @@ import { OverallProgressComponent } from '../../closed-loop/overall-progress.com
 import { PeriodPickerComponent } from '../../closed-loop/period-picker.component';
 import { DialogComponent } from '../../shared/components/dialog.component';
 import { SkeletonComponent } from '../../shared/components/skeleton.component';
+import {
+  PopupSelectComponent,
+  type PopupOption,
+} from '../../shared/components/popup-select.component';
+import { RegenerateFlow } from '../../closed-loop/regenerate-flow.service';
+import { type RegenerateBanner } from '../../closed-loop/regenerate-logic';
 import { TextEditComponent, type TextSaveFailure } from '../../closed-loop/text-edit.component';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 import { OkrStickyService, type OkrStickyViewModel } from '../services/okr-sticky.service';
@@ -97,6 +104,7 @@ function newKeyResultId(): string {
     OverallProgressComponent,
     PeriodPickerComponent,
     SkeletonComponent,
+    PopupSelectComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -105,8 +113,11 @@ function newKeyResultId(): string {
       *ngIf="okr as viewModel"
       role="region"
       aria-label="OKR 便利贴"
-      [attr.aria-busy]="store.detailState() === 'loading' ? 'true' : null"
+      [attr.aria-busy]="store.detailState() === 'loading' || regen.isRunning() ? 'true' : null"
     >
+      @if (regen.isRunning()) {
+        <div class="regen-progress" data-testid="regen-progress" aria-hidden="true"></div>
+      }
       @if (editor.isEditing()) {
         <clarityokr-text-edit
           [objective]="editor.draftObjective()"
@@ -220,6 +231,79 @@ function newKeyResultId(): string {
                 [filled]="filledCount(d.objective.keyResults)"
               />
 
+              @switch (regen.result()?.kind) {
+                @case ('done') {
+                  @if (doneBanner(); as b) {
+                    <div
+                      class="regen-banner"
+                      [class.regen-banner--warn]="b.tone === 'warn'"
+                      role="status"
+                      data-testid="regen-banner"
+                    >
+                      <div class="regen-banner__text">
+                        <p class="regen-banner__main">{{ b.main }}</p>
+                        @if (b.sub) {
+                          <p class="regen-banner__sub">{{ b.sub }}</p>
+                        }
+                      </div>
+                      <div class="regen-banner__actions">
+                        @if (b.viewRemoved) {
+                          <button
+                            type="button"
+                            class="regen-banner__btn"
+                            data-testid="regen-view-removed"
+                            (click)="viewRemoved()"
+                          >
+                            {{ t.regen.viewRemoved }}
+                          </button>
+                        }
+                        <button
+                          type="button"
+                          class="regen-banner__btn"
+                          data-testid="regen-dismiss"
+                          (click)="dismissRegen()"
+                        >
+                          {{ t.regen.gotIt }}
+                        </button>
+                      </div>
+                    </div>
+                  }
+                }
+                @case ('failed') {
+                  <div
+                    class="regen-banner regen-banner--error"
+                    role="alert"
+                    data-testid="regen-failed"
+                  >
+                    <div class="regen-banner__text">
+                      <p class="regen-banner__main">{{ t.regen.failed }}</p>
+                      <details class="regen-banner__details">
+                        <summary data-testid="regen-details">{{ t.regen.details }}</summary>
+                        <p>{{ t.regen.failedDetail(failedCode()) }}</p>
+                      </details>
+                    </div>
+                    <div class="regen-banner__actions">
+                      <button
+                        type="button"
+                        class="regen-banner__btn"
+                        data-testid="regen-retry"
+                        (click)="retryRegen()"
+                      >
+                        {{ t.regen.retry }}
+                      </button>
+                      <button
+                        type="button"
+                        class="regen-banner__btn"
+                        data-testid="regen-dismiss"
+                        (click)="dismissRegen()"
+                      >
+                        {{ t.regen.gotIt }}
+                      </button>
+                    </div>
+                  </div>
+                }
+              }
+
               <div class="sticky-note__section-head">
                 <h2 class="sticky-note__section-title">
                   {{ t.kr.heading(activeKrs(d.objective.keyResults).length) }}
@@ -235,54 +319,58 @@ function newKeyResultId(): string {
                   >
                     ＋ {{ t.addShort }}
                   </button>
-                  @if (!busy()) {
-                    <button
-                      type="button"
-                      class="sticky-note__text-btn"
-                      data-testid="regenerate-button"
-                      [attr.aria-expanded]="showPolicies()"
-                      (click)="showPolicies.set(!showPolicies())"
-                    >
-                      {{ 'okr.actions.regenerate' | translate }}
-                    </button>
-                  }
+                  <clarityokr-popup-select
+                    class="regen-menu"
+                    mode="menu"
+                    testId="regenerate-button"
+                    [ariaLabel]="t.regen.menuLabel"
+                    [options]="regenOptions"
+                    [disabled]="regenDisabled()"
+                    [attr.aria-busy]="regen.isRunning() ? 'true' : null"
+                    (selected)="onRegenMenu($event)"
+                  >
+                    @if (regen.isRunning()) {
+                      <span class="regen-menu__spinner" aria-hidden="true"></span>
+                    }
+                    {{ t.regen.button }} <span aria-hidden="true">▾</span>
+                  </clarityokr-popup-select>
                 </div>
               </div>
-              @if (showPolicies()) {
-                <div class="sticky-note__policies">
-                  <button
-                    type="button"
-                    class="sticky-note__text-btn"
-                    data-testid="policy-overwrite"
-                    (click)="regenerate('overwrite')"
-                  >
-                    {{ 'okr.actions.overwrite' | translate }}
-                  </button>
-                  <button
-                    type="button"
-                    class="sticky-note__text-btn"
-                    data-testid="policy-append"
-                    (click)="regenerate('append')"
-                  >
-                    {{ 'okr.actions.append' | translate }}
-                  </button>
-                </div>
-              }
 
               @if (activeKrs(d.objective.keyResults).length === 0) {
-                <p class="panel" data-testid="kr-empty">{{ t.kr.empty }}</p>
+                <div class="panel" data-testid="kr-empty">
+                  <p>{{ t.kr.empty }}</p>
+                  <button
+                    type="button"
+                    class="sticky-note__text-btn"
+                    data-testid="kr-empty-regenerate"
+                    (click)="regen.askAll()"
+                  >
+                    {{ t.regen.all }}
+                  </button>
+                </div>
               } @else {
                 <ol class="sticky-note__list" data-testid="kr-list">
                   @for (kr of activeKrs(d.objective.keyResults); track kr.id; let i = $index) {
-                    <li
-                      clarityokr-kr-row
-                      data-testid="sticky-key-result"
-                      [kr]="kr"
-                      [n]="i + 1"
-                      [info]="d.progress[kr.id]"
-                      [blocked]="busy()"
-                      (addMetric)="beginEdit(false, $event)"
-                    ></li>
+                    @if (isRegenerating(kr.id)) {
+                      <li class="regen-skeleton" data-testid="kr-skeleton">
+                        <clarityokr-skeleton type="card" [ariaLabel]="t.regen.running" />
+                      </li>
+                    } @else {
+                      <li
+                        clarityokr-kr-row
+                        data-testid="sticky-key-result"
+                        [kr]="kr"
+                        [n]="i + 1"
+                        [info]="d.progress[kr.id]"
+                        [blocked]="busy() || regen.selecting() || regen.isRunning()"
+                        [selecting]="regen.selecting()"
+                        [selected]="regen.selected().has(kr.id)"
+                        [isNew]="regen.newIds().has(kr.id)"
+                        (toggle)="regen.toggle($event)"
+                        (addMetric)="beginEdit(false, $event)"
+                      ></li>
+                    }
                   }
                 </ol>
               }
@@ -292,6 +380,7 @@ function newKeyResultId(): string {
                   <section class="removed" data-testid="removed-section">
                     <button
                       type="button"
+                      #removedToggle
                       class="removed__head"
                       data-testid="removed-toggle"
                       aria-controls="removed-list"
@@ -345,6 +434,38 @@ function newKeyResultId(): string {
           }
         }
       }
+      @if (regen.selecting()) {
+        <div class="regen-bar" data-testid="regen-select-bar">
+          <span class="regen-bar__count" data-testid="regen-selected-count">{{
+            t.regen.selectedCount(regen.selected().size)
+          }}</span>
+          <span class="regen-bar__actions">
+            @if (regen.selected().size === 0) {
+              <span class="regen-bar__hint" id="regen-hint">{{ t.regen.selectAtLeastOne }}</span>
+            }
+            <button
+              type="button"
+              class="regen-bar__btn"
+              data-testid="regen-select-cancel"
+              (click)="stopSelecting()"
+            >
+              {{ t.regen.cancel }}
+            </button>
+            <button
+              type="button"
+              class="regen-bar__btn regen-bar__btn--primary"
+              data-testid="regen-select-confirm"
+              [attr.aria-disabled]="regen.selected().size === 0 ? 'true' : null"
+              [attr.aria-describedby]="regen.selected().size === 0 ? 'regen-hint' : null"
+              (click)="askSelected()"
+            >
+              {{ t.regen.regenerateSelected }}
+            </button>
+          </span>
+        </div>
+      }
+      <!-- no data-testid: a layout check in the e2e suite counts every test id -->
+      <span class="sr-only regen-live" role="status">{{ regenLive() }}</span>
       <span class="sr-only sr-only--flow" role="status" data-testid="text-saved-live">{{
         textSavedLive()
       }}</span>
@@ -353,6 +474,20 @@ function newKeyResultId(): string {
       }
     </section>
     <!-- Outside the section: its backdrop-filter would make the fixed dialog relative to it. -->
+    @if (regen.confirm(); as c) {
+      <clarityokr-dialog
+        [title]="
+          c.scope === 'all' ? t.regen.confirmTitleAll : t.regen.confirmTitleSome(c.ids.length)
+        "
+        [body]="c.scope === 'all' ? t.regen.confirmBodyAll : t.regen.confirmBodySome(c.ids.length)"
+        [cancelLabel]="t.regen.cancel"
+        [confirmLabel]="t.regen.confirm"
+        [danger]="c.scope === 'all'"
+        testId="regen-dialog"
+        (cancelled)="regen.cancelConfirm()"
+        (confirmed)="confirmRegen()"
+      />
+    }
     @if (editor.isEditing() && discardOpen()) {
       <clarityokr-dialog
         [title]="t.edit.discardTitle"
@@ -371,7 +506,6 @@ function newKeyResultId(): string {
 export class OkrStickyNoteComponent implements OnChanges {
   readonly busy = signal(false);
   readonly error = signal<string | null>(null);
-  readonly showPolicies = signal(false);
   readonly removedOpen = signal(false);
   readonly periodAnnouncement = signal('');
   readonly t = COPY;
@@ -382,6 +516,16 @@ export class OkrStickyNoteComponent implements OnChanges {
 
   @ViewChild('title') private title?: ElementRef<HTMLElement>;
   @ViewChild('editBtn') private editBtn?: ElementRef<HTMLElement>;
+  @ViewChild('removedToggle') private removedToggle?: ElementRef<HTMLElement>;
+  @ViewChild(PopupSelectComponent, { read: ElementRef })
+  private regenMenu?: ElementRef<HTMLElement>;
+
+  readonly regen = inject(RegenerateFlow);
+  readonly regenOptions: readonly PopupOption[] = [
+    { value: 'some', label: COPY.regen.selectSome },
+    { value: 'all', label: COPY.regen.all },
+  ];
+  readonly regenLive = signal('');
 
   constructor(
     @Inject(EditModeStore) readonly editor: EditModeStore,
@@ -475,7 +619,9 @@ export class OkrStickyNoteComponent implements OnChanges {
    * focus into that key result's metric (the 「添加度量」 entry).
    */
   beginEdit(addKeyResult = false, metricOf?: string): void {
-    if (!this.okr || this.busy()) return;
+    if (!this.okr || this.busy() || this.regen.isRunning() || this.regen.selecting()) return;
+    // Acting on the list again ends the regeneration banner and the 「新增」 tags (§3.7).
+    this.regen.dismiss();
     this.editError.set('none');
     this.discardOpen.set(false);
     const newId = addKeyResult ? newKeyResultId() : undefined;
@@ -547,18 +693,99 @@ export class OkrStickyNoteComponent implements OnChanges {
     setTimeout(() => this.editBtn?.nativeElement.focus(), 0);
   }
 
-  async regenerate(policy: 'overwrite' | 'append'): Promise<void> {
-    this.showPolicies.set(false);
-    // The export entry is unavailable while the regeneration runs (spec §6.4).
-    this.store.regenerating.set(true);
-    try {
-      await this.perform(async () => {
-        await this.gateway.regenerate(policy);
-        // New text: the undo history of the old text no longer applies (spec §3.9).
-        this.editor.clearHistory();
-      });
-    } finally {
-      this.store.regenerating.set(false);
+  regenDisabled(): boolean {
+    return this.busy() || this.regen.isRunning() || this.regen.selecting();
+  }
+
+  isRegenerating(krId: string): boolean {
+    const running = this.regen.running();
+    return running === 'all' || (running !== null && running.has(krId));
+  }
+
+  doneBanner(): RegenerateBanner | null {
+    const result = this.regen.result();
+    return result?.kind === 'done' ? result.banner : null;
+  }
+
+  failedCode(): string {
+    const result = this.regen.result();
+    return result?.kind === 'failed' ? result.code : '';
+  }
+
+  private activeIds(): string[] {
+    const d = this.detail();
+    return d ? this.activeKrs(d.objective.keyResults).map((kr) => kr.id) : [];
+  }
+
+  onRegenMenu(value: string | null): void {
+    if (this.regenDisabled()) return;
+    if (value === 'all') {
+      this.regen.askAll();
+    } else if (value === 'some') {
+      this.regen.startSelecting();
+      setTimeout(() =>
+        this.document?.querySelector<HTMLElement>('[data-testid="kr-select"]')?.focus(),
+      );
+    }
+  }
+
+  askSelected(): void {
+    this.regen.askSelected(this.activeIds());
+  }
+
+  stopSelecting(): void {
+    this.regen.stopSelecting();
+    this.focusRegenButton();
+  }
+
+  async confirmRegen(): Promise<void> {
+    const okrId = this.okr?.id;
+    if (!okrId) return;
+    this.regenLive.set(COPY.regen.running);
+    await this.regen.confirmed(okrId);
+    this.announceResult();
+  }
+
+  async retryRegen(): Promise<void> {
+    this.regenLive.set(COPY.regen.running);
+    await this.regen.retry();
+    this.announceResult();
+  }
+
+  dismissRegen(): void {
+    this.regen.dismiss();
+    this.focusRegenButton();
+  }
+
+  /** 「查看已移除」: open the removed section and move the focus to its heading. */
+  viewRemoved(): void {
+    this.removedOpen.set(true);
+    setTimeout(() => this.removedToggle?.nativeElement.focus(), 0);
+  }
+
+  private announceResult(): void {
+    // The banner itself is role=status (role=alert on failure) and says the result.
+    this.regenLive.set('');
+  }
+
+  private focusRegenButton(): void {
+    setTimeout(() => this.regenMenu?.nativeElement.querySelector<HTMLElement>('button')?.focus());
+  }
+
+  private get document(): Document | undefined {
+    return typeof document === 'undefined' ? undefined : document;
+  }
+
+  /** Selection mode keys (spec §3.7): Ctrl/⌘+A selects all, Esc leaves. */
+  @HostListener('document:keydown', ['$event'])
+  onSelectionKey(event: KeyboardEvent): void {
+    if (!this.regen.selecting() || this.regen.confirm()) return;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      this.stopSelecting();
+    } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
+      event.preventDefault();
+      this.regen.selectAll(this.activeIds());
     }
   }
 

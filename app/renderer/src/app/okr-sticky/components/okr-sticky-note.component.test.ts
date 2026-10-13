@@ -377,48 +377,4 @@ describe('Sticky note DOM with actual edit store and gateway', () => {
     expect(fixture.nativeElement.querySelector('[data-testid="copy-success"]')).toBeNull();
     expect(note).not.toHaveProperty('copy');
   });
-
-  it.each(['overwrite', 'append'] as const)(
-    'dispatches the actual %s regeneration policy and shows server data',
-    async (policy) => {
-      element('regenerate-button').click();
-      fixture.detectChanges();
-      invoke.mockResolvedValueOnce({
-        ...original,
-        objective: 'Regenerated objective',
-        regenerationPolicy: policy,
-      });
-      await clickAndWait(`policy-${policy}`, 'regenerate');
-      expect(invoke).toHaveBeenCalledWith(IPC_CHANNELS.OKR_REGENERATE, {
-        sessionId: original.sourceSessionId,
-        policy,
-      });
-      expect(element('sticky-objective').textContent).toBe('Regenerated objective');
-      expect(note.showPolicies()).toBe(false);
-      expect(note.busy()).toBe(false);
-    },
-  );
-
-  it('ignores edit requests while regeneration is pending and says so in the store', async () => {
-    let resolve: (value: unknown) => void = () => {
-      throw new Error('Missing controlled response');
-    };
-    invoke.mockImplementationOnce(
-      () =>
-        new Promise((done) => {
-          resolve = done;
-        }),
-    );
-    const regenerating = note.regenerate('append');
-    expect(TestBed.inject(ClosedLoopStore).regenerating()).toBe(true);
-    element('edit-button').click();
-    expect(store.isEditing()).toBe(false);
-    resolve({ ...original, objective: 'Regenerated objective' });
-    await regenerating;
-    await render();
-    expect(TestBed.inject(ClosedLoopStore).regenerating()).toBe(false);
-    expect(note.error()).toBeNull();
-    note.cancel();
-    expect(store.isEditing()).toBe(false);
-  });
 });

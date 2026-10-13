@@ -11,6 +11,8 @@ import {
   type OkrDetail,
   type OkrListReply,
   type PinReply,
+  type RegenerateKrsReply,
+  type RegenerateKrsRequest,
   type RevealReply,
   type RevealRequest,
   type ReviewReply,
@@ -52,6 +54,11 @@ export class ClosedLoopApi {
 
   open(request: OkrIdRequest): Promise<IpcResult<OkrDetail>> {
     return this.call(IPC_CHANNELS.OKR_OPEN, request);
+  }
+
+  /** §3.7: regenerate all (no `krIds`) or the selected key results. */
+  regenerateKrs(request: RegenerateKrsRequest): Promise<IpcResult<RegenerateKrsReply>> {
+    return this.call(IPC_CHANNELS.OKR_REGENERATE_KRS, request);
   }
 
   pin(request: OkrIdRequest): Promise<IpcResult<PinReply>> {

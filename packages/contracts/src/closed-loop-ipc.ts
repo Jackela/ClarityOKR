@@ -33,6 +33,8 @@ export type ClosedLoopErrorCode =
   | 'NOTHING_TO_REVERT'
   /** The newest entry is already a revert; a revert cannot be reverted again. */
   | 'LATEST_IS_REVERT'
+  /** The regeneration request failed (LLM, response or save); nothing was changed. */
+  | 'REGENERATE_FAILED'
   /** `export:reveal` was asked for a path the main process did not just return. */
   | 'PATH_NOT_ALLOWED'
   /** Anything unexpected. The message is generic: no paths, no raw error text. */
@@ -263,12 +265,16 @@ export type ExitKind = 'quit' | 'restart';
 
 /** Main → renderer `clarityokr:app:confirm-exit`: open the quit / restart dialog in this window. */
 export interface ConfirmExitEvent {
+  /** N12: identifies this one dialog; the answer must carry it back. */
+  requestId: number;
   kind: ExitKind;
   confirmation: ExitConfirmation;
 }
 
 /** Renderer → main `clarityokr:app:exit-answer`: the user's answer to that dialog. */
 export interface ExitAnswer {
+  /** N12: the `requestId` of the dialog being answered (a stale answer is refused). */
+  requestId: number;
   kind: ExitKind;
   /** `true` = 「放弃并退出 / 放弃并重启」, `false` = the safe button or Esc. */
   confirmed: boolean;
@@ -291,6 +297,8 @@ export interface RestartResultEvent {
 /** Reply of `clarityokr:window:get-state` / `set-always-on-top`. */
 export interface WindowStateReply {
   alwaysOnTop: boolean;
+  /** N15: 「隐藏」 would quit (no tray icon, last visible window; Windows / Linux). */
+  hideQuits: boolean;
 }
 
 export interface SetAlwaysOnTopRequest {
@@ -298,7 +306,9 @@ export interface SetAlwaysOnTopRequest {
 }
 
 export interface HideWindowReply {
-  hidden: true;
+  /** false = nothing was hidden: it was the last visible window without a tray, so a quit was
+   *  asked instead (N15). */
+  hidden: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -586,15 +596,79 @@ export function parseUnsavedReport(payload: unknown): Parsed<UnsavedReport> {
 }
 
 export function parseExitAnswer(payload: unknown): Parsed<ExitAnswer> {
-  const record = asRecord(payload, ['kind', 'confirmed']);
+  const record = asRecord(payload, ['requestId', 'kind', 'confirmed']);
   if (isFailure(record)) return record;
+  const requestId = record.requestId;
+  if (requestId === undefined) return invalid('requestId', 'missing');
+  if (typeof requestId !== 'number') return invalid('requestId', 'wrong_type');
+  if (!Number.isSafeInteger(requestId)) return invalid('requestId', 'not_integer');
+  if (requestId < 1) return invalid('requestId', 'below_min');
   const kind = record.kind;
   if (kind === undefined) return invalid('kind', 'missing');
   if (kind !== 'quit' && kind !== 'restart') return invalid('kind', 'wrong_type');
   const confirmed = record.confirmed;
   if (confirmed === undefined) return invalid('confirmed', 'missing');
   if (typeof confirmed !== 'boolean') return invalid('confirmed', 'wrong_type');
-  return { ok: true, value: { kind, confirmed } };
+  return { ok: true, value: { requestId, kind, confirmed } };
+}
+
+/** §3.7: regenerate every key result (`krIds` omitted) or only the selected ones. */
+export interface RegenerateKrsRequest {
+  okrId: string;
+  krIds?: string[];
+}
+
+/**
+ * Which result-banner case applies (spec §3.7 table):
+ * - `updated`: all ids came back, same order and count;
+ * - `reordered`: all ids came back in another order;
+ * - `changed`: some kept, some new and/or some removed (`missingIds` > 0 = some came back
+ *   without a usable id, the 「id 缺失」 wording);
+ * - `partial_updated` / `partial_removed`: a partial regeneration.
+ */
+export type RegenerateOutcome =
+  'updated' | 'reordered' | 'changed' | 'partial_updated' | 'partial_removed';
+
+export interface RegenerateSummary {
+  outcome: RegenerateOutcome;
+  /** Key results asked to be regenerated (all active ones, or the selection). */
+  requested: number;
+  kept: number;
+  added: number;
+  removed: number;
+  /** New key results that came back without a usable id (counted in `added`). */
+  missingIds: number;
+  /** Ids of the new key results (shown with the 「新增」 tag). */
+  addedIds: string[];
+  /** Ids of the key results the regeneration rewrote or added (the rows that were regenerated). */
+  touchedIds: string[];
+}
+
+export interface RegenerateKrsReply {
+  detail: OkrDetail;
+  summary: RegenerateSummary;
+}
+
+export const MAX_REGENERATE_SELECTION = 10;
+
+export function parseRegenerateKrsRequest(payload: unknown): Parsed<RegenerateKrsRequest> {
+  const record = asRecord(payload, ['okrId', 'krIds']);
+  if (isFailure(record)) return record;
+  const okrId = readId(record, 'okrId');
+  if (isFailure(okrId)) return okrId;
+  const krIds = record.krIds;
+  if (krIds === undefined) return { ok: true, value: { okrId } };
+  if (!Array.isArray(krIds)) return invalid('krIds', 'wrong_type');
+  if (krIds.length === 0) return invalid('krIds', 'empty');
+  if (krIds.length > MAX_REGENERATE_SELECTION) return invalid('krIds', 'above_max');
+  const ids: string[] = [];
+  for (const id of krIds) {
+    if (typeof id !== 'string') return invalid('krIds', 'wrong_type');
+    if (id.trim() === '') return invalid('krIds', 'empty');
+    if (id.length > MAX_ID_LENGTH) return invalid('krIds', 'too_long');
+    if (!ids.includes(id)) ids.push(id);
+  }
+  return { ok: true, value: { okrId, krIds: ids } };
 }
 
 export function parseSetAlwaysOnTop(payload: unknown): Parsed<SetAlwaysOnTopRequest> {
@@ -614,7 +688,10 @@ const REASONS: readonly string[] = EXIT_CONFIRM_REASON_ORDER;
  */
 export function readConfirmExitEvent(payload: unknown): ConfirmExitEvent | null {
   if (typeof payload !== 'object' || payload === null) return null;
-  const { kind, confirmation } = payload as Rec;
+  const { requestId, kind, confirmation } = payload as Rec;
+  if (typeof requestId !== 'number' || !Number.isSafeInteger(requestId) || requestId < 1) {
+    return null;
+  }
   if (kind !== 'quit' && kind !== 'restart') return null;
   if (typeof confirmation !== 'object' || confirmation === null) return null;
   const c = confirmation as Rec;
@@ -629,7 +706,7 @@ export function readConfirmExitEvent(payload: unknown): ConfirmExitEvent | null 
   ) {
     return null;
   }
-  return { kind, confirmation: c as unknown as ExitConfirmation };
+  return { requestId, kind, confirmation: c as unknown as ExitConfirmation };
 }
 
 /** Renderer-side check of a `restart-result` event payload. */
