@@ -119,6 +119,18 @@ describe('ExportMenuComponent (spec §6.2, §2.6 menu, T9)', () => {
     expect(document.activeElement).toBe(q('export-button'));
   });
 
+  it('Esc right after opening (focus still on the button) closes it too', () => {
+    const button = q('export-button');
+    button.focus();
+    button.click();
+    fixture.detectChanges();
+    expect(q('export-menu')).not.toBeNull();
+    const event = key(button, { key: 'Escape' });
+    expect(event.defaultPrevented).toBe(true);
+    expect(q('export-menu')).toBeNull();
+    expect(document.activeElement).toBe(button);
+  });
+
   it('Tab closes the menu (the focus moves on naturally)', async () => {
     await open();
     key(document.activeElement as HTMLElement, { key: 'Tab' });

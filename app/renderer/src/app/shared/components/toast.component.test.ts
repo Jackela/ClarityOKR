@@ -60,6 +60,19 @@ describe('Toast (spec §2.6)', () => {
     expect(q('toast-error')).toBeNull();
   });
 
+  it('an error carries a ⚠ icon before the text (not colour alone); other kinds do not', () => {
+    toasts.show({ kind: 'error', message: '磁盘已满，没有保存成功。' });
+    flush();
+    const icon = q('toast-error-icon')!;
+    expect(icon.getAttribute('aria-hidden')).toBe('true');
+    const message = fixture.nativeElement.querySelector('.toast__message') as HTMLElement;
+    expect(message.firstElementChild).toBe(icon);
+    expect(message.textContent!.trim()).toBe('磁盘已满，没有保存成功。');
+    toasts.show({ kind: 'success', message: '已复制到剪贴板。' });
+    flush();
+    expect(q('toast-error-icon')).toBeNull();
+  });
+
   it('the close button is 32px and named 关闭通知', () => {
     toasts.show({ kind: 'success', message: 'x' });
     flush();

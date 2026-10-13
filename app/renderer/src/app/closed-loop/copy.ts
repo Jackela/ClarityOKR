@@ -1,3 +1,4 @@
+import { truncateGraphemes } from '@clarityokr/contracts';
 /**
  * zh-CN copy for the closed-loop UI (spec v2.7 §3.13, §4.8). Kept in one module so the wording
  * can be checked against the design spec in one place; interpolated strings are functions.
@@ -235,8 +236,12 @@ export const COPY = {
     disabledNoOkr: '没有可导出的内容',
     disabledRegenerating: '正在重新生成，完成后可导出',
     exporting: '正在导出…',
-    saved: (format: 'md' | 'json', fileName: string): string =>
-      `已导出为 ${format === 'md' ? 'Markdown' : 'JSON'}：${fileName}`,
+    /** 「已导出「{标题}」为 Markdown：{文件名}」; the title is cut after 16 characters (…). */
+    saved: (format: 'md' | 'json', fileName: string, title?: string): string => {
+      const kind = format === 'md' ? 'Markdown' : 'JSON';
+      const name = title ? truncateTitle(title) : '';
+      return name ? `已导出「${name}」为 ${kind}：${fileName}` : `已导出为 ${kind}：${fileName}`;
+    },
     reveal: '在文件夹中显示',
     copyPath: '复制路径',
     pathCopied: '已复制',
@@ -252,11 +257,53 @@ export const COPY = {
       disk_full: '磁盘已满，没有保存成功。',
       not_found: '保存位置不存在或暂时不可用，请换一个文件夹。',
       busy: '这个文件正在被其他程序使用，没有保存成功。',
-      exists: '同名文件已存在，请换个名字再导出',
+      exists: '同名文件已存在，请换个名字再导出。',
       other: '导出失败，请重试。',
     },
     copied: '已复制到剪贴板。',
-    copyFailed: '复制失败，请重试。',
+    copyFailed: '没能复制到剪贴板。',
+  },
+  /** §7 旧库通知、§7a 存储提示 (no path, never the word 「备份」, no API key). */
+  storage: {
+    legacyTitle: '已升级到新的数据格式',
+    legacyLead: '旧数据已保留，不会自动导入。',
+    legacyBody:
+      '你之前创建的 OKR 没有丢失，旧的数据库文件已改名保留。这一版从一个空白的库开始，需要的话可以重新创建。',
+    legacyAck: '知道了',
+    legacyAckBusy: '正在保存…',
+    legacyAckFailed: '没有保存成功，请再点一次「知道了」。',
+    legacyAcked: '已确认。',
+    freshTitle: '旧数据没有载入',
+    freshBody: '旧数据没有载入，之后的内容会保存在新文件里。',
+    freshBody2: '需要的话可以重新创建 OKR。',
+    freshAck: '知道了',
+    memoryTitle: '数据无法保存',
+    memoryBody:
+      '本次运行的内容只存在内存里，关闭应用后会丢失。请先导出当前 OKR，或重启应用后再试。',
+    memoryExport: '导出当前 OKR',
+    memoryRestart: '重启应用',
+    relaunchFailed: '重启没有成功，请手动关闭后重新打开应用',
+  },
+  /** §1.2c 重启版确认 */
+  restart: {
+    title: '重启 ClarityOKR？',
+    reasons: {
+      wizard: '向导里已经填写的内容还没有保存，重启会丢掉这些内容。',
+      text_edit: '你对关键结果文字的修改还没有提交，重启会丢掉这些修改。',
+      review_draft: '复盘里写的内容还没有保存，重启会丢掉这些内容。',
+      memory_data: '重启后本次运行的内容会丢失。',
+    },
+    notNow: '先不重启',
+    keepEditing: '继续编辑',
+    confirm: '放弃并重启',
+  },
+  /** §4.5a 新建 OKR */
+  newOkr: {
+    button: '新建 OKR',
+    confirmTitle: '重新开始一个新的 OKR？',
+    confirmBody: '向导里已经填写的内容还没有保存，重新开始会丢掉这些内容。',
+    keep: '继续当前向导',
+    restart: '重新开始',
   },
   note: {
     loadFailed: '没能读取这条 OKR。',
@@ -287,4 +334,12 @@ export function formatMonthDay(iso: string): string {
   if (Number.isNaN(date.getTime())) return '';
   const pad = (n: number): string => String(n).padStart(2, '0');
   return `${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+/** Titles longer than this many characters (grapheme clusters) are cut with 「…」 in toasts. */
+export const TOAST_TITLE_MAX = 16;
+
+/** Cuts a title to {@link TOAST_TITLE_MAX} user-perceived characters (emoji stay whole). */
+export function truncateTitle(title: string, max = TOAST_TITLE_MAX): string {
+  return truncateGraphemes(title.trim(), max);
 }

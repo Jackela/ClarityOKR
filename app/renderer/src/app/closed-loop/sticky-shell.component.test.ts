@@ -9,6 +9,7 @@ import {
 import { EditModeStore } from '../okr-sticky/state/edit-mode.store';
 import { ClosedLoopApi } from './closed-loop-api.service';
 import { ClosedLoopStore } from './closed-loop.store';
+import { ReviewStore } from './review.store';
 import { StickyShellComponent } from './sticky-shell.component';
 import { makeDetail, makeKr, makeListItem } from './testing/fixtures';
 
@@ -51,6 +52,12 @@ describe('StickyShellComponent', () => {
       getReview: jest.fn().mockResolvedValue({ ok: true, data: { review: null } }),
       saveReview: jest.fn(),
       getStorageMode: jest.fn().mockResolvedValue('normal'),
+      reportUnsaved: jest.fn().mockResolvedValue({ ok: true, data: { recorded: true } }),
+      openWizard: jest.fn().mockResolvedValue({ ok: true, data: { opened: true } }),
+      restart: jest.fn(),
+      getLegacyNotice: jest.fn().mockResolvedValue(true),
+      ackLegacyNotice: jest.fn(),
+      onEvent: jest.fn().mockReturnValue(() => undefined),
       list: jest.fn().mockResolvedValue({
         ok: true,
         data: {
@@ -374,5 +381,30 @@ describe('StickyShellComponent', () => {
       '告诉 ClarityOKR 你想实现什么，回答几个问题就能生成。',
     );
     expect(q('sticky-objective')).toBeNull();
+  });
+
+  describe('unsaved flags and the memory bar (D1c)', () => {
+    it('reports a review draft to the main process (only the changed flag)', async () => {
+      const review = TestBed.inject(ReviewStore);
+      review.draft.update((d) => ({ ...d, wentWell: '写了一点' }));
+      fixture.detectChanges();
+      await settle();
+      expect(api.reportUnsaved).toHaveBeenLastCalledWith({ reviewDraft: true });
+    });
+
+    it('shows the memory bar right under the top bar when the storage is memory', async () => {
+      TestBed.inject(ClosedLoopStore).storageMode.set('memory');
+      fixture.detectChanges();
+      const bar = q('memory-bar');
+      expect(bar).not.toBeNull();
+      expect(
+        q('top-bar').compareDocumentPosition(bar) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      expect(
+        bar.compareDocumentPosition(root().querySelector('[role="tablist"]')!) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      expect(q('legacy-notice')).toBeNull();
+    });
   });
 });

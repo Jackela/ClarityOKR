@@ -57,6 +57,55 @@ describe('ClarificationWizardComponent', () => {
     state.setError({ message, recoverable });
   }
 
+  it('digits and Esc typed in a textarea, a select or a contenteditable never drive the wizard', () => {
+    setupPromptingState();
+    state.recordSelection('prompt-1', 'opt-1');
+    fixture.detectChanges();
+    const selected = jest.fn();
+    const back = jest.fn();
+    component.optionSelected.subscribe(selected);
+    component.goBack.subscribe(back);
+    const textarea = document.createElement('textarea');
+    const select = document.createElement('select');
+    const editable = document.createElement('div');
+    editable.setAttribute('contenteditable', 'true');
+    const inner = document.createElement('span');
+    editable.append(inner);
+    document.body.append(textarea, select, editable);
+    try {
+      for (const target of [textarea, select, editable, inner]) {
+        const digit = new KeyboardEvent('keydown', { key: '1', bubbles: true, cancelable: true });
+        target.dispatchEvent(digit);
+        expect(digit.defaultPrevented).toBe(false);
+        target.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      }
+      expect(selected).not.toHaveBeenCalled();
+      expect(back).not.toHaveBeenCalled();
+    } finally {
+      textarea.remove();
+      select.remove();
+      editable.remove();
+    }
+  });
+
+  it('nothing reaches the wizard while a modal dialog is open', () => {
+    setupPromptingState();
+    fixture.detectChanges();
+    const selected = jest.fn();
+    component.optionSelected.subscribe(selected);
+    const modal = document.createElement('div');
+    modal.setAttribute('aria-modal', 'true');
+    document.body.append(modal);
+    try {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: '1', cancelable: true }));
+      expect(selected).not.toHaveBeenCalled();
+    } finally {
+      modal.remove();
+    }
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: '1', cancelable: true }));
+    expect(selected).toHaveBeenCalledWith('opt-1');
+  });
+
   it('honors keyboard selection and navigation without intercepting text entry', () => {
     setupPromptingState();
     fixture.detectChanges();

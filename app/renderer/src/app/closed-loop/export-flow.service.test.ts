@@ -99,6 +99,22 @@ describe('ExportFlow (spec §6.3)', () => {
       expect(toasts.current()!.message).toBe('已导出为 Markdown：m.md');
     });
 
+    it('N1: names the OKR title: 「已导出「{标题}」为 Markdown：{文件名}」', async () => {
+      store.detail.set({ objective: { title: '把发布频率提到每周 3 次' } } as never);
+      api.exportOkr.mockResolvedValue(saved('/tmp/t.md'));
+      await flow.export('md');
+      expect(toasts.current()!.message).toBe('已导出「把发布频率提到每周 3 次」为 Markdown：t.md');
+    });
+
+    it('N1: a title longer than 16 characters is cut with 「…」 (emoji stay whole)', async () => {
+      store.detail.set({ objective: { title: '一二三四五六七八九十一二三四五👨‍👩‍👧‍👦七八' } } as never);
+      api.exportOkr.mockResolvedValue(saved('/tmp/t.json', 'json'));
+      await flow.export('json');
+      expect(toasts.current()!.message).toBe(
+        '已导出「一二三四五六七八九十一二三四五👨‍👩‍👧‍👦…」为 JSON：t.json',
+      );
+    });
+
     it('JSON says JSON', async () => {
       api.exportOkr.mockResolvedValue(saved('/tmp/a.json', 'json'));
       await flow.export('json');
@@ -137,6 +153,35 @@ describe('ExportFlow (spec §6.3)', () => {
       expect(writeText).toHaveBeenCalledWith(PATH);
       expect(toasts.current()!.id).toBe(id); // same toast, same DOM node
       expect(toasts.current()!.actions[1]!.label).toBe('已复制');
+      jest.advanceTimersByTime(2000);
+      expect(toasts.current()!.actions[1]!.label).toBe('复制路径');
+    });
+
+    it('N3: a second click restarts the 2s reset (the first timer is cleared)', async () => {
+      const writeText = jest.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+      toasts.current()!.actions[1]!.run();
+      await flush();
+      jest.advanceTimersByTime(1500);
+      toasts.current()!.actions[1]!.run();
+      await flush();
+      jest.advanceTimersByTime(600); // 2100ms after the first click, 600ms after the second
+      expect(toasts.current()!.actions[1]!.label).toBe('已复制');
+      jest.advanceTimersByTime(1400);
+      expect(toasts.current()!.actions[1]!.label).toBe('复制路径');
+    });
+
+    it('N3: a new export toast drops the pending reset of the previous one', async () => {
+      const writeText = jest.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+      toasts.current()!.actions[1]!.run();
+      await flush();
+      expect(jest.getTimerCount()).toBeGreaterThan(0);
+      const before = jest.getTimerCount();
+      api.exportOkr.mockResolvedValue(saved('/tmp/next.md'));
+      await flow.export('md');
+      await flush();
+      expect(jest.getTimerCount()).toBeLessThan(before + 1);
       jest.advanceTimersByTime(2000);
       expect(toasts.current()!.actions[1]!.label).toBe('复制路径');
     });
@@ -194,7 +239,7 @@ describe('ExportFlow (spec §6.3)', () => {
       ['disk_full', '磁盘已满，没有保存成功。', '重新选择位置'],
       ['not_found', '保存位置不存在或暂时不可用，请换一个文件夹。', '重新选择位置'],
       ['busy', '这个文件正在被其他程序使用，没有保存成功。', '重新选择位置'],
-      ['exists', '同名文件已存在，请换个名字再导出', '重新选择位置'],
+      ['exists', '同名文件已存在，请换个名字再导出。', '重新选择位置'],
       ['other', '导出失败，请重试。', '重试'],
     ];
 
@@ -289,7 +334,7 @@ describe('ExportFlow (spec §6.3)', () => {
       expect(toast.autoDismissMs).toBe(8000);
     });
 
-    it('failure: 「复制失败，请重试。」 as an alert with 「重试」 and 「关闭」; retry copies again', async () => {
+    it('failure: 「没能复制到剪贴板。」 as an alert with 「重试」 and 「关闭」; retry copies again', async () => {
       api.copyMarkdown.mockResolvedValueOnce({
         ok: false,
         error: { code: 'INTERNAL', message: 'x' },
@@ -297,7 +342,7 @@ describe('ExportFlow (spec §6.3)', () => {
       await flow.copyMarkdown();
       const toast = toasts.current()!;
       expect(toast.kind).toBe('error');
-      expect(toast.message).toBe('复制失败，请重试。');
+      expect(toast.message).toBe('没能复制到剪贴板。');
       expect(toast.actions.map((a) => a.label)).toEqual(['重试']);
       expect(toast.closeLabel).toBe('关闭');
       api.copyMarkdown.mockResolvedValueOnce(ok({ copied: true }));

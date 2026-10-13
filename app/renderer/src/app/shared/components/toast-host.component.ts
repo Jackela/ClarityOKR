@@ -35,7 +35,29 @@ import { ToastService, type Toast } from './toast.service';
           (focusout)="resume()"
         >
           <div class="toast__text">
-            <div class="toast__message">{{ item.message }}</div>
+            <div class="toast__message">
+              @if (item.kind === 'error') {
+                <!-- Not colour alone: errors carry a ⚠ before the text (spec §6.5). -->
+                <svg
+                  class="toast__icon"
+                  viewBox="0 0 16 16"
+                  width="16"
+                  height="16"
+                  aria-hidden="true"
+                  data-testid="toast-error-icon"
+                >
+                  <path d="M8 1.5 15 14H1z" fill="currentColor" />
+                  <path
+                    d="M8 6v4"
+                    stroke="var(--toast-bg)"
+                    stroke-width="1.6"
+                    stroke-linecap="round"
+                  />
+                  <circle cx="8" cy="12" r="0.9" fill="var(--toast-bg)" />
+                </svg>
+              }
+              {{ item.message }}
+            </div>
             @if (item.detail) {
               <div
                 class="toast__detail"
@@ -136,7 +158,14 @@ import { ToastService, type Toast } from './toast.service';
         font-size: var(--font-size-sm);
         line-height: 21px;
       }
+      .toast__icon {
+        flex: none;
+        margin-top: 2px;
+      }
       .toast--error .toast__message {
+        display: flex;
+        gap: 6px;
+        align-items: flex-start;
         color: var(--toast-error-title);
         font-weight: var(--font-weight-semibold);
       }

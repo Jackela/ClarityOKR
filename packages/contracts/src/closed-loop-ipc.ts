@@ -153,6 +153,17 @@ export interface RestartRequest {
   confirmed?: boolean;
 }
 
+/** Payload of `clarityokr:app:report-unsaved`: only the flags this window owns. */
+export type UnsavedReport = Partial<UnsavedFlags>;
+
+export interface UnsavedReportReply {
+  recorded: true;
+}
+
+export interface OpenWizardReply {
+  opened: true;
+}
+
 export interface OkrListItem {
   id: string;
   title: string;
@@ -509,4 +520,26 @@ export function parseRestartRequest(payload: unknown): Parsed<RestartRequest> {
     ok: true,
     value: confirmed === undefined ? { unsaved: flags } : { unsaved: flags, confirmed },
   };
+}
+
+/** Channels without a request body accept `undefined`/`null` or an empty object only. */
+export function parseEmptyRequest(payload: unknown): Parsed<Record<string, never>> {
+  if (payload === undefined || payload === null) return { ok: true, value: {} };
+  const record = asRecord(payload, []);
+  if (isFailure(record)) return record;
+  return { ok: true, value: {} };
+}
+
+export function parseUnsavedReport(payload: unknown): Parsed<UnsavedReport> {
+  const record = asRecord(payload, ['wizard', 'textEdit', 'reviewDraft']);
+  if (isFailure(record)) return record;
+  const value: UnsavedReport = {};
+  for (const name of ['wizard', 'textEdit', 'reviewDraft'] as const) {
+    const flag = record[name];
+    if (flag === undefined) continue;
+    if (typeof flag !== 'boolean') return invalid(name, 'wrong_type');
+    value[name] = flag;
+  }
+  if (Object.keys(value).length === 0) return invalid('payload', 'missing', 'No flag was reported');
+  return { ok: true, value };
 }

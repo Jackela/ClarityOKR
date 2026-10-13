@@ -41,6 +41,7 @@ import { LegacyDatabaseNotice, registerLegacyNoticeHandlers } from './startup/le
 import { openDatabaseSafely } from './startup/open-database.js';
 import { wireClosedLoop } from './startup/closed-loop.js';
 import { registerStorageStateHandler } from './startup/storage-state.js';
+import { registerAppWindowHandlers, UnsavedRegistry } from './ipc/app-window-handlers.js';
 import { ClarificationController } from './windows/clarification-controller.js';
 import { StickyWindowManager } from './windows/sticky-window-manager.js';
 import { registerRendererProtocol } from './windows/renderer-protocol.js';
@@ -85,8 +86,10 @@ const okrStore = new OkrStore(connectionManager.getDb());
 const okrRepository = new OkrStoreRepository(okrStore);
 const actionLogWriter = new SQLiteActionLogWriter(connectionManager);
 
+const unsavedRegistry = new UnsavedRegistry();
 wireClosedLoop({
   ipcMain,
+  reportedUnsaved: () => unsavedRegistry.aggregate(),
   store: okrStore,
   storageMode: openedDatabase.storageMode,
   dialog,
@@ -197,6 +200,23 @@ async function createWindow(): Promise<void> {
     },
   );
 }
+
+registerAppWindowHandlers(ipcMain, {
+  unsaved: unsavedRegistry,
+  showMainWindow: async () => {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      await createWindow();
+      mainWindow?.show();
+      mainWindow?.focus();
+      return null;
+    }
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+    const contents = mainWindow.webContents;
+    return { send: (channel: string) => contents.send(channel) };
+  },
+});
 
 void app.whenReady().then(() => {
   registerRendererProtocol(rendererDistPath, electron.protocol, electron.net);

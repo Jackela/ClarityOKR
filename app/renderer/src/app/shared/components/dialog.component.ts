@@ -14,7 +14,11 @@ import { DOCUMENT } from '@angular/common';
 
 let nextId = 0;
 
-/** Keys (with Ctrl/⌘) that belong to the page behind a dialog and are ignored while it is open. */
+/**
+ * Keys (with Ctrl/⌘) that belong to the page behind a dialog and are ignored while it is open.
+ * This document-level capture listener is the ONLY place shortcuts are swallowed; anything else
+ * (Ctrl/⌘ + C / V / X / A / Z…) keeps its normal meaning.
+ */
 const SWALLOWED_KEYS: ReadonlySet<string> = new Set(['1', '2', '3', 's']);
 
 /**
@@ -100,6 +104,8 @@ const SWALLOWED_KEYS: ReadonlySet<string> = new Set(['1', '2', '3', 's']);
       }
       .dialog__body {
         margin: 0 0 16px;
+        /* Several reasons (restart / quit confirmation) are one sentence per line. */
+        white-space: pre-line;
         font-size: var(--font-size-sm);
         line-height: 21px;
         color: var(--color-text-secondary);

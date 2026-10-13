@@ -256,7 +256,10 @@ export class ClarificationWizardComponent {
 
   @HostListener('document:keydown', ['$event'])
   handleKeyboard(event: KeyboardEvent): void {
-    if (event.target instanceof HTMLInputElement) return;
+    // Typing in any text field (input, textarea, contenteditable, select) keeps its own keys,
+    // and nothing reaches the wizard while a modal dialog is open in front of it.
+    if (event.defaultPrevented || isTextEntryTarget(event.target)) return;
+    if (document.querySelector('[aria-modal="true"]')) return;
 
     const currentPrompt = this.state.currentPrompt();
     if (!currentPrompt) return;
@@ -279,4 +282,20 @@ export class ClarificationWizardComponent {
       this.onGenerate();
     }
   }
+}
+
+/** The keyboard belongs to a text field: digits and Esc must not drive the wizard. */
+export function isTextEntryTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement
+  ) {
+    return true;
+  }
+  return (
+    target.isContentEditable ||
+    target.closest('[contenteditable]:not([contenteditable="false"])') !== null
+  );
 }

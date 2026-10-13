@@ -12,6 +12,7 @@ import type { OkrListItem } from '@clarityokr/contracts';
 
 import { SkeletonComponent } from '../shared/components/skeleton.component';
 import { COPY, formatRelativeTime } from './copy';
+import { ClosedLoopApi } from './closed-loop-api.service';
 import { ClosedLoopStore } from './closed-loop.store';
 
 /** Search box appears only above this many OKRs (spec §4.3). */
@@ -30,7 +31,8 @@ const PAGE_STEP = 5;
 /**
  * History tab (spec §4): all OKRs by update time, a listbox with roving tabindex. Opening one
  * makes it the OKR the note tab shows; the parent shell then switches tab and moves focus.
- * "New OKR" belongs to a later slice (needs the open-wizard channel).
+ * 「新建 OKR」 calls `window:open-wizard` (no payload, no result drawn here): the main window
+ * shows and resets its wizard, or asks first when the wizard holds input (spec §4.5 / §4.5a).
  */
 @Component({
   selector: 'clarityokr-history-tab',
@@ -43,6 +45,14 @@ const PAGE_STEP = 5;
         <h2 class="history__title" data-testid="history-heading">
           {{ copy.history.heading(store.list().length) }}
         </h2>
+        <button
+          type="button"
+          class="history__btn history__new"
+          data-testid="history-new-okr"
+          (click)="newOkr()"
+        >
+          {{ copy.newOkr.button }}
+        </button>
       </div>
 
       @if (blockedReason) {
@@ -217,7 +227,13 @@ export class HistoryTabComponent {
   readonly focusIndex = signal(-1);
 
   readonly store = inject(ClosedLoopStore);
+  private readonly api = inject(ClosedLoopApi);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+
+  /** The call has no result to draw here; the sticky window stays as it is (spec §4.5). */
+  newOkr(): void {
+    void this.api.openWizard();
+  }
 
   visible(): OkrListItem[] {
     const keyword = this.query().trim().toLocaleLowerCase();

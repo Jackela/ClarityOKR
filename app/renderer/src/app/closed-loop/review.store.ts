@@ -96,10 +96,14 @@ export class ReviewStore {
     if (this.saveFailure() !== 'none') this.saveFailure.set('none');
   }
 
-  /** Throws the typed text away (the user confirmed leaving). */
+  /**
+   * Throws the typed text away (the user confirmed leaving). This only resets local state: it
+   * cannot undo a save the main process already wrote. Callers must not offer 「放弃」 while a
+   * save is in flight (the leave dialog keeps its confirm button `aria-disabled` then).
+   */
   discard(): void {
-    // Whatever request is still in flight belongs to the text that is thrown away: its reply
-    // must not be adopted (so nothing is saved after the user said 「放弃」).
+    // A reply still in flight is not adopted into the (reset) draft; the main process may still
+    // have written it, which is why discarding during a save is not offered at all.
     this.seq++;
     this.saving.set(false);
     this.draft.set({ ...this.baseline() });
