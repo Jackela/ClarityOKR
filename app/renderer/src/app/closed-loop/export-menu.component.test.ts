@@ -17,7 +17,12 @@ class Host {}
 
 describe('ExportMenuComponent (spec §6.2, §2.6 menu, T9)', () => {
   let fixture: ComponentFixture<Host>;
-  let api: { exportOkr: jest.Mock; reveal: jest.Mock; copyMarkdown: jest.Mock };
+  let api: {
+    exportOkr: jest.Mock;
+    reveal: jest.Mock;
+    copyMarkdown: jest.Mock;
+    exportBackup?: jest.Mock;
+  };
   let store: ClosedLoopStore;
 
   const root = (): HTMLElement => fixture.nativeElement;
@@ -223,6 +228,29 @@ describe('ExportMenuComponent (spec §6.2, §2.6 menu, T9)', () => {
       q('export-button').click();
       fixture.detectChanges();
       expect(q('export-menu')).toBeNull();
+    });
+
+    it('N33: a backup taking more than 2 s shows 「正在备份…」 and announces it', async () => {
+      jest.useFakeTimers();
+      try {
+        let resolve!: (v: unknown) => void;
+        api.exportBackup = jest.fn().mockReturnValue(new Promise((r) => (resolve = r)));
+        const flow = TestBed.inject(ExportFlow);
+        const running = flow.backup();
+        jest.advanceTimersByTime(2100);
+        fixture.detectChanges();
+        expect(flow.backingUp()).toBe(true);
+        expect(q('export-status').getAttribute('role')).toBe('status');
+        expect(q('export-status').textContent).toBe('正在备份…');
+        // the 「导出」 button does not show the export spinner for a backup
+        expect(q('export-spinner')).toBeNull();
+        resolve({ ok: true, data: { outcome: 'cancelled' } });
+        await running;
+        fixture.detectChanges();
+        expect(q('export-status').textContent).toBe('');
+      } finally {
+        jest.useRealTimers();
+      }
     });
   });
 });
