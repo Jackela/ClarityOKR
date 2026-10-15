@@ -10,6 +10,7 @@ import { ExportService } from '../../../../app/main/src/export/export-service.js
 import { registerClosedLoopHandlers } from '../../../../app/main/src/ipc/closed-loop-handlers.js';
 import { OkrStore, applySchema } from '../../../../app/main/src/persistence/okr-store/index.js';
 import { loadExportSource } from '../../../../app/main/src/startup/closed-loop.js';
+import { buildProgressHistory } from '../../../../app/renderer/src/app/closed-loop/progress-history.js';
 
 const CLOSED_LOOP_CHANNELS = [
   IPC_CHANNELS.OKR_LIST,
@@ -18,6 +19,7 @@ const CLOSED_LOOP_CHANNELS = [
   IPC_CHANNELS.OKR_SET_PERIOD,
   IPC_CHANNELS.KR_SET_PROGRESS,
   IPC_CHANNELS.KR_REVERT_PROGRESS,
+  IPC_CHANNELS.KR_PROGRESS_HISTORY,
   IPC_CHANNELS.KR_REPLACE_PROGRESS,
   IPC_CHANNELS.REVIEW_GET,
   IPC_CHANNELS.REVIEW_SAVE,
@@ -445,6 +447,68 @@ describe('closed-loop IPC handlers (real OkrStore on a temp database)', () => {
         'KEY_RESULT_REMOVED',
       );
       expect(h.store.listProgressEntries('kr-b')).toEqual([]);
+    });
+  });
+
+  describe('clarityokr:kr:progress-history (#53)', () => {
+    it('updates, a revert and a 「修改这次」 → raw entries; the pure function gives rows and the trend', async () => {
+      create();
+      // a minute between user actions
+      let minute = 0;
+      const step = (): void => h.setNow(new Date(Date.parse(T0) + ++minute * 60_000).toISOString());
+      step();
+      h.store.setProgress('kr-a', { value: 10, status: 'in_progress' });
+      step();
+      h.store.setProgress('kr-a', { value: 30, status: 'in_progress' });
+      step();
+      h.store.setProgress('kr-a', { value: 50, status: 'at_risk' });
+      step();
+      h.store.revertLastProgress('kr-a');
+      step();
+      h.store.setProgress('kr-a', { value: 40, status: 'in_progress' });
+      step();
+      h.store.replaceLastProgress('kr-a', { value: 35, status: 'in_progress' });
+      const r = await h.ipc.invoke<{
+        krId: string;
+        entries: Array<{ kind: string; recordedAt: string }>;
+      }>(IPC_CHANNELS.KR_PROGRESS_HISTORY, { krId: 'kr-a' });
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      const entries = r.data.entries;
+      expect(entries.map((e) => e.kind)).toEqual([
+        'set',
+        'set',
+        'set',
+        'revert',
+        'set',
+        'revert',
+        'set',
+      ]);
+      // 「修改这次」 writes its revert and its set with one timestamp
+      expect(entries[5]!.recordedAt).toBe(entries[6]!.recordedAt);
+      const history = buildProgressHistory(r.data.entries as never);
+      expect(history.rows.map((row) => [row.value, row.reverted, row.modified])).toEqual([
+        [35, false, true],
+        [50, true, false],
+        [30, false, false],
+        [10, false, false],
+      ]);
+      expect(history.points).toEqual([10, 30, 35]);
+      expect(history.count).toBe(3);
+    });
+
+    it('removed key results are readable; unknown ids are NOT_FOUND', async () => {
+      create();
+      h.store.setProgress('kr-b', { value: 10, status: 'in_progress' });
+      h.store.markKeyResultRemoved('kr-b');
+      const r = await h.ipc.invoke<{ entries: unknown[] }>(IPC_CHANNELS.KR_PROGRESS_HISTORY, {
+        krId: 'kr-b',
+      });
+      expect(r).toMatchObject({ ok: true, data: { krId: 'kr-b' } });
+      expectFailure(
+        await h.ipc.invoke(IPC_CHANNELS.KR_PROGRESS_HISTORY, { krId: 'nope' }),
+        'NOT_FOUND',
+      );
     });
   });
 

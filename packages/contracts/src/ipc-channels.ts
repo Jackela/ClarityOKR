@@ -32,6 +32,7 @@ export const ALLOWED_CHANNELS = [
   'clarityokr:kr:set-progress',
   'clarityokr:kr:revert-progress',
   'clarityokr:kr:replace-progress',
+  'clarityokr:kr:progress-history',
   'clarityokr:review:get',
   'clarityokr:review:save',
   'clarityokr:export:save',
@@ -97,6 +98,8 @@ export const IPC_CHANNELS = {
   KR_SET_PROGRESS: 'clarityokr:kr:set-progress',
   /** Revert the latest `set` entry of one key result. */
   KR_REVERT_PROGRESS: 'clarityokr:kr:revert-progress',
+  /** #53: every progress entry of one key result (removed ones too), oldest first. `{ krId }`. */
+  KR_PROGRESS_HISTORY: 'clarityokr:kr:progress-history',
   /** Atomically revert the latest `set` entry and write a new one ("edit this one"). */
   KR_REPLACE_PROGRESS: 'clarityokr:kr:replace-progress',
   /** Read the saved review (or null). */

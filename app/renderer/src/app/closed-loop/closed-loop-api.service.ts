@@ -4,6 +4,7 @@ import {
   ipcFail,
   type CopyReply,
   type BackupReply,
+  type ProgressHistoryReply,
   type ExportReply,
   type ExportRequest,
   type ImportCommitRequest,
@@ -79,6 +80,11 @@ export class ClosedLoopApi {
 
   revertProgress(request: KrIdRequest): Promise<IpcResult<ProgressChangeReply>> {
     return this.call(IPC_CHANNELS.KR_REVERT_PROGRESS, request);
+  }
+
+  /** #53: every progress entry of one key result, oldest first. */
+  progressHistory(request: KrIdRequest): Promise<IpcResult<ProgressHistoryReply>> {
+    return this.call(IPC_CHANNELS.KR_PROGRESS_HISTORY, request);
   }
 
   replaceProgress(request: ReplaceProgressRequest): Promise<IpcResult<ProgressChangeReply>> {
