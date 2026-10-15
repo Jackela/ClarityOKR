@@ -19,6 +19,9 @@ export type ParsedImport =
 
 type Rec = Record<string, unknown>;
 
+/** An OKR has at most 10 key results that are not removed (B4). */
+export const MAX_ACTIVE_KEY_RESULTS = 10;
+
 const isRecord = (value: unknown): value is Rec =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -123,11 +126,18 @@ function checkObjective(c: Checker, root: Rec): void {
 }
 
 /** Returns the ids of the well-formed key results (for reference checks). */
-function checkKeyResults(c: Checker, root: Rec): Set<string> {
+function checkKeyResults(c: Checker, root: Rec, okrNumber?: number): Set<string> {
   const ids = new Set<string>();
   const list = c.array(root, 'keyResults', 'keyResults');
   if (!list) return ids;
   if (list.length === 0) c.add('keyResults', '至少要有 1 个关键结果');
+  // Same cap as the editor (MAX_KEY_RESULTS in okr-sticky-note); removed KRs are history only.
+  const active = list.filter((kr) => isRecord(kr) && kr.removedAt === null).length;
+  if (active > MAX_ACTIVE_KEY_RESULTS) {
+    // Plain wording, no field path (settled for B4): the dialog shows the sentence as is.
+    const who = okrNumber === undefined ? '这个 OKR' : `第 ${okrNumber} 个 OKR`;
+    c.add('', `${who}有 ${active} 个 KR，最多 ${MAX_ACTIVE_KEY_RESULTS} 个`);
+  }
   list.forEach((item, i) => {
     const path = `keyResults[${i}]`;
     if (!isRecord(item)) return void c.add(path, '类型不对（应为对象）');
@@ -210,17 +220,24 @@ function checkReview(c: Checker, root: Rec, krIds: Set<string>): void {
  * Validates one parsed JSON value against the single-OKR export format (schemaVersion 1).
  * Collects every problem; the reply carries the first one and the count of the rest (Q8-4).
  */
-export function validateOkrDocument(value: unknown, prefix = ''): ImportIssue[] {
+/** `okrNumber`: 1-based position in a backup, for the plain-language messages. */
+export function validateOkrDocument(
+  value: unknown,
+  prefix = '',
+  okrNumber?: number,
+): ImportIssue[] {
   const c = new Checker();
   if (!isRecord(value)) {
     c.add(prefix || '(根)', '类型不对（应为对象）');
     return c.issues;
   }
   checkObjective(c, value);
-  const krIds = checkKeyResults(c, value);
+  const krIds = checkKeyResults(c, value, okrNumber);
   checkProgressEntries(c, value, krIds);
   checkReview(c, value, krIds);
-  return prefix ? c.issues.map((i) => ({ ...i, field: `${prefix}.${i.field}` })) : c.issues;
+  return prefix
+    ? c.issues.map((i) => (i.field === '' ? i : { ...i, field: `${prefix}.${i.field}` }))
+    : c.issues;
 }
 
 /** Bytes → document, or the problem to show (S1§8.6). Never throws. */

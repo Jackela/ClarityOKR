@@ -59,6 +59,8 @@ export class ImportFlow {
 
   async start(): Promise<void> {
     if (this.busy()) return;
+    // N26: a new import starts clean, without the toast of the previous one.
+    this.toasts.dismiss();
     this.dropToken();
     this.dialog.set(null);
     await this.run(() => this.api.importPick(), C.reading);
@@ -152,7 +154,7 @@ export class ImportFlow {
         return;
       case 'original_missing':
         this.token = null;
-        this.dialog.set({
+        this.openDialog({
           kind: 'error',
           title: C.readTitle,
           body: C.missingBody,
@@ -163,7 +165,7 @@ export class ImportFlow {
         return;
       case 'write_failed':
         this.token = reply.token;
-        this.dialog.set({
+        this.openDialog({
           kind: 'error',
           title: C.writeTitle,
           body: C.write[reply.category],
@@ -177,14 +179,14 @@ export class ImportFlow {
         const memory = reply.memory ? `\n${C.memoryWarning}` : '';
         const conflict = reply.conflicts[0];
         if (conflict) {
-          this.dialog.set({
+          this.openDialog({
             kind: 'conflict',
             title: C.conflictTitle,
             body: C.conflictBody(conflict.title, formatDateTime(conflict.createdAt)),
             hint: `${C.conflictHint}${memory}`,
           });
         } else {
-          this.dialog.set({
+          this.openDialog({
             kind: 'confirm',
             title: C.confirmTitle(reply.items.length),
             body: C.confirmBody(reply.items[0]?.title ?? ''),
@@ -227,7 +229,7 @@ export class ImportFlow {
     const base = { kind: 'error' as const, detail: [] as string[], hint: C.unchanged };
     switch (problem.kind) {
       case 'too_large':
-        this.dialog.set({
+        this.openDialog({
           ...base,
           title: C.tooLargeTitle,
           body: C.tooLargeBody((problem.sizeBytes / (1024 * 1024)).toFixed(1)),
@@ -235,7 +237,7 @@ export class ImportFlow {
         });
         return;
       case 'not_json':
-        this.dialog.set({
+        this.openDialog({
           ...base,
           title: C.notJsonTitle,
           body: C.notJsonBody,
@@ -243,7 +245,7 @@ export class ImportFlow {
         });
         return;
       case 'unsupported_version':
-        this.dialog.set({
+        this.openDialog({
           ...base,
           title: C.versionTitle,
           body: C.versionBody(problem.version),
@@ -251,19 +253,20 @@ export class ImportFlow {
         });
         return;
       case 'invalid':
-        this.dialog.set({
+        this.openDialog({
           ...base,
           title: C.invalidTitle,
           body: C.invalidBody,
           detail: [
-            `${problem.field} ${problem.reason}`,
+            // a plain-language reason has no field (B4)
+            problem.field ? `${problem.field} ${problem.reason}` : problem.reason,
             ...(problem.more > 0 ? [C.invalidMore(problem.more)] : []),
           ],
           action: null,
         });
         return;
       case 'read_failed':
-        this.dialog.set({
+        this.openDialog({
           ...base,
           title: C.readTitle,
           body: C.read[problem.category],
@@ -271,6 +274,12 @@ export class ImportFlow {
         });
         return;
     }
+  }
+
+  /** Opening a dialog closes the toast of an earlier step: it must not linger behind it (#68). */
+  private openDialog(dialog: ImportDialog): void {
+    this.toasts.dismiss();
+    this.dialog.set(dialog);
   }
 
   private dropToken(): void {
