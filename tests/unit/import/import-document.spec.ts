@@ -55,4 +55,23 @@ describe('import validation: key result count (B4)', () => {
   it('still rejects an empty list', () => {
     expect(parse(doc([]))).toMatchObject({ ok: false, problem: { field: 'keyResults' } });
   });
+
+  it('N30: a KR without removedAt is rejected by the schema (missing field)', () => {
+    const { removedAt: _drop, ...noField } = kr(0);
+    expect(parse(doc([noField]))).toMatchObject({
+      ok: false,
+      problem: { kind: 'invalid', field: 'keyResults[0].removedAt' },
+    });
+  });
+
+  it('N30: KRs without removedAt still count as active for the cap', () => {
+    const list = Array.from({ length: 11 }, (_, i) => {
+      const { removedAt: _drop, ...noField } = kr(i);
+      return noField;
+    });
+    expect(parse(doc(list))).toMatchObject({
+      ok: false,
+      problem: { field: '', reason: '这个 OKR 有 11 个 KR，最多 10 个' },
+    });
+  });
 });

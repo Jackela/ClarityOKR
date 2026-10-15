@@ -136,6 +136,7 @@ const { restartService } = wireClosedLoop({
   clipboard,
   getDownloadsDir: () => app.getPath('downloads'),
   getFocusedWindow: () => BrowserWindow.getFocusedWindow(),
+  appVersion: app.getVersion(),
   // §3.7: the services it needs are created just below; they exist by the first request.
   regenerate: (request) => krRegeneration.regenerate(request),
 });

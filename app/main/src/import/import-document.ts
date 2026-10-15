@@ -132,11 +132,13 @@ function checkKeyResults(c: Checker, root: Rec, okrNumber?: number): Set<string>
   if (!list) return ids;
   if (list.length === 0) c.add('keyResults', '至少要有 1 个关键结果');
   // Same cap as the editor (MAX_KEY_RESULTS in okr-sticky-note); removed KRs are history only.
-  const active = list.filter((kr) => isRecord(kr) && kr.removedAt === null).length;
+  const active = list.filter(
+    (kr) => isRecord(kr) && (kr.removedAt === null || kr.removedAt === undefined),
+  ).length;
   if (active > MAX_ACTIVE_KEY_RESULTS) {
     // Plain wording, no field path (settled for B4): the dialog shows the sentence as is.
     const who = okrNumber === undefined ? '这个 OKR' : `第 ${okrNumber} 个 OKR`;
-    c.add('', `${who}有 ${active} 个 KR，最多 ${MAX_ACTIVE_KEY_RESULTS} 个`);
+    c.add('', `${who} 有 ${active} 个 KR，最多 ${MAX_ACTIVE_KEY_RESULTS} 个`);
   }
   list.forEach((item, i) => {
     const path = `keyResults[${i}]`;
@@ -262,8 +264,8 @@ export function parseImportFile(bytes: Buffer): ParsedImport {
       problem: { kind: 'unsupported_version', version: String(version).slice(0, 32) },
     };
   }
+  if (value.kind === 'backup') return parseBackup(value);
   if (value.kind !== undefined) {
-    // Backups (`kind: "backup"`) arrive with #50.
     return {
       ok: false,
       problem: { kind: 'invalid', field: 'kind', reason: '取值无效（不支持的文件类型）', more: 0 },
@@ -282,5 +284,41 @@ export function parseImportFile(bytes: Buffer): ParsedImport {
       },
     };
   }
-  return { ok: true, document: value as unknown as ExportJsonDocument };
+  return { ok: true, documents: [value as unknown as ExportJsonDocument] };
+}
+
+/** #50: `{ schemaVersion: 1, kind: "backup", exportedAt, appVersion, okrs: [...] }`. */
+function parseBackup(value: Rec): ParsedImport {
+  const fail = (field: string, reason: string): ParsedImport => ({
+    ok: false,
+    problem: { kind: 'invalid', field, reason, more: 0 },
+  });
+  if (!isTimestamp(value.exportedAt)) return fail('exportedAt', '不是有效的时间');
+  if (typeof value.appVersion !== 'string' || value.appVersion.length > 64) {
+    return fail('appVersion', '类型不对（应为字符串）');
+  }
+  if (!Array.isArray(value.okrs)) return fail('okrs', '类型不对（应为数组）');
+  if (value.okrs.length === 0) return { ok: false, problem: { kind: 'empty_backup' } };
+  // The whole file is refused when any OKR is wrong (#50 AC4); the reply names the first one.
+  for (const [index, okr] of value.okrs.entries()) {
+    const issues = validateOkrDocument(okr, `okrs[${index}]`, index + 1);
+    if (issues.length > 0) {
+      const [first] = issues as [ImportIssue, ...ImportIssue[]];
+      return {
+        ok: false,
+        problem: {
+          kind: 'invalid',
+          field: first.field,
+          reason: first.reason,
+          more: issues.length - 1,
+          okrIndex: index,
+        },
+      };
+    }
+  }
+  return {
+    ok: true,
+    documents: value.okrs as ExportJsonDocument[],
+    backup: { exportedAt: value.exportedAt as string, appVersion: value.appVersion },
+  };
 }

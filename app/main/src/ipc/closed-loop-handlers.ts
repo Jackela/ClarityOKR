@@ -14,6 +14,7 @@ import {
   parseSaveReviewRequest,
   parseSetPeriodRequest,
   parseSetProgressRequest,
+  type BackupReply,
   type ImportReply,
   type IpcFailure,
   type IpcResult,
@@ -261,6 +262,12 @@ export function registerClosedLoopHandlers(
     return outcome ? ipcOk(outcome) : notFound(NOT_FOUND_OKR);
   });
 
+  register<void, BackupReply>(
+    IPC_CHANNELS.EXPORT_BACKUP,
+    () => ({ ok: true, value: undefined }),
+    async () => ipcOk(await exportService.exportBackup()),
+  );
+
   // 「复制为 Markdown」: the same text as the .md file, read from the store (no path, no dialog).
   register(IPC_CHANNELS.CLIPBOARD_EXPORT, parseOkrIdRequest, ({ okrId }): IpcResult<CopyReply> => {
     const markdown = exportService.renderMarkdownFor(okrId);
@@ -283,8 +290,8 @@ export function registerClosedLoopHandlers(
     register(
       IPC_CHANNELS.IMPORT_COMMIT,
       parseImportCommitRequest,
-      async ({ token, onConflict }) => {
-        const reply = await importService.commit(token, onConflict);
+      async ({ token, onConflict, choices }) => {
+        const reply = await importService.commit(token, onConflict, choices);
         return reply ? ipcOk(reply) : expired();
       },
     );

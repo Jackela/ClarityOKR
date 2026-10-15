@@ -21,6 +21,8 @@ export interface ClosedLoopWiringDeps {
   getDownloadsDir: () => string;
   getFocusedWindow: () => BrowserWindow | null;
   regenerate?: ClosedLoopHandlerDeps['regenerate'];
+  /** Written into backups. */
+  appVersion?: string;
 }
 
 /** Reads the data of one OKR for an export (null for an unknown id). */
@@ -48,6 +50,14 @@ export function wireClosedLoop(deps: ClosedLoopWiringDeps): {
 } {
   const exportService = new ExportService({
     loadSource: (okrId) => loadExportSource(deps.store, okrId),
+    loadAllSources: () =>
+      deps.store
+        .listObjectives()
+        .slice()
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+        .map((objective) => loadExportSource(deps.store, objective.id))
+        .filter((source): source is ExportSource => source !== null),
+    appVersion: deps.appVersion ?? '',
     showSaveDialog: async ({ defaultPath, format }) => {
       const options = { defaultPath, filters: [FILTERS[format]] };
       const window = deps.getFocusedWindow();

@@ -18,6 +18,7 @@ module.exports = {
     '<rootDir>/tests/unit/services',
     '<rootDir>/tests/unit/controllers',
     '<rootDir>/tests/unit/persistence',
+    '<rootDir>/tests/unit/import',
     '<rootDir>/tests/unit/telemetry',
     '<rootDir>/tests/unit/windows',
   ],

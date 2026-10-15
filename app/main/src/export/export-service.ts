@@ -2,11 +2,16 @@ import { randomBytes } from 'node:crypto';
 import { lstat, rename, unlink, writeFile } from 'node:fs/promises';
 import { dirname, extname, isAbsolute, join, basename } from 'node:path';
 
-import type { ExportFailureCategory, ExportFormat, ExportReply } from '@clarityokr/contracts';
+import type {
+  BackupReply,
+  ExportFailureCategory,
+  ExportFormat,
+  ExportReply,
+} from '@clarityokr/contracts';
 
 import { Logger } from '../core/logger.js';
-import { buildExportFileName } from './export-file-name.js';
-import { renderJson, renderMarkdown, type ExportSource } from './export-document.js';
+import { buildBackupFileName, buildExportFileName } from './export-file-name.js';
+import { renderBackup, renderJson, renderMarkdown, type ExportSource } from './export-document.js';
 
 export interface SaveDialogRequest {
   /** Downloads directory + the suggested file name. */
@@ -17,6 +22,10 @@ export interface SaveDialogRequest {
 export interface ExportDeps {
   /** Reads everything the export needs; returns null for an unknown id. */
   loadSource: (okrId: string) => ExportSource | null;
+  /** #50: every OKR, oldest first. */
+  loadAllSources?: () => ExportSource[];
+  /** Written into a backup (`appVersion`). */
+  appVersion?: string;
   /** Shows the system save dialog; resolves to the chosen path or null when cancelled. */
   showSaveDialog: (request: SaveDialogRequest) => Promise<string | null>;
   /** Opens the file manager with the file selected. */
@@ -120,7 +129,27 @@ export class ExportService {
     }
     const exportedAt = this.now();
     const fileName = buildExportFileName(source.objective.title, exportedAt, format);
+    const content = format === 'json' ? renderJson(source, exportedAt) : renderMarkdown(source);
+    return this.saveThroughDialog(fileName, format, content);
+  }
 
+  /** #50: every OKR in one `kind: "backup"` file (works with an empty history too). */
+  async exportBackup(): Promise<BackupReply> {
+    this.lastExportedPath = null;
+    const sources = this.deps.loadAllSources?.() ?? [];
+    const exportedAt = this.now();
+    const content = renderBackup(sources, exportedAt, this.deps.appVersion ?? '');
+    const reply = await this.saveThroughDialog(buildBackupFileName(exportedAt), 'json', content);
+    return reply.outcome === 'saved'
+      ? { outcome: 'saved', fileName: reply.fileName, path: reply.path, count: sources.length }
+      : reply;
+  }
+
+  private async saveThroughDialog(
+    fileName: string,
+    format: ExportFormat,
+    content: string,
+  ): Promise<ExportReply> {
     let chosen: string | null;
     try {
       chosen = await this.deps.showSaveDialog({
@@ -143,7 +172,6 @@ export class ExportService {
     }
 
     const path = withFormatExtension(chosen, format);
-    const content = format === 'json' ? renderJson(source, exportedAt) : renderMarkdown(source);
     try {
       // The OS dialog only confirmed an overwrite of the exact path it returned. When we
       // appended an extension the final name is new to it, so an existing file there must

@@ -117,6 +117,42 @@ export function buildJsonDocument(source: ExportSource, exportedAt: Date): Expor
   };
 }
 
+/** #50: the backup file. Each entry is a single-OKR document without schemaVersion/exportedAt. */
+export interface BackupJsonDocument {
+  schemaVersion: 1;
+  kind: 'backup';
+  exportedAt: string;
+  appVersion: string;
+  okrs: Array<Omit<ExportJsonDocument, 'schemaVersion' | 'exportedAt'>>;
+}
+
+export function buildBackupDocument(
+  sources: readonly ExportSource[],
+  exportedAt: Date,
+  appVersion: string,
+): BackupJsonDocument {
+  return {
+    schemaVersion: EXPORT_SCHEMA_VERSION,
+    kind: 'backup',
+    exportedAt: exportedAt.toISOString(),
+    appVersion,
+    okrs: sources.map((source) => {
+      const { schemaVersion: _v, exportedAt: _e, ...okr } = buildJsonDocument(source, exportedAt);
+      void _v;
+      void _e;
+      return okr;
+    }),
+  };
+}
+
+export function renderBackup(
+  sources: readonly ExportSource[],
+  exportedAt: Date,
+  appVersion: string,
+): string {
+  return `${JSON.stringify(buildBackupDocument(sources, exportedAt, appVersion), null, 2)}\n`;
+}
+
 export function renderJson(source: ExportSource, exportedAt: Date): string {
   return `${JSON.stringify(buildJsonDocument(source, exportedAt), null, 2)}\n`;
 }

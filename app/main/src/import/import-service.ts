@@ -111,7 +111,11 @@ export class ImportService {
     return this.load(session.path, true);
   }
 
-  async commit(token: string, onConflict: ImportConflictChoice): Promise<ImportReply | null> {
+  async commit(
+    token: string,
+    onConflict: ImportConflictChoice,
+    choices: Record<string, ImportConflictChoice> = {},
+  ): Promise<ImportReply | null> {
     const session = this.session;
     if (!session || session.token !== token) return null;
     const items = session.documents.map(itemOf);
@@ -121,9 +125,9 @@ export class ImportService {
     const skipped: ImportItem[] = [];
     session.documents.forEach((document, index) => {
       const item = items[index] as ImportItem;
+      const choice = choices[String(index)] ?? onConflict; // #50: per item, default from onConflict
       if (!conflicting.has(index)) toWrite.push({ input: document, title: item.title });
-      else if (onConflict === 'copy')
-        toWrite.push({ input: document, title: copyTitle(item.title) });
+      else if (choice === 'copy') toWrite.push({ input: document, title: copyTitle(item.title) });
       else skipped.push(item);
     });
     return this.write(session, toWrite, skipped);
@@ -165,13 +169,21 @@ export class ImportService {
     const parsed = parseImportFile(bytes);
     if (!parsed.ok) return { outcome: 'rejected', problem: parsed.problem };
 
-    const session: Session = { token: randomUUID(), path, documents: [parsed.document] };
+    const session: Session = { token: randomUUID(), path, documents: parsed.documents };
     const items = session.documents.map(itemOf);
     const conflicts = this.conflictsOf(items);
     const memory = this.deps.isMemory();
-    if (conflicts.length > 0 || memory) {
+    // A backup is always previewed (S1§9.4); a single OKR only when something needs an answer.
+    if (conflicts.length > 0 || memory || parsed.backup) {
       this.session = session;
-      return { outcome: 'confirm', token: session.token, items, conflicts, memory };
+      return {
+        outcome: 'confirm',
+        token: session.token,
+        items,
+        conflicts,
+        memory,
+        ...(parsed.backup ? { backup: parsed.backup } : {}),
+      };
     }
     return this.write(
       session,
