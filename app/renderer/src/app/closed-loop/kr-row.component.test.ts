@@ -188,6 +188,7 @@ describe('KrRowComponent', () => {
         'kr-status',
         'kr-edit-last',
         'kr-revert-last',
+        'kr-history-toggle',
       ]);
     });
   });

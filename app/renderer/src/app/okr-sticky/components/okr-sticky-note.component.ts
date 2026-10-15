@@ -61,6 +61,7 @@ import type { KeyResultRecord } from '@clarityokr/contracts';
 import { announceAgain } from '../../closed-loop/announce';
 import { ClosedLoopStore } from '../../closed-loop/closed-loop.store';
 import { COPY, formatMonthDay, formatRelativeTime, STATUS_LABEL } from '../../closed-loop/copy';
+import { KrProgressHistoryComponent } from '../../closed-loop/kr-progress-history.component';
 import { KrRowComponent } from '../../closed-loop/kr-row.component';
 import { OverallProgressComponent } from '../../closed-loop/overall-progress.component';
 import { PeriodPickerComponent } from '../../closed-loop/period-picker.component';
@@ -96,6 +97,7 @@ function newKeyResultId(): string {
   selector: 'clarityokr-sticky-note',
   standalone: true,
   imports: [
+    KrProgressHistoryComponent,
     CommonModule,
     TranslatePipe,
     TextEditComponent,
@@ -375,6 +377,7 @@ function newKeyResultId(): string {
                         [n]="i + 1"
                         [info]="d.progress[kr.id]"
                         [blocked]="true"
+                        [history]="false"
                       ></li>
                     } @else {
                       <li
@@ -428,6 +431,37 @@ function newKeyResultId(): string {
                                 </span>
                                 {{ lastProgress(kr) }}
                               </div>
+                              <!-- #53: removed KRs keep a read-only history -->
+                              <div class="removed__history">
+                                <button
+                                  type="button"
+                                  class="sticky-note__text-btn"
+                                  [id]="'kr-history-btn-' + kr.id"
+                                  data-testid="removed-history-toggle"
+                                  [attr.aria-expanded]="removedHistory().has(kr.id)"
+                                  [attr.aria-controls]="
+                                    removedHistory().has(kr.id) ? 'kr-history-' + kr.id : null
+                                  "
+                                  [attr.aria-label]="
+                                    t.progressHistory.buttonLabel(kr.statement) + t.progressHistory.removedSuffix
+                                  "
+                                  (click)="toggleRemovedHistory(kr.id)"
+                                >
+                                  {{ t.progressHistory.button }}
+                                  <span aria-hidden="true">{{
+                                    removedHistory().has(kr.id) ? '▾' : '▸'
+                                  }}</span>
+                                </button>
+                              </div>
+                              @if (removedHistory().has(kr.id)) {
+                                <clarityokr-kr-progress-history
+                                  [id]="'kr-history-' + kr.id"
+                                  [krId]="kr.id"
+                                  [statement]="kr.statement + t.progressHistory.removedSuffix"
+                                  [status]="kr.status"
+                                  [labelledBy]="'kr-history-btn-' + kr.id"
+                                />
+                              }
                             </li>
                           }
                         </ul>
@@ -527,6 +561,15 @@ export class OkrStickyNoteComponent implements OnChanges {
   readonly busy = signal(false);
   readonly error = signal<string | null>(null);
   readonly removedOpen = signal(false);
+  /** #53: removed KRs whose 「进度记录」 is open. */
+  readonly removedHistory = signal<ReadonlySet<string>>(new Set());
+
+  toggleRemovedHistory(krId: string): void {
+    const next = new Set(this.removedHistory());
+    if (next.has(krId)) next.delete(krId);
+    else next.add(krId);
+    this.removedHistory.set(next);
+  }
   readonly periodAnnouncement = signal('');
   readonly t = COPY;
   readonly editError = signal<TextSaveFailure>('none');

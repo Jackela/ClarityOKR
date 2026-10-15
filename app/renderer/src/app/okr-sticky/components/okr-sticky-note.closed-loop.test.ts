@@ -208,7 +208,10 @@ describe('OkrStickyNoteComponent closed-loop states', () => {
       expect(item.textContent).toContain('度量：旧度量');
       expect(item.textContent).toContain('已移除 · 10-03');
       expect(item.textContent).toContain('最后进度 40% · 有风险');
-      expect(item.querySelector('button, input')).toBeNull();
+      // #53: the only control is the read-only 「进度记录」 toggle
+      const controls = Array.from(item.querySelectorAll('button, input'));
+      expect(controls.map((c) => c.getAttribute('data-testid'))).toEqual(['removed-history-toggle']);
+      expect(controls[0]!.getAttribute('aria-label')).toBe('旧的关键结果 的进度记录（已移除）');
       expect(q('removed-section').textContent).toContain('已移除的关键结果不计入整体进度。');
       // not part of the numbered list and not counted
       expect(root().querySelectorAll('[data-testid="sticky-key-result"]')).toHaveLength(1);
