@@ -59,3 +59,10 @@ export function buildExportFileName(title: string, date: Date, format: ExportFor
   const budget = MAX_FILE_NAME_BYTES - utf8Length(FILE_NAME_PREFIX) - 1 - utf8Length(suffix);
   return `${FILE_NAME_PREFIX}-${sanitizeTitleForFileName(title, budget)}${suffix}`;
 }
+
+/** #50: `ClarityOKR-backup-YYYYMMDD-HHmm.json` (local time). */
+export function buildBackupFileName(date: Date): string {
+  const pad = (n: number): string => String(n).padStart(2, '0');
+  const day = `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}`;
+  return `${FILE_NAME_PREFIX}-backup-${day}-${pad(date.getHours())}${pad(date.getMinutes())}.json`;
+}

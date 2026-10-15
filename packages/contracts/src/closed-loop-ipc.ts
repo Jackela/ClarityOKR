@@ -256,7 +256,16 @@ export type ImportProblem =
   | { kind: 'not_json' }
   | { kind: 'unsupported_version'; version: string }
   /** The first problem (path + Chinese reason) and how many more there are. */
-  | { kind: 'invalid'; field: string; reason: string; more: number }
+  | {
+      kind: 'invalid';
+      field: string;
+      reason: string;
+      more: number;
+      /** Backups: the 0-based index of the OKR that failed (the whole file is refused). */
+      okrIndex?: number;
+    }
+  /** A backup with `okrs: []`. */
+  | { kind: 'empty_backup' }
   | { kind: 'read_failed'; category: ImportReadCategory };
 
 export interface ImportItem {
@@ -289,6 +298,8 @@ export type ImportReply =
       items: ImportItem[];
       conflicts: ImportConflict[];
       memory: boolean;
+      /** Set for a backup file (#50): always previewed before writing. */
+      backup?: { exportedAt: string; appVersion: string };
     }
   | { outcome: 'imported'; imported: ImportedOkr[]; skipped: ImportItem[]; memory: boolean }
   /** The transaction was rolled back. `token` re-reads the same file (`import:retry`). */
@@ -304,7 +315,15 @@ export interface ImportCommitRequest {
   token: string;
   /** What to do with every conflicting item. */
   onConflict: ImportConflictChoice;
+  /** Per item (index in `items`), overriding `onConflict` (#50 backup preview). */
+  choices?: Record<string, ImportConflictChoice>;
 }
+
+/** #50 `clarityokr:export:backup`: `count` = OKRs in the file (0 is a valid backup). */
+export type BackupReply =
+  | { outcome: 'saved'; fileName: string; path: string; count: number }
+  | { outcome: 'cancelled' }
+  | { outcome: 'failed'; category: ExportFailureCategory };
 
 /** Reply of `clarityokr:clipboard:export`: the Markdown of the OKR is on the clipboard. */
 export interface CopyReply {
@@ -793,7 +812,7 @@ export function parseImportTokenRequest(payload: unknown): Parsed<ImportTokenReq
 }
 
 export function parseImportCommitRequest(payload: unknown): Parsed<ImportCommitRequest> {
-  const record = asRecord(payload, ['token', 'onConflict']);
+  const record = asRecord(payload, ['token', 'onConflict', 'choices']);
   if (isFailure(record)) return record;
   const token = readId(record, 'token');
   if (isFailure(token)) return token;
@@ -801,5 +820,18 @@ export function parseImportCommitRequest(payload: unknown): Parsed<ImportCommitR
   if (choice === undefined) return invalid('onConflict', 'missing');
   if (typeof choice !== 'string') return invalid('onConflict', 'wrong_type');
   if (choice !== 'skip' && choice !== 'copy') return invalid('onConflict', 'invalid_value');
-  return { ok: true, value: { token, onConflict: choice } };
+  const raw = record.choices;
+  if (raw === undefined) return { ok: true, value: { token, onConflict: choice } };
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    return invalid('choices', 'wrong_type');
+  }
+  const choices: Record<string, ImportConflictChoice> = {};
+  const entries = Object.entries(raw as Record<string, unknown>);
+  if (entries.length > 10_000) return invalid('choices', 'too_long');
+  for (const [key, value] of entries) {
+    if (!/^(0|[1-9]\d{0,5})$/.test(key)) return invalid('choices', 'invalid_value');
+    if (value !== 'skip' && value !== 'copy') return invalid('choices', 'invalid_value');
+    choices[key] = value;
+  }
+  return { ok: true, value: { token, onConflict: choice, choices } };
 }

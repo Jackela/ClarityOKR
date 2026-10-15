@@ -247,8 +247,8 @@ describe('#49 import', () => {
       const problem = await reject(Buffer.alloc(IMPORT_MAX_BYTES + 1, 0x20));
       expect(problem).toEqual({ kind: 'too_large', sizeBytes: IMPORT_MAX_BYTES + 1 });
     });
-    it('a backup kind is not accepted yet', async () => {
-      expect(await reject(mutate((d) => (d.kind = 'backup')))).toMatchObject({ field: 'kind' });
+    it('an unknown kind', async () => {
+      expect(await reject(mutate((d) => (d.kind = 'other')))).toMatchObject({ field: 'kind' });
     });
     it('a file that cannot be read', async () => {
       chosen = join(dir, 'gone.json');

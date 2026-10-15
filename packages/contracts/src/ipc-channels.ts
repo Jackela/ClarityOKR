@@ -36,6 +36,7 @@ export const ALLOWED_CHANNELS = [
   'clarityokr:review:save',
   'clarityokr:export:save',
   'clarityokr:export:reveal',
+  'clarityokr:export:backup',
   'clarityokr:import:pick',
   'clarityokr:import:commit',
   'clarityokr:import:retry',
@@ -106,6 +107,8 @@ export const IPC_CHANNELS = {
   EXPORT_SAVE: 'clarityokr:export:save',
   /** Reveal a file in the file manager; only the path of the last successful export is accepted. */
   EXPORT_REVEAL: 'clarityokr:export:reveal',
+  /** #50: every OKR into one backup file through the system save dialog. Payload: none. */
+  EXPORT_BACKUP: 'clarityokr:export:backup',
   /** #49 import: open dialog → read → validate (→ write when nothing needs confirming). Payload: none. */
   IMPORT_PICK: 'clarityokr:import:pick',
   /** Write a confirmed import: `{ token, onConflict }`. */
