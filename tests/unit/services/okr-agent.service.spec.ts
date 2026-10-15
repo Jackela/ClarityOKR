@@ -370,4 +370,16 @@ describe('OkrAgentService Unit Tests', () => {
       expect(call[0]).toBe('https://api.test.com/v1/responses');
     });
   });
+
+  describe('#74 without an LLM key', () => {
+    it('constructs (the app starts); the key is only needed when calling the LLM', async () => {
+      delete process.env.LLM_API_KEY;
+      resetConfig();
+      const service = new OkrAgentService();
+      expect(service).toBeInstanceOf(OkrAgentService);
+      await expect(service.generateDraft({ turns: [] } as never)).rejects.toThrow(
+        /LLM API key|apiKey/,
+      );
+    });
+  });
 });
