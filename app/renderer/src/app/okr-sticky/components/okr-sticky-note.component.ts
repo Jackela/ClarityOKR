@@ -366,9 +366,16 @@ function newKeyResultId(): string {
                 <ol class="sticky-note__list" data-testid="kr-list">
                   @for (kr of activeKrs(d.objective.keyResults); track kr.id; let i = $index) {
                     @if (isRegenerating(kr.id)) {
-                      <li class="regen-skeleton" data-testid="kr-skeleton">
-                        <clarityokr-skeleton type="card" [ariaLabel]="t.regen.running" />
-                      </li>
+                      <!-- #40: the real row keeps its own height and single divider; a shimmer covers it -->
+                      <li
+                        clarityokr-kr-row
+                        class="regen-skeleton"
+                        data-testid="kr-skeleton"
+                        [kr]="kr"
+                        [n]="i + 1"
+                        [info]="d.progress[kr.id]"
+                        [blocked]="true"
+                      ></li>
                     } @else {
                       <li
                         clarityokr-kr-row

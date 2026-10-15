@@ -422,14 +422,39 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .regen-progress::before,
+  .regen-skeleton::after,
   .regen-menu__spinner {
     animation: none;
   }
 }
 .regen-skeleton {
-  list-style: none;
-  min-height: 96px;
-  padding: 8px 0;
+  position: relative;
+}
+/* #40: hide the row content (also from assistive tech) but keep its box: same height, one divider. */
+.regen-skeleton > * {
+  visibility: hidden;
+}
+.regen-skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 12px 16px;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    var(--color-bg-secondary) 0%,
+    var(--color-bg-tertiary) 50%,
+    var(--color-bg-secondary) 100%
+  );
+  background-size: 200% 100%;
+  animation: regen-shimmer 2s ease-in-out infinite;
+}
+@keyframes regen-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
 }
 .regen-banner {
   display: flex;
