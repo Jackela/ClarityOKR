@@ -71,7 +71,7 @@ writeFileSync(
   `${JSON.stringify({ name: '@clarityokr/main', version: root.version, type: 'module' }, null, 2)}\n`,
 );
 
-const pack = spawnSync('npm', ['pack', '--pack-destination', OUT], {
+const pack = spawnSync('npm', ['pack', '--pack-destination', OUT, '--loglevel=error'], {
   cwd: join(ROOT, 'packages/contracts'),
   stdio: 'inherit',
   shell: process.platform === 'win32',
@@ -80,7 +80,7 @@ if (pack.status !== 0) process.exit(pack.status ?? 1);
 
 const npm = spawnSync(
   'npm',
-  ['install', '--omit=dev', '--no-audit', '--no-fund', '--ignore-scripts'],
+  ['install', '--omit=dev', '--no-audit', '--no-fund', '--ignore-scripts', '--loglevel=error'],
   {
     cwd: OUT,
     stdio: 'inherit',
