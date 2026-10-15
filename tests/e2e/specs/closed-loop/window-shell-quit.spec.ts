@@ -123,6 +123,9 @@ test.describe('D2: sticky top bar, hide and recall', () => {
     // 「⋯」: menu with the checked 窗口始终在最前 switch; toggling changes the real window
     expect(await stickyState(electronApp)).toEqual({ visible: true, onTop: true });
     await sticky.getByTestId('more-button').click();
+    // #50: 「全部备份…」 is the first item and takes the focus; ↓ moves to the switch
+    await expect(sticky.getByTestId('backup-item')).toBeFocused();
+    await sticky.keyboard.press('ArrowDown');
     const onTop = sticky.getByTestId('always-on-top');
     await expect(onTop).toBeFocused();
     await expect(onTop).toHaveAttribute('role', 'menuitemcheckbox');
