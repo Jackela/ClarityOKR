@@ -280,10 +280,14 @@ export function registerClosedLoopHandlers(
       () => ({ ok: true, value: undefined }),
       async () => ipcOk(await importService.pick()),
     );
-    register(IPC_CHANNELS.IMPORT_COMMIT, parseImportCommitRequest, async ({ token, onConflict }) => {
-      const reply = await importService.commit(token, onConflict);
-      return reply ? ipcOk(reply) : expired();
-    });
+    register(
+      IPC_CHANNELS.IMPORT_COMMIT,
+      parseImportCommitRequest,
+      async ({ token, onConflict }) => {
+        const reply = await importService.commit(token, onConflict);
+        return reply ? ipcOk(reply) : expired();
+      },
+    );
     register(IPC_CHANNELS.IMPORT_RETRY, parseImportTokenRequest, async ({ token }) => {
       const reply = await importService.retry(token);
       return reply ? ipcOk(reply) : expired();

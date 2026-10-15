@@ -14,7 +14,8 @@ export interface ImportIssue {
   reason: string;
 }
 
-export type ParsedImport = { ok: true; document: ExportJsonDocument } | { ok: false; problem: ImportProblem };
+export type ParsedImport =
+  { ok: true; document: ExportJsonDocument } | { ok: false; problem: ImportProblem };
 
 type Rec = Record<string, unknown>;
 
@@ -84,7 +85,8 @@ class Checker {
   status(parent: Rec, key: string, path: string): void {
     const value = parent[key];
     if (value === undefined) return void this.missing(path);
-    if (!isKrStatus(value)) this.add(path, '取值无效（应为 not_started / in_progress / at_risk / done）');
+    if (!isKrStatus(value))
+      this.add(path, '取值无效（应为 not_started / in_progress / at_risk / done）');
   }
 
   progress(parent: Rec, key: string, path: string): void {
@@ -113,7 +115,8 @@ function checkObjective(c: Checker, root: Rec): void {
   c.text(objective, 'title', 'objective.title', { max: TEXT_LIMITS.objective, nonEmpty: true });
   const period = objective.period;
   if (period === undefined) c.add('objective.period', '缺失');
-  else if (period !== null && !isPeriod(period)) c.add('objective.period', '格式不对（应为 2026-Q4）');
+  else if (period !== null && !isPeriod(period))
+    c.add('objective.period', '格式不对（应为 2026-Q4）');
   c.boolean(objective, 'pinned', 'objective.pinned');
   c.timestamp(objective, 'createdAt', 'objective.createdAt');
   c.timestamp(objective, 'updatedAt', 'objective.updatedAt');
@@ -159,9 +162,11 @@ function checkProgressEntries(c: Checker, root: Rec, krIds: Set<string>): void {
       c.add(`${path}.id`, '应为正整数');
     } else if (seen.has(id)) c.add(`${path}.id`, '与前面的进度记录重复');
     if (krId === undefined) c.add(`${path}.krId`, '缺失');
-    else if (typeof krId !== 'string' || !krIds.has(krId)) c.add(`${path}.krId`, '指向的关键结果不存在');
+    else if (typeof krId !== 'string' || !krIds.has(krId))
+      c.add(`${path}.krId`, '指向的关键结果不存在');
     if (kind === undefined) c.add(`${path}.kind`, '缺失');
-    else if (kind !== 'set' && kind !== 'revert') c.add(`${path}.kind`, '取值无效（应为 set / revert）');
+    else if (kind !== 'set' && kind !== 'revert')
+      c.add(`${path}.kind`, '取值无效（应为 set / revert）');
     c.progress(item, 'value', `${path}.value`);
     c.status(item, 'status', `${path}.status`);
     c.timestamp(item, 'recordedAt', `${path}.recordedAt`);
@@ -229,7 +234,10 @@ export function parseImportFile(bytes: Buffer): ParsedImport {
   if (!isRecord(value)) return { ok: false, problem: { kind: 'not_json' } };
   const version = value.schemaVersion;
   if (version === undefined) {
-    return { ok: false, problem: { kind: 'invalid', field: 'schemaVersion', reason: '缺失', more: 0 } };
+    return {
+      ok: false,
+      problem: { kind: 'invalid', field: 'schemaVersion', reason: '缺失', more: 0 },
+    };
   }
   if (version !== EXPORT_SCHEMA_VERSION) {
     return {
@@ -249,7 +257,12 @@ export function parseImportFile(bytes: Buffer): ParsedImport {
     const [first] = issues as [ImportIssue, ...ImportIssue[]];
     return {
       ok: false,
-      problem: { kind: 'invalid', field: first.field, reason: first.reason, more: issues.length - 1 },
+      problem: {
+        kind: 'invalid',
+        field: first.field,
+        reason: first.reason,
+        more: issues.length - 1,
+      },
     };
   }
   return { ok: true, document: value as unknown as ExportJsonDocument };

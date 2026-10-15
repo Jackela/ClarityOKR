@@ -5,7 +5,8 @@ import { isAbsolute } from 'node:path';
 import {
   IMPORT_MAX_BYTES,
   TEXT_LIMITS,
-  checkText,
+  countGraphemes,
+  truncateGraphemes,
   type ImportConflict,
   type ImportConflictChoice,
   type ImportItem,
@@ -55,17 +56,12 @@ export function categorizeWriteError(error: unknown): ImportWriteCategory {
   return 'other';
 }
 
-const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
-
 /** `title（导入）`, shortening the title so the result stays within the objective limit. */
 export function copyTitle(title: string): string {
   if (title.endsWith(COPY_SUFFIX)) return title;
-  let base = title;
-  while (base.length > 0 && !checkText(`${base}${COPY_SUFFIX}`, TEXT_LIMITS.objective).ok) {
-    const parts = [...segmenter.segment(base)].map((p) => p.segment);
-    parts.pop();
-    base = parts.join('');
-  }
+  const room = TEXT_LIMITS.objective - countGraphemes(COPY_SUFFIX);
+  // truncateGraphemes appends 「…」 when it cuts; drop it, the suffix follows directly
+  const base = countGraphemes(title) <= room ? title : truncateGraphemes(title, room).slice(0, -1);
   return `${base}${COPY_SUFFIX}`;
 }
 
@@ -126,7 +122,8 @@ export class ImportService {
     session.documents.forEach((document, index) => {
       const item = items[index] as ImportItem;
       if (!conflicting.has(index)) toWrite.push({ input: document, title: item.title });
-      else if (onConflict === 'copy') toWrite.push({ input: document, title: copyTitle(item.title) });
+      else if (onConflict === 'copy')
+        toWrite.push({ input: document, title: copyTitle(item.title) });
       else skipped.push(item);
     });
     return this.write(session, toWrite, skipped);
@@ -178,7 +175,10 @@ export class ImportService {
     }
     return this.write(
       session,
-      session.documents.map((document, i) => ({ input: document, title: (items[i] as ImportItem).title })),
+      session.documents.map((document, i) => ({
+        input: document,
+        title: (items[i] as ImportItem).title,
+      })),
       [],
     );
   }
@@ -207,7 +207,10 @@ export class ImportService {
       this.session = null;
       return {
         outcome: 'imported',
-        imported: ids.map((okrId, i) => ({ okrId, title: (toWrite[i] as { title: string }).title })),
+        imported: ids.map((okrId, i) => ({
+          okrId,
+          title: (toWrite[i] as { title: string }).title,
+        })),
         skipped,
         memory,
       };

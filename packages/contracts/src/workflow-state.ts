@@ -9,10 +9,4 @@
  * - error: Error state
  */
 export type WorkflowState =
-  | 'idle'
-  | 'loading'
-  | 'prompting'
-  | 'ready'
-  | 'generating'
-  | 'completed'
-  | 'error';
+  'idle' | 'loading' | 'prompting' | 'ready' | 'generating' | 'completed' | 'error';

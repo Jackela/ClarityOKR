@@ -103,7 +103,13 @@ export interface KrProgressSummary {
 
 /** A validated single-OKR export (see `ExportJsonDocument`), written as a new OKR by `importObjective`. */
 export interface ImportObjectiveInput {
-  objective: { title: string; period: string | null; pinned: boolean; createdAt: string; updatedAt: string };
+  objective: {
+    title: string;
+    period: string | null;
+    pinned: boolean;
+    createdAt: string;
+    updatedAt: string;
+  };
   keyResults: ReadonlyArray<{
     id: string;
     statement: string;
@@ -676,7 +682,8 @@ export class OkrStore {
           .forEach((entry) => {
             const reverts =
               entry.revertsEntryId === null ? null : entryIds.get(entry.revertsEntryId);
-            if (reverts === undefined) throw new ValidationError('Unknown progress entry reference');
+            if (reverts === undefined)
+              throw new ValidationError('Unknown progress entry reference');
             const result = insertEntry.run(
               mapKr(entry.krId),
               entry.kind,

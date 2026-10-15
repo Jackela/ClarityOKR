@@ -133,12 +133,31 @@ describe('#49 import', () => {
     expect(imported).toHaveLength(1);
     expect(imported[0]!.okrId).not.toBe(id);
     const again = exportText(target.store, imported[0]!.okrId);
-    const strip = (t: string) => ({ ...JSON.parse(t), exportedAt: null });
+    // Ids are new by design (#49 scope): compare with ids replaced by their position.
+    const strip = (t: string) => {
+      const doc = JSON.parse(t);
+      const kr = new Map<string, number>(doc.keyResults.map((k: any, i: number) => [k.id, i]));
+      const entry = new Map<number, number>(
+        doc.progressEntries.map((e: any, i: number) => [e.id, i]),
+      );
+      doc.exportedAt = null;
+      doc.keyResults.forEach((k: any) => (k.id = kr.get(k.id)));
+      doc.progressEntries.forEach((e: any) => {
+        e.id = entry.get(e.id);
+        e.krId = kr.get(e.krId);
+        e.revertsEntryId = e.revertsEntryId === null ? null : entry.get(e.revertsEntryId);
+      });
+      doc.review?.snapshot.forEach((s: any) => (s.krId = kr.get(s.krId)));
+      return doc;
+    };
     expect(strip(again)).toEqual(strip(original));
     // new ids everywhere, and the references still line up
     const krIds = target.store.getObjective(imported[0]!.okrId)!.keyResults.map((k) => k.id);
     expect(krIds.some((k) => source.store.findKeyResult(k))).toBe(false);
-    expect(target.store.getProgressSummary(krIds[0]!).canRevert).toBe(true);
+    const entries = target.store.listProgressEntries(krIds[0]!);
+    const latest = entries[entries.length - 1]!;
+    expect(latest.kind).toBe('revert');
+    expect(entries.map((e) => e.id)).toContain(latest.revertsEntryId);
     expect(service.hasSession()).toBe(false);
   });
 
@@ -262,20 +281,28 @@ describe('#49 import', () => {
       expect((done as any).data.skipped).toHaveLength(1);
       expect(counts(target.db)).toEqual(before);
       // the token was one-time
-      expect(await invoke(IPC_CHANNELS.IMPORT_COMMIT, { token, onConflict: 'copy' })).toMatchObject({
-        ok: false,
-        error: { code: 'NOT_FOUND' },
-      });
+      expect(await invoke(IPC_CHANNELS.IMPORT_COMMIT, { token, onConflict: 'copy' })).toMatchObject(
+        {
+          ok: false,
+          error: { code: 'NOT_FOUND' },
+        },
+      );
     });
 
     it('copy adds 「（导入）」 once; the original is untouched', async () => {
       const reply = (await pick()) as { token: string };
-      const done = await invoke(IPC_CHANNELS.IMPORT_COMMIT, { token: reply.token, onConflict: 'copy' });
+      const done = await invoke(IPC_CHANNELS.IMPORT_COMMIT, {
+        token: reply.token,
+        onConflict: 'copy',
+      });
       expect(done).toMatchObject({
         ok: true,
         data: { outcome: 'imported', imported: [{ title: '提升团队交付节奏（导入）' }] },
       });
-      const titles = target.store.listObjectiveSummaries().map((o) => o.title).sort();
+      const titles = target.store
+        .listObjectiveSummaries()
+        .map((o) => o.title)
+        .sort();
       expect(titles).toEqual(['提升团队交付节奏', '提升团队交付节奏（导入）']);
       // only one stays pinned
       expect(target.store.listObjectiveSummaries().filter((o) => o.pinned)).toHaveLength(1);
@@ -318,9 +345,7 @@ describe('#49 import', () => {
       showOpenDialog: async () => chosen,
       listExisting: () => target.store.listObjectiveSummaries(),
       write: (items) =>
-        target.store.importObjectives(
-          fail ? [...items, { input: broken, title: 'x' }] : items,
-        ),
+        target.store.importObjectives(fail ? [...items, { input: broken, title: 'x' }] : items),
       isMemory: () => false,
     });
     const first = await failing.pick();
@@ -351,7 +376,9 @@ describe('#49 import', () => {
     const replies = [await pick(), await pick()];
     for (const reply of replies) expect(JSON.stringify(reply)).not.toContain(dir);
     expect(path.startsWith(dir)).toBe(true);
-    expect(await invoke(IPC_CHANNELS.IMPORT_COMMIT, { token: 't', onConflict: 'replace' })).toMatchObject({
+    expect(
+      await invoke(IPC_CHANNELS.IMPORT_COMMIT, { token: 't', onConflict: 'replace' }),
+    ).toMatchObject({
       ok: false,
       error: { code: 'INVALID_REQUEST', field: 'onConflict' },
     });
