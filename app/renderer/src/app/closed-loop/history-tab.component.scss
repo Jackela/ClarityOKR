@@ -191,3 +191,73 @@
 .history__head .history__new {
   margin-top: 0;
 }
+
+/* #49 导入… (S1§8.2): secondary sm button left of 「＋ 新建 OKR」 */
+.history__head .history__import {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 8px 0 auto;
+  padding: 0 12px;
+}
+
+.history__btn[aria-disabled='true'] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.history__btn:focus-visible {
+  outline: 2px solid var(--color-brand-primary);
+  outline-offset: 2px;
+}
+
+.history__spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: history-spin 0.8s linear infinite;
+}
+
+@keyframes history-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Narrow window: icon only; the text stays as the accessible name. */
+@media (max-width: 359.98px) {
+  .history__import-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+
+.item__new {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: var(--font-weight-medium);
+  vertical-align: 1px;
+}
+
+:host-context([data-theme='dark']) .item__new {
+  background: #212c41;
+  color: #60a5fa;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .history__spinner {
+    animation: none;
+  }
+}

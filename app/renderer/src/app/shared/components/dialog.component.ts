@@ -39,12 +39,24 @@ const SWALLOWED_KEYS: ReadonlySet<string> = new Set(['1', '2', '3', 's']);
         [attr.role]="role"
         aria-modal="true"
         [attr.aria-labelledby]="titleId"
-        [attr.aria-describedby]="bodyId"
+        [attr.aria-describedby]="describedBy"
         [attr.data-testid]="testId"
         [attr.aria-busy]="busy ? 'true' : null"
       >
         <h2 class="dialog__title" [id]="titleId">{{ title }}</h2>
-        <p class="dialog__body" [id]="bodyId">{{ body }}</p>
+        <!-- prettier-ignore -->
+        <p class="dialog__body" [id]="bodyId" [class.dialog__body--tight]="detail.length > 0 || !!hint">{{ body }}</p>
+        @if (detail.length > 0) {
+          <div class="dialog__detail" [id]="detailId" data-testid="dialog-detail">
+            @for (line of detail; track $index) {
+              <div>{{ line }}</div>
+            }
+          </div>
+        }
+        @if (hint) {
+          <!-- prettier-ignore -->
+          <p class="dialog__hint" [id]="hintId" data-testid="dialog-hint">{{ hint }}</p>
+        }
         @if (error) {
           <p class="dialog__error" role="alert" data-testid="dialog-error">
             <span aria-hidden="true">⚠ </span>{{ error }}
@@ -60,15 +72,28 @@ const SWALLOWED_KEYS: ReadonlySet<string> = new Set(['1', '2', '3', 's']);
             #cancelButton
             type="button"
             class="dialog__btn"
+            [class.dialog__btn--confirm]="primaryCancel"
             data-testid="dialog-cancel"
             [attr.aria-disabled]="busy ? 'true' : null"
             (click)="onCancel()"
           >
             {{ cancelLabel }}
           </button>
+          @if (middleLabel) {
+            <button
+              type="button"
+              class="dialog__btn"
+              data-testid="dialog-middle"
+              [attr.aria-disabled]="busy ? 'true' : null"
+              (click)="onMiddle()"
+            >
+              {{ middleLabel }}
+            </button>
+          }
           <button
             #confirmButton
             type="button"
+            [hidden]="!confirmLabel"
             class="dialog__btn dialog__btn--confirm"
             [class.dialog__btn--danger]="danger"
             [attr.aria-disabled]="confirmDisabled || busy ? 'true' : null"
@@ -129,7 +154,29 @@ const SWALLOWED_KEYS: ReadonlySet<string> = new Set(['1', '2', '3', 's']);
         line-height: 21px;
         color: var(--color-text-secondary);
       }
+      .dialog__body--tight {
+        margin-bottom: 8px;
+      }
+      .dialog__detail {
+        margin: 0 0 8px;
+        font-family: var(--font-family-mono, ui-monospace, monospace);
+        font-size: 12px;
+        line-height: 16px;
+        user-select: text;
+        overflow-wrap: anywhere;
+      }
+      .dialog__hint {
+        margin: 0 0 16px;
+        font-size: 12px;
+        line-height: 16px;
+        white-space: pre-line;
+        color: var(--color-text-secondary);
+      }
+      [hidden] {
+        display: none !important;
+      }
       .dialog__actions {
+        flex-wrap: wrap;
         display: flex;
         justify-content: flex-end;
         gap: 8px;
@@ -191,6 +238,17 @@ export class DialogComponent implements OnInit, OnDestroy {
   @Input() busy = false;
   /** Says why, beside the buttons (「正在保存，请稍候。」). */
   @Input() confirmNote = '';
+  /** `alertdialog` role without the red button (S1§8.5: nothing here is destructive). */
+  @Input() alert = false;
+  /** A third answer between cancel and confirm (S1§8.5 「跳过」). */
+  @Input() middleLabel = '';
+  /** Monospace lines under the body, selectable (S1§8.6 field paths). */
+  @Input() detail: readonly string[] = [];
+  /** Smaller secondary lines under the body / detail (also read as the description). */
+  @Input() hint = '';
+  /** The cancel button is the main answer (a one-button 「知道了」 notice). */
+  @Input() primaryCancel = false;
+  @Output() middle = new EventEmitter<void>();
   @Output() confirmed = new EventEmitter<void>();
   @Output() cancelled = new EventEmitter<void>();
 
@@ -203,13 +261,24 @@ export class DialogComponent implements OnInit, OnDestroy {
   private opener: HTMLElement | null = null;
 
   get role(): 'dialog' | 'alertdialog' {
-    return this.danger ? 'alertdialog' : 'dialog';
+    return this.danger || this.alert ? 'alertdialog' : 'dialog';
   }
   get titleId(): string {
     return `dialog-title-${this.uid}`;
   }
   get bodyId(): string {
     return `dialog-body-${this.uid}`;
+  }
+  get detailId(): string {
+    return `dialog-detail-${this.uid}`;
+  }
+  get hintId(): string {
+    return `dialog-hint-${this.uid}`;
+  }
+  get describedBy(): string {
+    return [this.bodyId, this.detail.length > 0 ? this.detailId : '', this.hint ? this.hintId : '']
+      .filter(Boolean)
+      .join(' ');
   }
   get noteId(): string {
     return `dialog-note-${this.uid}`;
@@ -240,6 +309,11 @@ export class DialogComponent implements OnInit, OnDestroy {
   onCancel(): void {
     if (this.busy) return;
     this.cancelled.emit();
+  }
+
+  onMiddle(): void {
+    if (this.busy) return;
+    this.middle.emit();
   }
 
   onConfirm(): void {
@@ -299,8 +373,13 @@ export class DialogComponent implements OnInit, OnDestroy {
       return;
     }
     if (event.key !== 'Tab') return;
-    const first = this.cancelButton.nativeElement;
-    const last = this.confirmButton.nativeElement;
+    const buttons = Array.from(
+      this.cancelButton.nativeElement.parentElement?.querySelectorAll<HTMLButtonElement>(
+        'button:not([hidden])',
+      ) ?? [],
+    );
+    const first = buttons[0] ?? this.cancelButton.nativeElement;
+    const last = buttons[buttons.length - 1] ?? this.confirmButton.nativeElement;
     const active = this.doc.activeElement;
     if (
       !(active instanceof Node) ||

@@ -5,6 +5,9 @@ import {
   type CopyReply,
   type ExportReply,
   type ExportRequest,
+  type ImportCommitRequest,
+  type ImportReply,
+  type ImportTokenRequest,
   type IpcResult,
   type KrIdRequest,
   type OkrIdRequest,
@@ -97,6 +100,24 @@ export class ClosedLoopApi {
   /** Only the path of the last successful export is accepted by the main process. */
   reveal(request: RevealRequest): Promise<IpcResult<RevealReply>> {
     return this.call(IPC_CHANNELS.EXPORT_REVEAL, request);
+  }
+
+  /** #49: system open dialog + read + validate in the main process (no path ever comes back). */
+  importPick(): Promise<IpcResult<ImportReply>> {
+    return this.call(IPC_CHANNELS.IMPORT_PICK, undefined);
+  }
+
+  importCommit(request: ImportCommitRequest): Promise<IpcResult<ImportReply>> {
+    return this.call(IPC_CHANNELS.IMPORT_COMMIT, request);
+  }
+
+  /** Q8-3: re-read the same file (kept by the main process behind the token). */
+  importRetry(request: ImportTokenRequest): Promise<IpcResult<ImportReply>> {
+    return this.call(IPC_CHANNELS.IMPORT_RETRY, request);
+  }
+
+  importDiscard(request: ImportTokenRequest): Promise<IpcResult<{ discarded: boolean }>> {
+    return this.call(IPC_CHANNELS.IMPORT_DISCARD, request);
   }
 
   /** 「复制为 Markdown」: the main process puts the same text as the .md file on the clipboard. */

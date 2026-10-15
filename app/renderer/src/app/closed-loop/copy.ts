@@ -223,6 +223,60 @@ export const COPY = {
     blockedBusy: '正在重新生成，完成后可切换。',
     blockedEditing: '正在编辑文字，保存或取消后可切换。',
   },
+  import: {
+    button: '导入…',
+    buttonLabel: '导入 OKR',
+    emptyButton: '从文件导入…',
+    reading: '正在读取文件…',
+    importing: '正在导入…',
+    locked: '正在重新生成，完成后可用',
+    cancelled: '已取消导入，没有改动数据。',
+    skipped: (title: string) => `已跳过「${title}」，没有改动数据。`,
+    imported: (count: number, memory: boolean) =>
+      `已导入 ${count} 个 OKR${memory ? '，退出后会丢失。' : ''}`,
+    view: '查看',
+    newTag: '新导入',
+    unchanged: '数据没有任何改动。',
+    ok: '知道了',
+    reselect: '重新选择文件…',
+    retry: '重试',
+    cancel: '取消',
+    skip: '跳过',
+    asCopy: '作为副本导入',
+    confirm: '导入',
+    memoryWarning: '当前数据不会保存，退出后导入的内容也会丢失。',
+    confirmTitle: (count: number) => `导入 ${count} 个 OKR？`,
+    confirmBody: (title: string) => `将导入「${title}」。`,
+    conflictTitle: '这个 OKR 已经存在',
+    conflictBody: (title: string, createdAt: string) =>
+      `历史里已有一个同名、同一创建时间的 OKR：「${title}」（创建于 ${createdAt}）。导入不会覆盖它。`,
+    conflictHint: '作为副本导入时，新 OKR 的标题会加上「（导入）」。',
+    tooLargeTitle: '文件太大，无法导入',
+    tooLargeBody: (mb: string) => `只能导入 5 MB 以内的文件，这个文件有 ${mb} MB。`,
+    notJsonTitle: '这不是可以导入的文件',
+    notJsonBody: '文件内容不是有效的 JSON。请选择 ClarityOKR 导出的 .json 文件。',
+    invalidTitle: '文件内容有误，无法导入',
+    invalidBody: '第一处错误：',
+    invalidMore: (n: number) => `另有 ${n} 处错误`,
+    versionTitle: '这个文件的版本不受支持',
+    versionBody: (v: string) => `这个文件的格式版本是 ${v}，当前只能导入版本 1 的文件。`,
+    readTitle: '没能读取这个文件',
+    read: {
+      permission: '没有权限读取这个文件。',
+      not_found: '文件不存在或已被移动。',
+      busy: '这个文件正在被其他程序使用。',
+      other: '读取文件时出错，请重试。',
+    },
+    missingBody: '找不到原文件，请重新选择。',
+    writeTitle: '导入没有完成',
+    write: {
+      disk_full: '磁盘已满，导入没有完成。',
+      busy: '数据正被占用，导入没有完成，请稍后重试。',
+      other: '导入时出错，请重试。',
+    },
+    rolledBack: '已撤销这次导入，没有留下不完整的数据。',
+    failed: '导入时出错，请重试。',
+  },
   export: {
     topBarTitle: 'ClarityOKR',
     button: '导出',
@@ -394,6 +448,15 @@ export function formatRelativeTime(iso: string, now: Date = new Date()): string 
 }
 
 /** `10-03` style month-day for removed key results. */
+/** §4.8 with minutes always: `今天 14:20` / `昨天 14:20` / `2026-09-28 14:20`. */
+export function formatDateTime(iso: string, now: Date = new Date()): string {
+  const relative = formatRelativeTime(iso, now);
+  if (relative === '' || relative.includes(':')) return relative;
+  const date = new Date(iso);
+  const pad = (n: number): string => String(n).padStart(2, '0');
+  return `${relative} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 export function formatMonthDay(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return '';
