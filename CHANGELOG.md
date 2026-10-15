@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- 不再使用的旧重新生成通道 `clarityokr:okr:regenerate`（overwrite / append）及其主进程处理、渲染端 `OkrStickyService.regenerate()`（#48）
+
 ## [0.2.0] - 2026-10-15
 
 闭环 OKR：从「生成」扩展到「执行 → 记录进度 → 复盘 → 找回 / 导出 → 重新生成」（PR #28–#36）。数据层重做，旧库不迁移。标「[维护]」的条目是 0.1.0 之后的仓库维护与零散修复，与闭环功能无关。

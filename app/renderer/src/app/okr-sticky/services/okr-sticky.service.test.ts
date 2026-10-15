@@ -91,12 +91,6 @@ describe('Actual sticky service transport, projection and persistence ownership'
       hasManualEdits: true,
       lastEditedAt: time,
     });
-    invoke.mockResolvedValueOnce({ ...persisted, regenerationPolicy: 'overwrite' });
-    await service.regenerate('overwrite');
-    expect(invoke).toHaveBeenLastCalledWith(IPC_CHANNELS.OKR_REGENERATE, {
-      sessionId: 'session',
-      policy: 'overwrite',
-    });
     invoke.mockResolvedValueOnce(undefined);
     await service.reopenSticky();
     expect(invoke).toHaveBeenLastCalledWith(IPC_CHANNELS.STICKY_REOPEN, undefined);
@@ -129,7 +123,6 @@ describe('Actual sticky service transport, projection and persistence ownership'
   it('keeps local view edits separate from persisted identity and enforces no-document guards', async () => {
     expect(service.viewModel()).toBeNull();
     for (const operation of [
-      () => service.regenerate('append'),
       () => service.saveEdits({ objective: 'Edit', keyResults: document.keyResults }),
     ]) {
       await expect(operation()).rejects.toThrow('No OKR');

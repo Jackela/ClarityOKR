@@ -82,3 +82,12 @@ describe('window / wizard / unsaved-report channels (D1c)', () => {
     }
   });
 });
+
+describe('retired channels (#48)', () => {
+  it('the old overwrite / append regenerate channel is gone; regenerate-krs stays', () => {
+    expect(isAllowedChannel('clarityokr:okr:regenerate')).toBe(false);
+    expect(() => validateChannel('clarityokr:okr:regenerate')).toThrow();
+    expect(Object.keys(IPC_CHANNELS)).not.toContain('OKR_REGENERATE');
+    expect(isAllowedChannel(IPC_CHANNELS.OKR_REGENERATE_KRS)).toBe(true);
+  });
+});
