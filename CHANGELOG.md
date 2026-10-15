@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.2.0] - 2026-10-15
 
-闭环 OKR：从「生成」扩展到「执行 → 记录进度 → 复盘 → 找回 / 导出 → 重新生成」（PR #28–#36）。数据层重做，旧库不迁移。
+闭环 OKR：从「生成」扩展到「执行 → 记录进度 → 复盘 → 找回 / 导出 → 重新生成」（PR #28–#36）。数据层重做，旧库不迁移。标「[维护]」的条目是 0.1.0 之后的仓库维护与零散修复，与闭环功能无关。
 
 ### Added
 
@@ -22,43 +22,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 发布闸门（#35）：系统托盘、单实例（再次启动唤回便签）、「隐藏」按钮与「窗口始终在最前」、应用菜单「显示便签」（Ctrl/⌘+Shift+K）、退出确认（菜单 / 托盘 / ⌘Q 同一规则，合并两个窗口的未保存状态）、关闭窗口改为隐藏
 - 重新生成（#36）：「重新生成 ▾」菜单（选中的 / 全部）、选择模式、确认对话框、生成中进度与骨架、结果提示条（含「查看已移除」）、失败提示条与重试、「新增」标签；新 IPC `clarityokr:okr:regenerate-krs`
 - 无托盘时（Windows / Linux）隐藏或关闭最后一个可见窗口即退出，提示文字与无障碍名称同步说明（#36）
+- [维护] MIT License
+- [维护] GitHub issue and PR templates
+- [维护] Branch protection rules for `main`
+- [维护] Code of Conduct
 
 ### Changed
 
 - 持久化改用规范化 `OkrStore`，数据库位于 Electron `userData`；重新生成按 KR id 匹配，保留进度与状态，未命中的旧 KR 标记为已移除（#29）
 - 退出 / 重启确认的回答绑定 `requestId`，过期回答被拒；未保存上报只对暂时性错误重试，最多 5 次（#36）
 - 文字校验与主进程共用同一套字形簇计数（#32）
-
-### Added（仓库维护）
-
-- MIT License
-- GitHub issue and PR templates
-- Branch protection rules for `main`
-- Code of Conduct
-
-### Changed（仓库维护）
-
-- CI workflow: opt-in to Node.js 24 for GitHub Actions ahead of deprecation
-- Coverage report job: fixed artifact paths and threshold checking
+- [维护] CI workflow: opt-in to Node.js 24 for GitHub Actions ahead of deprecation
+- [维护] Coverage report job: fixed artifact paths and threshold checking
 
 ### Fixed
 
-- Session ID consistency in AppComponent (single session ID across operations)
-- Hardcoded Chinese text replaced with English in okr-sticky service
-- Removed no-op `finalize()` operators from LLM gateway services
-- Draft handler now uses actual `selectedOptionId` instead of `'unknown'`
-- Wizard progress total dynamically adjusts based on session length
-- Removed unused `IpcLlmGateway` dependency from AppComponent
-
-### Removed
-
-- Deprecated `DatabaseService` (221 lines) and migrated all repositories to `ConnectionManager`
-- Mock LLM gateway from production source (486 lines, tests use `__mocks__/` version)
-- Test-mode from production builds via dynamic import (~680 lines excluded)
+- [维护] Session ID consistency in AppComponent (single session ID across operations)
+- [维护] Hardcoded Chinese text replaced with English in okr-sticky service
+- [维护] Removed no-op `finalize()` operators from LLM gateway services
+- [维护] Draft handler now uses actual `selectedOptionId` instead of `'unknown'`
+- [维护] Wizard progress total dynamically adjusts based on session length
+- [维护] Removed unused `IpcLlmGateway` dependency from AppComponent
 
 ### Removed
 
 - 旧 `okr_documents` 存储模型与 overwrite / append 两种重新生成按钮；KR 的 `owner` 字段（#29、#32、#36）
+- [维护] Deprecated `DatabaseService` (221 lines) and migrated all repositories to `ConnectionManager`
+- [维护] Mock LLM gateway from production source (486 lines, tests use `__mocks__/` version)
+- [维护] Test-mode from production builds via dynamic import (~680 lines excluded)
 
 ### Breaking
 
