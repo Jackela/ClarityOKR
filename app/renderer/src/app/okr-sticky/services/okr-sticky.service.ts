@@ -176,15 +176,6 @@ export class OkrStickyService implements OnDestroy {
     this.storeDocument(okrDocumentSchema.parse(result));
   }
 
-  async regenerate(policy: RegenerationPolicy): Promise<void> {
-    if (!this.document) throw new Error('No OKR to regenerate');
-    const result = await this.ensureBridge().invoke(IPC_CHANNELS.OKR_REGENERATE, {
-      sessionId: this.document.sourceSessionId,
-      policy,
-    });
-    this.storeDocument(okrDocumentSchema.parse(result));
-  }
-
   /**
    * Makes an OKR opened from the history the one that edit / regenerate / copy act on.
    * Built from the closed-loop detail, so no extra round trip is needed.

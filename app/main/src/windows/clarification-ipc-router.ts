@@ -9,11 +9,7 @@
  * @module windows/clarification-ipc-router
  */
 
-import {
-  updateOKRRequestSchema,
-  regenerateOKRRequestSchema,
-  okrDocumentSchema,
-} from '@clarityokr/contracts';
+import { updateOKRRequestSchema, okrDocumentSchema } from '@clarityokr/contracts';
 import type { IpcMain, IpcMainInvokeEvent, WebContents } from 'electron';
 
 import { IPC_CHANNELS } from '../bootstrap/ipc-channels.js';
@@ -193,25 +189,6 @@ export class ClarificationIpcRouter {
       getAllWebContents().forEach((wc) => wc.send(IPC_CHANNELS.OKR_GENERATE, { okr: updated }));
       await actionLogService.logAction('edit', current.sourceSessionId, current.id, 'manual edit');
       return updated;
-    });
-
-    ipcMain.handle(IPC_CHANNELS.OKR_REGENERATE, async (_event, payload: unknown) => {
-      const request = regenerateOKRRequestSchema.parse(payload);
-      const result = await deps.okrRegenerationService.regenerate(
-        request.sessionId,
-        request.policy,
-      );
-      if (!result.ok) throw result.error;
-      getAllWebContents().forEach((wc) =>
-        wc.send(IPC_CHANNELS.OKR_GENERATE, { okr: result.value }),
-      );
-      await actionLogService.logAction(
-        'regenerate',
-        request.sessionId,
-        result.value.id,
-        request.policy,
-      );
-      return result.value;
     });
 
     // STICKY_REOPEN: Reopen the sticky window with the latest OKR
