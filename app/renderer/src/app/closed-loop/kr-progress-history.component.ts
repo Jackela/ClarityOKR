@@ -110,8 +110,10 @@ interface Dot {
                 </g>
               </svg>
               <div class="ph__dates" aria-hidden="true">
-                <span>{{ g.from }}</span
-                ><span>{{ g.to }}</span>
+                <span>{{ g.from }}</span>
+                @if (!g.single) {
+                  <span>{{ g.to }}</span>
+                }
               </div>
             }
             <div
@@ -388,7 +390,7 @@ export class KrProgressHistoryComponent implements OnInit {
   readonly chart = computed(() => {
     const h = this.history();
     const points = h.points;
-    if (points.filter((v) => v !== null).length < 2) return null;
+    if (points.every((v) => v === null)) return null;
     const plotW = W - LEFT - RIGHT;
     const plotH = H - TOP - BOTTOM;
     const y = (v: number): number => TOP + plotH * (1 - v / 100);
@@ -414,8 +416,10 @@ export class KrProgressHistoryComponent implements OnInit {
     const newest = effective[0]?.recordedAt ?? '';
     return {
       grid: [100, 50, 0].map((v) => ({ y: round(y(v)), label: String(v) })),
-      paths,
+      // a lone point (one record, or between two gaps) has no line, only its dot
+      paths: paths.filter((d) => d.includes('L')),
       dots,
+      single: all.length === 1,
       from: this.axisDate(oldest, newest),
       to: this.axisDate(newest, oldest),
     };
@@ -470,10 +474,15 @@ export class KrProgressHistoryComponent implements OnInit {
     return STATUS_LABEL[status];
   }
 
-  /** `MM-DD`, or `YYYY-MM-DD` when the two ends are in different years. */
+  /** `MM-DD`; `YYYY-MM-DD` across years; `HH:mm` when both ends fall on the same day. */
   private axisDate(iso: string, other: string): string {
     if (!iso) return '';
-    const year = new Date(iso).getFullYear();
+    const d = new Date(iso);
+    const o = new Date(other);
+    if (d.toDateString() === o.toDateString()) {
+      return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    }
+    const year = d.getFullYear();
     return year === new Date(other).getFullYear()
       ? formatMonthDay(iso)
       : `${year}-${formatMonthDay(iso)}`;

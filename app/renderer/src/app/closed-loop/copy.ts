@@ -308,7 +308,7 @@ export const COPY = {
     removedSuffix: '（已移除）',
     empty: '还没有进度记录',
     noValue: '暂时没有有效的进度值',
-    single: (v: number) => `目前只有 1 次更新：${v}%`,
+    single: (v: number) => `目前 ${v}%，共 1 次更新`,
     summary: (first: number, last: number, n: number) => `从 ${first}% 到 ${last}%，共 ${n} 次更新`,
     colDate: '日期',
     colValue: '进度',

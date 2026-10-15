@@ -92,4 +92,18 @@ describe('KrProgressHistoryComponent (#53)', () => {
     fixture.detectChanges();
     expect(q('kr-history-empty')).not.toBeNull();
   });
+
+  it('1 record: a single dot, no line, 「目前 n%，共 1 次更新」', async () => {
+    await mount([set(1, 30, 0)]);
+    expect(all('kr-history-dot')).toHaveLength(1);
+    expect(all('kr-history-line')).toHaveLength(0);
+    expect(q('kr-history-summary')!.textContent!.trim()).toBe('目前 30%，共 1 次更新');
+  });
+
+  it('x-axis shows times when both ends fall on the same day', async () => {
+    await mount([set(1, 10, 0), set(2, 30, 43)]);
+    const labels = root().querySelector('.ph__dates')!.textContent!;
+    expect(labels).toMatch(/\d{2}:\d{2}.*\d{2}:\d{2}/s);
+    expect(labels).not.toMatch(/10-01/);
+  });
 });
