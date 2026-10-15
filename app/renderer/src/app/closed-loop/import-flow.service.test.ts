@@ -189,4 +189,53 @@ describe('ImportFlow (#49, S1§8 + v3.1)', () => {
     expect(flow.slow()).toBe(false);
     jest.useRealTimers();
   });
+
+  it('#68: opening a dialog closes the toast of the previous step', async () => {
+    api['importPick']!.mockResolvedValueOnce(ok({ outcome: 'cancelled' }));
+    await flow.start();
+    expect(toasts.current()).not.toBeNull();
+    api['importPick']!.mockResolvedValueOnce(
+      confirm({ conflicts: [{ ...item, index: 0, source: 'existing' }] }),
+    );
+    await flow.start();
+    expect(flow.dialog()?.kind).toBe('conflict');
+    expect(toasts.current()).toBeNull();
+    flow.close();
+    api['importPick']!.mockResolvedValueOnce(
+      ok({ outcome: 'rejected', problem: { kind: 'not_json' } }),
+    );
+    expect(toasts.current()).not.toBeNull();
+    await flow.start();
+    expect(flow.dialog()?.kind).toBe('error');
+    expect(toasts.current()).toBeNull();
+  });
+
+  it('B4: a plain-language reason is shown without a field path', async () => {
+    api['importPick']!.mockResolvedValue(
+      ok({
+        outcome: 'rejected',
+        problem: {
+          kind: 'invalid',
+          field: '',
+          reason: '这个 OKR 有 11 个 KR，最多 10 个',
+          more: 0,
+        },
+      }),
+    );
+    await flow.start();
+    expect(flow.dialog()).toMatchObject({
+      title: '文件内容有误，无法导入',
+      detail: ['这个 OKR 有 11 个 KR，最多 10 个'],
+    });
+  });
+
+  it('N26: starting a new import closes the old toast', async () => {
+    toasts.show({ kind: 'success', message: '旧的' });
+    let resolve!: (v: unknown) => void;
+    api['importPick']!.mockReturnValue(new Promise((r) => (resolve = r)));
+    const running = flow.start();
+    expect(toasts.current()).toBeNull();
+    resolve(ok({ outcome: 'cancelled' }));
+    await running;
+  });
 });

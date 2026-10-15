@@ -1,4 +1,5 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import type NodeModule from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { ElectronApplication, Page } from '@playwright/test';
@@ -81,6 +82,8 @@ test.describe('#49 import', () => {
     await expect(conflict).toHaveAttribute('role', 'alertdialog');
     await expect(conflict.getByRole('button', { name: '取消' })).toBeFocused();
     await expect(conflict).toContainText('这个 OKR 已经存在');
+    // #68: the cancel toast of the previous step is gone, nothing lingers behind the dialog
+    await expect(sticky.getByTestId('toast-neutral')).toHaveCount(0);
     await both(sticky, 'S1-05-import-conflict');
     await axe(sticky, 'import conflict dialog');
     // skip → nothing written
@@ -136,6 +139,7 @@ test.describe('#49 import', () => {
       await expect(dialog).toContainText(title);
       await expect(dialog).toContainText('数据没有任何改动。');
       await expect(dialog.getByRole('button', { name: '知道了' })).toBeFocused();
+      await expect(sticky.locator('[data-testid^="toast-"]')).toHaveCount(0); // #68
       await both(sticky, name);
       await sticky.keyboard.press('Escape');
       await expect(dialog).toHaveCount(0);
@@ -160,6 +164,31 @@ test.describe('#49 import', () => {
     await expect(sticky.getByTestId('import-dialog-error')).toContainText('文件不存在或已被移动。');
     await both(sticky, 'S1-12-import-read-failed');
     await sticky.keyboard.press('Escape');
+  });
+
+  test('S1-02: an empty history offers 「从文件导入…」', async ({
+    electronApp,
+    mainWindow,
+    mockServer,
+  }) => {
+    const sticky = await openSticky(electronApp, mainWindow, mockServer);
+    // Clear the database the app is running on (the E2E database of this test).
+    await electronApp.evaluate(() => {
+      const { createRequire } = process.getBuiltinModule('node:module') as typeof NodeModule;
+      const require = createRequire(`${process.cwd()}/app/main/package.json`);
+      const Database = require('better-sqlite3') as new (p: string) => {
+        exec: (sql: string) => void;
+        close: () => void;
+      };
+      const db = new Database(process.env.E2E_DB_PATH as string);
+      db.exec('DELETE FROM objectives');
+      db.close();
+    });
+    await sticky.getByTestId('tab-history').click();
+    await expect(sticky.getByTestId('history-empty')).toBeVisible();
+    await expect(sticky.getByTestId('history-import-empty')).toHaveText('从文件导入…');
+    await both(sticky, 'S1-02-import-empty');
+    await axe(sticky, 'empty history with import');
   });
 
   test('empty history and the locked / narrow entry', async ({
