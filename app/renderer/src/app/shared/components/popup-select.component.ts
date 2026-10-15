@@ -25,6 +25,18 @@ export interface PopupOption {
  * focus the current item, ↑ ↓ Home End move, Enter / Space select, Esc closes and returns to
  * the trigger, Tab closes. The trigger content is projected.
  */
+/** Keys a disabled trigger swallows so they do nothing at all (Tab still moves on). */
+const LOCKED_KEYS = new Set([
+  ' ',
+  'Enter',
+  'ArrowDown',
+  'ArrowUp',
+  'Home',
+  'End',
+  'PageDown',
+  'PageUp',
+]);
+
 @Component({
   selector: 'clarityokr-popup-select',
   standalone: true,
@@ -219,7 +231,11 @@ export class PopupSelectComponent {
   }
 
   onTriggerKeydown(event: KeyboardEvent): void {
-    if (this.disabled) return;
+    if (this.disabled) {
+      // #42: still focusable (aria-disabled), but the keys must not scroll the page either
+      if (LOCKED_KEYS.has(event.key)) event.preventDefault();
+      return;
+    }
     if (event.key === 'Enter' || event.key === ' ' || event.key === 'ArrowDown') {
       event.preventDefault();
       if (!this.open) this.openPopup(true);

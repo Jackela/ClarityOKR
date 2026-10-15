@@ -80,7 +80,7 @@ import { ExportMenuComponent } from './export-menu.component';
             class="bar__btn"
             data-testid="hide-button"
             [attr.aria-label]="hideQuits() ? w.hideQuitsTooltip : w.hide"
-            aria-describedby="hide-tooltip"
+            [attr.aria-describedby]="hideQuits() ? null : 'hide-tooltip'"
             (click)="hide()"
           >
             <svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true">

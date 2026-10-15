@@ -161,6 +161,18 @@ describe('PopupSelectComponent', () => {
     expect(items()).toHaveLength(0);
   });
 
+  it('#42: while disabled, Space / Enter / arrows / Home / End are swallowed, Tab is not', () => {
+    host.disabled = true;
+    fixture.detectChanges();
+    for (const k of [' ', 'Enter', 'ArrowDown', 'ArrowUp', 'Home', 'End', 'PageDown', 'PageUp']) {
+      expect(key(trigger(), k).defaultPrevented).toBe(true);
+    }
+    expect(key(trigger(), 'Tab').defaultPrevented).toBe(false);
+    expect(trigger().getAttribute('aria-expanded')).toBe('false');
+    expect(items()).toHaveLength(0);
+    expect(host.picked).toEqual([]);
+  });
+
   it('does nothing while disabled and marks the trigger aria-disabled', () => {
     host.disabled = true;
     fixture.detectChanges();
