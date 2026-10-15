@@ -243,8 +243,10 @@ export type ExportReply =
 // file behind a one-time token, which `commit` / `retry` / `discard` refer to.
 // ---------------------------------------------------------------------------
 
-/** Largest file the import reads (5 MB). */
+/** Largest single-OKR file the import reads (5 MB). */
 export const IMPORT_MAX_BYTES = 5 * 1024 * 1024;
+/** #50 B5: largest full backup the import reads (50 MB). */
+export const IMPORT_BACKUP_MAX_BYTES = 50 * 1024 * 1024;
 
 export type ImportReadCategory = 'permission' | 'not_found' | 'busy' | 'other';
 export type ImportWriteCategory = 'disk_full' | 'busy' | 'other';
@@ -252,7 +254,8 @@ export type ImportConflictChoice = 'skip' | 'copy';
 
 /** Why a file was rejected. Nothing was written in any of these cases. */
 export type ImportProblem =
-  | { kind: 'too_large'; sizeBytes: number }
+  /** `backup`: the limit was the backup one (also for a file over it whose kind is unknown). */
+  | { kind: 'too_large'; sizeBytes: number; limitBytes: number; backup: boolean }
   | { kind: 'not_json' }
   | { kind: 'unsupported_version'; version: string }
   /** The first problem (path + Chinese reason) and how many more there are. */

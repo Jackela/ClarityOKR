@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import { readFile, stat } from 'node:fs/promises';
+import { open, readFile, stat } from 'node:fs/promises';
 import { isAbsolute } from 'node:path';
 
 import {
+  IMPORT_BACKUP_MAX_BYTES,
   IMPORT_MAX_BYTES,
   TEXT_LIMITS,
   countGraphemes,
@@ -32,7 +33,23 @@ export interface ImportDeps {
   isMemory: () => boolean;
   readFile?: (path: string) => Promise<Buffer>;
   fileSize?: (path: string) => Promise<number>;
+  /** The first `bytes` of the file (B5: tells a backup apart before reading it all). */
+  readHead?: (path: string, bytes: number) => Promise<Buffer>;
 }
+
+/** How much of the file start is read to spot `"kind": "backup"`. */
+export const IMPORT_HEAD_BYTES = 4096;
+const BACKUP_KIND = /"kind"\s*:\s*"backup"/;
+
+const tooLarge = (sizeBytes: number, backup: boolean): ImportReply => ({
+  outcome: 'rejected',
+  problem: {
+    kind: 'too_large',
+    sizeBytes,
+    limitBytes: backup ? IMPORT_BACKUP_MAX_BYTES : IMPORT_MAX_BYTES,
+    backup,
+  },
+});
 
 /** Suffix of a copy's title (Q8-5: never added twice). */
 export const COPY_SUFFIX = '（导入）';
@@ -82,10 +99,12 @@ export class ImportService {
   private session: Session | null = null;
   private readonly read: (path: string) => Promise<Buffer>;
   private readonly size: (path: string) => Promise<number>;
+  private readonly head: (path: string, bytes: number) => Promise<Buffer>;
 
   constructor(private readonly deps: ImportDeps) {
     this.read = deps.readFile ?? ((path) => readFile(path));
     this.size = deps.fileSize ?? (async (path) => (await stat(path)).size);
+    this.head = deps.readHead ?? readHead;
   }
 
   async pick(): Promise<ImportReply> {
@@ -151,10 +170,15 @@ export class ImportService {
 
   private async load(path: string, isRetry: boolean): Promise<ImportReply> {
     let bytes: Buffer;
+    // B5: a single OKR may be 5 MB, a backup 50 MB. The file start usually says which it is
+    // (`"kind": "backup"` comes first in our exports); when it doesn't, the file is read with the
+    // backup limit and a single OKR over 5 MB is rejected after parsing.
+    let knownBackup = false;
     try {
       const size = await this.size(path);
+      if (size > IMPORT_BACKUP_MAX_BYTES) return tooLarge(size, true);
       if (size > IMPORT_MAX_BYTES) {
-        return { outcome: 'rejected', problem: { kind: 'too_large', sizeBytes: size } };
+        knownBackup = BACKUP_KIND.test((await this.head(path, IMPORT_HEAD_BYTES)).toString('utf8'));
       }
       bytes = await this.read(path);
     } catch (error) {
@@ -163,10 +187,12 @@ export class ImportService {
       if (isRetry) return { outcome: 'original_missing' };
       return { outcome: 'rejected', problem: { kind: 'read_failed', category } };
     }
-    if (bytes.length > IMPORT_MAX_BYTES) {
-      return { outcome: 'rejected', problem: { kind: 'too_large', sizeBytes: bytes.length } };
-    }
+    if (bytes.length > IMPORT_BACKUP_MAX_BYTES) return tooLarge(bytes.length, true);
     const parsed = parseImportFile(bytes);
+    if (bytes.length > IMPORT_MAX_BYTES && !(parsed.ok && parsed.backup)) {
+      return tooLarge(bytes.length, false);
+    }
+    if (knownBackup) Logger.info('[import] Large backup recognised from the file start');
     if (!parsed.ok) return { outcome: 'rejected', problem: parsed.problem };
 
     const session: Session = { token: randomUUID(), path, documents: parsed.documents };
@@ -237,4 +263,15 @@ export class ImportService {
 
 function itemOf(document: ExportJsonDocument): ImportItem {
   return { title: document.objective.title, createdAt: document.objective.createdAt };
+}
+
+async function readHead(path: string, bytes: number): Promise<Buffer> {
+  const handle = await open(path, 'r');
+  try {
+    const buffer = Buffer.alloc(bytes);
+    const { bytesRead } = await handle.read(buffer, 0, bytes, 0);
+    return buffer.subarray(0, bytesRead);
+  } finally {
+    await handle.close();
+  }
 }

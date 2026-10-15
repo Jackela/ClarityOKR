@@ -253,6 +253,8 @@ export const COPY = {
     conflictHint: '作为副本导入时，新 OKR 的标题会加上「（导入）」。',
     tooLargeTitle: '文件太大，无法导入',
     tooLargeBody: (mb: string) => `只能导入 5 MB 以内的文件，这个文件有 ${mb} MB。`,
+    tooLargeBackupBody: (limit: number, mb: string) =>
+      `只能导入 ${limit} MB 以内的备份，这个文件有 ${mb} MB。`,
     notJsonTitle: '这不是可以导入的文件',
     notJsonBody: '文件内容不是有效的 JSON。请选择 ClarityOKR 导出的 .json 文件。',
     invalidTitle: '文件内容有误，无法导入',
