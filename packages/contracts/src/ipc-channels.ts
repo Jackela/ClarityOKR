@@ -36,6 +36,10 @@ export const ALLOWED_CHANNELS = [
   'clarityokr:review:save',
   'clarityokr:export:save',
   'clarityokr:export:reveal',
+  'clarityokr:import:pick',
+  'clarityokr:import:commit',
+  'clarityokr:import:retry',
+  'clarityokr:import:discard',
   'clarityokr:app:restart',
   'clarityokr:window:open-wizard',
   'clarityokr:wizard:new-okr',
@@ -102,6 +106,14 @@ export const IPC_CHANNELS = {
   EXPORT_SAVE: 'clarityokr:export:save',
   /** Reveal a file in the file manager; only the path of the last successful export is accepted. */
   EXPORT_REVEAL: 'clarityokr:export:reveal',
+  /** #49 import: open dialog → read → validate (→ write when nothing needs confirming). Payload: none. */
+  IMPORT_PICK: 'clarityokr:import:pick',
+  /** Write a confirmed import: `{ token, onConflict }`. */
+  IMPORT_COMMIT: 'clarityokr:import:commit',
+  /** Re-read the same file after a failed write (Q8-3): `{ token }`. */
+  IMPORT_RETRY: 'clarityokr:import:retry',
+  /** The import dialog was closed: forget the file (`{ token }`). */
+  IMPORT_DISCARD: 'clarityokr:import:discard',
   /** Relaunch the app, through the same confirmation rule as quitting. */
   APP_RESTART: 'clarityokr:app:restart',
   /** Show and focus the main window and ask its wizard to start a new OKR. Payload: none. */

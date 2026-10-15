@@ -4,6 +4,8 @@ import {
   ipcFail,
   ipcOk,
   parseExportRequest,
+  parseImportCommitRequest,
+  parseImportTokenRequest,
   parseKrIdRequest,
   parseOkrIdRequest,
   parseReplaceProgressRequest,
@@ -12,6 +14,8 @@ import {
   parseSaveReviewRequest,
   parseSetPeriodRequest,
   parseSetProgressRequest,
+  type ImportReply,
+  type IpcFailure,
   type IpcResult,
   type KeyResultRecord,
   type KrProgressInfo,
@@ -30,11 +34,14 @@ import type { Clipboard, IpcMain } from 'electron';
 
 import { Logger } from '../core/logger.js';
 import type { ExportService } from '../export/export-service.js';
+import type { ImportService } from '../import/import-service.js';
 import type { OkrStore } from '../persistence/okr-store/okr-store.js';
 
 export interface ClosedLoopHandlerDeps {
   store: OkrStore;
   exportService: ExportService;
+  /** #49; optional so older test harnesses keep working. */
+  importService?: ImportService;
   /** The system clipboard (injected so tests never touch it). */
   clipboard: Pick<Clipboard, 'writeText'>;
   /** §3.7 regeneration (absent in tests that do not need it). */
@@ -263,6 +270,32 @@ export function registerClosedLoopHandlers(
     clipboard.writeText(markdown);
     return ipcOk({ copied: true });
   });
+
+  const importService = deps.importService;
+  if (importService) {
+    const expired = (): IpcFailure =>
+      ipcFail('NOT_FOUND', 'The import token is unknown or expired');
+    register<void, ImportReply>(
+      IPC_CHANNELS.IMPORT_PICK,
+      () => ({ ok: true, value: undefined }),
+      async () => ipcOk(await importService.pick()),
+    );
+    register(
+      IPC_CHANNELS.IMPORT_COMMIT,
+      parseImportCommitRequest,
+      async ({ token, onConflict }) => {
+        const reply = await importService.commit(token, onConflict);
+        return reply ? ipcOk(reply) : expired();
+      },
+    );
+    register(IPC_CHANNELS.IMPORT_RETRY, parseImportTokenRequest, async ({ token }) => {
+      const reply = await importService.retry(token);
+      return reply ? ipcOk(reply) : expired();
+    });
+    register(IPC_CHANNELS.IMPORT_DISCARD, parseImportTokenRequest, ({ token }) =>
+      ipcOk({ discarded: importService.discard(token) }),
+    );
+  }
 
   register(IPC_CHANNELS.EXPORT_REVEAL, parseRevealRequest, ({ path }) => {
     if (!exportService.reveal(path)) {
