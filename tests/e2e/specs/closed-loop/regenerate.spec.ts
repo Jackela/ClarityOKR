@@ -235,7 +235,24 @@ test.describe('D3: regenerate (§3.7)', () => {
     const quarter = await picker.textContent();
     const panelTop = () =>
       sticky.evaluate(() => document.querySelector('.shell__panel')?.scrollTop ?? 0);
+    // #41: scroll the panel down, then focus the picker: it comes back with room for the
+    // sticky progress bar and its whole focus ring (no clipping at the panel's top edge)
+    await sticky.evaluate(() => {
+      const panel = document.querySelector<HTMLElement>('#panel-note');
+      if (panel) panel.scrollTop = panel.scrollHeight;
+    });
     await picker.focus();
+    const clip = await sticky.evaluate(() => {
+      const panel = document.querySelector<HTMLElement>('#panel-note')!;
+      const el = document.querySelector<HTMLElement>('[data-testid="period-picker"]')!;
+      return {
+        pad: getComputedStyle(panel).scrollPaddingTop,
+        gap: el.getBoundingClientRect().top - panel.getBoundingClientRect().top,
+      };
+    });
+    expect(clip.pad).toBe('8px');
+    // 2px progress bar + 2px offset + 2px ring
+    expect(clip.gap).toBeGreaterThanOrEqual(6);
     const scrollBefore = await panelTop();
     // #42: Space and arrows on the locked picker do nothing, the panel does not scroll
     await sticky.keyboard.press('Space');
