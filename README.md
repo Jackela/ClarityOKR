@@ -1,6 +1,6 @@
 # ClarityOKR
 
-[![Version](https://img.shields.io/badge/version-0.1.0-blue)](./package.json)
+[![Version](https://img.shields.io/badge/version-0.2.0-blue)](./package.json)
 [![CI](https://github.com/Jackela/ClarityOKR/actions/workflows/ci.yml/badge.svg)](https://github.com/Jackela/ClarityOKR/actions/workflows/ci.yml)
 [![Clarify OKR CI](https://github.com/Jackela/ClarityOKR/actions/workflows/clarify-okr.yml/badge.svg)](https://github.com/Jackela/ClarityOKR/actions/workflows/clarify-okr.yml)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue)](https://www.typescriptlang.org/)
@@ -36,25 +36,32 @@ Guided Q&A that converts vague statements (e.g. "提高效率") into structured 
 - **Progress Tracking**: Visual progress through the clarification journey
 - **Readiness Detection**: Automatic detection when enough context is gathered
 
-### US2: Sticky OKR Window
+### US2: Sticky Note Window (closed loop, v0.2.0)
 
-A lightweight always-on-top window that visualizes generated OKRs in list/tree form.
+After generating an OKR, a compact sticky note window opens with three tabs:
 
-- **Always-On-Top**: Sticky window stays visible above all other windows
-- **Tree/List View**: Toggle between hierarchical and flat views
-- **Window Controls**: Drag to reposition, close without losing data
-- **Auto-Reopen**: Remembers your last OKR for quick access
-- **Workspace Aware**: Visible across all virtual desktops
+- **便签 (Note)**: objective, quarter selector, overall progress and key results. Click a KR's value to enter progress (0–100) and pick a status (未开始 / 进行中 / 已完成 / 有风险); 「撤回」 or 「修改这次」 fixes the last entry. Every change is appended to a progress log.
+- **复盘 (Review)**: write what went well, what fell short and next steps (≤2000 characters each). The first save freezes a snapshot of the KRs. Ctrl/⌘+S saves; leaving with unsaved text asks first.
+- **历史 (History)**: every OKR, newest first, with search. Open one, pin it as the sticky note, or start 「新建 OKR」.
 
-### US3: Edit, Regenerate & Copy
+### US3: Edit, Regenerate & Export
 
-Full control over your generated OKRs with manual editing, regeneration, and clipboard export.
+- **编辑文字**: edit the objective, KR text and metrics with undo/redo (Ctrl/⌘+Z, Ctrl/⌘+Shift+Z); 「＋ 添加」 adds a KR (max 10).
+- **重新生成 ▾**: regenerate all KRs or only selected ones. Matched KRs keep progress and status; new ones get a 「新增」 tag; unmatched old KRs move to 「已移除」 with their history kept. Editing controls are locked while generating.
+- **导出 ▾**: save as Markdown or JSON, or copy as Markdown; the toast offers 「复制路径」 / 「在文件夹中显示」.
 
-- **Inline Editing**: Click any objective or key result to edit directly
-- **Regenerate**: Request fresh AI suggestions while keeping your context
-- **Copy to Clipboard**: One-click export for sharing
-- **Partial Regeneration**: Regenerate specific objectives while keeping others
-- **Undo/Redo**: Track changes with full history
+### Window & Lifecycle
+
+- **Tray & single instance**: the app keeps running in the tray; launching it again or using 「显示便签」 (Ctrl/⌘+Shift+K) brings the note back.
+- **Hide vs quit**: the 「隐藏」 button and closing a window hide it; quitting (menu, tray, ⌘Q) asks first when there are unsaved edits.
+- **Always on top**: toggle in the 「⋯」 menu.
+- **Storage safety**: if the database can't be opened the app falls back to a temporary or in-memory store and says so; an old pre-0.2.0 database is backed up to `backups/` (not migrated).
+
+### Known Limitations
+
+- **Not yet tested on real machines**: tray icon/menu behaviour, macOS Dock `activate`, ⌘Q and Windows logout/shutdown handling are covered only by code and automated tests.
+- **Windows logout / shutdown**: there is no unsaved-changes prompt; unsaved edits are lost.
+- **No tray (Windows / Linux)**: if the tray icon can't be created, closing or hiding the last visible window quits the app (the button tooltip says so).
 
 ### Security & Performance
 
