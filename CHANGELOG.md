@@ -70,7 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Windows 注销 / 关机时不弹未保存确认，未保存的编辑会丢失
 - Windows / Linux 没有托盘图标时，关闭最后一个窗口会直接退出应用
 
-## [0.1.0] - 2025-04-24
+## 0.1.0 - 2025-04-24
 
 ### Added
 
@@ -85,5 +85,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CI/CD pipeline with multi-platform builds
 
 [unreleased]: https://github.com/Jackela/ClarityOKR/compare/v0.2.0...HEAD
-[0.2.0]: https://github.com/Jackela/ClarityOKR/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/Jackela/ClarityOKR/releases/tag/v0.1.0
+[0.2.0]: https://github.com/Jackela/ClarityOKR/releases/tag/v0.2.0
