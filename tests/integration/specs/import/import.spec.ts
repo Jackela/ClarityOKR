@@ -245,7 +245,12 @@ describe('#49 import', () => {
     });
     it('over 5 MB', async () => {
       const problem = await reject(Buffer.alloc(IMPORT_MAX_BYTES + 1, 0x20));
-      expect(problem).toEqual({ kind: 'too_large', sizeBytes: IMPORT_MAX_BYTES + 1 });
+      expect(problem).toEqual({
+        kind: 'too_large',
+        sizeBytes: IMPORT_MAX_BYTES + 1,
+        limitBytes: IMPORT_MAX_BYTES,
+        backup: false,
+      });
     });
     it('an unknown kind', async () => {
       expect(await reject(mutate((d) => (d.kind = 'other')))).toMatchObject({ field: 'kind' });

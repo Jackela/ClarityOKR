@@ -27,6 +27,8 @@ const LEFT = 26;
 const RIGHT = 6;
 const TOP = 6;
 const BOTTOM = 6;
+/** `.ph__dates` starts this far right of the SVG (its left margin). */
+const DATES_LEFT = LEFT;
 
 interface Dot {
   x: number;
@@ -110,8 +112,15 @@ interface Dot {
                 </g>
               </svg>
               <div class="ph__dates" aria-hidden="true">
-                <span>{{ g.from }}</span>
-                @if (!g.single) {
+                @if (g.single) {
+                  <span
+                    class="ph__date-single"
+                    data-testid="kr-history-single-date"
+                    [style.left.px]="g.singleX"
+                    >{{ g.from }}</span
+                  >
+                } @else {
+                  <span>{{ g.from }}</span>
                   <span>{{ g.to }}</span>
                 }
               </div>
@@ -208,6 +217,11 @@ interface Dot {
         line-height: 16px;
         color: var(--color-text-secondary);
       }
+      .ph__date-single {
+        position: absolute;
+        transform: translateX(-50%);
+        white-space: nowrap;
+      }
       .ph__chart {
         display: block;
         max-width: 100%;
@@ -262,6 +276,8 @@ interface Dot {
         }
       }
       .ph__dates {
+        position: relative;
+        min-height: 1.4em;
         display: flex;
         justify-content: space-between;
         margin: 2px 0 8px 26px;
@@ -381,15 +397,18 @@ export class KrProgressHistoryComponent implements OnInit {
 
   readonly summary = computed(() => {
     const h = this.history();
+    // N36: counts are effective records; reverted rows are listed but not counted (Q10-5).
+    if (h.count === 0) return this.c.allReverted(h.rows.filter((r) => r.reverted).length);
     const values = h.points.filter((v): v is number => v !== null);
     if (values.length === 0) return this.c.noValue;
-    if (values.length === 1) return this.c.single(values[0] as number);
+    if (values.length === 1) return this.c.single(values[0] as number, h.count);
     return this.c.summary(h.first as number, h.last as number, h.count);
   });
 
   readonly chart = computed(() => {
     const h = this.history();
     const points = h.points;
+    // all reverted (no effective record) or all cleared: no points
     if (points.every((v) => v === null)) return null;
     const plotW = W - LEFT - RIGHT;
     const plotH = H - TOP - BOTTOM;
@@ -419,7 +438,9 @@ export class KrProgressHistoryComponent implements OnInit {
       // a lone point (one record, or between two gaps) has no line, only its dot
       paths: paths.filter((d) => d.includes('L')),
       dots,
-      single: all.length === 1,
+      // N36: one effective record → one dot with its time right under it (S1-43)
+      single: h.count === 1,
+      singleX: (all[0]?.x ?? 0) - DATES_LEFT,
       from: this.axisDate(oldest, newest),
       to: this.axisDate(newest, oldest),
     };

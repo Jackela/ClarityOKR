@@ -253,6 +253,8 @@ export const COPY = {
     conflictHint: '作为副本导入时，新 OKR 的标题会加上「（导入）」。',
     tooLargeTitle: '文件太大，无法导入',
     tooLargeBody: (mb: string) => `只能导入 5 MB 以内的文件，这个文件有 ${mb} MB。`,
+    tooLargeBackupBody: (limit: number, mb: string) =>
+      `只能导入 ${limit} MB 以内的备份，这个文件有 ${mb} MB。`,
     notJsonTitle: '这不是可以导入的文件',
     notJsonBody: '文件内容不是有效的 JSON。请选择 ClarityOKR 导出的 .json 文件。',
     invalidTitle: '文件内容有误，无法导入',
@@ -308,7 +310,8 @@ export const COPY = {
     removedSuffix: '（已移除）',
     empty: '还没有进度记录',
     noValue: '暂时没有有效的进度值',
-    single: (v: number) => `目前 ${v}%，共 1 次更新`,
+    single: (v: number, n: number) => `目前 ${v}%，共 ${n} 次更新`,
+    allReverted: (n: number) => `没有生效的更新，已撤回 ${n} 次`,
     summary: (first: number, last: number, n: number) => `从 ${first}% 到 ${last}%，共 ${n} 次更新`,
     colDate: '日期',
     colValue: '进度',

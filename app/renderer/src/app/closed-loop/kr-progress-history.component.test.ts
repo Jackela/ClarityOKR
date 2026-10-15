@@ -16,6 +16,8 @@ class Host {}
 const at = (min: number): string => new Date(Date.UTC(2026, 9, 1, 0, min)).toISOString();
 const set = (id: number, value: number | null, min: number): ProgressEntryRecord =>
   makeEntry({ id, value, recordedAt: at(min) });
+const setAt = (id: number, value: number, iso: string): ProgressEntryRecord =>
+  makeEntry({ id, value, recordedAt: iso });
 
 describe('KrProgressHistoryComponent (#53)', () => {
   let fixture: ComponentFixture<Host>;
@@ -24,6 +26,11 @@ describe('KrProgressHistoryComponent (#53)', () => {
   const q = (id: string): HTMLElement | null => root().querySelector(`[data-testid="${id}"]`);
   const all = (id: string): HTMLElement[] =>
     Array.from(root().querySelectorAll(`[data-testid="${id}"]`));
+
+  const dates = (): string[] =>
+    Array.from(root().querySelectorAll('.ph__dates span')).map((e) =>
+      (e as HTMLElement).textContent!.trim(),
+    );
 
   async function mount(entries: ProgressEntryRecord[] | 'fail'): Promise<void> {
     api = {
@@ -105,5 +112,50 @@ describe('KrProgressHistoryComponent (#53)', () => {
     const labels = root().querySelector('.ph__dates')!.textContent!;
     expect(labels).toMatch(/\d{2}:\d{2}.*\d{2}:\d{2}/s);
     expect(labels).not.toMatch(/10-01/);
+  });
+
+  it('S1-43: the single point has its time right under it', async () => {
+    await mount([set(1, 30, 0)]);
+    const label = q('kr-history-single-date')!;
+    const dot = q('kr-history-dot')!;
+    expect(dates()).toHaveLength(1);
+    // the label is centred on the dot (the dates row starts LEFT=26px right of the SVG)
+    expect(parseFloat(label.style.left) + 26).toBeCloseTo(parseFloat(dot.getAttribute('cx')!), 1);
+    expect(label.textContent).toMatch(/^\s*\d{2}:\d{2}\s*$/);
+  });
+
+  it('N35: different days → MM-DD', async () => {
+    await mount([
+      setAt(1, 10, new Date(2026, 8, 30, 10).toISOString()),
+      setAt(2, 30, new Date(2026, 9, 2, 10).toISOString()),
+    ]);
+    expect(dates()).toEqual(['09-30', '10-02']);
+  });
+
+  it('N35: across years → YYYY-MM-DD', async () => {
+    await mount([
+      setAt(1, 10, new Date(2025, 11, 30, 10).toISOString()),
+      setAt(2, 30, new Date(2026, 0, 2, 10).toISOString()),
+    ]);
+    expect(dates()).toEqual(['2025-12-30', '2026-01-02']);
+  });
+
+  it('N36: one cleared + one 30% record → 2 effective records, one dot, no line', async () => {
+    await mount([set(1, null, 0), set(2, 30, 10)]);
+    expect(q('kr-history-summary')!.textContent!.trim()).toBe('目前 30%，共 2 次更新');
+    expect(all('kr-history-dot')).toHaveLength(1);
+    expect(all('kr-history-line')).toHaveLength(0);
+    expect(q('kr-history-single-date')).toBeNull();
+    expect(dates()).toHaveLength(2);
+  });
+
+  it('all records reverted: no points, 「没有生效的更新，已撤回 n 次」, reverted rows listed', async () => {
+    const revert = (id: number, target: number, min: number) =>
+      makeEntry({ id, kind: 'revert', value: null, revertsEntryId: target, recordedAt: at(min) });
+    await mount([set(1, 40, 0), revert(2, 1, 10)]);
+    expect(q('kr-history-chart')).toBeNull();
+    expect(q('kr-history-summary')!.textContent!.trim()).toBe('没有生效的更新，已撤回 1 次');
+    expect(all('kr-history-row')).toHaveLength(1);
+    expect(all('kr-history-reverted')).toHaveLength(1);
   });
 });

@@ -326,7 +326,12 @@ export class ImportFlow {
         this.openDialog({
           ...base,
           title: C.tooLargeTitle,
-          body: C.tooLargeBody((problem.sizeBytes / (1024 * 1024)).toFixed(1)),
+          body: problem.backup
+            ? C.tooLargeBackupBody(
+                Math.round(problem.limitBytes / (1024 * 1024)),
+                (problem.sizeBytes / (1024 * 1024)).toFixed(1),
+              )
+            : C.tooLargeBody((problem.sizeBytes / (1024 * 1024)).toFixed(1)),
           action: 'reselect',
         });
         return;
