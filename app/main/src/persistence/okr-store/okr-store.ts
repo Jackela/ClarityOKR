@@ -694,8 +694,8 @@ export class OkrStore {
             );
             entryIds.set(entry.id, Number(result.lastInsertRowid));
           });
-        if (input.review) {
-          const { review } = input;
+        const review = input.review;
+        if (review !== null) {
           // Field by field: nothing from the file beyond the known keys is stored.
           const snapshot: ReviewKrSnapshot[] = review.snapshot.map((item) => ({
             krId: mapKr(item.krId),
