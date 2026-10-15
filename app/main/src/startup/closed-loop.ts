@@ -2,6 +2,7 @@ import type { StorageModeName } from '@clarityokr/contracts';
 import type { BrowserWindow, Clipboard, Dialog, IpcMain, Shell } from 'electron';
 
 import { ExportService, type SaveDialogRequest } from '../export/export-service.js';
+import { ImportService } from '../import/import-service.js';
 import type { ExportSource } from '../export/export-document.js';
 import {
   registerClosedLoopHandlers,
@@ -14,7 +15,7 @@ export interface ClosedLoopWiringDeps {
   ipcMain: Pick<IpcMain, 'handle'>;
   store: OkrStore;
   storageMode: StorageModeName;
-  dialog: Pick<Dialog, 'showSaveDialog'>;
+  dialog: Pick<Dialog, 'showSaveDialog' | 'showOpenDialog'>;
   shell: Pick<Shell, 'showItemInFolder'>;
   clipboard: Pick<Clipboard, 'writeText'>;
   getDownloadsDir: () => string;
@@ -42,6 +43,7 @@ const FILTERS: Record<SaveDialogRequest['format'], { name: string; extensions: s
 /** Registers the closed-loop IPC channels with the real Electron dialog/shell. */
 export function wireClosedLoop(deps: ClosedLoopWiringDeps): {
   exportService: ExportService;
+  importService: ImportService;
   restartService: AppRestartService;
 } {
   const exportService = new ExportService({
@@ -61,11 +63,29 @@ export function wireClosedLoop(deps: ClosedLoopWiringDeps): {
     getStorageMode: () => deps.storageMode,
     dbHasData: () => deps.store.hasAnyData(),
   });
+  const importService = new ImportService({
+    showOpenDialog: async () => {
+      const options = {
+        defaultPath: deps.getDownloadsDir(),
+        filters: [FILTERS.json],
+        properties: ['openFile' as const],
+      };
+      const window = deps.getFocusedWindow();
+      const result = window
+        ? await deps.dialog.showOpenDialog(window, options)
+        : await deps.dialog.showOpenDialog(options);
+      return result.canceled ? null : (result.filePaths[0] ?? null);
+    },
+    listExisting: () => deps.store.listObjectiveSummaries(),
+    write: (items) => deps.store.importObjectives(items),
+    isMemory: () => deps.storageMode === 'memory',
+  });
   registerClosedLoopHandlers(deps.ipcMain, {
     store: deps.store,
     exportService,
+    importService,
     clipboard: deps.clipboard,
     ...(deps.regenerate ? { regenerate: deps.regenerate } : {}),
   });
-  return { exportService, restartService };
+  return { exportService, importService, restartService };
 }

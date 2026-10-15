@@ -238,6 +238,74 @@ export type ExportReply =
   | { outcome: 'cancelled' }
   | { outcome: 'failed'; category: ExportFailureCategory };
 
+// ---------------------------------------------------------------------------
+// Import (#49, spec S1§8). The renderer never sees a path: the main process keeps the chosen
+// file behind a one-time token, which `commit` / `retry` / `discard` refer to.
+// ---------------------------------------------------------------------------
+
+/** Largest file the import reads (5 MB). */
+export const IMPORT_MAX_BYTES = 5 * 1024 * 1024;
+
+export type ImportReadCategory = 'permission' | 'not_found' | 'busy' | 'other';
+export type ImportWriteCategory = 'disk_full' | 'busy' | 'other';
+export type ImportConflictChoice = 'skip' | 'copy';
+
+/** Why a file was rejected. Nothing was written in any of these cases. */
+export type ImportProblem =
+  | { kind: 'too_large'; sizeBytes: number }
+  | { kind: 'not_json' }
+  | { kind: 'unsupported_version'; version: string }
+  /** The first problem (path + Chinese reason) and how many more there are. */
+  | { kind: 'invalid'; field: string; reason: string; more: number }
+  | { kind: 'read_failed'; category: ImportReadCategory };
+
+export interface ImportItem {
+  title: string;
+  createdAt: string;
+}
+
+export interface ImportConflict extends ImportItem {
+  /** Index in `items`. */
+  index: number;
+  /** `existing`: an OKR in the history has the same title + creation time; `in_file`: an earlier item of the same file does (Q9-5). */
+  source: 'existing' | 'in_file';
+}
+
+export interface ImportedOkr {
+  okrId: string;
+  title: string;
+}
+
+export type ImportReply =
+  | { outcome: 'cancelled' }
+  | { outcome: 'rejected'; problem: ImportProblem }
+  /**
+   * Valid, not written yet: there are conflicts, or the app runs on the in-memory database
+   * (Q8-6: the user confirms first). Answer with `import:commit` or `import:discard`.
+   */
+  | {
+      outcome: 'confirm';
+      token: string;
+      items: ImportItem[];
+      conflicts: ImportConflict[];
+      memory: boolean;
+    }
+  | { outcome: 'imported'; imported: ImportedOkr[]; skipped: ImportItem[]; memory: boolean }
+  /** The transaction was rolled back. `token` re-reads the same file (`import:retry`). */
+  | { outcome: 'write_failed'; category: ImportWriteCategory; token: string }
+  /** `import:retry` could not read the original file any more (Q8-3): pick a file again. */
+  | { outcome: 'original_missing' };
+
+export interface ImportTokenRequest {
+  token: string;
+}
+
+export interface ImportCommitRequest {
+  token: string;
+  /** What to do with every conflicting item. */
+  onConflict: ImportConflictChoice;
+}
+
 /** Reply of `clarityokr:clipboard:export`: the Markdown of the OKR is on the clipboard. */
 export interface CopyReply {
   copied: true;
@@ -714,4 +782,24 @@ export function readRestartResultEvent(payload: unknown): RestartResultEvent | n
   if (typeof payload !== 'object' || payload === null) return null;
   const outcome = (payload as Rec).outcome;
   return outcome === 'cancelled' || outcome === 'failed' ? { outcome } : null;
+}
+
+export function parseImportTokenRequest(payload: unknown): Parsed<ImportTokenRequest> {
+  const record = asRecord(payload, ['token']);
+  if (isFailure(record)) return record;
+  const token = readId(record, 'token');
+  if (isFailure(token)) return token;
+  return { ok: true, value: { token } };
+}
+
+export function parseImportCommitRequest(payload: unknown): Parsed<ImportCommitRequest> {
+  const record = asRecord(payload, ['token', 'onConflict']);
+  if (isFailure(record)) return record;
+  const token = readId(record, 'token');
+  if (isFailure(token)) return token;
+  const choice = record.onConflict;
+  if (choice === undefined) return invalid('onConflict', 'missing');
+  if (typeof choice !== 'string') return invalid('onConflict', 'wrong_type');
+  if (choice !== 'skip' && choice !== 'copy') return invalid('onConflict', 'invalid_value');
+  return { ok: true, value: { token, onConflict: choice } };
 }

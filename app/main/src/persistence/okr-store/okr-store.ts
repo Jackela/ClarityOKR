@@ -101,6 +101,36 @@ export interface KrProgressSummary {
   canRevert: boolean;
 }
 
+/** A validated single-OKR export (see `ExportJsonDocument`), written as a new OKR by `importObjective`. */
+export interface ImportObjectiveInput {
+  objective: { title: string; period: string | null; pinned: boolean; createdAt: string; updatedAt: string };
+  keyResults: ReadonlyArray<{
+    id: string;
+    statement: string;
+    successMetric: string | null;
+    progress: number | null;
+    status: KrStatus;
+    removedAt: string | null;
+  }>;
+  progressEntries: ReadonlyArray<{
+    id: number;
+    krId: string;
+    kind: 'set' | 'revert';
+    value: number | null;
+    status: KrStatus;
+    revertsEntryId: number | null;
+    recordedAt: string;
+  }>;
+  review: null | {
+    wentWell: string;
+    fellShort: string;
+    nextSteps: string;
+    snapshot: ReadonlyArray<ReviewKrSnapshot>;
+    savedAt: string;
+    snapshotAt: string;
+  };
+}
+
 export interface ReviewInput {
   wentWell: string;
   fellShort: string;
@@ -578,6 +608,110 @@ export class OkrStore {
       savedAt: row.saved_at,
       snapshotAt: row.snapshot_at,
     };
+  }
+
+  /**
+   * Writes imported OKRs (#49) as new rows in ONE transaction: every OKR or none. Ids are new;
+   * key result / progress entry / snapshot references are remapped. Timestamps come from the
+   * file. An OKR keeps `pinned` only while no other OKR is pinned. Returns the new ids in order.
+   */
+  importObjectives(items: ReadonlyArray<{ input: ImportObjectiveInput; title: string }>): string[] {
+    const insertObjective = this.db.prepare(
+      `INSERT INTO objectives (id, title, period, pinned, source_session_id, created_at, updated_at)
+       VALUES (?, ?, ?, ?, NULL, ?, ?)`,
+    );
+    const insertKr = this.db.prepare(
+      `INSERT INTO key_results
+         (id, objective_id, position, statement, success_metric, progress, status, removed_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    );
+    const insertEntry = this.db.prepare(
+      `INSERT INTO progress_entries (kr_id, kind, value, status, reverts_entry_id, recorded_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    );
+    const insertReview = this.db.prepare(
+      `INSERT INTO reviews (objective_id, went_well, fell_short, next_steps, snapshot, saved_at, snapshot_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    );
+    const hasPinned = this.db.prepare('SELECT 1 FROM objectives WHERE pinned = 1 LIMIT 1');
+
+    const run = this.db.transaction((): string[] =>
+      items.map(({ input, title }) => {
+        const { objective } = input;
+        const id = randomUUID();
+        const pinned = objective.pinned && hasPinned.get() === undefined ? 1 : 0;
+        insertObjective.run(
+          id,
+          title,
+          objective.period,
+          pinned,
+          objective.createdAt,
+          objective.updatedAt,
+        );
+        const krIds = new Map<string, string>();
+        input.keyResults.forEach((kr, position) => {
+          const krId = randomUUID();
+          krIds.set(kr.id, krId);
+          insertKr.run(
+            krId,
+            id,
+            position,
+            kr.statement,
+            normalizeSuccessMetric(kr.successMetric),
+            kr.progress,
+            kr.status,
+            kr.removedAt,
+            objective.createdAt,
+            kr.removedAt ?? objective.updatedAt,
+          );
+        });
+        const mapKr = (old: string): string => {
+          const mapped = krIds.get(old);
+          if (mapped === undefined) throw new ValidationError('Unknown key result reference');
+          return mapped;
+        };
+        const entryIds = new Map<number, number>();
+        [...input.progressEntries]
+          .sort((a, b) => a.id - b.id)
+          .forEach((entry) => {
+            const reverts =
+              entry.revertsEntryId === null ? null : entryIds.get(entry.revertsEntryId);
+            if (reverts === undefined) throw new ValidationError('Unknown progress entry reference');
+            const result = insertEntry.run(
+              mapKr(entry.krId),
+              entry.kind,
+              entry.value,
+              entry.status,
+              reverts,
+              entry.recordedAt,
+            );
+            entryIds.set(entry.id, Number(result.lastInsertRowid));
+          });
+        if (input.review) {
+          const { review } = input;
+          // Field by field: nothing from the file beyond the known keys is stored.
+          const snapshot: ReviewKrSnapshot[] = review.snapshot.map((item) => ({
+            krId: mapKr(item.krId),
+            statement: item.statement,
+            successMetric: item.successMetric,
+            progress: item.progress,
+            status: item.status,
+            removed: item.removed,
+          }));
+          insertReview.run(
+            id,
+            review.wentWell,
+            review.fellShort,
+            review.nextSteps,
+            JSON.stringify(snapshot),
+            review.savedAt,
+            review.snapshotAt,
+          );
+        }
+        return id;
+      }),
+    );
+    return run();
   }
 
   /** True when any objective or saved review exists (used for the in-memory quit/restart rule). */
