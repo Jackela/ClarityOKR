@@ -15,6 +15,7 @@ import {
   parseSetPeriodRequest,
   parseSetProgressRequest,
   type BackupReply,
+  type ProgressHistoryReply,
   type ImportReply,
   type IpcFailure,
   type IpcResult,
@@ -217,6 +218,17 @@ export function registerClosedLoopHandlers(
       if (blocked) return blocked;
       const updated = store.revertLastProgress(krId);
       return ipcOk(progressReply(store, updated, true));
+    },
+  );
+
+  // #53: read-only, so removed key results are allowed and nothing is locked during regeneration.
+  register(
+    IPC_CHANNELS.KR_PROGRESS_HISTORY,
+    parseKrIdRequest,
+    ({ krId }): IpcResult<ProgressHistoryReply> => {
+      const kr = store.findKeyResult(krId);
+      if (!kr) return notFound(NOT_FOUND_KR);
+      return ipcOk({ krId, entries: store.listProgressEntries(krId) });
     },
   );
 

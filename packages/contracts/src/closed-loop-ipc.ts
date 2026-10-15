@@ -319,6 +319,12 @@ export interface ImportCommitRequest {
   choices?: Record<string, ImportConflictChoice>;
 }
 
+/** #53 `clarityokr:kr:progress-history`: the raw entries, oldest first (read-only). */
+export interface ProgressHistoryReply {
+  krId: string;
+  entries: ProgressEntryRecord[];
+}
+
 /** #50 `clarityokr:export:backup`: `count` = OKRs in the file (0 is a valid backup). */
 export type BackupReply =
   | { outcome: 'saved'; fileName: string; path: string; count: number }

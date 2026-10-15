@@ -498,14 +498,17 @@ export class OkrStore {
       throw new ValidationError('Cannot update progress of a removed key result');
     }
     this.db.transaction(() => {
-      this.appendRevert(kr);
-      this.insertEntry(krId, 'set', input.value, input.status, null);
+      // #53: the revert and the new set share one timestamp, which is how the progress history
+      // tells 「修改这次」 apart from a revert followed later by a new update.
+      const at = this.timestamp();
+      this.appendRevert(kr, at);
+      this.insertEntry(krId, 'set', input.value, input.status, null, at);
       this.applyState(kr, input.value, input.status);
     })();
     return this.requireKeyResult(krId);
   }
 
-  private appendRevert(kr: KeyResultRecord): void {
+  private appendRevert(kr: KeyResultRecord, at?: string): void {
     const latest = this.db
       .prepare('SELECT * FROM progress_entries WHERE kr_id = ? ORDER BY id DESC LIMIT 2')
       .all(kr.id) as ProgressEntryRow[];
@@ -516,7 +519,7 @@ export class OkrStore {
     const previous = latest[1];
     const restoredValue = previous ? previous.value : null;
     const restoredStatus = previous ? (previous.status as KrStatus) : 'not_started';
-    this.insertEntry(kr.id, 'revert', restoredValue, restoredStatus, last.id);
+    this.insertEntry(kr.id, 'revert', restoredValue, restoredStatus, last.id, at);
     this.applyState(kr, restoredValue, restoredStatus);
   }
 
@@ -783,13 +786,14 @@ export class OkrStore {
     value: number | null,
     status: KrStatus,
     revertsEntryId: number | null,
+    at: string = this.timestamp(),
   ): void {
     this.db
       .prepare(
         `INSERT INTO progress_entries (kr_id, kind, value, status, reverts_entry_id, recorded_at)
          VALUES (?, ?, ?, ?, ?, ?)`,
       )
-      .run(krId, kind, value, status, revertsEntryId, this.timestamp());
+      .run(krId, kind, value, status, revertsEntryId, at);
   }
 
   private applyState(kr: KeyResultRecord, value: number | null, status: KrStatus): void {
