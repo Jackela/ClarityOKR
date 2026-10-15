@@ -212,7 +212,7 @@ export const workerTest = base.extend<TestFixtures, WorkerFixtures>({
       // 为每个 worker 创建独立的 Mock Server
       if (!workerMockServer) {
         workerMockServer = new SimpleMockServer();
-        // 使用动态端口（get-port 会自动寻找可用端口）
+        // 端口为 0，由系统分配空闲端口（#55）
         await workerMockServer.start();
         console.log(`[worker ${testInfo.workerIndex}] Mock server started`);
       }

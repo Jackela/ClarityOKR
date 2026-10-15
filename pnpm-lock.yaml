@@ -55,9 +55,6 @@ importers:
       eslint-plugin-import:
         specifier: ^2.29.1
         version: 2.32.0(@typescript-eslint/parser@8.71.1(eslint@8.57.1)(typescript@5.9.3))(eslint-import-resolver-typescript@4.4.5)(eslint@8.57.1)
-      get-port:
-        specifier: ^7.0.0
-        version: 7.2.0
       istanbul-lib-coverage:
         specifier: 3.2.2
         version: 3.2.2
@@ -221,15 +218,9 @@ importers:
       '@playwright/test':
         specifier: ^1.44.0
         version: 1.64.0
-      '@types/get-port':
-        specifier: ^4.0.1
-        version: 4.2.0
       axe-core:
         specifier: ^4.14.0
         version: 4.14.0
-      get-port:
-        specifier: ^7.1.0
-        version: 7.2.0
       nock:
         specifier: ^14.0.11
         version: 14.0.17
@@ -1771,10 +1762,6 @@ packages:
   '@types/estree@1.0.9':
     resolution: {integrity: sha512-GhdPgy1el4/ImP05X05Uw4cw2/M93BCUmnEvWZNStlCzEKME4Fkk+YpoA5OiHNQmoS7Cafb8Xa3Pya8m1Qrzeg==}
 
-  '@types/get-port@4.2.0':
-    resolution: {integrity: sha512-Iv2FAb5RnIk/eFO2CTu8k+0VMmIR15pKbcqRWi+s3ydW+aKXlN2yemP92SrO++ERyJx+p6Ie1ggbLBMbU1SjiQ==}
-    deprecated: This is a stub types definition. get-port provides its own type definitions, so you do not need this installed.
-
   '@types/graceful-fs@4.1.9':
     resolution: {integrity: sha512-olP3sd1qOEe5dXTSaFvQG+02VdRXcdytWLAZsAq1PecU8uqQAhkrnbli7DagjtXKW/Bl7YJbUsa8MPcuc8LHEQ==}
 
@@ -2956,10 +2943,6 @@ packages:
   get-package-type@0.1.0:
     resolution: {integrity: sha512-pjzuKtY64GYfWizNAJ0fr9VqttZkNiK2iS430LtIHzjBEr6bX8Am2zm4sW4Ro5wjWW5cAlRL1qAMTcXbjNAO2Q==}
     engines: {node: '>=8.0.0'}
-
-  get-port@7.2.0:
-    resolution: {integrity: sha512-afP4W205ONCuMoPBqcR6PSXnzX35KTcJygfJfcp+QY+uwm3p20p1YczWXhlICIzGMCxYBQcySEcOgsJcrkyobg==}
-    engines: {node: '>=16'}
 
   get-proto@1.0.1:
     resolution: {integrity: sha512-sTSfBjoXBp89JvIKIefqw7U2CCebsc74kiY6awiGogKtoSGbgjYE/G/+l9sF3MWFPNc9IcoOC4ODfKHfxFmp0g==}
@@ -6481,10 +6464,6 @@ snapshots:
 
   '@types/estree@1.0.9': {}
 
-  '@types/get-port@4.2.0':
-    dependencies:
-      get-port: 7.2.0
-
   '@types/graceful-fs@4.1.9':
     dependencies:
       '@types/node': 24.19.1
@@ -7891,8 +7870,6 @@ snapshots:
       math-intrinsics: 1.1.0
 
   get-package-type@0.1.0: {}
-
-  get-port@7.2.0: {}
 
   get-proto@1.0.1:
     dependencies:
