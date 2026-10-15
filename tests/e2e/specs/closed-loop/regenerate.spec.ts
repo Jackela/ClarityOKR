@@ -215,9 +215,15 @@ test.describe('D3: regenerate (§3.7)', () => {
     await expect(picker).toHaveAttribute('aria-disabled', 'true');
     await expect(picker).toHaveAttribute('title', '正在重新生成，完成后可用');
     const quarter = await picker.textContent();
+    const panelTop = () =>
+      sticky.evaluate(() => document.querySelector('.shell__panel')?.scrollTop ?? 0);
     await picker.focus();
+    const scrollBefore = await panelTop();
+    // #42: Space and arrows on the locked picker do nothing, the panel does not scroll
+    await sticky.keyboard.press('Space');
     await sticky.keyboard.press('ArrowDown');
     await sticky.keyboard.press('Enter');
+    expect(await panelTop()).toBe(scrollBefore);
     await expect(picker).toHaveAttribute('aria-expanded', 'false');
     await expect(picker).toHaveText(quarter ?? '');
     await picker.hover();
@@ -290,8 +296,11 @@ test.describe('D3: N15 — no tray icon (Windows / Linux)', () => {
     await setTheme(sticky, 'dark');
     await shot(sticky, 'D3-14-hide-tooltip-no-tray-dark');
     await setTheme(sticky, 'light');
-    // nothing unsaved → quits at once, the window was not hidden
-    await sticky.getByTestId('hide-button').click();
+    // #39: no describedby repeating the accessible name
+    await expect(sticky.getByTestId('hide-button')).not.toHaveAttribute('aria-describedby', /.*/);
+    // nothing unsaved → Space on the focused button quits at once, the window was not hidden
+    await sticky.getByTestId('hide-button').focus();
+    await sticky.keyboard.press('Space');
     await expect.poll(() => quitCalls(electronApp)).toBe(1);
     const visible = await electronApp.evaluate(
       ({ BrowserWindow }, title) =>

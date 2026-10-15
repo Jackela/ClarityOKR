@@ -74,6 +74,8 @@ describe('TopBarComponent (spec §1.2 / §1.2a: drag area, 「⋯」, 「隐藏�
     expect(q('hide-button').getAttribute('aria-label')).toBe(
       '退出 ClarityOKR（没有托盘图标，隐藏后无法唤回）',
     );
+    // #39: the name already says it; no describedby repeating the same sentence
+    expect(q('hide-button').hasAttribute('aria-describedby')).toBe(false);
     // another window became visible again → the original text
     api.getWindowState.mockResolvedValue({
       ok: true,
