@@ -114,13 +114,13 @@ describe('KrProgressHistoryComponent (#53)', () => {
     expect(labels).not.toMatch(/10-01/);
   });
 
-  it('S1-43: the single point has its time right under it', async () => {
+  it('S1-43: the single point has its time centred exactly under it', async () => {
     await mount([set(1, 30, 0)]);
     const label = q('kr-history-single-date')!;
     const dot = q('kr-history-dot')!;
-    expect(dates()).toHaveLength(1);
-    // the label is centred on the dot (the dates row starts LEFT=26px right of the SVG)
-    expect(parseFloat(label.style.left) + 26).toBeCloseTo(parseFloat(dot.getAttribute('cx')!), 1);
+    expect(label.tagName.toLowerCase()).toBe('text');
+    expect(label.getAttribute('text-anchor')).toBe('middle');
+    expect(label.getAttribute('x')).toBe(dot.getAttribute('cx'));
     expect(label.textContent).toMatch(/^\s*\d{2}:\d{2}\s*$/);
   });
 
