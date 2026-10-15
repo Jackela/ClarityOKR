@@ -27,8 +27,6 @@ const LEFT = 26;
 const RIGHT = 6;
 const TOP = 6;
 const BOTTOM = 6;
-/** `.ph__dates` starts this far right of the SVG (its left margin). */
-const DATES_LEFT = LEFT;
 
 interface Dot {
   x: number;
@@ -111,19 +109,32 @@ interface Dot {
                   }
                 </g>
               </svg>
-              <div class="ph__dates" aria-hidden="true">
-                @if (g.single) {
-                  <span
-                    class="ph__date-single"
+              @if (g.single) {
+                <!-- S1-43: same coordinate system as the chart, centred exactly on the dot -->
+                <svg
+                  class="ph__single-axis"
+                  aria-hidden="true"
+                  focusable="false"
+                  [attr.viewBox]="'0 0 ' + w + ' 16'"
+                  [attr.width]="w"
+                  height="16"
+                >
+                  <text
+                    class="ph__axis"
+                    text-anchor="middle"
+                    [attr.x]="g.singleX"
+                    y="12"
                     data-testid="kr-history-single-date"
-                    [style.left.px]="g.singleX"
-                    >{{ g.from }}</span
                   >
-                } @else {
+                    {{ g.from }}
+                  </text>
+                </svg>
+              } @else {
+                <div class="ph__dates" aria-hidden="true">
                   <span>{{ g.from }}</span>
                   <span>{{ g.to }}</span>
-                }
-              </div>
+                </div>
+              }
             }
             <div
               class="ph__table-wrap"
@@ -217,10 +228,15 @@ interface Dot {
         line-height: 16px;
         color: var(--color-text-secondary);
       }
-      .ph__date-single {
-        position: absolute;
-        transform: translateX(-50%);
-        white-space: nowrap;
+      .ph__single-axis {
+        display: block;
+        max-width: 100%;
+        height: auto;
+        overflow: visible;
+        margin: 2px 0 8px;
+      }
+      .ph__single-axis .ph__axis {
+        font-size: 12px;
       }
       .ph__chart {
         display: block;
@@ -440,7 +456,7 @@ export class KrProgressHistoryComponent implements OnInit {
       dots,
       // N36: one effective record → one dot with its time right under it (S1-43)
       single: h.count === 1,
-      singleX: (all[0]?.x ?? 0) - DATES_LEFT,
+      singleX: all[0]?.x ?? 0,
       from: this.axisDate(oldest, newest),
       to: this.axisDate(newest, oldest),
     };

@@ -69,6 +69,17 @@ test('3 updates + 1 revert: chart, list tags, keyboard, paging-free', async ({
   await expect(second.getByTestId('kr-history-dot')).toHaveCount(1);
   await expect(second.getByTestId('kr-history-line')).toHaveCount(0);
   await expect(second.getByTestId('kr-history-summary')).toHaveText('目前 30%，共 1 次更新');
+  // S1-43: the time label is centred on the dot on screen (within 2px)
+  const centre = async (l: Locator) => {
+    const b = (await l.boundingBox())!;
+    return b.x + b.width / 2;
+  };
+  expect(
+    Math.abs(
+      (await centre(second.getByTestId('kr-history-single-date'))) -
+        (await centre(second.getByTestId('kr-history-dot'))),
+    ),
+  ).toBeLessThanOrEqual(2);
   await both(sticky, p2, 'S1-43-history-single');
   await second.getByTestId('kr-history-toggle').click();
 
