@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
+  effect,
   EventEmitter,
   Input,
   Output,
@@ -10,7 +11,9 @@ import {
 } from '@angular/core';
 import type { OkrListItem } from '@clarityokr/contracts';
 
+import { DialogComponent } from '../shared/components/dialog.component';
 import { SkeletonComponent } from '../shared/components/skeleton.component';
+import { ImportFlow } from './import-flow.service';
 import { COPY, formatRelativeTime } from './copy';
 import { ClosedLoopApi } from './closed-loop-api.service';
 import { ClosedLoopStore } from './closed-loop.store';
@@ -37,7 +40,7 @@ const PAGE_STEP = 5;
 @Component({
   selector: 'clarityokr-history-tab',
   standalone: true,
-  imports: [SkeletonComponent],
+  imports: [SkeletonComponent, DialogComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="history" (keydown)="onPanelKeydown($event)">
@@ -45,6 +48,39 @@ const PAGE_STEP = 5;
         <h2 class="history__title" data-testid="history-heading">
           {{ copy.history.heading(store.list().length) }}
         </h2>
+        <button
+          #importButton
+          type="button"
+          class="history__btn history__import"
+          data-testid="history-import"
+          [attr.aria-disabled]="blockedReason ? 'true' : null"
+          [attr.aria-busy]="importer.slow() ? 'true' : null"
+          [attr.title]="blockedReason ? copy.import.locked : null"
+          (click)="startImport()"
+        >
+          @if (importer.slow()) {
+            <span class="history__spinner" aria-hidden="true" data-testid="import-spinner"></span>
+          } @else {
+            <svg
+              class="history__import-icon"
+              viewBox="0 0 16 16"
+              width="16"
+              height="16"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path
+                d="M8 2v8M4.5 6.5 8 10l3.5-3.5M3 13h10"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          }
+          <span class="history__import-text">{{ copy.import.button }}</span>
+        </button>
         <button
           type="button"
           class="history__btn history__new"
@@ -80,6 +116,16 @@ const PAGE_STEP = 5;
             <div class="history__state" data-testid="history-empty">
               <p class="history__empty-title">{{ copy.history.emptyTitle }}</p>
               <p class="history__muted">{{ copy.history.emptyBody }}</p>
+              <button
+                type="button"
+                class="history__btn"
+                data-testid="history-import-empty"
+                [attr.aria-disabled]="blockedReason ? 'true' : null"
+                [attr.title]="blockedReason ? copy.import.locked : null"
+                (click)="startImport()"
+              >
+                {{ copy.import.emptyButton }}
+              </button>
             </div>
           } @else {
             @if (store.list().length > threshold) {
@@ -141,7 +187,8 @@ const PAGE_STEP = 5;
                     (keydown)="onItemKeydown($event, i, item)"
                     (focus)="focusIndex.set(i)"
                   >
-                    <div class="item__title">{{ item.title }}</div>
+                    <!-- prettier-ignore -->
+                    <div class="item__title">{{ item.title }}@if (importer.fresh().has(item.id)) {<span class="item__new" data-testid="history-new-tag"><span class="sr-only">，</span>{{ copy.import.newTag }}</span>}</div>
                     <div class="item__meta">
                       @for (part of metaParts(item); track $index) {
                         <span>
@@ -210,6 +257,29 @@ const PAGE_STEP = 5;
           </div>
         }
       }
+      <span class="sr-only" role="status" data-testid="import-status">{{
+        importer.statusText()
+      }}</span>
+      @if (importer.dialog(); as d) {
+        <clarityokr-dialog
+          [title]="d.kind === 'error' ? '⚠ ' + d.title : d.title"
+          [body]="d.body"
+          [detail]="d.kind === 'error' ? d.detail : []"
+          [hint]="d.hint"
+          [danger]="false"
+          [alert]="true"
+          [testId]="'import-dialog-' + d.kind"
+          [busy]="importer.committing()"
+          [confirmNote]="importer.committing() ? copy.import.importing : ''"
+          [primaryCancel]="d.kind === 'error'"
+          [cancelLabel]="d.kind === 'error' ? copy.import.ok : copy.import.cancel"
+          [middleLabel]="d.kind === 'conflict' ? copy.import.skip : ''"
+          [confirmLabel]="confirmLabel(d)"
+          (cancelled)="importer.close()"
+          (middle)="importer.commit('skip')"
+          (confirmed)="onDialogConfirm(d)"
+        />
+      }
     </div>
   `,
   styleUrls: ['./history-tab.component.scss'],
@@ -227,8 +297,45 @@ export class HistoryTabComponent {
   readonly focusIndex = signal(-1);
 
   readonly store = inject(ClosedLoopStore);
+  readonly importer = inject(ImportFlow);
   private readonly api = inject(ClosedLoopApi);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+
+  constructor() {
+    // The success toast's 「查看」: move the focus to the imported OKR (v3.1 Q8-1).
+    effect(() => {
+      const target = this.importer.reveal();
+      if (!target) return;
+      this.query.set('');
+      const index = this.visible().findIndex((item) => item.id === target.okrId);
+      if (index < 0) return;
+      this.focusIndex.set(index);
+      queueMicrotask(() => {
+        const option = this.optionAt(index);
+        option?.scrollIntoView({ block: 'nearest' });
+        option?.focus();
+      });
+    });
+  }
+
+  startImport(): void {
+    if (this.blockedReason) return;
+    void this.importer.start();
+  }
+
+  confirmLabel(dialog: { kind: string; action?: string | null }): string {
+    if (dialog.kind === 'conflict') return COPY.import.asCopy;
+    if (dialog.kind === 'confirm') return COPY.import.confirm;
+    if (dialog.action === 'reselect') return COPY.import.reselect;
+    if (dialog.action === 'retry') return COPY.import.retry;
+    return '';
+  }
+
+  onDialogConfirm(dialog: { kind: string }): void {
+    if (dialog.kind === 'conflict') void this.importer.commit('copy');
+    else if (dialog.kind === 'confirm') void this.importer.commit('skip');
+    else void this.importer.secondary();
+  }
 
   /** The call has no result to draw here; the sticky window stays as it is (spec §4.5). */
   newOkr(): void {
@@ -278,6 +385,7 @@ export class HistoryTabComponent {
   }
 
   async open(item: OkrListItem): Promise<void> {
+    this.importer.clearFresh();
     if (this.blockedReason) return;
     if (await this.store.openFromHistory(item.id)) this.opened.emit(item.id);
   }
@@ -313,6 +421,7 @@ export class HistoryTabComponent {
   }
 
   onItemKeydown(event: KeyboardEvent, index: number, item: OkrListItem): void {
+    if (event.key !== 'Tab') this.importer.clearFresh();
     const last = this.visible().length - 1;
     let next: number | null = null;
     switch (event.key) {
