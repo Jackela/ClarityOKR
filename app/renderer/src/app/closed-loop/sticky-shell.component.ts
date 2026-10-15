@@ -131,10 +131,15 @@ export type StickyTabId = 'note' | 'review' | 'history';
         flex-direction: column;
         height: 100%;
       }
+      /* #41: a control scrolled into view at the top edge keeps room for the 2px sticky
+         regenerate progress bar plus its 2px focus ring with 2px offset, so the ring is not
+         clipped by the panel's overflow. */
       .shell__panel {
+        --shell-panel-scroll-pad: calc(var(--regen-progress-height, 2px) + 6px);
         flex: 1 1 auto;
         min-height: 0;
         overflow-y: auto;
+        scroll-padding-top: var(--shell-panel-scroll-pad);
       }
       #panel-review {
         display: flex;
