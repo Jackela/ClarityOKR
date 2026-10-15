@@ -20,6 +20,7 @@
  * @module main
  */
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -136,7 +137,7 @@ const { restartService } = wireClosedLoop({
   clipboard,
   getDownloadsDir: () => app.getPath('downloads'),
   getFocusedWindow: () => BrowserWindow.getFocusedWindow(),
-  appVersion: app.getVersion(),
+  appVersion: appVersion(),
   // §3.7: the services it needs are created just below; they exist by the first request.
   regenerate: (request) => krRegeneration.regenerate(request),
 });
@@ -489,3 +490,20 @@ ipcMain.on(
 );
 
 export { testMode };
+
+/**
+ * The ClarityOKR version written into backups (#50). Packaged builds report it through
+ * `app.getVersion()`; started from source (dev, e2e) Electron would report its own version, so the
+ * main package's package.json is read instead.
+ */
+function appVersion(): string {
+  if (app.isPackaged) return app.getVersion();
+  try {
+    const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
+      version?: unknown;
+    };
+    return typeof pkg.version === 'string' ? pkg.version : app.getVersion();
+  } catch {
+    return app.getVersion();
+  }
+}

@@ -5,18 +5,21 @@ import {
   type ElementRef,
   type OnDestroy,
   ViewChild,
+  computed,
   inject,
   signal,
 } from '@angular/core';
 
 import { ClosedLoopApi } from './closed-loop-api.service';
 import { COPY } from './copy';
+import { ExportFlow } from './export-flow.service';
 import { ExportMenuComponent } from './export-menu.component';
 
 /**
  * Top bar of the sticky window (spec §1.2 / §1.2a / §2.5): 40px, the whole bar is a drag area
  * (`-webkit-app-region: drag`) and every control in it is `no-drag`. Tab order: 导出 → 更多 → 隐藏.
- * - 「⋯」 (更多): a menu with one switch, 「窗口始终在最前」 (`menuitemcheckbox`);
+ * - 「⋯」 (更多): 「全部备份…」 (#50, S1§9.2) above a separator, then the switch 「窗口始终在最前」
+ *   (`menuitemcheckbox`); the button shows loading while a backup takes > 300ms;
  * - 「隐藏」: 32×32, a line icon (not ×), hides the window without asking; the app keeps
  *   running (tray, single instance, menu and 「重开便签」 bring it back). Its tooltip shows on
  *   hover and on keyboard focus.
@@ -37,6 +40,7 @@ import { ExportMenuComponent } from './export-menu.component';
             type="button"
             class="bar__btn"
             data-testid="more-button"
+            [attr.aria-busy]="backingUp() ? 'true' : null"
             aria-haspopup="menu"
             [attr.aria-expanded]="moreOpen()"
             [attr.aria-controls]="moreOpen() ? 'more-menu' : null"
@@ -44,11 +48,15 @@ import { ExportMenuComponent } from './export-menu.component';
             (click)="toggleMore()"
             (keydown)="onMoreButtonKey($event)"
           >
-            <svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true">
-              <circle cx="4.5" cy="10" r="1.6" fill="currentColor" />
-              <circle cx="10" cy="10" r="1.6" fill="currentColor" />
-              <circle cx="15.5" cy="10" r="1.6" fill="currentColor" />
-            </svg>
+            @if (backingUp()) {
+              <span class="bar__spinner" aria-hidden="true" data-testid="more-spinner"></span>
+            } @else {
+              <svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true">
+                <circle cx="4.5" cy="10" r="1.6" fill="currentColor" />
+                <circle cx="10" cy="10" r="1.6" fill="currentColor" />
+                <circle cx="15.5" cy="10" r="1.6" fill="currentColor" />
+              </svg>
+            }
           </button>
           @if (moreOpen()) {
             <div
@@ -59,6 +67,24 @@ import { ExportMenuComponent } from './export-menu.component';
               data-testid="more-menu"
               (keydown)="onMenuKey($event)"
             >
+              <button
+                #backupItem
+                type="button"
+                class="menu__item menu__item--two"
+                role="menuitem"
+                data-testid="backup-item"
+                [attr.aria-disabled]="backupReason ? 'true' : null"
+                [attr.title]="backupReason"
+                [attr.aria-description]="backupReason ?? t2.menuHint"
+                (click)="backup()"
+              >
+                <span class="menu__check" aria-hidden="true"></span>
+                <span class="menu__text">
+                  <span>{{ t2.menu }}</span>
+                  <span class="menu__hint" aria-hidden="true">{{ t2.menuHint }}</span>
+                </span>
+              </button>
+              <div class="menu__sep" role="separator"></div>
               <button
                 #onTopItem
                 type="button"
@@ -156,7 +182,7 @@ import { ExportMenuComponent } from './export-menu.component';
         right: 0;
         z-index: var(--z-dropdown);
         box-sizing: border-box;
-        width: 200px;
+        width: 280px;
         padding: 4px;
         border: 1px solid var(--color-border);
         border-radius: var(--radius-lg);
@@ -182,6 +208,49 @@ import { ExportMenuComponent } from './export-menu.component';
       .menu__item:hover,
       .menu__item:focus {
         background: var(--color-bg-secondary);
+      }
+      .menu__item--two {
+        min-height: 48px;
+        padding-top: 6px;
+        padding-bottom: 6px;
+        text-align: left;
+      }
+      .menu__item[aria-disabled='true'] {
+        color: var(--color-text-tertiary, var(--color-text-secondary));
+        cursor: not-allowed;
+      }
+      .menu__text {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .menu__hint {
+        font-size: 12px;
+        line-height: 16px;
+        color: var(--color-text-secondary);
+      }
+      .menu__sep {
+        height: 1px;
+        margin: 4px 0;
+        background: var(--color-border);
+      }
+      .bar__spinner {
+        width: 14px;
+        height: 14px;
+        border: 2px solid currentColor;
+        border-right-color: transparent;
+        border-radius: 50%;
+        animation: bar-spin 0.8s linear infinite;
+      }
+      @keyframes bar-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .bar__spinner {
+          animation: none;
+        }
       }
       .menu__check {
         display: inline-block;
@@ -218,6 +287,10 @@ import { ExportMenuComponent } from './export-menu.component';
 export class TopBarComponent implements OnDestroy {
   readonly t = COPY.export;
   readonly w = COPY.window;
+  readonly t2 = COPY.backup;
+  private readonly exportFlow = inject(ExportFlow);
+  /** A backup has run for more than 300ms (the status is spoken by the export menu's live region). */
+  readonly backingUp = computed(() => this.exportFlow.backingUp() && this.exportFlow.slow());
   private readonly api = inject(ClosedLoopApi);
   private readonly document = inject(DOCUMENT);
 
@@ -228,6 +301,19 @@ export class TopBarComponent implements OnDestroy {
 
   @ViewChild('moreButton') private moreButton?: ElementRef<HTMLButtonElement>;
   @ViewChild('onTopItem') private onTopItem?: ElementRef<HTMLButtonElement>;
+  @ViewChild('backupItem') private backupItem?: ElementRef<HTMLButtonElement>;
+
+  get backupReason(): string | null {
+    return this.exportFlow.backupDisabledReason;
+  }
+
+  backup(): void {
+    if (this.backupReason) return;
+    this.closeMore(false);
+    const restore = (): void => this.moreButton?.nativeElement.focus();
+    this.exportFlow.registerTrigger(restore);
+    void this.exportFlow.backup();
+  }
 
   private readonly onDocumentPointer = (event: Event): void => {
     const target = event.target as Node | null;
@@ -248,7 +334,7 @@ export class TopBarComponent implements OnDestroy {
     if (state.ok) this.alwaysOnTop.set(state.data.alwaysOnTop);
     this.moreOpen.set(true);
     this.document.addEventListener('mousedown', this.onDocumentPointer, true);
-    setTimeout(() => this.onTopItem?.nativeElement.focus());
+    setTimeout(() => this.backupItem?.nativeElement.focus());
   }
 
   onMoreButtonKey(event: KeyboardEvent): void {
@@ -269,9 +355,11 @@ export class TopBarComponent implements OnDestroy {
     } else if (event.key === 'Tab') {
       this.closeMore(false);
     } else if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
-      // One item: the arrows keep the focus on it.
       event.preventDefault();
-      this.onTopItem?.nativeElement.focus();
+      const items = [this.backupItem, this.onTopItem].map((i) => i?.nativeElement);
+      const current = items.indexOf(this.document.activeElement as HTMLButtonElement);
+      const next = event.key === 'Home' ? 0 : event.key === 'End' ? 1 : (current + 1) % 2; // two items
+      items[next]?.focus();
     }
   }
 

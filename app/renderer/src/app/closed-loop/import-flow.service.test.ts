@@ -238,4 +238,143 @@ describe('ImportFlow (#49, S1§8 + v3.1)', () => {
     resolve(ok({ outcome: 'cancelled' }));
     await running;
   });
+
+  describe('#50 backup import (S1§9.4)', () => {
+    const items = [
+      { title: '甲', createdAt: '2026-09-01T00:00:00.000Z' },
+      { title: '乙', createdAt: '2026-09-02T00:00:00.000Z' },
+      { title: '丙', createdAt: '2026-09-03T00:00:00.000Z' },
+      { title: '乙', createdAt: '2026-09-02T00:00:00.000Z' },
+    ];
+    const backup = { exportedAt: '2026-10-15T07:58:00.000Z', appVersion: '0.2.0' };
+
+    it('empty backup → 「备份中没有 OKR」 notice', async () => {
+      api['importPick']!.mockResolvedValue(
+        ok({ outcome: 'rejected', problem: { kind: 'empty_backup' } }),
+      );
+      await flow.start();
+      expect(flow.dialog()).toMatchObject({
+        kind: 'error',
+        title: '备份中没有 OKR',
+        body: '这个备份文件里没有任何 OKR，没有可导入的内容。数据没有任何改动。',
+        action: null,
+      });
+    });
+
+    it('one bad OKR → body names it, detail keeps okrs[i] (AC4); B4 line without a path', async () => {
+      api['importPick']!.mockResolvedValue(
+        ok({
+          outcome: 'rejected',
+          problem: {
+            kind: 'invalid',
+            field: '',
+            reason: '第 4 个 OKR 有 12 个 KR，最多 10 个',
+            more: 0,
+            okrIndex: 3,
+          },
+        }),
+      );
+      await flow.start();
+      expect(flow.dialog()).toMatchObject({
+        body: '备份里第 4 个 OKR 有误，整份没有导入。第一处错误：',
+        detail: ['第 4 个 OKR 有 12 个 KR，最多 10 个'],
+      });
+    });
+
+    it('no duplicates: preview 「导入备份？」 with 「n 个都是新的」', async () => {
+      api['importPick']!.mockResolvedValue(
+        confirm({ items: items.slice(0, 3), conflicts: [], backup }),
+      );
+      await flow.start();
+      const dialog = flow.dialog()!;
+      expect(dialog).toMatchObject({ kind: 'backup', title: '导入备份？', count: 3, rows: [] });
+      expect(dialog.body).toMatch(
+        /^这个备份包含 3 个 OKR，备份于 .+（ClarityOKR 0\.2\.0）。导入不会覆盖已有数据。$/,
+      );
+      expect(dialog.hint).toBe('3 个都是新的，会全部导入。');
+      expect(flow.backupCounts()).toEqual({ imported: 3, skipped: 0 });
+    });
+
+    it('duplicates (history + in file, Q9-5): default skip (Q9-2), per row and bulk, summary', async () => {
+      api['importPick']!.mockResolvedValue(
+        confirm({
+          items,
+          conflicts: [
+            { ...items[0], index: 0, source: 'existing' },
+            { ...items[3], index: 3, source: 'in_file' },
+          ],
+          backup,
+        }),
+      );
+      await flow.start();
+      const dialog = flow.dialog()!;
+      expect(dialog.hint).toBe('其中 2 个和历史里已有的 OKR 同名且创建时间相同：');
+      expect(dialog.kind === 'backup' && dialog.rows.map((r) => [r.index, r.inFile])).toEqual([
+        [0, false],
+        [3, true],
+      ]);
+      expect(flow.choices()).toEqual({ 0: 'skip', 3: 'skip' });
+      expect(flow.backupCounts()).toEqual({ imported: 2, skipped: 2 });
+      flow.choose(3, 'copy');
+      expect(flow.backupCounts()).toEqual({ imported: 3, skipped: 1 });
+      flow.chooseAll('copy');
+      expect(flow.backupCounts()).toEqual({ imported: 4, skipped: 0 });
+      flow.chooseAll('skip');
+      flow.choose(0, 'copy');
+
+      api['importCommit']!.mockResolvedValue(
+        ok({
+          outcome: 'imported',
+          imported: [
+            { okrId: 'n1', title: '甲（导入）' },
+            { okrId: 'n2', title: '乙' },
+            { okrId: 'n3', title: '丙' },
+          ],
+          skipped: [items[3]],
+          memory: false,
+        }),
+      );
+      await flow.commitBackup();
+      expect(api['importCommit']).toHaveBeenCalledWith({
+        token: 'tok-1',
+        onConflict: 'skip',
+        choices: { 0: 'copy', 3: 'skip' },
+      });
+      expect(toasts.current()!.message).toBe('导入 3 个，跳过 1 个。');
+      expect(flow.reveal()).toMatchObject({ okrId: 'n1' });
+      expect([...flow.fresh()]).toEqual(['n1', 'n2', 'n3']);
+    });
+
+    it('everything skipped: nothing to import, commit does nothing', async () => {
+      api['importPick']!.mockResolvedValue(
+        confirm({
+          items: items.slice(0, 1),
+          conflicts: [{ ...items[0], index: 0, source: 'existing' }],
+          backup,
+        }),
+      );
+      await flow.start();
+      expect(flow.backupCounts()).toEqual({ imported: 0, skipped: 1 });
+      await flow.commitBackup();
+      expect(api['importCommit']).not.toHaveBeenCalled();
+    });
+
+    it('no skips: 「已导入 n 个 OKR。」', async () => {
+      api['importPick']!.mockResolvedValue(confirm({ items: items.slice(0, 2), backup }));
+      await flow.start();
+      api['importCommit']!.mockResolvedValue(
+        ok({
+          outcome: 'imported',
+          imported: [
+            { okrId: 'a', title: '甲' },
+            { okrId: 'b', title: '乙' },
+          ],
+          skipped: [],
+          memory: false,
+        }),
+      );
+      await flow.commitBackup();
+      expect(toasts.current()!.message).toBe('已导入 2 个 OKR。');
+    });
+  });
 });

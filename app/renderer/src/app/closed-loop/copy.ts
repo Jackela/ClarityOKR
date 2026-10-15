@@ -276,6 +276,48 @@ export const COPY = {
     },
     rolledBack: '已撤销这次导入，没有留下不完整的数据。',
     failed: '导入时出错，请重试。',
+    // #50 backup import (S1§9.4; Q9-3: 「个」 everywhere)
+    emptyBackupTitle: '备份中没有 OKR',
+    emptyBackupBody: '这个备份文件里没有任何 OKR，没有可导入的内容。数据没有任何改动。',
+    backupInvalidBody: (n: number) => `备份里第 ${n} 个 OKR 有误，整份没有导入。第一处错误：`,
+    backupTitle: '导入备份？',
+    backupBody: (n: number, at: string, version: string) =>
+      `这个备份包含 ${n} 个 OKR，备份于 ${at}（ClarityOKR ${version}）。导入不会覆盖已有数据。`,
+    backupAllNew: (n: number) => `${n} 个都是新的，会全部导入。`,
+    backupDuplicates: (d: number) => `其中 ${d} 个和历史里已有的 OKR 同名且创建时间相同：`,
+    backupImportN: (n: number) => `导入 ${n} 个`,
+    backupStart: '开始导入',
+    skipAll: '全部跳过',
+    copyAll: '全部作为副本',
+    optionSkip: '跳过',
+    optionCopy: '作为副本',
+    duplicatesLabel: '重复的 OKR',
+    inFileTag: '文件内重复',
+    createdAt: (at: string) => `创建于 ${at}`,
+    backupSummary: (a: number, s: number) => `将导入 ${a} 个，跳过 ${s} 个。`,
+    backupAllSkipped: '所有项都选了跳过，没有要导入的内容。',
+    backupImported: (a: number, s: number, memory: boolean) =>
+      (s === 0 ? `已导入 ${a} 个 OKR。` : `导入 ${a} 个，跳过 ${s} 个。`) +
+      (memory ? '退出后会丢失。' : ''),
+  },
+  backup: {
+    menu: '全部备份…',
+    menuHint: '所有 OKR、进度记录和复盘，.json',
+    disabled: '正在重新生成，完成后可用',
+    backingUp: '正在备份…',
+    cancelled: '已取消备份，没有保存文件。',
+    saved: (n: number, fileName: string) =>
+      n === 0 ? `已备份：${fileName}（目前没有 OKR）` : `已备份 ${n} 个 OKR：${fileName}`,
+    /** Q9-4 */
+    noSecrets: '备份不含 API key，恢复后需要重新填写。',
+    failed: {
+      permission: '没有权限保存到这个位置，请换一个文件夹。',
+      disk_full: '磁盘已满，备份没有保存成功。',
+      not_found: '保存位置不存在或暂时不可用，请换一个文件夹。',
+      busy: '这个文件正在被其他程序使用，备份没有保存成功。',
+      exists: '同名文件已存在，请换个名字再备份',
+      other: '备份失败，请重试。',
+    },
   },
   export: {
     topBarTitle: 'ClarityOKR',

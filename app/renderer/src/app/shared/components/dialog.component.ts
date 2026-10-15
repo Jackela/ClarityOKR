@@ -57,12 +57,14 @@ const SWALLOWED_KEYS: ReadonlySet<string> = new Set(['1', '2', '3', 's']);
           <!-- prettier-ignore -->
           <p class="dialog__hint" [id]="hintId" data-testid="dialog-hint">{{ hint }}</p>
         }
+        <!-- Extra content between the text and the buttons (S1§9.4 duplicate list). -->
+        <ng-content />
         @if (error) {
           <p class="dialog__error" role="alert" data-testid="dialog-error">
             <span aria-hidden="true">⚠ </span>{{ error }}
           </p>
         }
-        <div class="dialog__actions">
+        <div class="dialog__actions" [class.dialog__actions--note-above]="noteAbove">
           @if (confirmNote) {
             <span class="dialog__note" [id]="noteId" role="status" data-testid="dialog-note">{{
               confirmNote
@@ -142,6 +144,10 @@ const SWALLOWED_KEYS: ReadonlySet<string> = new Set(['1', '2', '3', 's']);
       }
       :host-context([data-theme='dark']) .dialog__error {
         color: #fca5a5;
+      }
+      .dialog__actions--note-above .dialog__note {
+        flex: 1 0 100%;
+        margin-right: 0;
       }
       .dialog__btn[aria-disabled='true'] {
         cursor: progress;
@@ -238,6 +244,8 @@ export class DialogComponent implements OnInit, OnDestroy {
   @Input() busy = false;
   /** Says why, beside the buttons (「正在保存，请稍候。」). */
   @Input() confirmNote = '';
+  /** The note gets its own line above the buttons (a longer live summary, S1§9.4). */
+  @Input() noteAbove = false;
   /** `alertdialog` role without the red button (S1§8.5: nothing here is destructive). */
   @Input() alert = false;
   /** A third answer between cancel and confirm (S1§8.5 「跳过」). */
@@ -373,10 +381,13 @@ export class DialogComponent implements OnInit, OnDestroy {
       return;
     }
     if (event.key !== 'Tab') return;
+    // Every stop in the box, projected content included (buttons, roving radios with tabindex 0).
     const buttons = Array.from(
-      this.cancelButton.nativeElement.parentElement?.querySelectorAll<HTMLButtonElement>(
-        'button:not([hidden])',
-      ) ?? [],
+      this.cancelButton.nativeElement
+        .closest('.dialog')
+        ?.querySelectorAll<HTMLElement>(
+          'button:not([hidden]):not([tabindex="-1"]), [tabindex="0"]:not(button)',
+        ) ?? [],
     );
     const first = buttons[0] ?? this.cancelButton.nativeElement;
     const last = buttons[buttons.length - 1] ?? this.confirmButton.nativeElement;

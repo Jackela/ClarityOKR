@@ -14,6 +14,7 @@ describe('ExportFlow (spec §6.3)', () => {
   let store: ClosedLoopStore;
   let api: {
     exportOkr: jest.Mock;
+    exportBackup: jest.Mock;
     reveal: jest.Mock;
     copyMarkdown: jest.Mock;
     getStorageMode: jest.Mock;
@@ -33,6 +34,7 @@ describe('ExportFlow (spec §6.3)', () => {
     jest.useFakeTimers();
     api = {
       exportOkr: jest.fn(),
+      exportBackup: jest.fn(),
       reveal: jest.fn(),
       copyMarkdown: jest.fn(),
       getStorageMode: jest.fn().mockResolvedValue('normal'),
@@ -349,6 +351,81 @@ describe('ExportFlow (spec §6.3)', () => {
       toast.actions[0]!.run();
       await flush();
       expect(toasts.current()!.message).toBe('已复制到剪贴板。');
+    });
+  });
+
+  describe('#50 全部备份 (S1§9.3)', () => {
+    const backupSaved = (count: number) =>
+      ok({
+        outcome: 'saved' as const,
+        fileName: 'ClarityOKR-backup-20261015-1558.json',
+        path: '/Users/someone/Downloads/ClarityOKR-backup-20261015-1558.json',
+        count,
+      });
+
+    it('works without an open OKR (empty history too); only regeneration disables it', () => {
+      store.currentId.set(null);
+      expect(flow.backupDisabledReason).toBeNull();
+      store.regenerating.set(true);
+      expect(flow.backupDisabledReason).toBe('正在重新生成，完成后可用');
+    });
+
+    it('saved: 「已备份 n 个 OKR：文件名」 + the API key sentence (Q9-4), path, reveal / copy path', async () => {
+      api.exportBackup.mockResolvedValue(backupSaved(3));
+      await flow.backup();
+      await flush();
+      const toast = toasts.current()!;
+      expect(toast.kind).toBe('success');
+      expect(toast.message).toBe(
+        '已备份 3 个 OKR：ClarityOKR-backup-20261015-1558.json。备份不含 API key，恢复后需要重新填写。',
+      );
+      expect(toast.detailFull).toContain('ClarityOKR-backup-20261015-1558.json');
+      expect(toast.actions!.map((a) => a.label)).toEqual(['在文件夹中显示', '复制路径']);
+    });
+
+    it('empty history: 「已备份：文件名（目前没有 OKR）」', async () => {
+      api.exportBackup.mockResolvedValue(backupSaved(0));
+      await flow.backup();
+      await flush();
+      expect(toasts.current()!.message).toContain(
+        '已备份：ClarityOKR-backup-20261015-1558.json（目前没有 OKR）',
+      );
+    });
+
+    it('cancelled: neutral 「已取消备份，没有保存文件。」', async () => {
+      api.exportBackup.mockResolvedValue(ok({ outcome: 'cancelled' }));
+      await flow.backup();
+      await flush();
+      expect(toasts.current()).toMatchObject({
+        kind: 'neutral',
+        message: '已取消备份，没有保存文件。',
+      });
+    });
+
+    it('failed: backup wording per category, retry runs the backup again', async () => {
+      api.exportBackup.mockResolvedValue(ok({ outcome: 'failed', category: 'disk_full' }));
+      await flow.backup();
+      await flush();
+      expect(toasts.current()).toMatchObject({
+        kind: 'error',
+        message: '磁盘已满，备份没有保存成功。',
+      });
+      api.exportBackup.mockResolvedValue(backupSaved(1));
+      toasts.current()!.actions![0]!.run();
+      await flush();
+      expect(api.exportBackup).toHaveBeenCalledTimes(2);
+    });
+
+    it('slow: 「正在备份…」 and backingUp (the 「⋯」 button loads, not 「导出」)', async () => {
+      let resolve!: (v: unknown) => void;
+      api.exportBackup.mockReturnValue(new Promise((r) => (resolve = r)));
+      const running = flow.backup();
+      jest.advanceTimersByTime(EXPORT_SLOW_MS + 1);
+      expect(flow.statusText()).toBe('正在备份…');
+      expect(flow.backingUp()).toBe(true);
+      resolve(ok({ outcome: 'cancelled' }));
+      await running;
+      expect(flow.backingUp()).toBe(false);
     });
   });
 });

@@ -86,6 +86,62 @@ export class ExportFlow {
     }
   }
 
+  /** Why 「全部备份…」 is unavailable (only while regenerating; an empty history still backs up). */
+  get backupDisabledReason(): string | null {
+    return this.store.regenerating() ? COPY.backup.disabled : null;
+  }
+
+  /** #50 「全部备份…」 (S1§9.3): same toasts as an export, backup wording. */
+  async backup(): Promise<void> {
+    if (this.busy() || this.backupDisabledReason) return;
+    this.begin(COPY.backup.backingUp);
+    try {
+      const reply = await this.api.exportBackup();
+      if (!reply.ok) {
+        this.showBackupFailure('other');
+        return;
+      }
+      const outcome = reply.data;
+      if (outcome.outcome === 'saved') {
+        this.showSavedToast(
+          `${COPY.backup.saved(outcome.count, outcome.fileName)}。${COPY.backup.noSecrets}`,
+          outcome.path,
+        );
+      } else if (outcome.outcome === 'cancelled') {
+        this.toasts.show({
+          kind: 'neutral',
+          message: COPY.backup.cancelled,
+          onClose: () => this.focusTrigger(),
+        });
+        this.restoreFocus();
+      } else {
+        this.showBackupFailure(outcome.category);
+      }
+    } finally {
+      this.end();
+    }
+  }
+
+  private showBackupFailure(category: ExportFailureCategory): void {
+    this.toasts.show({
+      kind: 'error',
+      message: COPY.backup.failed[category],
+      closeLabel: COPY.export.close,
+      onClose: () => this.focusTrigger(),
+      actions: [
+        {
+          label: category === 'other' ? COPY.export.retry : COPY.export.pickAgain,
+          testId: 'toast-retry',
+          run: () => {
+            this.toasts.dismiss();
+            void this.backup();
+          },
+        },
+      ],
+    });
+    this.restoreFocus();
+  }
+
   async copyMarkdown(): Promise<void> {
     const okrId = this.store.currentId();
     if (!okrId || this.busy()) return;
@@ -121,6 +177,10 @@ export class ExportFlow {
   }
 
   private showSaved(format: ExportFormat, fileName: string, path: string, title?: string): void {
+    this.showSavedToast(COPY.export.saved(format, fileName, title), path);
+  }
+
+  private showSavedToast(message: string, path: string): void {
     this.clearCopyLabelTimer();
     let id = 0;
     const setCopyLabel = (label: string): void => {
@@ -140,7 +200,7 @@ export class ExportFlow {
     ];
     id = this.toasts.show({
       kind: 'success',
-      message: COPY.export.saved(format, fileName, title),
+      message,
       detail: middleEllipsis(path),
       detailFull: path,
       onClose: () => this.focusTrigger(),
@@ -198,13 +258,17 @@ export class ExportFlow {
     this.copyLabelTimer = undefined;
   }
 
-  private begin(): void {
+  /** Which flow is running: the 「⋯」 button shows loading for a backup, 「导出」 for the rest. */
+  readonly backingUp = signal(false);
+
+  private begin(status: string = COPY.export.exporting): void {
     this.busy.set(true);
+    this.backingUp.set(status === COPY.backup.backingUp);
     this.slow.set(false);
     this.statusText.set('');
     this.slowTimer = setTimeout(() => {
       this.slow.set(true);
-      this.statusText.set(COPY.export.exporting);
+      this.statusText.set(status);
     }, EXPORT_SLOW_MS);
   }
 
@@ -212,6 +276,7 @@ export class ExportFlow {
     if (this.slowTimer !== undefined) clearTimeout(this.slowTimer);
     this.slowTimer = undefined;
     this.busy.set(false);
+    this.backingUp.set(false);
     this.slow.set(false);
     this.statusText.set('');
   }

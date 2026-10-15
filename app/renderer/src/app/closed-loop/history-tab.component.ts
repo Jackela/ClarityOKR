@@ -14,6 +14,7 @@ import type { OkrListItem } from '@clarityokr/contracts';
 import { DialogComponent } from '../shared/components/dialog.component';
 import { SkeletonComponent } from '../shared/components/skeleton.component';
 import { ImportFlow } from './import-flow.service';
+import { BackupDuplicatesComponent } from './backup-duplicates.component';
 import { COPY, formatRelativeTime } from './copy';
 import { ClosedLoopApi } from './closed-loop-api.service';
 import { ClosedLoopStore } from './closed-loop.store';
@@ -40,7 +41,7 @@ const PAGE_STEP = 5;
 @Component({
   selector: 'clarityokr-history-tab',
   standalone: true,
-  imports: [SkeletonComponent, DialogComponent],
+  imports: [SkeletonComponent, DialogComponent, BackupDuplicatesComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="history" (keydown)="onPanelKeydown($event)">
@@ -270,7 +271,9 @@ const PAGE_STEP = 5;
           [alert]="true"
           [testId]="'import-dialog-' + d.kind"
           [busy]="importer.committing()"
-          [confirmNote]="importer.committing() ? copy.import.importing : ''"
+          [confirmNote]="dialogNote(d)"
+          [noteAbove]="d.kind === 'backup'"
+          [confirmDisabled]="d.kind === 'backup' && importer.backupCounts().imported === 0"
           [primaryCancel]="d.kind === 'error'"
           [cancelLabel]="d.kind === 'error' ? copy.import.ok : copy.import.cancel"
           [middleLabel]="d.kind === 'conflict' ? copy.import.skip : ''"
@@ -278,7 +281,11 @@ const PAGE_STEP = 5;
           (cancelled)="importer.close()"
           (middle)="importer.commit('skip')"
           (confirmed)="onDialogConfirm(d)"
-        />
+        >
+          @if (d.kind === 'backup' && d.rows.length > 0) {
+            <clarityokr-backup-duplicates [rows]="d.rows" />
+          }
+        </clarityokr-dialog>
       }
     </div>
   `,
@@ -323,9 +330,19 @@ export class HistoryTabComponent {
     void this.importer.start();
   }
 
-  confirmLabel(dialog: { kind: string; action?: string | null }): string {
+  confirmLabel(dialog: {
+    kind: string;
+    action?: string | null;
+    rows?: unknown[];
+    count?: number;
+  }): string {
     if (dialog.kind === 'conflict') return COPY.import.asCopy;
     if (dialog.kind === 'confirm') return COPY.import.confirm;
+    if (dialog.kind === 'backup') {
+      return !dialog.rows?.length
+        ? COPY.import.backupImportN(dialog.count ?? 0)
+        : COPY.import.backupStart;
+    }
     if (dialog.action === 'reselect') return COPY.import.reselect;
     if (dialog.action === 'retry') return COPY.import.retry;
     return '';
@@ -334,7 +351,18 @@ export class HistoryTabComponent {
   onDialogConfirm(dialog: { kind: string }): void {
     if (dialog.kind === 'conflict') void this.importer.commit('copy');
     else if (dialog.kind === 'confirm') void this.importer.commit('skip');
+    else if (dialog.kind === 'backup') void this.importer.commitBackup();
     else void this.importer.secondary();
+  }
+
+  /** Beside the buttons: 「正在导入…」, or the live backup summary (S1§9.4, `aria-describedby`). */
+  dialogNote(dialog: { kind: string; rows?: unknown[] }): string {
+    if (this.importer.committing()) return COPY.import.importing;
+    if (dialog.kind !== 'backup' || !dialog.rows?.length) return '';
+    const { imported, skipped } = this.importer.backupCounts();
+    return imported === 0
+      ? COPY.import.backupAllSkipped
+      : COPY.import.backupSummary(imported, skipped);
   }
 
   /** The call has no result to draw here; the sticky window stays as it is (spec §4.5). */

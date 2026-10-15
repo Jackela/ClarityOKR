@@ -155,4 +155,120 @@ describe('HistoryTabComponent · 导入 (#49, S1§8)', () => {
     fixture.detectChanges();
     expect(q('history-new-tag')).toBeNull();
   });
+
+  describe('#50 backup preview (S1§9.4)', () => {
+    const at = (d: number) => `2026-09-0${d}T00:00:00.000Z`;
+    const items = [
+      { title: '甲', createdAt: at(1) },
+      { title: '乙', createdAt: at(2) },
+      { title: '乙', createdAt: at(2) },
+    ];
+    async function open(conflicts: unknown[]): Promise<HTMLElement> {
+      show([makeListItem({ id: 'a' })]);
+      api['importPick']!.mockResolvedValue(
+        ok({
+          outcome: 'confirm',
+          token: 't1',
+          items,
+          conflicts,
+          memory: false,
+          backup: { exportedAt: '2026-10-15T07:58:00.000Z', appVersion: '0.2.0' },
+        }),
+      );
+      q('history-import').click();
+      await settle();
+      return q('import-dialog-backup');
+    }
+    const duplicates = [
+      { ...items[0], index: 0, source: 'existing' },
+      { ...items[2], index: 2, source: 'in_file' },
+    ];
+
+    it('no duplicates: 取消 (focused) / 导入 n 个, no list', async () => {
+      const dialog = await open([]);
+      expect(dialog.getAttribute('role')).toBe('alertdialog');
+      expect(dialog.getAttribute('aria-modal')).toBe('true');
+      expect(q('backup-duplicates')).toBeNull();
+      const labels = Array.from(dialog.querySelectorAll('.dialog__actions button:not([hidden])'));
+      expect(labels.map((b) => b.textContent!.trim())).toEqual(['取消', '导入 3 个']);
+      expect(document.activeElement?.textContent?.trim()).toBe('取消');
+    });
+
+    it('duplicates: list + radiogroups (default 跳过), 文件内重复 tag, live summary on the button', async () => {
+      const dialog = await open(duplicates);
+      const list = q('backup-duplicates');
+      expect(list.getAttribute('role')).toBe('list');
+      expect(list.getAttribute('aria-label')).toBe('重复的 OKR');
+      const group = q('backup-row-2');
+      expect(group.getAttribute('role')).toBe('radiogroup');
+      expect(group.getAttribute('aria-label')).toMatch(/^乙，创建于 /);
+      expect(list.textContent).toContain('文件内重复');
+      const checked = list.querySelectorAll('[role="radio"][aria-checked="true"]');
+      expect(Array.from(checked).map((r) => r.textContent!.trim())).toEqual(['跳过', '跳过']);
+      // one tab stop for the whole list
+      expect(list.querySelectorAll('[tabindex="0"]')).toHaveLength(1);
+      const note = q('dialog-note');
+      expect(note.textContent!.trim()).toBe('将导入 1 个，跳过 2 个。');
+      const start = q('dialog-confirm');
+      expect(start.textContent!.trim()).toBe('开始导入');
+      expect(start.getAttribute('aria-describedby')).toBe(note.id);
+      // Tab order: 全部跳过 → 全部作为副本 → list → 取消 → 开始导入
+      const order = Array.from(
+        dialog.querySelectorAll<HTMLElement>('button:not([hidden]):not([tabindex="-1"])'),
+      ).map((b) => b.dataset['testid'] ?? b.getAttribute('role'));
+      expect(order).toEqual([
+        'backup-skip-all',
+        'backup-copy-all',
+        'radio',
+        'dialog-cancel',
+        'dialog-confirm',
+      ]);
+    });
+
+    it('keyboard: ←→ switch the row, ↑↓ move between rows; bulk buttons', async () => {
+      await open(duplicates);
+      const first = q('backup-row-0').querySelector<HTMLElement>('[aria-checked="true"]')!;
+      first.focus();
+      first.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+      await settle();
+      expect(q('backup-row-0').querySelector('[aria-checked="true"]')!.textContent!.trim()).toBe(
+        '作为副本',
+      );
+      expect(q('dialog-note').textContent!.trim()).toBe('将导入 2 个，跳过 1 个。');
+      const nowChecked = q('backup-row-0').querySelector<HTMLElement>('[aria-checked="true"]')!;
+      nowChecked.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+      await settle();
+      expect(document.activeElement?.closest('[role="radiogroup"]')).toBe(q('backup-row-2'));
+      q('backup-copy-all').click();
+      await settle();
+      expect(q('dialog-note').textContent!.trim()).toBe('将导入 3 个，跳过 0 个。');
+    });
+
+    it('全部跳过 still imports the new ones: 开始导入 stays enabled', async () => {
+      await open(duplicates);
+      q('backup-skip-all').click();
+      await settle();
+      expect(q('dialog-confirm').getAttribute('aria-disabled')).toBeNull();
+    });
+
+    it('everything a duplicate and skipped: disabled + 「所有项都选了跳过…」', async () => {
+      show([makeListItem({ id: 'a' })]);
+      api['importPick']!.mockResolvedValue(
+        ok({
+          outcome: 'confirm',
+          token: 't1',
+          items: [items[0]],
+          conflicts: [{ ...items[0], index: 0, source: 'existing' }],
+          memory: false,
+          backup: { exportedAt: '2026-10-15T07:58:00.000Z', appVersion: '0.2.0' },
+        }),
+      );
+      q('history-import').click();
+      await settle();
+      expect(q('dialog-confirm').getAttribute('aria-disabled')).toBe('true');
+      expect(q('dialog-note').textContent!.trim()).toBe('所有项都选了跳过，没有要导入的内容。');
+      q('dialog-confirm').click();
+      expect(api['importCommit']).not.toHaveBeenCalled();
+    });
+  });
 });

@@ -3,6 +3,7 @@ import {
   IPC_CHANNELS,
   ipcFail,
   type CopyReply,
+  type BackupReply,
   type ExportReply,
   type ExportRequest,
   type ImportCommitRequest,
@@ -93,6 +94,11 @@ export class ClosedLoopApi {
   }
 
   /** Opens the system save dialog in the main process; the reply never has a path unless saved. */
+  /** #50: every OKR into one backup file (system save dialog in the main process). */
+  exportBackup(): Promise<IpcResult<BackupReply>> {
+    return this.call(IPC_CHANNELS.EXPORT_BACKUP, undefined);
+  }
+
   exportOkr(request: ExportRequest): Promise<IpcResult<ExportReply>> {
     return this.call(IPC_CHANNELS.EXPORT_SAVE, request);
   }
