@@ -71,6 +71,9 @@ jobs:
           pnpm run test:dependency-security
           pnpm run audit:security
 
+      - name: Release setup checks (#44)
+        run: pnpm run test:release-config
+
       - name: Build contracts
         run: pnpm run build:contracts
 
@@ -459,13 +462,10 @@ jobs:
 
       - name: Build Electron app (Windows)
         if: matrix.os == 'windows-latest'
-        shell: powershell
+        # bash: Windows PowerShell turns any native stderr line (e.g. 「npm notice」) into a failure.
+        shell: bash
         run: |
-          pnpm run build:electron 2>&1 | Write-Host
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "Build completed with exit code $LASTEXITCODE (signing may be skipped)"
-            exit 0
-          }
+          pnpm run build:electron || echo "Build completed with exit code $? (signing may be skipped)"
 
       - name: Build Electron app (macOS)
         if: matrix.os == 'macos-latest'
