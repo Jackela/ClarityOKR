@@ -281,8 +281,9 @@ describe('#50 full backup', () => {
       const ordered = kindLast ? { ...rest, kind } : file;
       const body = JSON.stringify(ordered);
       const pad = ' '.repeat(Math.max(0, bytes - Buffer.byteLength(body)));
-      // the padding goes before the last brace so the start of the file is unchanged
-      const text = `${body.slice(0, -1)}${pad}}`;
+      // kindLast: the padding goes first, so the file start says nothing about the kind;
+      // otherwise before the last brace, so the start of the file is unchanged
+      const text = kindLast ? `{${pad}${body.slice(1)}` : `${body.slice(0, -1)}${pad}}`;
       const path = join(dir, 'big.json');
       writeFileSync(path, text);
       return path;
@@ -304,7 +305,7 @@ describe('#50 full backup', () => {
     it('a backup with "kind" at the end of the file is still recognised', async () => {
       openPath = await bigBackup(6 * MB, true);
       const head = readFileSync(openPath, 'utf8').slice(0, 4096);
-      expect(head).not.toMatch(/"kind"/);
+      expect(head).not.toMatch(/"kind"\s*:\s*"backup"/);
       wire(target.store);
       expect(await invoke<ImportReply>(IPC_CHANNELS.IMPORT_PICK)).toMatchObject({
         ok: true,
