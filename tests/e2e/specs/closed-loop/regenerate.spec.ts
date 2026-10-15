@@ -200,10 +200,28 @@ test.describe('D3: regenerate (§3.7)', () => {
       ipcMain.removeHandler('clarityokr:okr:regenerate-krs');
       ipcMain.handle('clarityokr:okr:regenerate-krs', () => new Promise(() => undefined));
     });
+    const rowHeights = await sticky
+      .getByTestId('sticky-key-result')
+      .evaluateAll((rows) => rows.map((r) => r.getBoundingClientRect().height));
     await button.click();
     await sticky.getByTestId('regenerate-button-option-1').click();
     await sticky.getByTestId('dialog-confirm').click();
     await expect(sticky.getByTestId('kr-skeleton')).toHaveCount(3);
+    // #40: a skeleton keeps the row's height and has no card border of its own
+    const skeletons = await sticky.getByTestId('kr-skeleton').evaluateAll((rows) =>
+      rows.map((r) => ({
+        height: r.getBoundingClientRect().height,
+        cards: r.querySelectorAll('.skeleton-card').length,
+        borders: ['Left', 'Right', 'Bottom'].map((side) =>
+          getComputedStyle(r).getPropertyValue(`border-${side.toLowerCase()}-width`),
+        ),
+      })),
+    );
+    skeletons.forEach((sk, i) => {
+      expect(Math.abs(sk.height - rowHeights[i]!)).toBeLessThanOrEqual(2);
+      expect(sk.cards).toBe(0);
+      expect(sk.borders).toEqual(['0px', '0px', '0px']);
+    });
     await expect(sticky.getByTestId('regen-progress')).toHaveCount(1);
     await expect(button).toHaveAttribute('aria-disabled', 'true');
     await expect(sticky.locator('.regen-live')).toHaveText('正在重新生成关键结果…');
