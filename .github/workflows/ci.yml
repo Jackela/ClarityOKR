@@ -453,24 +453,36 @@ jobs:
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
-      - name: Build Electron app (Ubuntu)
+      # #78: a failed build fails the job; unsigned builds are fine (no certificates in CI).
+      - name: Install Linux packaging tools
         if: matrix.os == 'ubuntu-latest'
         run: |
-          sudo apt-get update || true
-          sudo apt-get install -y --no-install-recommends libarchive-tools rpm || true
-          pnpm run build:electron 2>/dev/null || echo "Build completed (signing may be skipped)"
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libarchive-tools rpm
 
-      - name: Build Electron app (Windows)
-        if: matrix.os == 'windows-latest'
-        # bash: Windows PowerShell turns any native stderr line (e.g. 「npm notice」) into a failure.
+      - name: Build Electron app
+        # bash on every OS: Windows PowerShell turns native stderr (e.g. 「npm notice」) into a failure.
+        shell: bash
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: pnpm run build:electron
+
+      - name: Check installers exist
         shell: bash
         run: |
-          pnpm run build:electron || echo "Build completed with exit code $? (signing may be skipped)"
-
-      - name: Build Electron app (macOS)
-        if: matrix.os == 'macos-latest'
-        run: |
-          pnpm run build:electron 2>/dev/null || echo "Build completed (signing may be skipped)"
+          case "${{ matrix.os }}" in
+            windows-latest) pattern='dist/*.exe' ;;
+            macos-latest) pattern='dist/*.dmg' ;;
+            *) pattern='dist/*.AppImage' ;;
+          esac
+          shopt -s nullglob
+          files=($pattern)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::no installer matching $pattern"
+            ls -la dist || true
+            exit 1
+          fi
+          ls -la "${files[@]}"
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4
