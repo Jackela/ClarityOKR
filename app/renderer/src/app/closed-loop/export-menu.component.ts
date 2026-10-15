@@ -38,7 +38,7 @@ type MenuAction = { kind: 'export'; format: ExportFormat } | { kind: 'copy' };
         aria-haspopup="menu"
         [attr.aria-expanded]="open()"
         [attr.aria-disabled]="reason ? 'true' : null"
-        [attr.aria-busy]="flow.slow() ? 'true' : null"
+        [attr.aria-busy]="flow.slow() && !flow.backingUp() ? 'true' : null"
         [attr.title]="reason"
         [class.export__btn--disabled]="reason"
         [class.export__btn--memory]="variant === 'memory'"
@@ -46,7 +46,7 @@ type MenuAction = { kind: 'export'; format: ExportFormat } | { kind: 'copy' };
         (click)="onTriggerClick()"
         (keydown)="onTriggerKeydown($event)"
       >
-        @if (flow.slow()) {
+        @if (flow.slow() && !flow.backingUp()) {
           <span class="export__spinner" aria-hidden="true" data-testid="export-spinner"></span>
         }
         <svg class="export__icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">

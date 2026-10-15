@@ -95,7 +95,7 @@ describe('TopBarComponent (spec §1.2 / §1.2a: drag area, 「⋯」, 「隐藏�
     expect(document.querySelector('[role="alertdialog"], [role="dialog"]')).toBeNull();
   });
 
-  it('「⋯」 opens a menu with the 窗口始终在最前 switch (checked), focused', async () => {
+  it('「⋯」 opens a menu: 「全部备份…」 first (focused), separator, then the 窗口始终在最前 switch', async () => {
     q('more-button').click();
     await settle();
     expect(q('more-button').getAttribute('aria-expanded')).toBe('true');
@@ -104,7 +104,37 @@ describe('TopBarComponent (spec §1.2 / §1.2a: drag area, 「⋯」, 「隐藏�
     expect(item.getAttribute('role')).toBe('menuitemcheckbox');
     expect(item.getAttribute('aria-checked')).toBe('true');
     expect(item.textContent).toContain('窗口始终在最前');
+    const backup = q('backup-item');
+    expect(backup.getAttribute('role')).toBe('menuitem');
+    expect(backup.textContent).toContain('全部备份…');
+    expect(backup.textContent).toContain('所有 OKR、进度记录和复盘，.json');
+    expect(backup.nextElementSibling?.getAttribute('role')).toBe('separator');
+    expect(document.activeElement).toBe(backup);
+    key(backup, 'ArrowDown');
     expect(document.activeElement).toBe(item);
+    key(item, 'ArrowDown');
+    expect(document.activeElement).toBe(backup);
+    key(backup, 'End');
+    expect(document.activeElement).toBe(item);
+  });
+
+  it('#50 「全部备份…」 calls the backup, closes the menu; empty history is not disabled', async () => {
+    api['exportBackup'] = jest.fn().mockResolvedValue({
+      ok: true,
+      data: {
+        outcome: 'saved',
+        fileName: 'ClarityOKR-backup-20261015-1558.json',
+        path: '/d/x.json',
+        count: 0,
+      },
+    });
+    q('more-button').click();
+    await settle();
+    expect(q('backup-item').getAttribute('aria-disabled')).toBeNull();
+    q('backup-item').click();
+    await settle();
+    expect(api['exportBackup']).toHaveBeenCalledTimes(1);
+    expect(q('more-menu')).toBeNull();
   });
 
   it('toggling the switch calls set-always-on-top and reflects the reply', async () => {

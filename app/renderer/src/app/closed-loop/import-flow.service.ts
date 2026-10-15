@@ -1,4 +1,4 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import type { ImportProblem, ImportReply } from '@clarityokr/contracts';
 
 import { ToastService } from '../shared/components/toast.service';
@@ -18,6 +18,16 @@ export type ImportDialog =
       hint: string;
     }
   | { kind: 'confirm'; title: string; body: string; hint: string }
+  /** #50 backup preview (S1§9.4 step 3); per-row answers live in `choices`. */
+  | {
+      kind: 'backup';
+      title: string;
+      body: string;
+      hint: string;
+      /** OKRs in the file. */
+      count: number;
+      rows: BackupRow[];
+    }
   | {
       kind: 'error';
       title: string;
@@ -27,6 +37,17 @@ export type ImportDialog =
       /** The second button: pick another file, or re-read the same one (Q8-3). */
       action: 'reselect' | 'retry' | null;
     };
+
+export interface BackupRow {
+  /** Index in the file (the key of `choices`). */
+  index: number;
+  title: string;
+  createdAt: string;
+  /** Q9-5: the same OKR appears earlier in the file. */
+  inFile: boolean;
+}
+
+export type ConflictChoice = 'skip' | 'copy';
 
 const C = COPY.import;
 
@@ -53,7 +74,18 @@ export class ImportFlow {
   /** Asks the history list to move the focus to an OKR (the toast's 「查看」). */
   readonly reveal = signal<{ okrId: string; seq: number } | null>(null);
 
+  /** Backup preview: the answer per duplicate row (Q9-2: 「跳过」 by default). */
+  readonly choices = signal<Readonly<Record<number, ConflictChoice>>>({});
+  /** 「将导入 a 个，跳过 s 个。」 for the backup preview. */
+  readonly backupCounts = computed(() => {
+    const dialog = this.dialog();
+    if (dialog?.kind !== 'backup') return { imported: 0, skipped: 0 };
+    const skipped = Object.values(this.choices()).filter((c) => c === 'skip').length;
+    return { imported: dialog.count - skipped, skipped };
+  });
+
   private token: string | null = null;
+  private isBackup = false;
   private slowTimer: ReturnType<typeof setTimeout> | undefined;
   private revealSeq = 0;
 
@@ -67,13 +99,18 @@ export class ImportFlow {
   }
 
   /** Conflict dialog 「跳过」 / 「作为副本导入」, or the confirmation's 「导入」 (nothing to skip). */
-  async commit(onConflict: 'skip' | 'copy'): Promise<void> {
+  async commit(
+    onConflict: ConflictChoice,
+    choices?: Record<string, ConflictChoice>,
+  ): Promise<void> {
     const token = this.token;
     if (!token || this.committing()) return;
     this.committing.set(true);
     this.statusText.set(C.importing);
     try {
-      const reply = await this.api.importCommit({ token, onConflict });
+      const reply = await this.api.importCommit(
+        choices ? { token, onConflict, choices } : { token, onConflict },
+      );
       this.dialog.set(null);
       if (!reply.ok) {
         // The token expired or the request failed: nothing was written.
@@ -86,6 +123,25 @@ export class ImportFlow {
       this.committing.set(false);
       this.statusText.set('');
     }
+  }
+
+  /** Backup preview: one row's answer. */
+  choose(index: number, choice: ConflictChoice): void {
+    this.choices.update((all) => ({ ...all, [index]: choice }));
+  }
+
+  /** Backup preview: 「全部跳过」 / 「全部作为副本」. */
+  chooseAll(choice: ConflictChoice): void {
+    this.choices.update((all) => Object.fromEntries(Object.keys(all).map((key) => [key, choice])));
+  }
+
+  /** Backup preview 「开始导入」 / 「导入 n 个」. */
+  async commitBackup(): Promise<void> {
+    if (this.backupCounts().imported === 0) return;
+    const choices = Object.fromEntries(
+      Object.entries(this.choices()).map(([key, value]) => [key, value]),
+    );
+    await this.commit('skip', choices);
   }
 
   /** The dialog's second button. */
@@ -177,6 +233,26 @@ export class ImportFlow {
       case 'confirm': {
         this.token = reply.token;
         const memory = reply.memory ? `\n${C.memoryWarning}` : '';
+        this.isBackup = reply.backup !== undefined;
+        if (reply.backup) {
+          const n = reply.items.length;
+          const d = reply.conflicts.length;
+          this.choices.set(Object.fromEntries(reply.conflicts.map((c) => [c.index, 'skip'])));
+          this.openDialog({
+            kind: 'backup',
+            title: C.backupTitle,
+            body: C.backupBody(n, formatDateTime(reply.backup.exportedAt), reply.backup.appVersion),
+            hint: `${d === 0 ? C.backupAllNew(n) : C.backupDuplicates(d)}${memory}`,
+            count: n,
+            rows: reply.conflicts.map((c) => ({
+              index: c.index,
+              title: c.title,
+              createdAt: formatDateTime(c.createdAt),
+              inFile: c.source === 'in_file',
+            })),
+          });
+          return;
+        }
         const conflict = reply.conflicts[0];
         if (conflict) {
           this.openDialog({
@@ -203,6 +279,14 @@ export class ImportFlow {
   }
 
   private async imported(reply: Extract<ImportReply, { outcome: 'imported' }>): Promise<void> {
+    if (reply.imported.length === 0 && this.isBackup) {
+      this.isBackup = false;
+      this.toasts.show({
+        kind: 'neutral',
+        message: C.backupImported(0, reply.skipped.length, false),
+      });
+      return;
+    }
     if (reply.imported.length === 0) {
       const title = reply.skipped[0]?.title ?? '';
       this.toasts.show({ kind: 'neutral', message: C.skipped(truncateTitle(title)) });
@@ -212,6 +296,16 @@ export class ImportFlow {
     await this.store.refreshList();
     this.fresh.set(new Set(ids));
     const first = ids[0] as string;
+    if (this.isBackup) {
+      // S1§9.4 step 4: the summary, and the focus goes to the first new OKR right away.
+      this.isBackup = false;
+      this.toasts.show({
+        kind: 'success',
+        message: C.backupImported(ids.length, reply.skipped.length, reply.memory),
+      });
+      this.reveal.set({ okrId: first, seq: ++this.revealSeq });
+      return;
+    }
     this.toasts.show({
       kind: 'success',
       message: C.imported(ids.length, reply.memory),
@@ -252,11 +346,23 @@ export class ImportFlow {
           action: null,
         });
         return;
+      case 'empty_backup':
+        this.openDialog({
+          ...base,
+          hint: '',
+          title: C.emptyBackupTitle,
+          body: C.emptyBackupBody,
+          action: null,
+        });
+        return;
       case 'invalid':
         this.openDialog({
           ...base,
           title: C.invalidTitle,
-          body: C.invalidBody,
+          body:
+            problem.okrIndex === undefined
+              ? C.invalidBody
+              : C.backupInvalidBody(problem.okrIndex + 1),
           detail: [
             // a plain-language reason has no field (B4)
             problem.field ? `${problem.field} ${problem.reason}` : problem.reason,
@@ -283,6 +389,7 @@ export class ImportFlow {
   }
 
   private dropToken(): void {
+    this.isBackup = false;
     const token = this.token;
     this.token = null;
     if (token) void this.api.importDiscard({ token });
