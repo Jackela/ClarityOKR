@@ -209,6 +209,21 @@ const SLOW_SAVE_MS = 300;
           >
             {{ copy.kr.revertLast }}
           </button>
+          @if (history) {
+            <button
+              type="button"
+              class="kr__link kr__link--action kr__history-toggle"
+              [id]="historyButtonId"
+              data-testid="kr-history-toggle"
+              [attr.aria-expanded]="historyOpen()"
+              [attr.aria-controls]="historyOpen() ? historyPanelId : null"
+              [attr.aria-label]="copy.progressHistory.buttonLabel(kr.statement)"
+              (click)="historyOpen.set(!historyOpen())"
+            >
+              {{ copy.progressHistory.button }}
+              <span aria-hidden="true">{{ historyOpen() ? '▾' : '▸' }}</span>
+            </button>
+          }
         </div>
         @if (line.kind === 'revert') {
           <div class="kr__update" [id]="reasonId" data-testid="kr-revert-reason">
@@ -217,32 +232,15 @@ const SLOW_SAVE_MS = 300;
         }
       }
 
-      @if (history) {
-        <div class="kr__history-bar">
-          <button
-            type="button"
-            class="kr__link kr__link--action"
-            [id]="historyButtonId"
-            data-testid="kr-history-toggle"
-            [attr.aria-expanded]="historyOpen()"
-            [attr.aria-controls]="historyOpen() ? historyPanelId : null"
-            [attr.aria-label]="copy.progressHistory.buttonLabel(kr.statement)"
-            (click)="historyOpen.set(!historyOpen())"
-          >
-            {{ copy.progressHistory.button }}
-            <span aria-hidden="true">{{ historyOpen() ? '▾' : '▸' }}</span>
-          </button>
-        </div>
-        @if (historyOpen()) {
-          <clarityokr-kr-progress-history
-            [id]="historyPanelId"
-            [krId]="kr.id"
-            [statement]="kr.statement"
-            [status]="kr.status"
-            [labelledBy]="historyButtonId"
-            [now]="now"
-          />
-        }
+      @if (history && historyOpen()) {
+        <clarityokr-kr-progress-history
+          [id]="historyPanelId"
+          [krId]="kr.id"
+          [statement]="kr.statement"
+          [status]="kr.status"
+          [labelledBy]="historyButtonId"
+          [now]="now"
+        />
       }
 
       @if (doneHint) {
