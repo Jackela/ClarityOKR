@@ -20,7 +20,11 @@
  *
  * @module services/okr-agent.service
  */
-import { nextQuestionResponseSchema, okrDraftResponseSchema, LLMError } from '@clarityokr/contracts';
+import {
+  nextQuestionResponseSchema,
+  okrDraftResponseSchema,
+  LLMError,
+} from '@clarityokr/contracts';
 
 import { Logger } from '../core/logger.js';
 import { getConfig } from '../config/app-config.js';
@@ -53,11 +57,28 @@ import type { ClarificationContext, LastChoice, PerformanceMetrics } from './okr
  * const draft = await agent.generateDraft({ turns: [...] });
  * ```
  */
+/** Same default as LLM_TIMEOUT_MS in app-config, used while no LLM configuration exists. */
+const DEFAULT_LLM_TIMEOUT_MS = 5000;
+
 export class OkrAgentService {
-  private readonly cfg = getConfig().llm;
-  private readonly baseUrl = this.cfg.baseUrl;
-  private readonly model = this.cfg.model;
-  private readonly timeoutMs = this.cfg.timeoutMs;
+  // #74: read on use, not at construction. The service is built at startup, and the app must
+  // start (and its local features work) without an LLM key; only LLM calls need it.
+  private get cfg() {
+    return getConfig().llm;
+  }
+  private get baseUrl(): string {
+    return this.cfg.baseUrl;
+  }
+  private get model(): string {
+    return this.cfg.model;
+  }
+  private get timeoutMs(): number {
+    try {
+      return this.cfg.timeoutMs;
+    } catch {
+      return DEFAULT_LLM_TIMEOUT_MS;
+    }
+  }
 
   private readonly cache: LlmCacheService;
   private readonly circuitBreaker: LlmCircuitBreaker;
