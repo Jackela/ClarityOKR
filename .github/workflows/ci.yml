@@ -71,6 +71,9 @@ jobs:
           pnpm run test:dependency-security
           pnpm run audit:security
 
+      - name: Release setup checks (#44)
+        run: pnpm run test:release-config
+
       - name: Build contracts
         run: pnpm run build:contracts
 

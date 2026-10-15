@@ -21,6 +21,7 @@ The app runs on an Electron + Angular stack written in strict TypeScript (ESM-on
 - [Development Workflow](#development-workflow)
 - [Architecture Overview](#architecture-overview)
 - [Quality Gates & Scripts](#quality-gates--scripts)
+- [发布流程 (Release)](#发布流程-release)
 - [Troubleshooting](#troubleshooting)
 - [Contributing](#contributing)
 
@@ -381,6 +382,19 @@ For complete setup instructions, see **[docs/ci-simulation.md](docs/ci-simulatio
 E2E tests start a local HTTP server mocking LLM API endpoints. No external network calls are made. Tests are deterministic and self-contained.
 
 Follow TDD/BDD loop: author specs before implementation, especially for sticky window functionality, edit mode flows, regenerate/copy actions, and telemetry.
+
+## 发布流程 (Release)
+
+安装包由 `.github/workflows/release.yml` 构建（#44）。**打 tag、发布 Release 需要维护者批准；工作流本身从不创建或移动 tag。**
+
+1. 在 `main` 上把 `package.json` 的 `version` 改成要发的版本（如 `0.3.0`），更新 `CHANGELOG.md`，合并。
+2. 维护者推 tag：`git tag v0.3.0 && git push origin v0.3.0`（tag 必须等于 `v` + `package.json` 版本，否则构建失败）。
+3. 工作流在 macOS / Windows / Linux 上打包：`ClarityOKR-<版本>-mac-<arch>.dmg`、`-win-x64.exe`、`-linux-x86_64.AppImage`、`-linux-amd64.deb`，再生成 `SHA256SUMS.txt`。
+4. 上传到该 tag 的 Release：Release 已存在则只追加文件（同名文件在重跑时替换），**不改正文**；不存在则以草稿创建，由维护者检查后发布。
+5. 未配置签名证书时安装包未签名，工作流会在 Release 说明末尾追加一次「安装包未签名」提示。签名只通过仓库 secrets：`MACOS_CERTIFICATE` / `MACOS_CERTIFICATE_PASSWORD`（+ 公证用 `APPLE_ID` / `APPLE_APP_SPECIFIC_PASSWORD` / `APPLE_TEAM_ID`）、`WINDOWS_CERTIFICATE` / `WINDOWS_CERTIFICATE_PASSWORD`；证书不进仓库。
+
+试跑：Actions → Release → Run workflow，填一个已有 tag，`upload` 保持 `false` 只构建、不碰 Release；产物在该次运行的 artifacts 里。
+本地打包：`pnpm run build && pnpm run build:electron`（先把应用整理到 `build/app`，再由 electron-builder 输出到 `dist/`）。
 
 ## Troubleshooting
 
