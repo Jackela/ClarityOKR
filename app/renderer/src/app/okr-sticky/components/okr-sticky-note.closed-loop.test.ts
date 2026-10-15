@@ -3,11 +3,11 @@
  * section, not-pinned banner, loading / error. Uses the real store with a faked API.
  */
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
-import type { ClosedLoopError, KeyResultRecord } from '@clarityokr/contracts';
+import type { ClosedLoopError, KeyResultRecord, KrProgressInfo } from '@clarityokr/contracts';
 
 import { ClosedLoopApi } from '../../closed-loop/closed-loop-api.service';
 import { ClosedLoopStore } from '../../closed-loop/closed-loop.store';
-import { makeDetail, makeKr } from '../../closed-loop/testing/fixtures';
+import { makeDetail, makeEntry, makeInfo, makeKr } from '../../closed-loop/testing/fixtures';
 import { Logger } from '../../core/services/logger.service';
 import { OkrStickyService, type OkrStickyViewModel } from '../services/okr-sticky.service';
 import { OkrStickyNoteComponent } from './okr-sticky-note.component';
@@ -44,8 +44,11 @@ describe('OkrStickyNoteComponent closed-loop states', () => {
   async function show(
     krs: KeyResultRecord[],
     objective: Partial<ReturnType<typeof makeDetail>['objective']> = {},
+    progress: Record<string, KrProgressInfo> = {},
   ) {
-    api['open']!.mockResolvedValue(ok(makeDetail(krs, objective)));
+    const detail = makeDetail(krs, objective);
+    detail.progress = { ...detail.progress, ...progress };
+    api['open']!.mockResolvedValue(ok(detail));
     fixture.componentInstance.okr = view;
     fixture.componentInstance.ngOnChanges();
     fixture.detectChanges();
@@ -193,8 +196,16 @@ describe('OkrStickyNoteComponent closed-loop states', () => {
       }),
     ];
 
-    it('is collapsed by default, with a labelled toggle and no editing buttons inside', async () => {
+    it('N34: a removed KR without any record has no 「进度记录」 entry', async () => {
       await show(krs);
+      q('removed-toggle').click();
+      fixture.detectChanges();
+      expect(q('removed-key-result').querySelector('button, input')).toBeNull();
+    });
+
+    it('is collapsed by default, with a labelled toggle and no editing buttons inside', async () => {
+      // N34: any record (a reverted one too) shows the entry
+      await show(krs, {}, { b: makeInfo({ latest: makeEntry({ krId: 'b', kind: 'revert' }) }) });
       const toggle = q('removed-toggle');
       expect(toggle.textContent).toContain('已移除的关键结果（1）');
       expect(toggle.getAttribute('aria-expanded')).toBe('false');
@@ -210,7 +221,9 @@ describe('OkrStickyNoteComponent closed-loop states', () => {
       expect(item.textContent).toContain('最后进度 40% · 有风险');
       // #53: the only control is the read-only 「进度记录」 toggle
       const controls = Array.from(item.querySelectorAll('button, input'));
-      expect(controls.map((c) => c.getAttribute('data-testid'))).toEqual(['removed-history-toggle']);
+      expect(controls.map((c) => c.getAttribute('data-testid'))).toEqual([
+        'removed-history-toggle',
+      ]);
       expect(controls[0]!.getAttribute('aria-label')).toBe('旧的关键结果 的进度记录（已移除）');
       expect(q('removed-section').textContent).toContain('已移除的关键结果不计入整体进度。');
       // not part of the numbered list and not counted
