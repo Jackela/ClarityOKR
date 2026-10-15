@@ -1,5 +1,5 @@
 import http from 'node:http';
-import getPort from 'get-port';
+import type { AddressInfo } from 'node:net';
 import type { MockResponseConfig } from '@clarityokr/contracts';
 
 /**
@@ -19,8 +19,9 @@ export class SimpleMockServer {
   private resolvePending!: () => void;
 
   async start(port?: number): Promise<number> {
-    // 如果没有指定端口，使用 get-port 获取可用端口
-    this.port = port || (await getPort({ port: [7777, 7778, 7779, 7780, 7781, 7782] }));
+    // #55: no port given -> listen on 0 and let the OS pick a free one. Picking a "free" port
+    // first and binding later raced between parallel workers (EADDRINUSE).
+    this.port = port ?? 0;
     // Reset state on start to ensure clean state
     this.callCounter = 0;
     this.responseConfig = {};
@@ -35,6 +36,8 @@ export class SimpleMockServer {
     return new Promise((resolve, reject) => {
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       this.server!.listen(this.port, '127.0.0.1', () => {
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        this.port = (this.server!.address() as AddressInfo).port;
         console.log(`[mock-server] Started on http://127.0.0.1:${this.port}`);
         resolve(this.port);
       });
