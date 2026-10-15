@@ -309,3 +309,10 @@
 :host-context([data-theme='dark']) .kr__new-dot {
   background: #60a5fa;
 }
+
+// #53
+.kr__history-bar {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 2px;
+}

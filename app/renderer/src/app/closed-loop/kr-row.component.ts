@@ -20,6 +20,7 @@ import type {
   ProgressChangeReply,
 } from '@clarityokr/contracts';
 
+import { KrProgressHistoryComponent } from './kr-progress-history.component';
 import { MeterBarComponent } from '../shared/components/meter-bar.component';
 import {
   PopupSelectComponent,
@@ -46,7 +47,7 @@ const SLOW_SAVE_MS = 300;
 @Component({
   selector: 'li[clarityokr-kr-row]',
   standalone: true,
-  imports: [CommonModule, MeterBarComponent, PopupSelectComponent],
+  imports: [CommonModule, MeterBarComponent, PopupSelectComponent, KrProgressHistoryComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="kr__top">
@@ -216,6 +217,34 @@ const SLOW_SAVE_MS = 300;
         }
       }
 
+      @if (history) {
+        <div class="kr__history-bar">
+          <button
+            type="button"
+            class="kr__link kr__link--action"
+            [id]="historyButtonId"
+            data-testid="kr-history-toggle"
+            [attr.aria-expanded]="historyOpen()"
+            [attr.aria-controls]="historyOpen() ? historyPanelId : null"
+            [attr.aria-label]="copy.progressHistory.buttonLabel(kr.statement)"
+            (click)="historyOpen.set(!historyOpen())"
+          >
+            {{ copy.progressHistory.button }}
+            <span aria-hidden="true">{{ historyOpen() ? '▾' : '▸' }}</span>
+          </button>
+        </div>
+        @if (historyOpen()) {
+          <clarityokr-kr-progress-history
+            [id]="historyPanelId"
+            [krId]="kr.id"
+            [statement]="kr.statement"
+            [status]="kr.status"
+            [labelledBy]="historyButtonId"
+            [now]="now"
+          />
+        }
+      }
+
       @if (doneHint) {
         <div class="kr__hint" data-testid="kr-done-hint">
           <span aria-hidden="true">⚠</span>
@@ -253,8 +282,17 @@ export class KrRowComponent implements OnChanges, OnDestroy {
   /** Added by the last regeneration (the 「新增」 tag). */
   @Input() isNew = false;
   @Output() toggle = new EventEmitter<string>();
+  /** #53 「进度记录」: hidden on a row that is being regenerated (its skeleton). */
+  @Input() history = true;
+  readonly historyOpen = signal(false);
 
   readonly copy = COPY;
+  get historyButtonId(): string {
+    return `kr-history-btn-${this.kr.id}`;
+  }
+  get historyPanelId(): string {
+    return `kr-history-${this.kr.id}`;
+  }
   readonly mode = signal<EditorMode>('none');
   readonly draft = signal('');
   readonly saving = signal(false);
