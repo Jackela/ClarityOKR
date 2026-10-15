@@ -111,9 +111,25 @@ describe('ImportFlow (#49, S1§8 + v3.1)', () => {
 
   it.each([
     [
-      { kind: 'too_large', sizeBytes: 7.3 * 1024 * 1024 },
+      {
+        kind: 'too_large',
+        sizeBytes: 7.3 * 1024 * 1024,
+        limitBytes: 5 * 1024 * 1024,
+        backup: false,
+      },
       '文件太大，无法导入',
-      '这个文件有 7.3 MB',
+      '只能导入 5 MB 以内的文件，这个文件有 7.3 MB。',
+      'reselect',
+    ],
+    [
+      {
+        kind: 'too_large',
+        sizeBytes: 61.25 * 1024 * 1024,
+        limitBytes: 50 * 1024 * 1024,
+        backup: true,
+      },
+      '文件太大，无法导入',
+      '只能导入 50 MB 以内的备份，这个文件有 61.3 MB。',
       'reselect',
     ],
     [{ kind: 'not_json' }, '这不是可以导入的文件', '不是有效的 JSON', 'reselect'],

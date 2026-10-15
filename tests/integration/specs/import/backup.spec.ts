@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import BetterSqlite3 from 'better-sqlite3';
@@ -226,20 +226,121 @@ describe('#50 full backup', () => {
     expect(target.store.listObjectives()).toHaveLength(0);
   });
 
-  it('AC5: 500 OKRs back up in under 2 seconds', async () => {
+  /** N31: 500 OKRs, 3 KRs each, several progress records per KR and a review per OKR. */
+  function seedLarge(store: OkrStore): void {
+    const text = (label: string, i: number) =>
+      `${label} ${i}：${'本季度推进情况说明。'.repeat(12)}`;
     for (let i = 0; i < 500; i++) {
-      const o = source.store.createObjective({
+      const o = store.createObjective({
         title: `目标 ${i}`,
-        keyResults: [{ statement: 'k1' }, { statement: 'k2' }, { statement: 'k3' }],
+        period: '2026-Q4',
+        keyResults: [
+          { statement: `关键结果 ${i}-1`, successMetric: '次数' },
+          { statement: `关键结果 ${i}-2`, successMetric: '比例' },
+          { statement: `关键结果 ${i}-3` },
+        ],
       });
-      source.store.setProgress(o.keyResults[0]!.id, { value: 30, status: 'in_progress' });
+      for (const kr of o.keyResults) {
+        for (const value of [10, 25, 40, 60]) {
+          store.setProgress(kr.id, { value, status: value >= 40 ? 'at_risk' : 'in_progress' });
+        }
+        store.revertLastProgress(kr.id);
+      }
+      store.saveReview(o.id, {
+        wentWell: text('做得好', i),
+        fellShort: text('不足', i),
+        nextSteps: text('下一步', i),
+      });
     }
+  }
+
+  it('AC5 / N31: 500 OKRs with progress records and reviews back up in under 2 seconds', async () => {
+    seedLarge(source.store);
     wire(source.store);
     const started = performance.now();
     const reply = await invoke(IPC_CHANNELS.EXPORT_BACKUP);
     const elapsed = performance.now() - started;
     expect(reply).toMatchObject({ ok: true, data: { outcome: 'saved', count: 500 } });
+    const size = statSync(savePath!).size;
+    // eslint-disable-next-line no-console
+    console.log(
+      `[N31] 500-OKR backup: ${(size / (1024 * 1024)).toFixed(2)} MB in ${Math.round(elapsed)} ms`,
+    );
     expect(elapsed).toBeLessThan(2000);
+  });
+
+  describe('B5: size limits', () => {
+    const MB = 1024 * 1024;
+    /** A valid backup of the seed, padded with whitespace to at least `bytes`. */
+    async function bigBackup(bytes: number, kindLast = false): Promise<string> {
+      seed(source.store);
+      wire(source.store);
+      await invoke(IPC_CHANNELS.EXPORT_BACKUP);
+      const file = JSON.parse(readFileSync(savePath!, 'utf8'));
+      const { kind, ...rest } = file;
+      const ordered = kindLast ? { ...rest, kind } : file;
+      const body = JSON.stringify(ordered);
+      const pad = ' '.repeat(Math.max(0, bytes - Buffer.byteLength(body)));
+      // the padding goes before the last brace so the start of the file is unchanged
+      const text = `${body.slice(0, -1)}${pad}}`;
+      const path = join(dir, 'big.json');
+      writeFileSync(path, text);
+      return path;
+    }
+
+    it('a backup over 5 MB imports in full', async () => {
+      openPath = await bigBackup(6 * MB);
+      wire(target.store);
+      const preview = await invoke<ImportReply>(IPC_CHANNELS.IMPORT_PICK);
+      expect(preview).toMatchObject({ ok: true, data: { outcome: 'confirm' } });
+      const done = await invoke<ImportReply>(IPC_CHANNELS.IMPORT_COMMIT, {
+        token: (preview as any).data.token,
+        onConflict: 'skip',
+      });
+      expect((done as any).data.imported).toHaveLength(3);
+      expect(target.store.listObjectives()).toHaveLength(3);
+    });
+
+    it('a backup with "kind" at the end of the file is still recognised', async () => {
+      openPath = await bigBackup(6 * MB, true);
+      const head = readFileSync(openPath, 'utf8').slice(0, 4096);
+      expect(head).not.toMatch(/"kind"/);
+      wire(target.store);
+      expect(await invoke<ImportReply>(IPC_CHANNELS.IMPORT_PICK)).toMatchObject({
+        ok: true,
+        data: { outcome: 'confirm', backup: { appVersion: '0.2.0' } },
+      });
+    });
+
+    it('a single OKR over 5 MB is rejected after parsing with the 5 MB wording', async () => {
+      seed(source.store);
+      const id = source.store.listObjectives()[0]!.id;
+      const body = renderJson(loadExportSource(source.store, id)!, new Date(0));
+      openPath = join(dir, 'single.json');
+      writeFileSync(openPath, `${body.trimEnd().slice(0, -1)}${' '.repeat(6 * MB)}}`);
+      wire(target.store);
+      expect(await invoke<ImportReply>(IPC_CHANNELS.IMPORT_PICK)).toMatchObject({
+        ok: true,
+        data: {
+          outcome: 'rejected',
+          problem: { kind: 'too_large', limitBytes: 5 * MB, backup: false },
+        },
+      });
+      expect(target.store.listObjectives()).toHaveLength(0);
+    });
+
+    it('any file over 50 MB is rejected with the backup wording, unread', async () => {
+      openPath = join(dir, 'huge.json');
+      writeFileSync(openPath, Buffer.alloc(50 * MB + 1, 0x20));
+      wire(target.store);
+      expect(await invoke<ImportReply>(IPC_CHANNELS.IMPORT_PICK)).toMatchObject({
+        ok: true,
+        data: {
+          outcome: 'rejected',
+          problem: { kind: 'too_large', sizeBytes: 50 * MB + 1, limitBytes: 50 * MB, backup: true },
+        },
+      });
+    });
   });
 
   it('conflicts with the history and inside the file (Q9-5); per-item choices, default skip (Q9-2)', async () => {
