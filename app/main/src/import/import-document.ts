@@ -15,7 +15,14 @@ export interface ImportIssue {
 }
 
 export type ParsedImport =
-  { ok: true; document: ExportJsonDocument } | { ok: false; problem: ImportProblem };
+  | {
+      ok: true;
+      /** One for a single-OKR file, every OKR of a backup (#50) in file order. */
+      documents: ExportJsonDocument[];
+      /** Set for a `kind: "backup"` file. */
+      backup?: { exportedAt: string; appVersion: string };
+    }
+  | { ok: false; problem: ImportProblem };
 
 type Rec = Record<string, unknown>;
 
