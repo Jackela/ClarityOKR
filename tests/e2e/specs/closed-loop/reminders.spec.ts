@@ -1,4 +1,6 @@
+import { copyFileSync, mkdirSync, readdirSync } from 'node:fs';
 import type NodeModule from 'node:module';
+import { dirname, join } from 'node:path';
 import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
 import { IPC_CHANNELS, quarterBanner } from '@clarityokr/contracts';
 
@@ -188,25 +190,28 @@ test.describe('#54 in-app reminders (fake time)', () => {
 
     // restart on the same database: still reviewed → no banner for Q
     const dbPath = testInfo.outputPath('clarityokr.db');
-    // end the first run outright (no quit dialogs), then start again on the same files
-    const first = electronApp.process();
-    const exited = new Promise((resolve) => first.once('exit', resolve));
-    first.kill('SIGKILL');
-    await exited;
-    console.info('[reminders-e2e] first run ended');
+    // A second launch on a copy of everything the first run saved (database incl. WAL, reminder
+    // settings): what a restart reads. Its own folder gives it its own profile and instance lock,
+    // so the first app (and the fixture's teardown / coverage) stays untouched.
+    const restartDir = testInfo.outputPath('restart');
+    mkdirSync(restartDir, { recursive: true });
+    for (const name of readdirSync(dirname(dbPath))) {
+      if (name.startsWith('clarityokr.db') || name === 'reminder-settings.json') {
+        copyFileSync(join(dirname(dbPath), name), join(restartDir, name));
+      }
+    }
     const ci = getElectronLaunchOptions();
     const again = await electron.launch({
       args: [MAIN_DIST, ...extraElectronArgs(), ...ci.args],
       cwd: ROOT,
       env: {
         ...getElectronEnv(mockServer.url),
-        E2E_DB_PATH: dbPath,
+        E2E_DB_PATH: join(restartDir, 'clarityokr.db'),
         CLARITYOKR_FAKE_NOW: AFTER_STALE,
         ...ci.env,
       } as Record<string, string>,
     });
     try {
-      console.info('[reminders-e2e] relaunched');
       const win = await again.firstWindow({ timeout: 60_000 });
       await win.waitForLoadState('domcontentloaded');
       const list = await invoke(win, IPC_CHANNELS.OKR_LIST);
