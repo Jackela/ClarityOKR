@@ -188,9 +188,13 @@ test.describe('#49 import', () => {
     );
     const many = structuredClone(exported);
     many.progressEntries = Array.from({ length: 110 }, (_, i) => ({
-      ...exported.progressEntries[0],
       id: i + 1,
+      krId: exported.keyResults[0].id,
+      kind: 'set',
+      value: 10,
       status: 'blocked',
+      revertsEntryId: null,
+      recordedAt: exported.exportedAt,
     }));
     await plainDetail(
       'S1-10c-import-invalid-99plus',
