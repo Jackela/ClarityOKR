@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { IMPORT_ISSUE_UI } from '@clarityokr/contracts';
 
 import { ToastService } from '../shared/components/toast.service';
 import { ClosedLoopApi } from './closed-loop-api.service';
@@ -150,24 +151,39 @@ describe('ImportFlow (#49, S1§8 + v3.1)', () => {
     },
   );
 
-  it('invalid: first problem in the detail plus 「另有 n 处错误」', async () => {
+  it('#69 invalid: plain body, located lines (≤ 5, then 「另有 n 处」), no English keys', async () => {
+    const issue = (i: number) => ({
+      code: 'out_of_range' as const,
+      location: ['keyResults', i, 'progress'],
+      params: {},
+    });
     api['importPick']!.mockResolvedValue(
       ok({
         outcome: 'rejected',
         problem: {
           kind: 'invalid',
-          field: 'keyResults[2].progress',
-          reason: '超出 0–100',
-          more: 3,
+          field: '',
+          reason: '第 1 个关键结果的进度超出 0 到 100',
+          more: 104,
+          issues: [0, 1, 2, 3, 4].map(issue),
+          total: 105,
         },
       }),
     );
     await flow.start();
-    expect(flow.dialog()).toMatchObject({
+    const dialog = flow.dialog()!;
+    expect(dialog).toMatchObject({
       title: '文件内容有误，无法导入',
-      body: '第一处错误：',
-      detail: ['keyResults[2].progress 超出 0–100', '另有 3 处错误'],
+      body: IMPORT_ISSUE_UI.singleBody,
+      detail: [
+        '第 1 个关键结果的进度超出 0 到 100',
+        '第 2 个关键结果的进度超出 0 到 100',
+        '第 3 个关键结果的进度超出 0 到 100',
+        '第 4 个关键结果的进度超出 0 到 100',
+        '另有 99+ 处',
+      ],
     });
+    expect(dialog.kind === 'error' && dialog.detail.join('')).not.toMatch(/[A-Za-z]{3,}|\[\d/);
   });
 
   it('write failed → 「重试」 re-reads the same file by token (Q8-3); original gone → 「重新选择文件…」', async () => {
@@ -292,7 +308,7 @@ describe('ImportFlow (#49, S1§8 + v3.1)', () => {
       );
       await flow.start();
       expect(flow.dialog()).toMatchObject({
-        body: '备份里第 4 个 OKR 有误，整份没有导入。第一处错误：',
+        body: '备份里第 4 个 OKR 有误，整份没有导入。',
         detail: ['第 4 个 OKR 有 12 个 KR，最多 10 个'],
       });
     });
