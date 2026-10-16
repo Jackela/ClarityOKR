@@ -206,7 +206,12 @@ test.describe('#54 in-app reminders (fake time)', () => {
     test.setTimeout(150_000);
     const sticky = await openSticky(electronApp, mainWindow, mockServer);
     await seed(electronApp, sticky);
+    // the badge refreshes when the clock crosses 7×24h (shell entry point)
+    await fakeNow(electronApp, BEFORE_STALE);
+    await expect(banner(sticky)).toHaveAttribute('data-kind', 'ended');
+    await expect(sticky.getByTestId('kr-stale-badge')).toHaveCount(0);
     await fakeNow(electronApp, AFTER_STALE);
+    await expect(sticky.getByTestId('kr-stale-badge').first()).toHaveText('7 天未更新');
     await expect(banner(sticky)).toHaveAttribute('data-kind', 'ended');
 
     // 去复盘: the quarter switches to Q (its OKR opens), then the review tab, title focused
@@ -296,5 +301,67 @@ test.describe('#54 in-app reminders (fake time)', () => {
       // the app keeps running in the tray on close: end it outright
       again.process().kill('SIGKILL');
     }
+  });
+
+  test('#84 review: main-window results panel — banner, badge crossing 7×24h, 去复盘 opens Q review', async ({
+    electronApp,
+    mainWindow,
+    mockServer,
+  }) => {
+    const sticky = await openSticky(electronApp, mainWindow, mockServer);
+    const panel = mainWindow.getByTestId('okr-summary');
+    await expect(panel.getByTestId('kr-list')).toBeVisible();
+
+    // Q = 2026-Q3 (an unreviewed OKR), the open one in Q+1 = 2026-Q4 set through the picker
+    await sql(electronApp, [
+      `INSERT INTO objectives (id, title, period, pinned, source_session_id, created_at, updated_at)
+         VALUES ('okr-prev', '上季度 OKR', '2026-Q3', 0, NULL, '2026-07-02T02:00:00.000Z', '2026-07-02T02:00:00.000Z')`,
+      `INSERT INTO key_results (id, objective_id, position, statement, success_metric, progress, status, removed_at, created_at, updated_at)
+         VALUES ('kr-prev-1', 'okr-prev', 0, '上季度关键结果一', NULL, 40, 'in_progress', NULL, '2026-07-02T02:00:00.000Z', '2026-07-02T02:00:00.000Z')`,
+    ]);
+    await panel.getByTestId('period-picker').click();
+    await mainWindow.getByRole('option', { name: '2026-Q4' }).click();
+    await expect(panel.getByTestId('period-picker')).toContainText('2026-Q4');
+    const created = await electronApp.evaluate(() => {
+      const { createRequire } = process.getBuiltinModule('node:module') as typeof NodeModule;
+      const require = createRequire(`${process.cwd()}/app/main/package.json`);
+      const Database = require('better-sqlite3') as new (p: string) => {
+        prepare: (s: string) => { get: () => { at: string } };
+        close: () => void;
+      };
+      const db = new Database(process.env.E2E_DB_PATH as string);
+      const row = db
+        .prepare(
+          `SELECT MAX(created_at) AS at FROM key_results WHERE objective_id <> 'okr-prev' AND removed_at IS NULL`,
+        )
+        .get();
+      db.close();
+      return row.at;
+    });
+    const threshold = Date.parse(created) + SEVEN_DAYS;
+
+    // banner at the top of the results panel, above the OKR title; no badge 1 min before
+    await fakeNow(electronApp, new Date(threshold - 60_000).toISOString());
+    const mainBanner = panel.getByTestId('review-reminder');
+    await expect(mainBanner).toHaveAttribute('data-kind', 'ended');
+    await expect(mainBanner).toHaveAttribute('data-period', '2026-Q3');
+    await expect(mainBanner).toHaveAttribute('role', 'status');
+    const titleBox = (await panel.getByTestId('sticky-objective').boundingBox())!;
+    const bannerBox = (await mainBanner.boundingBox())!;
+    expect(bannerBox.y + bannerBox.height).toBeLessThanOrEqual(titleBox.y);
+    await expect(panel.getByTestId('kr-stale-badge')).toHaveCount(0);
+
+    // the clock crosses 7×24h → the badge appears without reopening anything
+    await fakeNow(electronApp, new Date(threshold + 60_000).toISOString());
+    await expect(panel.getByTestId('kr-stale-badge').first()).toHaveText('7 天未更新');
+    await both(mainWindow, 'S2-12-main-banner-stale');
+
+    // 去复盘: Q's OKR opens on the review page (in the sticky shell), focus on its heading
+    await panel.getByTestId('review-reminder-go').click();
+    await expect(sticky.getByTestId('tab-review')).toHaveAttribute('aria-selected', 'true');
+    await expect(sticky.getByTestId('review-objective')).toHaveText('上季度 OKR');
+    await expect(sticky.getByTestId('review-period')).toHaveText('2026-Q3');
+    await expect(sticky.getByTestId('review-objective')).toBeFocused();
+    await both(sticky, 'S2-13-main-goreview-focus');
   });
 });
