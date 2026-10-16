@@ -98,6 +98,15 @@ export interface GoReviewRequest {
           opacity: 1;
         }
       }
+      /* Narrow window (< 360px, S2-10): the sentence wraps and 去复盘 goes under it as text;
+         ✕ stays a full button on the right. */
+      @media (max-width: 359.98px) {
+        .reminder__go {
+          flex-basis: 100%;
+          text-align: left;
+          padding-left: 18px; /* under the sentence, past the clock icon */
+        }
+      }
       @media (prefers-reduced-motion: reduce) {
         .reminder {
           animation: none;

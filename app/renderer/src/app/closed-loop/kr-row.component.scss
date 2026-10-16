@@ -339,3 +339,13 @@
   height: 11px;
   flex: none;
 }
+
+/* Narrow window (< 360px, S2-09): the badge always takes its own line under the title, flush
+   with it, whatever the font metrics. */
+@media (max-width: 359.98px) {
+  .kr__stale {
+    display: flex;
+    width: fit-content;
+    margin: 4px 0 0;
+  }
+}
