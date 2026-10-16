@@ -328,7 +328,8 @@
   font-size: 11px;
   line-height: 16px;
   font-weight: var(--font-weight-medium, 500);
-  color: var(--color-text-secondary);
+  /* primary text on the neutral token: AA on the row and its hover / selected fills */
+  color: var(--color-text-primary);
   background: var(--color-neutral-badge);
   white-space: nowrap;
 }

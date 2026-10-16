@@ -114,7 +114,7 @@ import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
         transition: opacity var(--duration-fast);
       }
 
-      [data-theme="dark"] .progress-fill::after {
+      [data-theme='dark'] .progress-fill::after {
         box-shadow: 0 0 12px var(--color-brand-primary);
       }
 

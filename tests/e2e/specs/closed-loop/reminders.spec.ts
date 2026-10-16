@@ -193,6 +193,7 @@ test.describe('#54 in-app reminders (fake time)', () => {
     const exited = new Promise((resolve) => first.once('exit', resolve));
     first.kill('SIGKILL');
     await exited;
+    console.info('[reminders-e2e] first run ended');
     const ci = getElectronLaunchOptions();
     const again = await electron.launch({
       args: [MAIN_DIST, ...extraElectronArgs(), ...ci.args],
@@ -205,6 +206,7 @@ test.describe('#54 in-app reminders (fake time)', () => {
       } as Record<string, string>,
     });
     try {
+      console.info('[reminders-e2e] relaunched');
       const win = await again.firstWindow({ timeout: 60_000 });
       await win.waitForLoadState('domcontentloaded');
       const list = await invoke(win, IPC_CHANNELS.OKR_LIST);
@@ -223,7 +225,8 @@ test.describe('#54 in-app reminders (fake time)', () => {
         ).toBe('none');
       }
     } finally {
-      await again.close();
+      // the app keeps running in the tray on close: end it outright
+      again.process().kill('SIGKILL');
     }
   });
 });

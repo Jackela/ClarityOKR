@@ -349,11 +349,14 @@
 }
 
 @keyframes pulse-glow {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: var(--shadow-brand-sm);
   }
   50% {
-    box-shadow: var(--shadow-brand-md), 0 0 24px rgba(37, 99, 235, 0.35);
+    box-shadow:
+      var(--shadow-brand-md),
+      0 0 24px rgba(37, 99, 235, 0.35);
   }
 }
 

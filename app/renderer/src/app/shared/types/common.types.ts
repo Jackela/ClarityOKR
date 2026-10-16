@@ -19,10 +19,4 @@ export type SkeletonType = 'text' | 'card' | 'circle' | 'options' | 'custom';
 
 /** Workflow states for clarification process */
 export type WorkflowState =
-  | 'idle'
-  | 'loading'
-  | 'prompting'
-  | 'ready'
-  | 'generating'
-  | 'completed'
-  | 'error';
+  'idle' | 'loading' | 'prompting' | 'ready' | 'generating' | 'completed' | 'error';
