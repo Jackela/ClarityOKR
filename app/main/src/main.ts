@@ -42,6 +42,12 @@ import { KrRegenerationService } from './regenerate/kr-regeneration.service.js';
 
 import { resolveDbPath } from './startup/db-path.js';
 import { LegacyDatabaseNotice, registerLegacyNoticeHandlers } from './startup/legacy-notice.js';
+import {
+  registerReminderHandlers,
+  reminderClock,
+  startReminderTicks,
+} from './reminders/reminder-scheduler.js';
+import { ReminderSettings } from './reminders/reminder-settings.js';
 import { openDatabaseSafely } from './startup/open-database.js';
 import { wireClosedLoop } from './startup/closed-loop.js';
 import { registerStorageStateHandler } from './startup/storage-state.js';
@@ -119,6 +125,11 @@ if (openedDatabase.storageMode !== 'normal') {
 }
 registerLegacyNoticeHandlers(ipcMain, legacyNotice);
 registerStorageStateHandler(ipcMain, openedDatabase.storageMode);
+// #54: closed review banners live next to the database; in memory mode only for this run.
+const reminderSettings = new ReminderSettings(
+  openedDatabase.storageMode === 'memory' ? null : path.dirname(dbPath),
+);
+registerReminderHandlers(ipcMain, reminderSettings, reminderClock());
 
 const connectionManager = openedDatabase.connectionManager;
 
@@ -255,6 +266,18 @@ async function createWindow(): Promise<void> {
     mainWindow = null;
     exitCoordinator.windowGone(contentsId);
   });
+
+  const tick = (): void => {
+    if (!thisWindow.isDestroyed()) thisWindow.webContents.send(IPC_CHANNELS.REMINDERS_TICK);
+  };
+  startReminderTicks(
+    {
+      onFocus: (listener) => thisWindow.on('focus', listener),
+      onResume: (listener) => electron.powerMonitor.on('resume', listener),
+      setInterval: (listener, ms) => setInterval(listener, ms),
+    },
+    tick,
+  );
 
   mainWindow.webContents.on('did-finish-load', () => {
     Logger.info('[main] renderer loaded');

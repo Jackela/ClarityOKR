@@ -54,6 +54,9 @@ export const ALLOWED_CHANNELS = [
   'clarityokr:window:get-state',
   'clarityokr:window:set-always-on-top',
   'clarityokr:okr:regenerate-krs',
+  'clarityokr:reminders:get',
+  'clarityokr:reminders:dismiss',
+  'clarityokr:reminders:tick',
 ] as const;
 
 /**
@@ -100,6 +103,12 @@ export const IPC_CHANNELS = {
   KR_REVERT_PROGRESS: 'clarityokr:kr:revert-progress',
   /** #53: every progress entry of one key result (removed ones too), oldest first. `{ krId }`. */
   KR_PROGRESS_HISTORY: 'clarityokr:kr:progress-history',
+  /** #54: `{ now, dismissedQuarters }` — the clock (fakeable in e2e) and closed review banners. */
+  REMINDERS_GET: 'clarityokr:reminders:get',
+  /** #54: close the review banner of one quarter: `{ period }` → `{ saved }`. */
+  REMINDERS_DISMISS: 'clarityokr:reminders:dismiss',
+  /** #54: main → renderer: re-evaluate now (window focus, resume, 5-minute timer). */
+  REMINDERS_TICK: 'clarityokr:reminders:tick',
   /** Atomically revert the latest `set` entry and write a new one ("edit this one"). */
   KR_REPLACE_PROGRESS: 'clarityokr:kr:replace-progress',
   /** Read the saved review (or null). */
