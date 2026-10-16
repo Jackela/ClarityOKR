@@ -8,9 +8,10 @@
 import './polyfills';
 
 import { bootstrapApplication } from '@angular/platform-browser';
-import { ErrorHandler } from '@angular/core';
+import { ErrorHandler, inject, provideAppInitializer } from '@angular/core';
 
 import { AppComponent } from './app/app.component';
+import { ReminderStore } from './app/closed-loop/reminder.store';
 import { IpcLlmGateway } from './app/clarification/services/ipc-llm-gateway.service';
 import { GlobalErrorHandler } from './app/core/error-handler';
 import { Logger } from './app/core/services/logger.service';
@@ -21,6 +22,9 @@ bootstrapApplication(AppComponent, {
     { provide: 'LlmGateway', useClass: IpcLlmGateway },
     { provide: ErrorHandler, useClass: GlobalErrorHandler },
     Logger,
+    // #84 review: reminders run in every window that can show the note (the main-window
+    // results panel and the sticky shell), not only inside the shell.
+    provideAppInitializer(() => inject(ReminderStore).start()),
   ],
 })
   .then((appRef) => {

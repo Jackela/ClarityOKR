@@ -96,6 +96,50 @@ async function seed(app: ElectronApplication, sticky: Page): Promise<string> {
   return current;
 }
 
+/** Main-window entry point: Q = 2026-Q3 unreviewed, the open OKR set to Q+1 = 2026-Q4. */
+async function mainWindowSetup(
+  electronApp: ElectronApplication,
+  mainWindow: Page,
+  mockServer: Parameters<typeof openSticky>[2],
+): Promise<{ sticky: Page; panel: ReturnType<Page['getByTestId']>; threshold: number }> {
+  const sticky = await openSticky(electronApp, mainWindow, mockServer);
+  const panel = mainWindow.getByTestId('okr-summary');
+  await expect(panel.getByTestId('kr-list')).toBeVisible();
+
+  // Q = 2026-Q3 (an unreviewed OKR), the open one in Q+1 = 2026-Q4 set through the picker
+  await sql(electronApp, [
+    `INSERT INTO objectives (id, title, period, pinned, source_session_id, created_at, updated_at)
+       VALUES ('okr-prev', '上季度 OKR', '2026-Q3', 0, NULL, '2026-07-02T02:00:00.000Z', '2026-07-02T02:00:00.000Z')`,
+    `INSERT INTO key_results (id, objective_id, position, statement, success_metric, progress, status, removed_at, created_at, updated_at)
+       VALUES ('kr-prev-1', 'okr-prev', 0, '上季度关键结果一', NULL, 40, 'in_progress', NULL, '2026-07-02T02:00:00.000Z', '2026-07-02T02:00:00.000Z')`,
+  ]);
+  await panel.getByTestId('period-picker').click();
+  await mainWindow.getByRole('option', { name: '2026-Q4' }).click();
+  await expect(panel.getByTestId('period-picker')).toContainText('2026-Q4');
+  const created = await electronApp.evaluate(() => {
+    const { createRequire } = process.getBuiltinModule('node:module') as typeof NodeModule;
+    const require = createRequire(`${process.cwd()}/app/main/package.json`);
+    const Database = require('better-sqlite3') as new (p: string) => {
+      prepare: (s: string) => { get: () => { at: string } };
+      close: () => void;
+    };
+    const db = new Database(process.env.E2E_DB_PATH as string);
+    const row = db
+      .prepare(
+        `SELECT MAX(created_at) AS at FROM key_results WHERE objective_id <> 'okr-prev' AND removed_at IS NULL`,
+      )
+      .get();
+    db.close();
+    return row.at;
+  });
+  const threshold = Date.parse(created) + SEVEN_DAYS;
+  return { sticky, panel, threshold };
+}
+
+/** N56: focused AND showing its ring. */
+const focusVisible = (locator: ReturnType<Page['getByTestId']>) =>
+  locator.evaluate((el) => el === document.activeElement && el.matches(':focus-visible'));
+
 const banner = (sticky: Page) => sticky.getByTestId('review-reminder');
 
 test.describe('#54 in-app reminders (fake time)', () => {
@@ -154,6 +198,7 @@ test.describe('#54 in-app reminders (fake time)', () => {
     await sticky.getByTestId('review-reminder-close').click();
     await expect(banner(sticky)).toHaveCount(0);
     await expect(sticky.getByTestId('period-picker')).toBeFocused();
+    expect(await focusVisible(sticky.getByTestId('period-picker'))).toBe(true); // N56
     await both(sticky, 'S2-04-banner-closed-focus-picker');
 
     // N53(2): Q dismissed → Q+1's ending banner still appears normally
@@ -206,7 +251,12 @@ test.describe('#54 in-app reminders (fake time)', () => {
     test.setTimeout(150_000);
     const sticky = await openSticky(electronApp, mainWindow, mockServer);
     await seed(electronApp, sticky);
+    // the badge refreshes when the clock crosses 7×24h (shell entry point)
+    await fakeNow(electronApp, BEFORE_STALE);
+    await expect(banner(sticky)).toHaveAttribute('data-kind', 'ended');
+    await expect(sticky.getByTestId('kr-stale-badge')).toHaveCount(0);
     await fakeNow(electronApp, AFTER_STALE);
+    await expect(sticky.getByTestId('kr-stale-badge').first()).toHaveText('7 天未更新');
     await expect(banner(sticky)).toHaveAttribute('data-kind', 'ended');
 
     // 去复盘: the quarter switches to Q (its OKR opens), then the review tab, title focused
@@ -215,6 +265,7 @@ test.describe('#54 in-app reminders (fake time)', () => {
     await expect(sticky.getByTestId('review-objective')).toHaveText('上季度 OKR');
     await expect(sticky.getByTestId('review-objective')).toBeFocused();
     await expect(sticky.getByTestId('review-period')).toHaveText('2026-Q3');
+    expect(await focusVisible(sticky.getByTestId('review-objective'))).toBe(true); // N56
     await both(sticky, 'S2-06-goreview-review-title');
 
     // the Q view also shows Q's ended banner (N52)
@@ -296,5 +347,116 @@ test.describe('#54 in-app reminders (fake time)', () => {
       // the app keeps running in the tray on close: end it outright
       again.process().kill('SIGKILL');
     }
+  });
+
+  test('#84 review: main-window results panel — banner, badge crossing 7×24h, 去复盘 opens Q review', async ({
+    electronApp,
+    mainWindow,
+    mockServer,
+  }) => {
+    const { sticky, panel, threshold } = await mainWindowSetup(electronApp, mainWindow, mockServer);
+
+    // banner at the top of the results panel, above the OKR title; no badge 1 min before
+    await fakeNow(electronApp, new Date(threshold - 60_000).toISOString());
+    const mainBanner = panel.getByTestId('review-reminder');
+    await expect(mainBanner).toHaveAttribute('data-kind', 'ended');
+    await expect(mainBanner).toHaveAttribute('data-period', '2026-Q3');
+    await expect(mainBanner).toHaveAttribute('role', 'status');
+    const titleBox = (await panel.getByTestId('sticky-objective').boundingBox())!;
+    const bannerBox = (await mainBanner.boundingBox())!;
+    expect(bannerBox.y + bannerBox.height).toBeLessThanOrEqual(titleBox.y);
+    await expect(panel.getByTestId('kr-stale-badge')).toHaveCount(0);
+
+    // the clock crosses 7×24h → the badge appears without reopening anything
+    await fakeNow(electronApp, new Date(threshold + 60_000).toISOString());
+    await expect(panel.getByTestId('kr-stale-badge').first()).toHaveText('7 天未更新');
+    await both(mainWindow, 'S2-12-main-banner-stale');
+
+    // 去复盘: Q's OKR opens on the review page (in the sticky shell), focus on its heading
+    await panel.getByTestId('review-reminder-go').click();
+    await expect(sticky.getByTestId('tab-review')).toHaveAttribute('aria-selected', 'true');
+    await expect(sticky.getByTestId('review-objective')).toHaveText('上季度 OKR');
+    await expect(sticky.getByTestId('review-period')).toHaveText('2026-Q3');
+    await expect(sticky.getByTestId('review-objective')).toBeFocused();
+    expect(await focusVisible(sticky.getByTestId('review-objective'))).toBe(true); // N56 cross-window
+    await both(sticky, 'S2-13-main-goreview-focus');
+  });
+
+  test('N56 main window: ✕ moves a visible focus ring to the quarter picker', async ({
+    electronApp,
+    mainWindow,
+    mockServer,
+  }) => {
+    const { panel, threshold } = await mainWindowSetup(electronApp, mainWindow, mockServer);
+    await fakeNow(electronApp, new Date(threshold + 60_000).toISOString());
+    await expect(panel.getByTestId('review-reminder')).toBeVisible();
+    await panel.getByTestId('review-reminder-close').click();
+    await expect(panel.getByTestId('review-reminder')).toHaveCount(0);
+    await expect(panel.getByTestId('period-picker')).toBeFocused();
+    expect(await focusVisible(panel.getByTestId('period-picker'))).toBe(true);
+  });
+
+  test('N55 (1): sticky window closed → 去复盘 from the main window opens a new one on Q review', async ({
+    electronApp,
+    mainWindow,
+    mockServer,
+  }) => {
+    const { sticky, panel, threshold } = await mainWindowSetup(electronApp, mainWindow, mockServer);
+    await fakeNow(electronApp, new Date(threshold + 60_000).toISOString());
+    // really gone (not just hidden to the tray)
+    const stickyUrl = sticky.url();
+    await electronApp.evaluate(({ BrowserWindow }) => {
+      for (const w of BrowserWindow.getAllWindows()) if (w.isAlwaysOnTop()) w.destroy();
+    });
+    await expect.poll(() => sticky.isClosed()).toBe(true);
+    const next = electronApp.waitForEvent('window', { timeout: 30_000 });
+    await panel.getByTestId('review-reminder-go').click();
+    const fresh = await next;
+    expect(fresh.url().split('#')[0]).toBe(stickyUrl.split('#')[0]);
+    await expect(fresh.getByTestId('tab-review')).toHaveAttribute('aria-selected', 'true');
+    await expect(fresh.getByTestId('review-objective')).toHaveText('上季度 OKR');
+    await expect(fresh.getByTestId('review-period')).toHaveText('2026-Q3');
+    await expect(fresh.getByTestId('review-objective')).toBeFocused();
+    expect(await focusVisible(fresh.getByTestId('review-objective'))).toBe(true);
+    const front = await electronApp.evaluate(({ BrowserWindow }) => {
+      const w = BrowserWindow.getAllWindows().find((x) => x.isAlwaysOnTop());
+      return w ? w.isVisible() && !w.isMinimized() : false;
+    });
+    expect(front).toBe(true);
+  });
+
+  test('N55 (3): sticky window editing with unsaved text → the existing discard dialog asks first', async ({
+    electronApp,
+    mainWindow,
+    mockServer,
+  }) => {
+    const { sticky, panel, threshold } = await mainWindowSetup(electronApp, mainWindow, mockServer);
+    await fakeNow(electronApp, new Date(threshold + 60_000).toISOString());
+    // the sticky note is on another quarter (2026-Q4) and in edit mode with a change
+    await sticky.getByTestId('edit-button').click();
+    const objective = sticky.getByTestId('edit-objective');
+    await objective.fill('改了一半的目标');
+
+    // 去复盘 from the main window → the sticky note asks, nothing is dropped yet
+    await panel.getByTestId('review-reminder-go').click();
+    const dialog = sticky.getByTestId('discard-dialog');
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText('放弃未保存的修改？');
+    await both(sticky, 'S2-14-goreview-unsaved-edit-confirm');
+
+    // 继续编辑: the edits stay, no quarter switch
+    await dialog.getByRole('button', { name: '继续编辑' }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(objective).toHaveValue('改了一半的目标');
+    await expect(sticky.getByTestId('tab-note')).toHaveAttribute('aria-selected', 'true');
+
+    // again, and 放弃: Q's review opens with a visible focus ring on its heading
+    await panel.getByTestId('review-reminder-go').click();
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole('button', { name: '放弃' }).click();
+    await expect(sticky.getByTestId('tab-review')).toHaveAttribute('aria-selected', 'true');
+    await expect(sticky.getByTestId('review-objective')).toHaveText('上季度 OKR');
+    await expect(sticky.getByTestId('review-objective')).toBeFocused();
+    expect(await focusVisible(sticky.getByTestId('review-objective'))).toBe(true);
   });
 });

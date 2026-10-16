@@ -261,6 +261,34 @@ export class ClosedLoopApi {
     }
   }
 
+  /** #84 review: ask main to open this OKR's review in the sticky shell; false when it could not. */
+  async goReviewElsewhere(okrId: string): Promise<boolean> {
+    const bridge = typeof window === 'undefined' ? undefined : window.clarifyOkr;
+    if (!bridge) return false;
+    try {
+      const reply = (await bridge.invoke(IPC_CHANNELS.REMINDERS_GO_REVIEW, { okrId })) as {
+        opened?: unknown;
+      } | null;
+      return reply?.opened === true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** #84 review: the review request handed over by main, if any (taken once). */
+  async takeReviewRequest(): Promise<string | null> {
+    const bridge = typeof window === 'undefined' ? undefined : window.clarifyOkr;
+    if (!bridge) return null;
+    try {
+      const reply = (await bridge.invoke(IPC_CHANNELS.REMINDERS_TAKE_REVIEW, undefined)) as {
+        okrId?: unknown;
+      } | null;
+      return typeof reply?.okrId === 'string' ? reply.okrId : null;
+    } catch {
+      return null;
+    }
+  }
+
   /** Subscribes to a main → renderer event; returns the unsubscribe function. */
   onEvent(channel: string, listener: () => void): () => void {
     const bridge = typeof window === 'undefined' ? undefined : window.clarifyOkr;

@@ -40,6 +40,7 @@ interface Setup {
   q4Reviewed?: boolean;
   dismissed?: string[];
   detail?: OkrDetail;
+  handedOver?: string | null;
 }
 
 describe('#54 reminders UI', () => {
@@ -94,6 +95,8 @@ describe('#54 reminders UI', () => {
         .fn()
         .mockResolvedValue({ now: s.now.toISOString(), dismissedQuarters: s.dismissed ?? [] }),
       dismissReminder: jest.fn().mockResolvedValue(true),
+      goReviewElsewhere: jest.fn().mockResolvedValue(true),
+      takeReviewRequest: jest.fn().mockResolvedValue(s.handedOver ?? null),
     };
     await TestBed.configureTestingModule({
       imports: [Host],
@@ -103,6 +106,8 @@ describe('#54 reminders UI', () => {
         { provide: Logger, useValue: { warn: jest.fn(), error: jest.fn() } },
       ],
     }).compileComponents();
+    // the app initializer starts reminders in every window (main.ts)
+    TestBed.inject(ReminderStore).start();
     fixture = TestBed.createComponent(Host);
     document.body.appendChild(fixture.nativeElement);
     fixture.componentInstance.okr = view;
@@ -230,5 +235,21 @@ describe('#54 reminders UI', () => {
     await setup({ now: local(2027, 3, 25), viewPeriod: '2027-Q1' });
     expect(banner()).not.toBeNull();
     expect(notification).not.toHaveBeenCalled();
+  });
+
+  it('#84 review: a request handed over from the main window opens Q’s review here', async () => {
+    await setup({ now: local(2027, 1, 5), viewPeriod: '2027-Q1', handedOver: 'okr-q4' });
+    for (
+      let i = 0;
+      i < 10 && document.activeElement?.dataset['testid'] !== 'review-objective';
+      i++
+    ) {
+      await settle();
+      await new Promise((resolve) => setTimeout(resolve, 60));
+    }
+    expect(api['takeReviewRequest']).toHaveBeenCalled();
+    expect(api['open']).toHaveBeenCalledWith({ okrId: 'okr-q4' });
+    expect(document.activeElement?.getAttribute('data-testid')).toBe('review-objective');
+    expect(api['goReviewElsewhere']).not.toHaveBeenCalled();
   });
 });

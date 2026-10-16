@@ -147,9 +147,7 @@ export class StickyWindowManager {
   async bringToFront(): Promise<boolean> {
     const window = this.getWindow();
     if (window) {
-      if (window.isMinimized()) window.restore();
-      window.show();
-      window.focus();
+      raiseWindow(window);
       return true;
     }
     if (!this.lastDocument) return false;
@@ -261,4 +259,13 @@ export class StickyWindowManager {
       okr: document,
     });
   }
+}
+
+/** Minimized → restored; hidden → shown; then focused (N55: 去复盘 from the main window). */
+export function raiseWindow(
+  window: Pick<BrowserWindow, 'isMinimized' | 'restore' | 'show' | 'focus'>,
+): void {
+  if (window.isMinimized()) window.restore();
+  window.show();
+  window.focus();
 }
