@@ -150,6 +150,54 @@ test.describe('#49 import', () => {
     bad.keyResults[0].progress = 150;
     bad.keyResults[1].status = 'blocked';
     await errorCase('S1-10-import-invalid', JSON.stringify(bad), '文件内容有误');
+    // #69: no English keys, paths or codes in the dialog (B13)
+    const plainDetail = async (name: string, content: string, first: string, last?: string) => {
+      const path = join(dir, `${name}.json`);
+      writeFileSync(path, content);
+      await stubDialogs(electronApp, null, path);
+      await button.click();
+      const dialog = sticky.getByTestId('import-dialog-error');
+      await expect(dialog).toBeVisible();
+      const detail = dialog.getByTestId('dialog-detail');
+      await expect(detail).toContainText(first);
+      if (last) await expect(detail).toContainText(last);
+      const text = (await dialog.innerText()).replace(/OKR|KR|ClarityOKR|Q\d/g, '');
+      expect(text).not.toMatch(/[A-Za-z]{2,}/);
+      expect(text).not.toMatch(/\[\d+\]/);
+      await expect(detail).toHaveCSS('font-size', '13px');
+      await expect(detail).toHaveCSS('line-height', '20px');
+      await both(sticky, name);
+      await sticky.keyboard.press('Escape');
+      await expect(dialog).toHaveCount(0);
+    };
+    await plainDetail(
+      'S1-10-import-invalid-plain',
+      JSON.stringify(bad),
+      '第 1 个关键结果的进度超出 0 到 100',
+    );
+    await plainDetail(
+      'S1-10b-import-backup-nested',
+      JSON.stringify({
+        schemaVersion: 1,
+        kind: 'backup',
+        exportedAt: exported.exportedAt,
+        appVersion: '0.3.0',
+        okrs: [exported, exported, exported, bad],
+      }),
+      '第 4 个 OKR 的第 1 个关键结果的进度超出 0 到 100',
+    );
+    const many = structuredClone(exported);
+    many.progressEntries = Array.from({ length: 110 }, (_, i) => ({
+      ...exported.progressEntries[0],
+      id: i + 1,
+      status: 'blocked',
+    }));
+    await plainDetail(
+      'S1-10c-import-invalid-99plus',
+      JSON.stringify(many),
+      '第 1 条进度记录的状态不是可选的状态',
+      '另有 99+ 处',
+    );
     await errorCase(
       'S1-11-import-version',
       JSON.stringify({ ...exported, schemaVersion: 2 }),
