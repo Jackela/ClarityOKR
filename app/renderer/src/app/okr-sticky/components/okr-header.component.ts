@@ -29,7 +29,9 @@ import { TranslatePipe } from '@shared/pipes/translate.pipe';
     <header class="okr-header">
       <h1 data-testid="sticky-objective">{{ objective }}</h1>
       <div class="okr-header__meta">
-        <span class="okr-header__badge"> {{ 'okr.header.generated' | translate }}: {{ generatedAt | date: 'medium' }} </span>
+        <span class="okr-header__badge">
+          {{ 'okr.header.generated' | translate }}: {{ generatedAt | date: 'medium' }}
+        </span>
         <span *ngIf="lastEditedAt" class="okr-header__badge okr-header__badge--edit">
           {{ 'okr.header.lastEdited' | translate }}: {{ lastEditedAt | date: 'medium' }}
         </span>

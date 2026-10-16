@@ -99,10 +99,13 @@ describe('StickyShellComponent', () => {
   });
 
   it('switching to 历史 loads the list and keeps the note mounted (hidden)', async () => {
+    await settle();
+    // #54 reminders read the list silently at startup; the tab adds exactly one read
+    const before = (api['list'] as jest.Mock).mock.calls.length;
     q('tab-history').click();
     fixture.detectChanges();
     await settle();
-    expect(api['list']).toHaveBeenCalledTimes(1);
+    expect(api['list']).toHaveBeenCalledTimes(before + 1);
     expect(panel('history').hidden).toBe(false);
     expect(panel('note').hidden).toBe(true);
     expect(panel('history').getAttribute('aria-labelledby')).toBe('tab-history');

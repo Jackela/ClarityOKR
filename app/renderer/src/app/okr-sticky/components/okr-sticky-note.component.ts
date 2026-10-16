@@ -48,10 +48,12 @@ import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
+  EventEmitter,
   HostListener,
   Inject,
   Input,
   type OnChanges,
+  Output,
   ViewChild,
   inject,
   signal,
@@ -65,6 +67,11 @@ import { KrProgressHistoryComponent } from '../../closed-loop/kr-progress-histor
 import { KrRowComponent } from '../../closed-loop/kr-row.component';
 import { OverallProgressComponent } from '../../closed-loop/overall-progress.component';
 import { PeriodPickerComponent } from '../../closed-loop/period-picker.component';
+import { ReminderStore } from '../../closed-loop/reminder.store';
+import {
+  ReviewReminderBannerComponent,
+  type GoReviewRequest,
+} from '../../closed-loop/review-reminder-banner.component';
 import { DialogComponent } from '../../shared/components/dialog.component';
 import { SkeletonComponent } from '../../shared/components/skeleton.component';
 import {
@@ -105,6 +112,7 @@ function newKeyResultId(): string {
     KrRowComponent,
     OverallProgressComponent,
     PeriodPickerComponent,
+    ReviewReminderBannerComponent,
     SkeletonComponent,
     PopupSelectComponent,
   ],
@@ -173,7 +181,11 @@ function newKeyResultId(): string {
           }
         }
 
-        <div class="sticky-note__toprow">
+        <clarityokr-review-reminder-banner
+          (goReview)="goReview.emit($event)"
+          (closed)="focusPeriodPicker()"
+        />
+        <div class="sticky-note__toprow" #toprow>
           <clarityokr-period-picker
             [value]="store.detail()?.objective?.period ?? null"
             [disabled]="busy() || regen.isRunning() || store.detail() === null"
@@ -390,6 +402,7 @@ function newKeyResultId(): string {
                         [selecting]="regen.selecting()"
                         [selected]="regen.selected().has(kr.id)"
                         [isNew]="regen.newIds().has(kr.id)"
+                        [stale]="reminders.staleIds().has(kr.id)"
                         (toggle)="regen.toggle($event)"
                         (addMetric)="beginEdit(false, $event)"
                       ></li>
@@ -581,6 +594,19 @@ export class OkrStickyNoteComponent implements OnChanges {
   readonly textSavedLive = signal('');
 
   @ViewChild('title') private title?: ElementRef<HTMLElement>;
+  @ViewChild('toprow') private toprow?: ElementRef<HTMLElement>;
+  /** #54 「去复盘」: the shell opens that OKR and its review tab. */
+  @Output() goReview = new EventEmitter<GoReviewRequest>();
+  readonly reminders = inject(ReminderStore);
+
+  /** #54: ✕ on the reminder banner moves focus to the quarter picker. */
+  focusPeriodPicker(): void {
+    setTimeout(() => {
+      this.toprow?.nativeElement
+        .querySelector<HTMLElement>('[data-testid="period-picker"]')
+        ?.focus();
+    }, 0);
+  }
   @ViewChild('editBtn') private editBtn?: ElementRef<HTMLElement>;
   @ViewChild('removedToggle') private removedToggle?: ElementRef<HTMLElement>;
   @ViewChild(PopupSelectComponent, { read: ElementRef })

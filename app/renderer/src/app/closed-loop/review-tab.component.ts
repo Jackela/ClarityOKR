@@ -71,6 +71,7 @@ interface SnapshotRow {
             <div class="review__context">
               <h1
                 class="review__objective"
+                tabindex="-1"
                 [title]="objectiveTitle()"
                 data-testid="review-objective"
               >

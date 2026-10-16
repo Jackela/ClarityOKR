@@ -314,3 +314,38 @@
 .kr__history-toggle {
   margin-left: auto;
 }
+
+/* #54 「7 天未更新」 (S1§11.2): 18px, 11/16 medium, clock icon, neutral token. */
+.kr__stale {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 18px;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 4px;
+  vertical-align: 1px;
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: var(--font-weight-medium, 500);
+  /* primary text on the neutral token: AA on the row and its hover / selected fills */
+  color: var(--color-text-primary);
+  background: var(--color-neutral-badge);
+  white-space: nowrap;
+}
+
+.kr__stale-icon {
+  width: 11px;
+  height: 11px;
+  flex: none;
+}
+
+/* Narrow window (< 360px, S2-09): the badge always takes its own line under the title, flush
+   with it, whatever the font metrics. */
+@media (max-width: 359.98px) {
+  .kr__stale {
+    display: flex;
+    width: fit-content;
+    margin: 4px 0 0;
+  }
+}

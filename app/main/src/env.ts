@@ -77,8 +77,5 @@ export function hasLlmConfiguration(): boolean {
 
 export { SecureStorageError };
 
-export {
-  getActiveLlmConfig,
-  storeLlmConfig,
-};
+export { getActiveLlmConfig, storeLlmConfig };
 export type { SecureLlmConfig };

@@ -42,6 +42,12 @@ import { KrRegenerationService } from './regenerate/kr-regeneration.service.js';
 
 import { resolveDbPath } from './startup/db-path.js';
 import { LegacyDatabaseNotice, registerLegacyNoticeHandlers } from './startup/legacy-notice.js';
+import {
+  registerReminderHandlers,
+  reminderClock,
+  startReminderTicks,
+} from './reminders/reminder-scheduler.js';
+import { ReminderSettings } from './reminders/reminder-settings.js';
 import { openDatabaseSafely } from './startup/open-database.js';
 import { wireClosedLoop } from './startup/closed-loop.js';
 import { registerStorageStateHandler } from './startup/storage-state.js';
@@ -119,6 +125,11 @@ if (openedDatabase.storageMode !== 'normal') {
 }
 registerLegacyNoticeHandlers(ipcMain, legacyNotice);
 registerStorageStateHandler(ipcMain, openedDatabase.storageMode);
+// #54: closed review banners live next to the database; in memory mode only for this run.
+const reminderSettings = new ReminderSettings(
+  openedDatabase.storageMode === 'memory' ? null : path.dirname(dbPath),
+);
+registerReminderHandlers(ipcMain, reminderSettings, reminderClock());
 
 const connectionManager = openedDatabase.connectionManager;
 
@@ -255,6 +266,31 @@ async function createWindow(): Promise<void> {
     mainWindow = null;
     exitCoordinator.windowGone(contentsId);
   });
+
+  // Every window (the sticky note shows the reminders) re-reads them.
+  const tick = (): void => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) win.webContents.send(IPC_CHANNELS.REMINDERS_TICK);
+    }
+  };
+  const stopReminderTicks = startReminderTicks(
+    {
+      onFocus: (listener) => {
+        app.on('browser-window-focus', listener);
+        return () => app.removeListener('browser-window-focus', listener);
+      },
+      onResume: (listener) => {
+        electron.powerMonitor.on('resume', listener);
+        return () => electron.powerMonitor.removeListener('resume', listener);
+      },
+      setInterval: (listener, ms) => {
+        const timer = setInterval(listener, ms);
+        return () => clearInterval(timer);
+      },
+    },
+    tick,
+  );
+  thisWindow.on('closed', stopReminderTicks);
 
   mainWindow.webContents.on('did-finish-load', () => {
     Logger.info('[main] renderer loaded');
