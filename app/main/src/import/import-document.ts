@@ -7,11 +7,26 @@ import {
 } from '@clarityokr/contracts';
 
 import { EXPORT_SCHEMA_VERSION, type ExportJsonDocument } from '../export/export-document.js';
+import {
+  parseLocation,
+  presentIssue,
+  type ImportIssueCode,
+  type ImportIssueParams,
+  type StructuredImportIssue,
+} from './import-issues.js';
 
-/** One validation problem: the JSON path (English keys, as in the file) and a Chinese reason. */
-export interface ImportIssue {
+/**
+ * One validation problem: structured (code, location, params — #69) plus the `field` / `reason`
+ * pair shown today, derived from it in import-issues.ts.
+ */
+export interface ImportIssue extends StructuredImportIssue {
   field: string;
   reason: string;
+}
+
+function issue(path: string, code: ImportIssueCode, params: ImportIssueParams = {}): ImportIssue {
+  const structured: StructuredImportIssue = { code, location: parseLocation(path), params };
+  return { ...structured, ...presentIssue(structured) };
 }
 
 export type ParsedImport =
@@ -39,8 +54,8 @@ const isTimestamp = (value: unknown): value is string =>
 class Checker {
   readonly issues: ImportIssue[] = [];
 
-  add(field: string, reason: string): void {
-    this.issues.push({ field, reason });
+  add(path: string, code: ImportIssueCode, params: ImportIssueParams = {}): void {
+    this.issues.push(issue(path, code, params));
   }
 
   /** Present and a record. */
@@ -69,11 +84,11 @@ class Checker {
     if (value === null && opts.nullable) return null;
     if (typeof value !== 'string') return this.wrong(path, '字符串') ?? undefined;
     if (opts.nonEmpty && value.trim().length === 0) {
-      this.add(path, '不能为空');
+      this.add(path, 'empty');
       return undefined;
     }
     if (opts.max !== undefined && !checkText(value, opts.max).ok) {
-      this.add(path, `超过 ${opts.max} 字`);
+      this.add(path, 'too_long', { max: opts.max });
       return undefined;
     }
     return value;
@@ -83,7 +98,7 @@ class Checker {
     const value = parent[key];
     if (value === undefined) return void this.missing(path);
     if (value === null && nullable) return;
-    if (!isTimestamp(value)) this.add(path, '不是有效的时间');
+    if (!isTimestamp(value)) this.add(path, 'invalid_time');
   }
 
   boolean(parent: Rec, key: string, path: string): void {
@@ -95,8 +110,7 @@ class Checker {
   status(parent: Rec, key: string, path: string): void {
     const value = parent[key];
     if (value === undefined) return void this.missing(path);
-    if (!isKrStatus(value))
-      this.add(path, '取值无效（应为 not_started / in_progress / at_risk / done）');
+    if (!isKrStatus(value)) this.add(path, 'invalid_status');
   }
 
   progress(parent: Rec, key: string, path: string): void {
@@ -104,17 +118,17 @@ class Checker {
     if (value === undefined) return void this.missing(path);
     if (value === null) return;
     if (typeof value !== 'number') return void this.wrong(path, '数字或 null');
-    if (!Number.isInteger(value)) return void this.add(path, '不是整数');
-    if (value < 0 || value > 100) this.add(path, '超出 0–100');
+    if (!Number.isInteger(value)) return void this.add(path, 'not_integer');
+    if (value < 0 || value > 100) this.add(path, 'out_of_range');
   }
 
   private missing(path: string): null {
-    this.add(path, '缺失');
+    this.add(path, 'missing');
     return null;
   }
 
   private wrong(path: string, expected: string): null {
-    this.add(path, `类型不对（应为${expected}）`);
+    this.add(path, 'wrong_type', { expected });
     return null;
   }
 }
@@ -124,9 +138,8 @@ function checkObjective(c: Checker, root: Rec): void {
   if (!objective) return;
   c.text(objective, 'title', 'objective.title', { max: TEXT_LIMITS.objective, nonEmpty: true });
   const period = objective.period;
-  if (period === undefined) c.add('objective.period', '缺失');
-  else if (period !== null && !isPeriod(period))
-    c.add('objective.period', '格式不对（应为 2026-Q4）');
+  if (period === undefined) c.add('objective.period', 'missing');
+  else if (period !== null && !isPeriod(period)) c.add('objective.period', 'invalid_period');
   c.boolean(objective, 'pinned', 'objective.pinned');
   c.timestamp(objective, 'createdAt', 'objective.createdAt');
   c.timestamp(objective, 'updatedAt', 'objective.updatedAt');
@@ -137,22 +150,25 @@ function checkKeyResults(c: Checker, root: Rec, okrNumber?: number): Set<string>
   const ids = new Set<string>();
   const list = c.array(root, 'keyResults', 'keyResults');
   if (!list) return ids;
-  if (list.length === 0) c.add('keyResults', '至少要有 1 个关键结果');
+  if (list.length === 0) c.add('keyResults', 'no_key_results');
   // Same cap as the editor (MAX_KEY_RESULTS in okr-sticky-note); removed KRs are history only.
   const active = list.filter(
     (kr) => isRecord(kr) && (kr.removedAt === null || kr.removedAt === undefined),
   ).length;
   if (active > MAX_ACTIVE_KEY_RESULTS) {
     // Plain wording, no field path (settled for B4): the dialog shows the sentence as is.
-    const who = okrNumber === undefined ? '这个 OKR' : `第 ${okrNumber} 个 OKR`;
-    c.add('', `${who} 有 ${active} 个 KR，最多 ${MAX_ACTIVE_KEY_RESULTS} 个`);
+    c.add('keyResults', 'too_many_key_results', {
+      count: active,
+      limit: MAX_ACTIVE_KEY_RESULTS,
+      ...(okrNumber === undefined ? {} : { okrNumber }),
+    });
   }
   list.forEach((item, i) => {
     const path = `keyResults[${i}]`;
-    if (!isRecord(item)) return void c.add(path, '类型不对（应为对象）');
+    if (!isRecord(item)) return void c.add(path, 'wrong_type', { expected: '对象' });
     const id = c.text(item, 'id', `${path}.id`, { max: 200, nonEmpty: true });
     if (typeof id === 'string') {
-      if (ids.has(id)) c.add(`${path}.id`, '与前面的关键结果重复');
+      if (ids.has(id)) c.add(`${path}.id`, 'duplicate_key_result');
       ids.add(id);
     }
     c.text(item, 'statement', `${path}.statement`, { max: TEXT_LIMITS.keyResult, nonEmpty: true });
@@ -174,34 +190,33 @@ function checkProgressEntries(c: Checker, root: Rec, krIds: Set<string>): void {
   const seen = new Map<number, { krId: unknown; kind: unknown }>();
   list.forEach((item, i) => {
     const path = `progressEntries[${i}]`;
-    if (!isRecord(item)) return void c.add(path, '类型不对（应为对象）');
+    if (!isRecord(item)) return void c.add(path, 'wrong_type', { expected: '对象' });
     const { id, krId, kind, revertsEntryId } = item;
-    if (id === undefined) c.add(`${path}.id`, '缺失');
+    if (id === undefined) c.add(`${path}.id`, 'missing');
     else if (typeof id !== 'number' || !Number.isSafeInteger(id) || id < 1) {
-      c.add(`${path}.id`, '应为正整数');
-    } else if (seen.has(id)) c.add(`${path}.id`, '与前面的进度记录重复');
-    if (krId === undefined) c.add(`${path}.krId`, '缺失');
+      c.add(`${path}.id`, 'invalid_entry_id');
+    } else if (seen.has(id)) c.add(`${path}.id`, 'duplicate_entry');
+    if (krId === undefined) c.add(`${path}.krId`, 'missing');
     else if (typeof krId !== 'string' || !krIds.has(krId))
-      c.add(`${path}.krId`, '指向的关键结果不存在');
-    if (kind === undefined) c.add(`${path}.kind`, '缺失');
-    else if (kind !== 'set' && kind !== 'revert')
-      c.add(`${path}.kind`, '取值无效（应为 set / revert）');
+      c.add(`${path}.krId`, 'unknown_key_result');
+    if (kind === undefined) c.add(`${path}.kind`, 'missing');
+    else if (kind !== 'set' && kind !== 'revert') c.add(`${path}.kind`, 'invalid_entry_kind');
     c.progress(item, 'value', `${path}.value`);
     c.status(item, 'status', `${path}.status`);
     c.timestamp(item, 'recordedAt', `${path}.recordedAt`);
-    if (revertsEntryId === undefined) c.add(`${path}.revertsEntryId`, '缺失');
+    if (revertsEntryId === undefined) c.add(`${path}.revertsEntryId`, 'missing');
     else if (kind === 'revert') {
       const target = typeof revertsEntryId === 'number' ? seen.get(revertsEntryId) : undefined;
       if (!target || target.kind !== 'set' || target.krId !== krId) {
-        c.add(`${path}.revertsEntryId`, '指向的进度记录不存在');
+        c.add(`${path}.revertsEntryId`, 'unknown_entry');
       }
-    } else if (revertsEntryId !== null) c.add(`${path}.revertsEntryId`, '只有撤回记录可以填写');
+    } else if (revertsEntryId !== null) c.add(`${path}.revertsEntryId`, 'reverts_on_set');
     if (typeof id === 'number' && !seen.has(id)) seen.set(id, { krId, kind });
   });
 }
 
 function checkReview(c: Checker, root: Rec, krIds: Set<string>): void {
-  if (root.review === undefined) return void c.add('review', '缺失');
+  if (root.review === undefined) return void c.add('review', 'missing');
   if (root.review === null) return;
   const review = c.record(root, 'review', 'review');
   if (!review) return;
@@ -213,9 +228,9 @@ function checkReview(c: Checker, root: Rec, krIds: Set<string>): void {
   const snapshot = c.array(review, 'snapshot', 'review.snapshot');
   snapshot?.forEach((item, i) => {
     const path = `review.snapshot[${i}]`;
-    if (!isRecord(item)) return void c.add(path, '类型不对（应为对象）');
+    if (!isRecord(item)) return void c.add(path, 'wrong_type', { expected: '对象' });
     if (typeof item.krId !== 'string' || !krIds.has(item.krId)) {
-      c.add(`${path}.krId`, '指向的关键结果不存在');
+      c.add(`${path}.krId`, 'unknown_key_result');
     }
     c.text(item, 'statement', `${path}.statement`);
     c.text(item, 'successMetric', `${path}.successMetric`, { nullable: true });
@@ -237,16 +252,28 @@ export function validateOkrDocument(
 ): ImportIssue[] {
   const c = new Checker();
   if (!isRecord(value)) {
-    c.add(prefix || '(根)', '类型不对（应为对象）');
+    c.add(prefix, 'wrong_type', { expected: '对象' });
     return c.issues;
   }
   checkObjective(c, value);
   const krIds = checkKeyResults(c, value, okrNumber);
   checkProgressEntries(c, value, krIds);
   checkReview(c, value, krIds);
-  return prefix
-    ? c.issues.map((i) => (i.field === '' ? i : { ...i, field: `${prefix}.${i.field}` }))
-    : c.issues;
+  if (!prefix) return c.issues;
+  const head = parseLocation(prefix);
+  return c.issues.map((i) => {
+    const structured: StructuredImportIssue = {
+      code: i.code,
+      location: [...head, ...i.location],
+      params: i.params,
+    };
+    return { ...structured, ...presentIssue(structured) };
+  });
+}
+
+/** The dialog payload for an issue: today's `field` / `reason` text (S1§8.6). */
+function invalidOf(i: ImportIssue, more: number): Extract<ImportProblem, { kind: 'invalid' }> {
+  return { kind: 'invalid', field: i.field, reason: i.reason, more };
 }
 
 /** Bytes → document, or the problem to show (S1§8.6). Never throws. */
@@ -262,7 +289,7 @@ export function parseImportFile(bytes: Buffer): ParsedImport {
   if (version === undefined) {
     return {
       ok: false,
-      problem: { kind: 'invalid', field: 'schemaVersion', reason: '缺失', more: 0 },
+      problem: invalidOf(issue('schemaVersion', 'missing'), 0),
     };
   }
   if (version !== EXPORT_SCHEMA_VERSION) {
@@ -275,7 +302,7 @@ export function parseImportFile(bytes: Buffer): ParsedImport {
   if (value.kind !== undefined) {
     return {
       ok: false,
-      problem: { kind: 'invalid', field: 'kind', reason: '取值无效（不支持的文件类型）', more: 0 },
+      problem: invalidOf(issue('kind', 'unsupported_file_kind'), 0),
     };
   }
   const issues = validateOkrDocument(value);
@@ -283,12 +310,7 @@ export function parseImportFile(bytes: Buffer): ParsedImport {
     const [first] = issues as [ImportIssue, ...ImportIssue[]];
     return {
       ok: false,
-      problem: {
-        kind: 'invalid',
-        field: first.field,
-        reason: first.reason,
-        more: issues.length - 1,
-      },
+      problem: invalidOf(first, issues.length - 1),
     };
   }
   return { ok: true, documents: [value as unknown as ExportJsonDocument] };
@@ -296,15 +318,16 @@ export function parseImportFile(bytes: Buffer): ParsedImport {
 
 /** #50: `{ schemaVersion: 1, kind: "backup", exportedAt, appVersion, okrs: [...] }`. */
 function parseBackup(value: Rec): ParsedImport {
-  const fail = (field: string, reason: string): ParsedImport => ({
-    ok: false,
-    problem: { kind: 'invalid', field, reason, more: 0 },
-  });
-  if (!isTimestamp(value.exportedAt)) return fail('exportedAt', '不是有效的时间');
+  const fail = (
+    path: string,
+    code: ImportIssueCode,
+    params: ImportIssueParams = {},
+  ): ParsedImport => ({ ok: false, problem: invalidOf(issue(path, code, params), 0) });
+  if (!isTimestamp(value.exportedAt)) return fail('exportedAt', 'invalid_time');
   if (typeof value.appVersion !== 'string' || value.appVersion.length > 64) {
-    return fail('appVersion', '类型不对（应为字符串）');
+    return fail('appVersion', 'wrong_type', { expected: '字符串' });
   }
-  if (!Array.isArray(value.okrs)) return fail('okrs', '类型不对（应为数组）');
+  if (!Array.isArray(value.okrs)) return fail('okrs', 'wrong_type', { expected: '数组' });
   if (value.okrs.length === 0) return { ok: false, problem: { kind: 'empty_backup' } };
   // The whole file is refused when any OKR is wrong (#50 AC4); the reply names the first one.
   for (const [index, okr] of value.okrs.entries()) {
@@ -313,13 +336,7 @@ function parseBackup(value: Rec): ParsedImport {
       const [first] = issues as [ImportIssue, ...ImportIssue[]];
       return {
         ok: false,
-        problem: {
-          kind: 'invalid',
-          field: first.field,
-          reason: first.reason,
-          more: issues.length - 1,
-          okrIndex: index,
-        },
+        problem: { ...invalidOf(first, issues.length - 1), okrIndex: index },
       };
     }
   }
