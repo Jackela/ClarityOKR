@@ -1,4 +1,6 @@
 /**
+ * #69 — THE copy file for import errors (writer drops text in here; shared by main and renderer).
+ *
  * #69 (prep): import validation problems as data — a code, where it is, and the values the
  * message needs. Every user-visible sentence is built in ISSUE_MESSAGES below, so the
  * plain-language copy (S1§8.6 / S1§9.4, still to be written) can replace it in one place.
@@ -149,7 +151,10 @@ export function describePlace(location: ImportIssueLocation): string {
         ? (ITEM_NAMES[p.list]?.(p.number) ?? `${FIELD_LABELS[p.list] ?? '内容'}的第 ${p.number} 项`)
         : (FIELD_LABELS[p.field] ?? '某一项'),
     )
-    .join('的');
+    .reduce(
+      (acc, part) => (acc === '' ? part : `${acc}${/[A-Za-z]$/.test(acc) ? ' ' : ''}的${part}`),
+      '',
+    );
 }
 
 /**
@@ -187,4 +192,27 @@ export function presentIssue(issue: StructuredImportIssue): { field: string; rea
   const reason = message(issue.params);
   if (PLAIN.has(issue.code)) return { field: '', reason };
   return { field: '', reason: `${describePlace(issue.location)}${reason}` };
+}
+
+/** 【缺·文案】placeholders for the dialog (S1§8.6 v3.2). Replace with the writer's text. */
+export const IMPORT_ISSUE_UI = {
+  /** Detail area: at most this many lines; the rest merge into the last line. */
+  maxLines: 5,
+  /** 【缺·文案】final wording of the merged line; n ≥ 100 shows 99+. */
+  moreLine: (n: number) => `另有 ${n >= 100 ? '99+' : n} 处`,
+  /** 【缺·文案】plain first sentence of a single-OKR 「格式不对」 body (read first by screen readers). */
+  singleBody: '这个文件里有内容不对，没有导入。',
+} as const;
+
+/** The issues that come with an `invalid` reply (first ones only; `total` counts all). */
+export const MAX_REPORTED_ISSUES = 5;
+
+/**
+ * Detail lines for the dialog: up to 5; when there are more, 4 issues and 「另有 n 处」.
+ */
+export function issueLines(issues: ReadonlyArray<StructuredImportIssue>, total: number): string[] {
+  const max = IMPORT_ISSUE_UI.maxLines;
+  if (total <= max) return issues.slice(0, total).map((i) => presentIssue(i).reason);
+  const shown = issues.slice(0, max - 1).map((i) => presentIssue(i).reason);
+  return [...shown, IMPORT_ISSUE_UI.moreLine(total - shown.length)];
 }

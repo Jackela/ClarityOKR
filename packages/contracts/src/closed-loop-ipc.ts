@@ -1,3 +1,4 @@
+import type { StructuredImportIssue } from './import-issue-copy.js';
 /**
  * Closed-loop IPC contract (PR-C2): request validation, reply shapes and error codes.
  *
@@ -261,9 +262,14 @@ export type ImportProblem =
   /** The first problem (path + Chinese reason) and how many more there are. */
   | {
       kind: 'invalid';
+      /** First issue as one plain sentence (`field` is always '' since #69). */
       field: string;
       reason: string;
       more: number;
+      /** #69: the first issues, structured (≤ MAX_REPORTED_ISSUES); the renderer words them. */
+      issues?: StructuredImportIssue[];
+      /** #69: how many issues the file has in all. */
+      total?: number;
       /** Backups: the 0-based index of the OKR that failed (the whole file is refused). */
       okrIndex?: number;
     }

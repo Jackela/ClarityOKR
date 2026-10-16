@@ -8,12 +8,13 @@ import {
 
 import { EXPORT_SCHEMA_VERSION, type ExportJsonDocument } from '../export/export-document.js';
 import {
+  MAX_REPORTED_ISSUES,
   parseLocation,
   presentIssue,
   type ImportIssueCode,
   type ImportIssueParams,
   type StructuredImportIssue,
-} from './import-issues.js';
+} from '@clarityokr/contracts';
 
 /**
  * One validation problem: structured (code, location, params — #69) plus the `field` / `reason`
@@ -272,8 +273,18 @@ export function validateOkrDocument(
 }
 
 /** The dialog payload for an issue: today's `field` / `reason` text (S1§8.6). */
-function invalidOf(i: ImportIssue, more: number): Extract<ImportProblem, { kind: 'invalid' }> {
-  return { kind: 'invalid', field: i.field, reason: i.reason, more };
+function invalidOf(all: ReadonlyArray<ImportIssue>): Extract<ImportProblem, { kind: 'invalid' }> {
+  const [first] = all as [ImportIssue, ...ImportIssue[]];
+  return {
+    kind: 'invalid',
+    field: first.field,
+    reason: first.reason,
+    more: all.length - 1,
+    issues: all
+      .slice(0, MAX_REPORTED_ISSUES)
+      .map(({ code, location, params }) => ({ code, location, params })),
+    total: all.length,
+  };
 }
 
 /** Bytes → document, or the problem to show (S1§8.6). Never throws. */
@@ -289,7 +300,7 @@ export function parseImportFile(bytes: Buffer): ParsedImport {
   if (version === undefined) {
     return {
       ok: false,
-      problem: invalidOf(issue('schemaVersion', 'missing'), 0),
+      problem: invalidOf([issue('schemaVersion', 'missing')]),
     };
   }
   if (version !== EXPORT_SCHEMA_VERSION) {
@@ -302,15 +313,14 @@ export function parseImportFile(bytes: Buffer): ParsedImport {
   if (value.kind !== undefined) {
     return {
       ok: false,
-      problem: invalidOf(issue('kind', 'unsupported_file_kind'), 0),
+      problem: invalidOf([issue('kind', 'unsupported_file_kind')]),
     };
   }
   const issues = validateOkrDocument(value);
   if (issues.length > 0) {
-    const [first] = issues as [ImportIssue, ...ImportIssue[]];
     return {
       ok: false,
-      problem: invalidOf(first, issues.length - 1),
+      problem: invalidOf(issues),
     };
   }
   return { ok: true, documents: [value as unknown as ExportJsonDocument] };
@@ -322,7 +332,7 @@ function parseBackup(value: Rec): ParsedImport {
     path: string,
     code: ImportIssueCode,
     params: ImportIssueParams = {},
-  ): ParsedImport => ({ ok: false, problem: invalidOf(issue(path, code, params), 0) });
+  ): ParsedImport => ({ ok: false, problem: invalidOf([issue(path, code, params)]) });
   if (!isTimestamp(value.exportedAt)) return fail('exportedAt', 'invalid_time');
   if (typeof value.appVersion !== 'string' || value.appVersion.length > 64) {
     return fail('appVersion', 'wrong_type', { expected: '字符串' });
@@ -333,10 +343,9 @@ function parseBackup(value: Rec): ParsedImport {
   for (const [index, okr] of value.okrs.entries()) {
     const issues = validateOkrDocument(okr, `okrs[${index}]`, index + 1);
     if (issues.length > 0) {
-      const [first] = issues as [ImportIssue, ...ImportIssue[]];
       return {
         ok: false,
-        problem: { ...invalidOf(first, issues.length - 1), okrIndex: index },
+        problem: { ...invalidOf(issues), okrIndex: index },
       };
     }
   }

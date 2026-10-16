@@ -12,7 +12,7 @@ import {
   placeOf,
   presentIssue,
   type ImportIssueCode,
-} from '../../../app/main/src/import/import-issues.js';
+} from '@clarityokr/contracts';
 
 /** #69: structured import issues and their plain-language rendering. */
 
