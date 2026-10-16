@@ -52,6 +52,25 @@ async function fakeNow(app: ElectronApplication, iso: string): Promise<void> {
   }, iso);
 }
 
+/** Width of the sticky window (the one that is not the main window). */
+async function stickySize(app: ElectronApplication): Promise<number> {
+  return app.evaluate(({ BrowserWindow }) => {
+    const all = BrowserWindow.getAllWindows();
+    const sticky = all.find((w) => w.isAlwaysOnTop()) ?? all[all.length - 1];
+    return sticky.getSize()[0];
+  });
+}
+
+async function setStickyWidth(app: ElectronApplication, width: number): Promise<void> {
+  await app.evaluate(({ BrowserWindow }, w) => {
+    const all = BrowserWindow.getAllWindows();
+    const sticky = all.find((win) => win.isAlwaysOnTop()) ?? all[all.length - 1];
+    const [, h] = sticky.getSize();
+    sticky.setMinimumSize(Math.min(w, 320), 200);
+    sticky.setSize(w, h);
+  }, width);
+}
+
 async function both(page: Page, name: string): Promise<void> {
   await shot(page, `${name}-light`);
   await setTheme(page, 'dark');
@@ -142,11 +161,36 @@ test.describe('#54 in-app reminders (fake time)', () => {
     await expect(banner(sticky)).toHaveAttribute('data-kind', 'ending');
     await both(sticky, 'S2-05-ending-after-q-dismissed');
 
+    // Narrow window (< 360px): the badge wraps to its own line, the banner text wraps and
+    // 去复盘 / ✕ stay real text / button (never icons only).
+    const wide = await stickySize(electronApp);
+    await setStickyWidth(electronApp, 320);
+    await expect.poll(() => sticky.evaluate(() => window.innerWidth)).toBeLessThan(360);
+    const statement = sticky.getByTestId('kr-statement').first();
+    const firstBadge = statement.getByTestId('kr-stale-badge');
+    await expect(firstBadge).toBeVisible();
+    const statementBox = (await statement.boundingBox())!;
+    const badgeBox = (await firstBadge.boundingBox())!;
+    expect(badgeBox.y).toBeGreaterThan(statementBox.y + 4); // on a later line than the title
+    expect(badgeBox.x + badgeBox.width).toBeLessThanOrEqual(
+      statementBox.x + statementBox.width + 1,
+    );
+    expect(Math.round(badgeBox.height)).toBe(18);
+    await both(sticky, 'S2-09-narrow-badge-wraps');
+
+    await setStickyWidth(electronApp, wide);
+
     // N51(2): at Q+2 (2027-Q1) Q = 2026-Q3 no longer shows (2026-Q4 is now the one before)
     await fakeNow(electronApp, Q1_2027);
     await expect(
       sticky.locator('[data-testid="review-reminder"][data-period="2026-Q3"]'),
     ).toHaveCount(0);
+
+    // S2-11: viewing a quarter older than the one before (2026-Q4 at 2027-Q2) → no banner
+    await fakeNow(electronApp, '2027-04-14T04:00:00.000Z');
+    await expect(sticky.getByTestId('period-picker')).toContainText('2026-Q4');
+    await expect(banner(sticky)).toHaveCount(0);
+    await both(sticky, 'S2-11-older-quarter-no-banner');
 
     const notified = await electronApp.evaluate(
       () => (globalThis as { __notified?: number }).__notified ?? 0,
@@ -178,6 +222,25 @@ test.describe('#54 in-app reminders (fake time)', () => {
     await expect(sticky.getByTestId('period-picker')).toContainText('2026-Q3');
     await expect(banner(sticky)).toHaveAttribute('data-kind', 'ended');
     await both(sticky, 'S2-07-banner-ended-q-view');
+
+    // S2-10: narrow window, the longer 已经结束 text wraps; 去复盘 / ✕ stay text / a button
+    const wide = await stickySize(electronApp);
+    await setStickyWidth(electronApp, 320);
+    await expect.poll(() => sticky.evaluate(() => window.innerWidth)).toBeLessThan(360);
+    const go = sticky.getByTestId('review-reminder-go');
+    const close = sticky.getByTestId('review-reminder-close');
+    await expect(go).toHaveText('去复盘');
+    const bannerBox = (await banner(sticky).boundingBox())!;
+    expect(bannerBox.height).toBeGreaterThan(40); // the text wrapped
+    expect((await go.boundingBox())!.width).toBeGreaterThan(30);
+    const closeBox = (await close.boundingBox())!;
+    expect(Math.round(closeBox.width)).toBe(32);
+    expect(bannerBox.x + bannerBox.width).toBeGreaterThanOrEqual(closeBox.x + closeBox.width);
+    expect(
+      await sticky.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true);
+    await both(sticky, 'S2-10-narrow-banner-wraps');
+    await setStickyWidth(electronApp, wide);
 
     // save Q's review → the banner goes at once
     await sticky.getByTestId('tab-review').click();
