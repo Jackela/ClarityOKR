@@ -48,12 +48,10 @@ import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
-  EventEmitter,
   HostListener,
   Inject,
   Input,
   type OnChanges,
-  Output,
   ViewChild,
   inject,
   signal,
@@ -68,10 +66,7 @@ import { KrRowComponent } from '../../closed-loop/kr-row.component';
 import { OverallProgressComponent } from '../../closed-loop/overall-progress.component';
 import { PeriodPickerComponent } from '../../closed-loop/period-picker.component';
 import { ReminderStore } from '../../closed-loop/reminder.store';
-import {
-  ReviewReminderBannerComponent,
-  type GoReviewRequest,
-} from '../../closed-loop/review-reminder-banner.component';
+import { ReviewReminderBannerComponent } from '../../closed-loop/review-reminder-banner.component';
 import { DialogComponent } from '../../shared/components/dialog.component';
 import { SkeletonComponent } from '../../shared/components/skeleton.component';
 import {
@@ -181,10 +176,7 @@ function newKeyResultId(): string {
           }
         }
 
-        <clarityokr-review-reminder-banner
-          (goReview)="goReview.emit($event)"
-          (closed)="focusPeriodPicker()"
-        />
+        <clarityokr-review-reminder-banner (closed)="focusPeriodPicker()" />
         <div class="sticky-note__toprow" #toprow>
           <clarityokr-period-picker
             [value]="store.detail()?.objective?.period ?? null"
@@ -595,8 +587,6 @@ export class OkrStickyNoteComponent implements OnChanges {
 
   @ViewChild('title') private title?: ElementRef<HTMLElement>;
   @ViewChild('toprow') private toprow?: ElementRef<HTMLElement>;
-  /** #54 「去复盘」: the shell opens that OKR and its review tab. */
-  @Output() goReview = new EventEmitter<GoReviewRequest>();
   readonly reminders = inject(ReminderStore);
 
   /** #54: ✕ on the reminder banner moves focus to the quarter picker. */

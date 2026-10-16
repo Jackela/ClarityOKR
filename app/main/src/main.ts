@@ -48,6 +48,7 @@ import {
   startReminderTicks,
 } from './reminders/reminder-scheduler.js';
 import { ReminderSettings } from './reminders/reminder-settings.js';
+import { ReviewHandoff, registerReviewHandoffHandlers } from './reminders/review-handoff.js';
 import { openDatabaseSafely } from './startup/open-database.js';
 import { wireClosedLoop } from './startup/closed-loop.js';
 import { registerStorageStateHandler } from './startup/storage-state.js';
@@ -186,6 +187,20 @@ const stickyWindowManager: StickyWindowManager = new StickyWindowManager({
   closeQuits: (): boolean => lastVisibleQuits(stickyWindowManager.getWindow()),
   requestQuit: () => void exitCoordinator.requestQuit(),
 });
+
+// #84 review: 「去复盘」 from the main window opens the review page in the sticky shell.
+registerReviewHandoffHandlers(
+  ipcMain,
+  new ReviewHandoff({
+    bringToFront: () => stickyWindowManager.bringToFront(),
+    notify: () => {
+      const sticky = stickyWindowManager.getWindow();
+      if (sticky && !sticky.isDestroyed() && !sticky.webContents.isLoading()) {
+        sticky.webContents.send(IPC_CHANNELS.REMINDERS_OPEN_REVIEW);
+      }
+    },
+  }),
+);
 
 let mainWindow: ElectronBrowserWindow | null = null;
 /** `quitting` (windows may really close) and `allowed` (before-quit lets the quit through). */

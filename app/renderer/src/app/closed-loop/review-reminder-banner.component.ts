@@ -9,15 +9,13 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import type { BannerState, Period } from '@clarityokr/contracts';
+import type { BannerState } from '@clarityokr/contracts';
 
 import { COPY } from './copy';
+import { ReminderNavigator } from './reminder-navigator.service';
 import { ReminderStore } from './reminder.store';
 
-export interface GoReviewRequest {
-  okrId: string;
-  period: Period;
-}
+export type { GoReviewRequest } from './reminder-navigator.service';
 
 /**
  * #54 quarter review banner (S1§11.3), above the quarter picker. role=status the first time a
@@ -157,12 +155,12 @@ export interface GoReviewRequest {
   ],
 })
 export class ReviewReminderBannerComponent {
-  @Output() goReview = new EventEmitter<GoReviewRequest>();
   /** The banner was closed: the parent moves focus to the quarter picker. */
   @Output() closed = new EventEmitter<void>();
 
   readonly t = COPY.reminders;
   private readonly reminders = inject(ReminderStore);
+  private readonly navigator = inject(ReminderNavigator);
   readonly state = computed<BannerState>(() => this.reminders.banner());
   readonly live = signal(false);
   private shownKey: string | null = null;
@@ -178,7 +176,9 @@ export class ReviewReminderBannerComponent {
   }
 
   go(s: BannerState): void {
-    if (s.targetOkrId && s.period) this.goReview.emit({ okrId: s.targetOkrId, period: s.period });
+    if (s.targetOkrId && s.period) {
+      void this.navigator.goReview({ okrId: s.targetOkrId, period: s.period });
+    }
   }
 
   close(s: BannerState): void {

@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   ElementRef,
   HostListener,
   Input,
@@ -12,6 +13,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
+import { IPC_CHANNELS } from '@clarityokr/contracts';
 
 import { OkrStickyNoteComponent } from '../okr-sticky/components/okr-sticky-note.component';
 import type { OkrStickyViewModel } from '../okr-sticky/services/okr-sticky.service';
@@ -22,8 +24,8 @@ import { TabBarComponent, type TabItem } from '../shared/components/tab-bar.comp
 import { ClosedLoopStore } from './closed-loop.store';
 import { COPY } from './copy';
 import { HistoryTabComponent } from './history-tab.component';
-import { ReminderStore } from './reminder.store';
-import type { GoReviewRequest } from './review-reminder-banner.component';
+import { ClosedLoopApi } from './closed-loop-api.service';
+import { ReminderNavigator, type GoReviewRequest } from './reminder-navigator.service';
 import { ReviewStore } from './review.store';
 import { ReviewTabComponent } from './review-tab.component';
 import { StorageNoticesComponent } from './storage-notices.component';
@@ -74,7 +76,7 @@ export type StickyTabId = 'note' | 'review' | 'history';
         [hidden]="tab() !== 'note'"
       >
         @if (okr) {
-          <clarityokr-sticky-note [okr]="okr" (goReview)="onGoReview($event)" />
+          <clarityokr-sticky-note [okr]="okr" />
         } @else {
           <div class="shell__empty" data-testid="note-empty">
             <p class="shell__empty-title">{{ copy.note.emptyTitle }}</p>
@@ -190,11 +192,25 @@ export class StickyShellComponent {
   private readonly editor = inject(EditModeStore);
   readonly review = inject(ReviewStore);
 
-  private readonly reminders = inject(ReminderStore);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   constructor() {
-    this.reminders.start();
+    // 「去复盘」 is answered here (this window has the review page), including requests handed
+    // over from the main window (#84 review).
+    const unregister = inject(ReminderNavigator).register((request) => this.onGoReview(request));
+    const api = inject(ClosedLoopApi);
+    const takeHandedOver = async (): Promise<void> => {
+      const okrId = await api.takeReviewRequest?.();
+      if (okrId) await this.onGoReview({ okrId });
+    };
+    const unsubscribe = api.onEvent?.(IPC_CHANNELS.REMINDERS_OPEN_REVIEW, () => {
+      void takeHandedOver();
+    });
+    void takeHandedOver();
+    inject(DestroyRef).onDestroy(() => {
+      unregister();
+      unsubscribe?.();
+    });
     // Unsaved input of this window, for the restart / quit confirmation (spec §1.2c).
     inject(UnsavedReporter).watch(
       computed(() => ({
@@ -254,7 +270,7 @@ export class StickyShellComponent {
    * #54 「去复盘」: switch to the banner's quarter (open its unreviewed OKR when another one is
    * shown), then the review tab with focus on its title.
    */
-  async onGoReview(request: GoReviewRequest): Promise<void> {
+  async onGoReview(request: Pick<GoReviewRequest, 'okrId'>): Promise<void> {
     if (this.store.detail()?.objective.id !== request.okrId) {
       const opened = await this.store.openFromHistory(request.okrId);
       if (!opened) return;

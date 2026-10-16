@@ -57,6 +57,9 @@ export const ALLOWED_CHANNELS = [
   'clarityokr:reminders:get',
   'clarityokr:reminders:dismiss',
   'clarityokr:reminders:tick',
+  'clarityokr:reminders:go-review',
+  'clarityokr:reminders:take-review',
+  'clarityokr:reminders:open-review',
 ] as const;
 
 /**
@@ -109,6 +112,15 @@ export const IPC_CHANNELS = {
   REMINDERS_DISMISS: 'clarityokr:reminders:dismiss',
   /** #54: main → renderer: re-evaluate now (window focus, resume, 5-minute timer). */
   REMINDERS_TICK: 'clarityokr:reminders:tick',
+  /**
+   * #84 review: 「去复盘」 from a window without a review page (the main-window results panel):
+   * `{ okrId }` → `{ opened }`. Main brings the sticky shell forward and hands the request over.
+   */
+  REMINDERS_GO_REVIEW: 'clarityokr:reminders:go-review',
+  /** The sticky shell takes a handed-over request once it is up: → `{ okrId }` or `{ okrId: null }`. */
+  REMINDERS_TAKE_REVIEW: 'clarityokr:reminders:take-review',
+  /** Main → sticky shell event: a request is waiting (call REMINDERS_TAKE_REVIEW). */
+  REMINDERS_OPEN_REVIEW: 'clarityokr:reminders:open-review',
   /** Atomically revert the latest `set` entry and write a new one ("edit this one"). */
   KR_REPLACE_PROGRESS: 'clarityokr:kr:replace-progress',
   /** Read the saved review (or null). */
