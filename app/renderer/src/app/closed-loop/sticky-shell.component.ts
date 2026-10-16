@@ -206,7 +206,14 @@ export class StickyShellComponent {
     const unsubscribe = api.onEvent?.(IPC_CHANNELS.REMINDERS_OPEN_REVIEW, () => {
       void takeHandedOver();
     });
-    void takeHandedOver();
+    // A freshly created sticky window: take a waiting request only once its own OKR is shown,
+    // so the document main sends on creation cannot replace Q's OKR afterwards (N55 case 1).
+    let tookInitial = false;
+    effect(() => {
+      if (tookInitial || this.store.detail() === null) return;
+      tookInitial = true;
+      untracked(() => setTimeout(() => void takeHandedOver(), 0));
+    });
     inject(DestroyRef).onDestroy(() => {
       unregister();
       unsubscribe?.();
@@ -313,7 +320,8 @@ export class StickyShellComponent {
         '[data-testid="review-objective"]',
       );
       if (title) {
-        title.focus();
+        // N56: a visible focus ring after 「去复盘」 (also when handed over from the main window)
+        title.focus({ focusVisible: true } as FocusOptions);
         return;
       }
     }

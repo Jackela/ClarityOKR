@@ -594,7 +594,8 @@ export class OkrStickyNoteComponent implements OnChanges {
     setTimeout(() => {
       this.toprow?.nativeElement
         .querySelector<HTMLElement>('[data-testid="period-picker"]')
-        ?.focus();
+        // N56: the moved focus shows its ring (pointer click on ✕ would otherwise hide it)
+        ?.focus({ focusVisible: true } as FocusOptions);
     }, 0);
   }
   @ViewChild('editBtn') private editBtn?: ElementRef<HTMLElement>;
