@@ -282,7 +282,7 @@ export const COPY = {
     // #50 backup import (S1§9.4; Q9-3: 「个」 everywhere)
     emptyBackupTitle: '备份中没有 OKR',
     emptyBackupBody: '这个备份文件里没有任何 OKR，没有可导入的内容。数据没有任何改动。',
-    backupInvalidBody: (n: number) => `备份里第 ${n} 个 OKR 有误，整份没有导入。第一处错误：`,
+    backupInvalidBody: (n: number) => `备份里第 ${n} 个 OKR 有误，整份没有导入。`,
     backupTitle: '导入备份？',
     backupBody: (n: number, at: string, version: string) =>
       `这个备份包含 ${n} 个 OKR，备份于 ${at}（ClarityOKR ${version}）。导入不会覆盖已有数据。`,
