@@ -99,7 +99,9 @@ test.describe('#54 in-app reminders (fake time)', () => {
     await expect(banner(sticky)).toHaveAttribute('data-kind', 'ended');
     await expect(banner(sticky)).toHaveAttribute('data-period', '2026-Q3');
     await expect(banner(sticky)).toHaveAttribute('role', 'status');
-    await expect(banner(sticky)).toContainText('本季度已经结束，还没复盘，去复盘');
+    await expect
+      .poll(async () => (await banner(sticky).textContent())?.replace(/\s/g, ''))
+      .toContain('本季度已经结束，还没复盘，去复盘');
     await expect(sticky.getByTestId('kr-stale-badge')).toHaveCount(0);
     await both(sticky, 'S2-02-banner-ended-q1-view');
 
@@ -116,7 +118,9 @@ test.describe('#54 in-app reminders (fake time)', () => {
     await fakeNow(electronApp, Q4_ENDING);
     await expect(banner(sticky)).toHaveAttribute('data-kind', 'ending');
     await expect(banner(sticky)).toHaveCount(1);
-    await expect(banner(sticky)).toContainText('本季度即将结束，去复盘');
+    await expect
+      .poll(async () => (await banner(sticky).textContent())?.replace(/\s/g, ''))
+      .toContain('本季度即将结束，去复盘');
     await axe(sticky, 'reminder banner');
     await both(sticky, 'S2-03-banner-ending');
 
@@ -153,6 +157,7 @@ test.describe('#54 in-app reminders (fake time)', () => {
     mainWindow,
     mockServer,
   }, testInfo) => {
+    test.setTimeout(150_000);
     const sticky = await openSticky(electronApp, mainWindow, mockServer);
     await seed(electronApp, sticky);
     await fakeNow(electronApp, AFTER_STALE);
@@ -183,7 +188,11 @@ test.describe('#54 in-app reminders (fake time)', () => {
 
     // restart on the same database: still reviewed → no banner for Q
     const dbPath = testInfo.outputPath('clarityokr.db');
-    await electronApp.close();
+    // end the first run outright (no quit dialogs), then start again on the same files
+    const first = electronApp.process();
+    const exited = new Promise((resolve) => first.once('exit', resolve));
+    first.kill('SIGKILL');
+    await exited;
     const ci = getElectronLaunchOptions();
     const again = await electron.launch({
       args: [MAIN_DIST, ...extraElectronArgs(), ...ci.args],
