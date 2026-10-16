@@ -74,10 +74,9 @@ export class ReminderStore {
   }
 
   start(): void {
-    if (this.started) return;
-    this.started = true;
     // Partial test doubles of the API may lack the reminder calls: then reminders stay off.
-    if (typeof this.api.getReminders !== 'function') return;
+    if (this.started || typeof this.api.getReminders !== 'function') return;
+    this.started = true;
     this.api.onEvent?.(IPC_CHANNELS.REMINDERS_TICK, () => void this.refresh());
     void this.refresh();
   }
