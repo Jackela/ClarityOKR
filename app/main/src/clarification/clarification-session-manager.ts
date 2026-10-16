@@ -23,7 +23,6 @@ import { SessionNotFoundError, StateTransitionError } from './types.js';
  * ClarificationSessionManager - 会话生命周期管理
  */
 export class ClarificationSessionManager implements IClarificationSessionManager {
-
   private readonly sessions = new Map<string, ClarificationSession>();
   private currentSessionId: string | null = null;
 
@@ -39,7 +38,6 @@ export class ClarificationSessionManager implements IClarificationSessionManager
    * @param initialIntent - The user's initial goal description
    * @returns The newly created clarification session
    */
-
 
   createSession(sessionId: string, initialIntent: string): ClarificationSession {
     const now = new Date().toISOString();
@@ -69,7 +67,6 @@ export class ClarificationSessionManager implements IClarificationSessionManager
    * @returns Promise resolving to the session or null if not found
    */
 
-
   async getSession(sessionId: string): Promise<ClarificationSession | null> {
     // 先尝试内存缓存
     let session = this.sessions.get(sessionId);
@@ -98,7 +95,6 @@ export class ClarificationSessionManager implements IClarificationSessionManager
    * @throws {StateTransitionError} If state transition is invalid
    */
 
-
   async endSession(sessionId: string): Promise<void> {
     const session = await this.getSession(sessionId);
     if (!session) {
@@ -125,7 +121,6 @@ export class ClarificationSessionManager implements IClarificationSessionManager
    * Clears all in-memory sessions (used for testing).
    */
 
-
   cleanupSessions(): void {
     const count = this.sessions.size;
     this.sessions.clear();
@@ -138,7 +133,6 @@ export class ClarificationSessionManager implements IClarificationSessionManager
    *
    * @returns Map of session IDs to session objects
    */
-
 
   getAllSessions(): Map<string, ClarificationSession> {
     return new Map(this.sessions);
@@ -159,7 +153,6 @@ export class ClarificationSessionManager implements IClarificationSessionManager
    * @returns Number of active sessions
    */
 
-
   getSessionCount(): number {
     return this.sessions.size;
   }
@@ -170,7 +163,6 @@ export class ClarificationSessionManager implements IClarificationSessionManager
    * @param session - The session to save
    * @returns Promise that resolves when saved
    */
-
 
   async saveSession(session: ClarificationSession): Promise<void> {
     this.sessions.set(session.id, session);

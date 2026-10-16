@@ -30,23 +30,6 @@ export interface ReminderKr {
   lastRecordedAt: string | null;
 }
 
-export interface ReminderInput {
-  now: Date;
-  period: Period | null;
-  keyResults: ReadonlyArray<ReminderKr>;
-  /** `savedAt` of the OKR's review, or null when there is none / it was never saved. */
-  reviewSavedAt: string | null;
-  /** Quarters whose banner the user closed. */
-  dismissed: ReadonlySet<string> | ReadonlyArray<string>;
-}
-
-export interface ReminderState {
-  staleKrIds: string[];
-  banner: QuarterBanner;
-  /** The quarter the banner is about (the OKR's), or null. */
-  period: Period | null;
-}
-
 /** Local quarter of a date, e.g. `2026-Q4`. */
 export function quarterOf(date: Date): Period {
   return `${date.getFullYear()}-Q${Math.floor(date.getMonth() / 3) + 1}` as Period;
@@ -77,26 +60,75 @@ export function isKrStale(kr: ReminderKr, now: Date): boolean {
   return now.getTime() >= since + STALE_AFTER_MS;
 }
 
-export function quarterBanner(input: Omit<ReminderInput, 'keyResults'>): QuarterBanner {
-  const { now, period, reviewSavedAt } = input;
-  if (period === null || reviewSavedAt !== null) return 'none';
-  const dismissed = new Set(input.dismissed);
-  if (dismissed.has(period)) return 'none';
-  const current = quarterOf(now);
-  if (period === current) {
-    return quarterEnd(period).getTime() - now.getTime() < QUARTER_ENDING_WITHIN_MS
-      ? 'ending'
-      : 'none';
-  }
-  return period === previousQuarter(current) ? 'ended' : 'none';
+/** One OKR as the banner sees it (from the OKR list). */
+export interface BannerOkr {
+  id: string;
+  period: Period | null;
+  /** A review with a non-null `savedAt` exists. */
+  reviewed: boolean;
+  /** Non-removed key results; an OKR without any never asks for a review. */
+  keyResultCount: number;
 }
 
-export function evaluateReminders(input: ReminderInput): ReminderState {
-  if (input.keyResults.length === 0) return { staleKrIds: [], banner: 'none', period: null };
-  const banner = quarterBanner(input);
-  return {
-    staleKrIds: input.keyResults.filter((kr) => isKrStale(kr, input.now)).map((kr) => kr.id),
-    banner,
-    period: banner === 'none' ? null : input.period,
-  };
+export interface BannerInput {
+  now: Date;
+  /** Quarter of the OKR being viewed (null: none set / nothing open). */
+  viewPeriod: Period | null;
+  okrs: ReadonlyArray<BannerOkr>;
+  /** Quarters whose banner the user closed (each quarter separately). */
+  dismissed: ReadonlySet<string> | ReadonlyArray<string>;
+  /** Prefer this OKR as the 「去复盘」 target when it qualifies. */
+  viewOkrId?: string | null;
+}
+
+export interface BannerState {
+  banner: QuarterBanner;
+  /** The quarter the banner is about. */
+  period: Period | null;
+  /** The unreviewed OKR 「去复盘」 opens. */
+  targetOkrId: string | null;
+}
+
+const NO_BANNER: BannerState = { banner: 'none', period: null, targetOkrId: null };
+
+function unreviewedIn(input: BannerInput, period: Period): string | null {
+  const candidates = input.okrs.filter(
+    (okr) => okr.period === period && !okr.reviewed && okr.keyResultCount > 0,
+  );
+  if (candidates.length === 0) return null;
+  return (candidates.find((okr) => okr.id === input.viewOkrId) ?? candidates[0]).id;
+}
+
+/**
+ * S1§11.3 + N52/N53. Let C be the current local quarter and P the one before it.
+ * - 即将结束 (ending): only in the C view, under 14 days before C ends, C has an unreviewed OKR.
+ * - 已经结束 (ended): in the C view and in the P view (the only exception to "no banner in past
+ *   quarters"), P has an unreviewed OKR. Older quarter views never show a banner.
+ * - One banner at most: C's ending wins over P's ended. Dismissal is per quarter, so closing
+ *   P's ended banner never hides C's ending one.
+ */
+export function quarterBanner(input: BannerInput): BannerState {
+  const { now, viewPeriod } = input;
+  const current = quarterOf(now);
+  const previous = previousQuarter(current);
+  if (viewPeriod !== current && viewPeriod !== previous) return NO_BANNER;
+  const dismissed = new Set(input.dismissed);
+  if (
+    viewPeriod === current &&
+    !dismissed.has(current) &&
+    quarterEnd(current).getTime() - now.getTime() < QUARTER_ENDING_WITHIN_MS
+  ) {
+    const target = unreviewedIn(input, current);
+    if (target !== null) return { banner: 'ending', period: current, targetOkrId: target };
+  }
+  if (!dismissed.has(previous)) {
+    const target = unreviewedIn(input, previous);
+    if (target !== null) return { banner: 'ended', period: previous, targetOkrId: target };
+  }
+  return NO_BANNER;
+}
+
+/** KR ids of the viewed OKR showing 「7 天未更新」. */
+export function staleKrIds(keyResults: ReadonlyArray<ReminderKr>, now: Date): string[] {
+  return keyResults.filter((kr) => isKrStale(kr, now)).map((kr) => kr.id);
 }

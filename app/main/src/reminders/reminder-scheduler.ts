@@ -26,10 +26,11 @@ export function registerReminderHandlers(
   });
 }
 
+/** Each trigger returns the function that removes it. */
 export interface ReminderTriggers {
-  onFocus(listener: () => void): void;
-  onResume(listener: () => void): void;
-  setInterval(listener: () => void, ms: number): unknown;
+  onFocus(listener: () => void): () => void;
+  onResume(listener: () => void): () => void;
+  setInterval(listener: () => void, ms: number): () => void;
 }
 
 /**
@@ -37,8 +38,17 @@ export interface ReminderTriggers {
  * (startup is the renderer's own first read). Reminders stay inside the app: never a system
  * Notification (S1§11).
  */
-export function startReminderTicks(triggers: ReminderTriggers, send: () => void): void {
-  triggers.onFocus(send);
-  triggers.onResume(send);
-  triggers.setInterval(send, REMINDER_INTERVAL_MS);
+export function startReminderTicks(triggers: ReminderTriggers, send: () => void): () => void {
+  const stops = [
+    triggers.onFocus(send),
+    triggers.onResume(send),
+    triggers.setInterval(send, REMINDER_INTERVAL_MS),
+  ];
+  let stopped = false;
+  // Call when the window goes away, so a recreated window does not stack timers / listeners.
+  return () => {
+    if (stopped) return;
+    stopped = true;
+    for (const stop of stops) stop();
+  };
 }

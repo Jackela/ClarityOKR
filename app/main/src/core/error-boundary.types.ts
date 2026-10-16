@@ -1,8 +1,4 @@
-import {
-  ClarityOkrError,
-  type ErrorCode,
-  isClarityOkrError,
-} from '@clarityokr/contracts';
+import { ClarityOkrError, type ErrorCode, isClarityOkrError } from '@clarityokr/contracts';
 
 /**
  * Error boundary context for tracking where errors occurred

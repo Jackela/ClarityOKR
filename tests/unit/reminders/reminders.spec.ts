@@ -4,7 +4,8 @@
 import {
   QUARTER_ENDING_WITHIN_MS,
   STALE_AFTER_MS,
-  evaluateReminders,
+  staleKrIds,
+  type BannerOkr,
   isKrStale,
   previousQuarter,
   quarterBanner,
@@ -72,69 +73,94 @@ describe('#54 reminders: quarters in local time', () => {
   });
 });
 
-describe('#54 reminders: banner', () => {
-  const base = { reviewSavedAt: null, dismissed: [] as string[] };
-  it('ending: under 14 days before the local end, not at 14 days or more', () => {
+describe('#54 reminders: banner (S1§11.3, N52, N53)', () => {
+  const okr = (period: string | null, over: Partial<BannerOkr> = {}): BannerOkr => ({
+    id: `o-${period}`,
+    period: period as BannerOkr['period'],
+    reviewed: false,
+    keyResultCount: 2,
+    ...over,
+  });
+  const at = (now: Date, viewPeriod: string | null, okrs: BannerOkr[], dismissed: string[] = []) =>
+    quarterBanner({ now, viewPeriod: viewPeriod as BannerOkr['period'], okrs, dismissed });
+
+  it('ending: only in the current view, under 14 days before the local end', () => {
     const end = quarterEnd('2026-Q4').getTime();
-    const p = '2026-Q4' as const;
-    expect(
-      quarterBanner({ ...base, period: p, now: new Date(end - QUARTER_ENDING_WITHIN_MS) }),
-    ).toBe('none');
-    expect(
-      quarterBanner({ ...base, period: p, now: new Date(end - QUARTER_ENDING_WITHIN_MS + 1) }),
-    ).toBe('ending');
+    const okrs = [okr('2026-Q4')];
+    expect(at(new Date(end - QUARTER_ENDING_WITHIN_MS), '2026-Q4', okrs).banner).toBe('none');
+    expect(at(new Date(end - QUARTER_ENDING_WITHIN_MS + 1), '2026-Q4', okrs)).toEqual({
+      banner: 'ending',
+      period: '2026-Q4',
+      targetOkrId: 'o-2026-Q4',
+    });
   });
-  it('ended: the quarter just before, after its end; older quarters never (past quarter)', () => {
-    const now = local(2027, 1, 1, 0, 0, 0, 0);
-    expect(quarterBanner({ ...base, period: '2026-Q4', now })).toBe('ended');
-    expect(quarterBanner({ ...base, period: '2026-Q3', now })).toBe('none');
+  it('N51(1) Q+1, Q unreviewed → ended, in the Q+1 view and in the Q view', () => {
+    const now = local(2027, 1, 1);
+    const okrs = [okr('2026-Q4'), okr('2027-Q1')];
+    expect(at(now, '2027-Q1', okrs)).toEqual({
+      banner: 'ended',
+      period: '2026-Q4',
+      targetOkrId: 'o-2026-Q4',
+    });
+    expect(at(now, '2026-Q4', okrs).banner).toBe('ended');
   });
-  it('no quarter set → no banner', () => {
-    expect(quarterBanner({ ...base, period: null, now: local(2026, 12, 30) })).toBe('none');
+  it('N51(2) Q+2: Q no longer, nor any older quarter, in any view', () => {
+    const now = local(2027, 4, 1);
+    const okrs = [okr('2026-Q3'), okr('2026-Q4'), okr('2027-Q2')];
+    for (const view of ['2027-Q2', '2027-Q1', '2026-Q4', '2026-Q3']) {
+      expect(at(now, view, okrs).banner).toBe('none');
+    }
   });
-  it('a review with savedAt removes it; dismissal is per quarter', () => {
-    const now = local(2026, 12, 30);
-    expect(
-      quarterBanner({ ...base, period: '2026-Q4', now, reviewSavedAt: '2026-12-29T00:00:00Z' }),
-    ).toBe('none');
-    expect(quarterBanner({ ...base, period: '2026-Q4', now, dismissed: ['2026-Q4'] })).toBe('none');
-    // next quarter: rules apply again
+  it('no banner in an older or unset view', () => {
+    const now = local(2027, 1, 1);
+    expect(at(now, '2026-Q3', [okr('2026-Q4')]).banner).toBe('none');
+    expect(at(now, null, [okr('2026-Q4')]).banner).toBe('none');
+  });
+  it('N53 precedence: Q+1 ending wins over Q ended in the Q+1 view; Q view still shows ended', () => {
+    const now = local(2027, 3, 25);
+    const okrs = [okr('2026-Q4'), okr('2027-Q1')];
+    // at 2027-03-25: C = 2027-Q1 (in its last 14 days), P = 2026-Q4
+    expect(at(now, '2027-Q1', okrs).banner).toBe('ending');
+    expect(at(now, '2026-Q4', okrs).banner).toBe('ended');
+  });
+  it('N53 dismissal is per quarter: closing Q ended keeps Q+1 ending', () => {
+    const now = local(2027, 3, 25);
+    const okrs = [okr('2026-Q4'), okr('2027-Q1')];
+    expect(at(now, '2027-Q1', okrs, ['2026-Q4']).banner).toBe('ending');
+    expect(at(now, '2026-Q4', okrs, ['2026-Q4']).banner).toBe('none');
+    // closing Q+1 ending lets Q ended show in the Q+1 view
+    expect(at(now, '2027-Q1', okrs, ['2027-Q1']).banner).toBe('ended');
+  });
+  it('N51(3) a saved review removes it; no key results → no reminder', () => {
+    const now = local(2027, 1, 5);
+    expect(at(now, '2027-Q1', [okr('2026-Q4', { reviewed: true })]).banner).toBe('none');
+    expect(at(now, '2027-Q1', [okr('2026-Q4', { keyResultCount: 0 })]).banner).toBe('none');
+  });
+  it('prefers the viewed OKR as the 去复盘 target', () => {
+    const okrs = [okr('2026-Q4', { id: 'a' }), okr('2026-Q4', { id: 'b' })];
     expect(
       quarterBanner({
-        ...base,
-        period: '2027-Q1',
-        now: local(2027, 3, 25),
-        dismissed: ['2026-Q4'],
-      }),
-    ).toBe('ending');
+        now: local(2027, 1, 5),
+        viewPeriod: '2026-Q4',
+        okrs,
+        dismissed: [],
+        viewOkrId: 'b',
+      }).targetOkrId,
+    ).toBe('b');
   });
 });
 
-describe('#54 reminders: evaluate', () => {
-  it('no key results (no OKR) → nothing', () => {
+describe('#54 reminders: stale KR ids', () => {
+  it('collects only stale, open KRs', () => {
     expect(
-      evaluateReminders({
-        now: local(2026, 12, 30),
-        period: '2026-Q4',
-        keyResults: [],
-        reviewSavedAt: null,
-        dismissed: [],
-      }),
-    ).toEqual({ staleKrIds: [], banner: 'none', period: null });
-  });
-  it('collects stale KRs and the banner', () => {
-    expect(
-      evaluateReminders({
-        now: local(2026, 12, 30),
-        period: '2026-Q4',
-        keyResults: [
+      staleKrIds(
+        [
           kr(),
           kr({ id: 'k2', status: 'done' }),
           kr({ id: 'k3', lastRecordedAt: '2026-12-29T00:00:00Z' }),
         ],
-        reviewSavedAt: null,
-        dismissed: [],
-      }),
-    ).toEqual({ staleKrIds: ['k1'], banner: 'ending', period: '2026-Q4' });
+        local(2026, 12, 30),
+      ),
+    ).toEqual(['k1']);
   });
 });

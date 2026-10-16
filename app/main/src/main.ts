@@ -270,14 +270,24 @@ async function createWindow(): Promise<void> {
   const tick = (): void => {
     if (!thisWindow.isDestroyed()) thisWindow.webContents.send(IPC_CHANNELS.REMINDERS_TICK);
   };
-  startReminderTicks(
+  const stopReminderTicks = startReminderTicks(
     {
-      onFocus: (listener) => thisWindow.on('focus', listener),
-      onResume: (listener) => electron.powerMonitor.on('resume', listener),
-      setInterval: (listener, ms) => setInterval(listener, ms),
+      onFocus: (listener) => {
+        thisWindow.on('focus', listener);
+        return () => thisWindow.removeListener('focus', listener);
+      },
+      onResume: (listener) => {
+        electron.powerMonitor.on('resume', listener);
+        return () => electron.powerMonitor.removeListener('resume', listener);
+      },
+      setInterval: (listener, ms) => {
+        const timer = setInterval(listener, ms);
+        return () => clearInterval(timer);
+      },
     },
     tick,
   );
+  thisWindow.on('closed', stopReminderTicks);
 
   mainWindow.webContents.on('did-finish-load', () => {
     Logger.info('[main] renderer loaded');

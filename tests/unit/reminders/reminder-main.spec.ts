@@ -68,19 +68,48 @@ describe('#54 reminder IPC and ticks', () => {
     });
   });
 
-  it('ticks on focus, resume and every 5 minutes', () => {
+  it('ticks on focus, resume and every 5 minutes; stop removes all three once', () => {
     const fired: string[] = [];
     let interval = 0;
-    startReminderTicks(
+    const stop = startReminderTicks(
       {
-        onFocus: (l) => fired.push('focus') && l(),
-        onResume: (l) => fired.push('resume') && l(),
-        setInterval: (_l, ms) => (interval = ms),
+        onFocus: (l) => {
+          fired.push('focus');
+          l();
+          return () => fired.push('-focus');
+        },
+        onResume: (l) => {
+          fired.push('resume');
+          l();
+          return () => fired.push('-resume');
+        },
+        setInterval: (_l, ms) => {
+          interval = ms;
+          return () => fired.push('-interval');
+        },
       },
       () => fired.push('tick'),
     );
     expect(fired).toEqual(['focus', 'tick', 'resume', 'tick']);
     expect(interval).toBe(REMINDER_INTERVAL_MS);
+    stop();
+    stop();
+    expect(fired.slice(4)).toEqual(['-focus', '-resume', '-interval']);
+  });
+
+  it('a recreated window does not stack timers or listeners', () => {
+    let live = 0;
+    const triggers = {
+      onFocus: () => (live++, () => void live--),
+      onResume: () => (live++, () => void live--),
+      setInterval: () => (live++, () => void live--),
+    };
+    const first = startReminderTicks(triggers, () => undefined);
+    first(); // window closed
+    const second = startReminderTicks(triggers, () => undefined);
+    expect(live).toBe(3);
+    second();
+    expect(live).toBe(0);
   });
 
   it('fakes the clock only in e2e mode', () => {
