@@ -5,6 +5,7 @@ export * from './clarify-to-okr.contract.js';
 export * from './okr-model.js';
 export * from './closed-loop-ipc.js';
 export * from './reminders.js';
+export * from './import-issue-copy.js';
 export * from './llm-gateway.contract.js';
 export * from './validators/clarify-to-okr.validator.js';
 export * from './validators/llm.schemas.js';
