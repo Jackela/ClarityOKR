@@ -267,14 +267,17 @@ async function createWindow(): Promise<void> {
     exitCoordinator.windowGone(contentsId);
   });
 
+  // Every window (the sticky note shows the reminders) re-reads them.
   const tick = (): void => {
-    if (!thisWindow.isDestroyed()) thisWindow.webContents.send(IPC_CHANNELS.REMINDERS_TICK);
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) win.webContents.send(IPC_CHANNELS.REMINDERS_TICK);
+    }
   };
   const stopReminderTicks = startReminderTicks(
     {
       onFocus: (listener) => {
-        thisWindow.on('focus', listener);
-        return () => thisWindow.removeListener('focus', listener);
+        app.on('browser-window-focus', listener);
+        return () => app.removeListener('browser-window-focus', listener);
       },
       onResume: (listener) => {
         electron.powerMonitor.on('resume', listener);

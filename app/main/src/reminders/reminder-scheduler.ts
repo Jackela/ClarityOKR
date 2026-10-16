@@ -3,12 +3,30 @@ import type { IpcMain } from 'electron';
 
 import type { ReminderSettings } from './reminder-settings.js';
 
-/** e2e may fake the clock: `CLARITYOKR_FAKE_NOW` (ISO) shifts "now" by a fixed offset. */
-export function reminderClock(env: NodeJS.ProcessEnv = process.env): () => Date {
-  const fake = env.E2E_TEST ? Date.parse(env.CLARITYOKR_FAKE_NOW ?? '') : NaN;
-  if (Number.isNaN(fake)) return () => new Date();
-  const offset = fake - Date.now();
-  return () => new Date(Date.now() + offset);
+/**
+ * The reminder clock. e2e only (`E2E_TEST`): `CLARITYOKR_FAKE_NOW` (ISO) at launch, or
+ * `globalThis.__CLARITYOKR_FAKE_NOW__` set later from the test, moves "now"; the fake time then
+ * runs on with the real clock.
+ */
+export function reminderClock(
+  env: NodeJS.ProcessEnv = process.env,
+  realNow: () => number = Date.now,
+): () => Date {
+  if (!env.E2E_TEST) return () => new Date(realNow());
+  const holder = globalThis as { __CLARITYOKR_FAKE_NOW__?: string };
+  let source = env.CLARITYOKR_FAKE_NOW ?? '';
+  let offset = 0;
+  const sync = (value: string): void => {
+    source = value;
+    const fake = Date.parse(value);
+    offset = Number.isNaN(fake) ? 0 : fake - realNow();
+  };
+  sync(source);
+  return () => {
+    const live = holder.__CLARITYOKR_FAKE_NOW__;
+    if (typeof live === 'string' && live !== source) sync(live);
+    return new Date(realNow() + offset);
+  };
 }
 
 export function registerReminderHandlers(

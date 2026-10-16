@@ -112,6 +112,18 @@ describe('#54 reminder IPC and ticks', () => {
     expect(live).toBe(0);
   });
 
+  it('e2e can move the fake clock at run time; it keeps running', () => {
+    let real = 1_000;
+    const clock = reminderClock({ E2E_TEST: '1' }, () => real);
+    expect(clock().getTime()).toBe(1_000);
+    (globalThis as { __CLARITYOKR_FAKE_NOW__?: string }).__CLARITYOKR_FAKE_NOW__ =
+      '2027-01-05T00:00:00.000Z';
+    expect(clock().toISOString()).toBe('2027-01-05T00:00:00.000Z');
+    real += 60_000;
+    expect(clock().toISOString()).toBe('2027-01-05T00:01:00.000Z');
+    delete (globalThis as { __CLARITYOKR_FAKE_NOW__?: string }).__CLARITYOKR_FAKE_NOW__;
+  });
+
   it('fakes the clock only in e2e mode', () => {
     const fake = reminderClock({ E2E_TEST: '1', CLARITYOKR_FAKE_NOW: '2030-01-01T00:00:00Z' });
     expect(fake().getUTCFullYear()).toBe(2030);
