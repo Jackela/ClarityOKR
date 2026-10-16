@@ -1,6 +1,5 @@
-// Local natural days: run the rules in a zone ahead of UTC so a UTC day/year rollover differs
-// from the local one. (Node reads TZ when the first Date needs it.)
-process.env.TZ = 'Asia/Shanghai';
+// Local natural days. Expectations are built from local wall-clock times so they hold in any
+// zone (CI runs in UTC; the box runs in Asia/Shanghai, where the UTC and local days differ).
 
 import {
   QUARTER_ENDING_WITHIN_MS,
@@ -14,7 +13,7 @@ import {
   type ReminderKr,
 } from '@clarityokr/contracts';
 
-/** Local time in Asia/Shanghai (UTC+8). */
+/** A local wall-clock time (month is 1-based). */
 const local = (y: number, m: number, d: number, h = 0, min = 0, s = 0, ms = 0) =>
   new Date(y, m - 1, d, h, min, s, ms);
 
@@ -51,11 +50,13 @@ describe('#54 reminders: KR 7 days', () => {
 
 describe('#54 reminders: quarters in local time', () => {
   it('quarterOf uses the local date across a UTC day rollover', () => {
-    // 2026-09-30T16:30Z is already 10-01 00:30 in Shanghai → Q4 locally, Q3 in UTC
-    expect(quarterOf(new Date('2026-09-30T16:30:00Z'))).toBe('2026-Q4');
+    // Local 10-01 00:30 is Q4 even where that instant is still 09-30 in UTC (e.g. UTC+8).
+    expect(quarterOf(local(2026, 10, 1, 0, 30))).toBe('2026-Q4');
+    expect(quarterOf(local(2026, 9, 30, 23, 59, 59, 999))).toBe('2026-Q3');
   });
-  it('year rollover: 2026-12-31T16:30Z is 2027-Q1 locally; previous of 2027-Q1 is 2026-Q4', () => {
-    expect(quarterOf(new Date('2026-12-31T16:30:00Z'))).toBe('2027-Q1');
+  it('year rollover: local 2027-01-01 00:30 is 2027-Q1; previous of 2027-Q1 is 2026-Q4', () => {
+    expect(quarterOf(local(2027, 1, 1, 0, 30))).toBe('2027-Q1');
+    expect(quarterOf(local(2026, 12, 31, 23, 59))).toBe('2026-Q4');
     expect(previousQuarter('2027-Q1')).toBe('2026-Q4');
   });
   it('the last day ends at 23:59:59 local', () => {
