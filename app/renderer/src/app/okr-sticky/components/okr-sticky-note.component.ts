@@ -558,7 +558,7 @@ function newKeyResultId(): string {
         [confirmLabel]="t.edit.discard"
         [danger]="true"
         testId="discard-dialog"
-        (cancelled)="discardOpen.set(false)"
+        (cancelled)="keepEditing()"
         (confirmed)="discard()"
       />
     }
@@ -742,7 +742,35 @@ export class OkrStickyNoteComponent implements OnChanges {
     this.discard();
   }
 
+  /** Answer to a pending {@link confirmDiscard}: true = 放弃, false = 继续编辑. */
+  private discardAnswer: ((leave: boolean) => void) | null = null;
+
+  /**
+   * N55: asks with the same 「放弃未保存的修改？」 dialog before something else (「去复盘」 from the
+   * main window) replaces the note. Resolves true on 「放弃」, false on 「继续编辑」. The caller
+   * drops the edits itself.
+   */
+  confirmDiscard(): Promise<boolean> {
+    this.discardAnswer?.(false);
+    this.discardOpen.set(true);
+    return new Promise<boolean>((resolve) => (this.discardAnswer = resolve));
+  }
+
+  keepEditing(): void {
+    this.discardOpen.set(false);
+    const answer = this.discardAnswer;
+    this.discardAnswer = null;
+    answer?.(false);
+  }
+
   discard(): void {
+    const answer = this.discardAnswer;
+    if (answer) {
+      this.discardAnswer = null;
+      this.discardOpen.set(false);
+      answer(true);
+      return;
+    }
     this.discardOpen.set(false);
     if (!this.editor.isEditing()) return;
     this.editor.cancelEdits();

@@ -39,3 +39,39 @@ describe('#84 review: 去复盘 hand-off to the sticky shell', () => {
     expect(handlers.get(IPC_CHANNELS.REMINDERS_TAKE_REVIEW)!({})).toEqual({ okrId: 'a' });
   });
 });
+
+describe('N55 (2): a minimized sticky window comes back to the front', () => {
+  it('restores, shows and focuses it, in that order', async () => {
+    const { raiseWindow } = await import('../../../app/main/src/windows/sticky-window-manager.js');
+    const calls: string[] = [];
+    raiseWindow({
+      isMinimized: () => true,
+      restore: () => void calls.push('restore'),
+      show: () => void calls.push('show'),
+      focus: () => void calls.push('focus'),
+    });
+    expect(calls).toEqual(['restore', 'show', 'focus']);
+  });
+
+  it('a hidden (closed to tray) window is shown and focused, not restored', async () => {
+    const { raiseWindow } = await import('../../../app/main/src/windows/sticky-window-manager.js');
+    const calls: string[] = [];
+    raiseWindow({
+      isMinimized: () => false,
+      restore: () => void calls.push('restore'),
+      show: () => void calls.push('show'),
+      focus: () => void calls.push('focus'),
+    });
+    expect(calls).toEqual(['show', 'focus']);
+  });
+
+  it('the hand-off notifies the shell after it is raised', async () => {
+    const calls: string[] = [];
+    const handoff = new ReviewHandoff({
+      bringToFront: async () => (calls.push('raise'), true),
+      notify: () => calls.push('notify'),
+    });
+    await handoff.request('okr-q');
+    expect(calls).toEqual(['raise', 'notify']);
+  });
+});

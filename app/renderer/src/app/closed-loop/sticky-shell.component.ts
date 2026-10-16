@@ -116,7 +116,7 @@ export type StickyTabId = 'note' | 'review' | 'history';
           testId="review-leave-dialog"
           [confirmDisabled]="review.saving()"
           [confirmNote]="review.saving() ? copy.review.leaveSaving : ''"
-          (cancelled)="leaveTarget.set(null)"
+          (cancelled)="keepEditingReview()"
           (confirmed)="leave(target)"
         />
       }
@@ -261,7 +261,22 @@ export class StickyShellComponent {
     this.go(id);
   }
 
+  /** 「继续编辑」 in the leave dialog: stay, and forget a waiting 「去复盘」 (N55). */
+  keepEditingReview(): void {
+    this.leaveTarget.set(null);
+    this.pendingReview = null;
+  }
+
+  /** A 「去复盘」 waiting for the review leave dialog (N55). */
+  private pendingReview: Pick<GoReviewRequest, 'okrId'> | null = null;
+
   private go(id: StickyTabId): void {
+    const pending = this.pendingReview;
+    if (pending) {
+      this.pendingReview = null;
+      void this.onGoReview(pending);
+      return;
+    }
     this.tab.set(id);
     if (id === 'history') void this.store.refreshList();
   }
@@ -271,6 +286,22 @@ export class StickyShellComponent {
    * shown), then the review tab with focus on its title.
    */
   async onGoReview(request: Pick<GoReviewRequest, 'okrId'>): Promise<void> {
+    // N55: never drop unsaved input silently — reuse the existing confirmations.
+    // Unsaved review text: the review leave dialog; the request goes on after 「放弃修改」 (or
+    // after a save in flight succeeds), and is dropped on 「继续编辑」.
+    if (this.tab() === 'review' && this.review.dirty()) {
+      this.pendingReview = request;
+      this.leaveTarget.set('note');
+      return;
+    }
+    // Text being edited on the note: unchanged edits just close; changed ones ask with the note's
+    // own 「放弃未保存的修改？」 dialog; 「继续编辑」 keeps the edits and stays.
+    if (this.editor.isEditing()) {
+      if (this.tab() !== 'note') this.go('note');
+      const leave = this.editor.isDirty() ? await this.note?.confirmDiscard() : true;
+      if (!leave) return;
+      this.editor.cancelEdits();
+    }
     if (this.store.detail()?.objective.id !== request.okrId) {
       const opened = await this.store.openFromHistory(request.okrId);
       if (!opened) return;
