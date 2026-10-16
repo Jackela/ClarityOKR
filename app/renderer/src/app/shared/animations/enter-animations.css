@@ -49,24 +49,12 @@
 }
 
 /* Staggered delays for lists */
-.animate-stagger-1 {
-  animation-delay: 50ms;
-}
-.animate-stagger-2 {
-  animation-delay: 100ms;
-}
-.animate-stagger-3 {
-  animation-delay: 150ms;
-}
-.animate-stagger-4 {
-  animation-delay: 200ms;
-}
-.animate-stagger-5 {
-  animation-delay: 250ms;
-}
-.animate-stagger-6 {
-  animation-delay: 300ms;
-}
+.animate-stagger-1 { animation-delay: 50ms; }
+.animate-stagger-2 { animation-delay: 100ms; }
+.animate-stagger-3 { animation-delay: 150ms; }
+.animate-stagger-4 { animation-delay: 200ms; }
+.animate-stagger-5 { animation-delay: 250ms; }
+.animate-stagger-6 { animation-delay: 300ms; }
 
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {

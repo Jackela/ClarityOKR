@@ -138,9 +138,7 @@
 
 .intent-submit:not(:disabled):hover {
   transform: translateY(-1px);
-  box-shadow:
-    var(--shadow-md),
-    0 0 24px rgba(37, 99, 235, 0.3);
+  box-shadow: var(--shadow-md), 0 0 24px rgba(37, 99, 235, 0.3);
 }
 
 .intent-submit:not(:disabled):active {

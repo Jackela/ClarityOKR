@@ -16,7 +16,11 @@ import { ThemeService } from '../../core/services/theme.service';
   imports: [TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="theme-toggle" role="radiogroup" [attr.aria-label]="'common.theme' | translate">
+    <div
+      class="theme-toggle"
+      role="radiogroup"
+      [attr.aria-label]="'common.theme' | translate"
+    >
       @for (option of options; track option.value) {
         <button
           type="button"

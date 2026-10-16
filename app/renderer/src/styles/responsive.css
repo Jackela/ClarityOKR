@@ -117,7 +117,7 @@
     --color-text-muted: var(--color-text-primary);
   }
 
-  [data-theme='dark'] {
+  [data-theme="dark"] {
     --color-text-muted: var(--color-text-primary);
   }
 }

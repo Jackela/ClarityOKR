@@ -95,11 +95,9 @@ describe('ThemeService', () => {
     const mm = mockMatchMedia(false)('(prefers-color-scheme: dark)');
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
-      value: jest
-        .fn()
-        .mockImplementation((query: string) =>
-          query === '(prefers-color-scheme: dark)' ? mm : mockMatchMedia(false)(query),
-        ),
+      value: jest.fn().mockImplementation((query: string) =>
+        query === '(prefers-color-scheme: dark)' ? mm : mockMatchMedia(false)(query),
+      ),
     });
 
     const systemService = new ThemeService();
