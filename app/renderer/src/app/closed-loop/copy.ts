@@ -259,7 +259,8 @@ export const COPY = {
     notJsonBody: '文件内容不是有效的 JSON。请选择 ClarityOKR 导出的 .json 文件。',
     invalidTitle: '文件内容有误，无法导入',
     invalidBody: '第一处错误：',
-    invalidMore: (n: number) => `另有 ${n} 处错误`,
+    // #69: more than 99 shows 99+
+    invalidMore: (n: number) => `另有 ${n > 99 ? '99+' : n} 处错误`,
     versionTitle: '这个文件的版本不受支持',
     versionBody: (v: string) => `这个文件的格式版本是 ${v}，当前只能导入版本 1 的文件。`,
     readTitle: '没能读取这个文件',
