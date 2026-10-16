@@ -167,7 +167,10 @@ test.describe('#50 full backup', () => {
     await stubDialogs(electronApp, null, write('bad', { ...file, okrs: bad }));
     await button.click();
     await expect(error).toContainText('备份里第 4 个 OKR 有误，整份没有导入。');
-    await expect(error.getByTestId('dialog-detail')).toContainText('okrs[3].keyResults[0].status');
+    // #69: a plain-language place, never the English path.
+    const detail = error.getByTestId('dialog-detail');
+    await expect(detail).toContainText('第 4 个 OKR 的第 1 个关键结果的状态不是可选的状态');
+    await expect(detail).not.toContainText('okrs[');
     await both(sticky, 'S1-28-backup-invalid');
     await error.getByRole('button', { name: '知道了' }).click();
 

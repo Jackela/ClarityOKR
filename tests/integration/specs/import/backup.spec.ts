@@ -191,7 +191,13 @@ describe('#50 full backup', () => {
       ok: true,
       data: {
         outcome: 'rejected',
-        problem: { kind: 'invalid', field: 'okrs[2].keyResults[0].status', okrIndex: 2 },
+        problem: {
+          kind: 'invalid',
+          field: '',
+          reason: '第 3 个 OKR 的第 1 个关键结果的状态不是可选的状态',
+          issues: [{ code: 'invalid_status', location: ['okrs', 2, 'keyResults', 0, 'status'] }],
+          okrIndex: 2,
+        },
       },
     });
     expect(target.store.listObjectives()).toHaveLength(0);

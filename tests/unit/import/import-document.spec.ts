@@ -32,13 +32,15 @@ describe('import validation: key result count (B4)', () => {
   });
 
   it('rejects 11 in plain language, without the field path (B4)', () => {
-    expect(parse(doc(Array.from({ length: 11 }, (_, i) => kr(i))))).toEqual({
+    expect(parse(doc(Array.from({ length: 11 }, (_, i) => kr(i))))).toMatchObject({
       ok: false,
       problem: {
         kind: 'invalid',
         field: '',
         reason: '这个 OKR 有 11 个 KR，最多 10 个',
         more: 0,
+        issues: [{ code: 'too_many_key_results', location: ['keyResults'] }],
+        total: 1,
       },
     });
   });
@@ -53,14 +55,21 @@ describe('import validation: key result count (B4)', () => {
   });
 
   it('still rejects an empty list', () => {
-    expect(parse(doc([]))).toMatchObject({ ok: false, problem: { field: 'keyResults' } });
+    expect(parse(doc([]))).toMatchObject({
+      ok: false,
+      problem: { field: '', issues: [{ code: 'no_key_results', location: ['keyResults'] }] },
+    });
   });
 
   it('N30: a KR without removedAt is rejected by the schema (missing field)', () => {
     const { removedAt: _drop, ...noField } = kr(0);
     expect(parse(doc([noField]))).toMatchObject({
       ok: false,
-      problem: { kind: 'invalid', field: 'keyResults[0].removedAt' },
+      problem: {
+        kind: 'invalid',
+        field: '',
+        issues: [{ code: 'missing', location: ['keyResults', 0, 'removedAt'] }],
+      },
     });
   });
 

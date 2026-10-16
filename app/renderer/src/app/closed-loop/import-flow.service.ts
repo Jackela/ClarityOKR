@@ -1,4 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
+import { IMPORT_ISSUE_UI, issueLines } from '@clarityokr/contracts';
 import type { ImportProblem, ImportReply } from '@clarityokr/contracts';
 
 import { ToastService } from '../shared/components/toast.service';
@@ -364,15 +365,18 @@ export class ImportFlow {
         this.openDialog({
           ...base,
           title: C.invalidTitle,
+          // #69: the first sentence is plain language (read first, N49)
           body:
             problem.okrIndex === undefined
-              ? C.invalidBody
+              ? IMPORT_ISSUE_UI.singleBody
               : C.backupInvalidBody(problem.okrIndex + 1),
-          detail: [
-            // a plain-language reason has no field (B4)
-            problem.field ? `${problem.field} ${problem.reason}` : problem.reason,
-            ...(problem.more > 0 ? [C.invalidMore(problem.more)] : []),
-          ],
+          // #69: located plain sentences, at most 5 lines, the rest as 「另有 n 处」
+          detail: problem.issues
+            ? issueLines(problem.issues, problem.total ?? problem.issues.length)
+            : [
+                problem.field ? `${problem.field} ${problem.reason}` : problem.reason,
+                ...(problem.more > 0 ? [C.invalidMore(problem.more)] : []),
+              ],
           action: null,
         });
         return;

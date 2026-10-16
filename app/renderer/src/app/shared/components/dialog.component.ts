@@ -163,11 +163,11 @@ const SWALLOWED_KEYS: ReadonlySet<string> = new Set(['1', '2', '3', 's']);
       .dialog__body--tight {
         margin-bottom: 8px;
       }
+      /* #69 (S1§8.6 v3.2): plain sentences in the body font, 13/20, selectable */
       .dialog__detail {
         margin: 0 0 8px;
-        font-family: var(--font-family-mono, ui-monospace, monospace);
-        font-size: 12px;
-        line-height: 16px;
+        font-size: 13px;
+        line-height: 20px;
         user-select: text;
         overflow-wrap: anywhere;
       }

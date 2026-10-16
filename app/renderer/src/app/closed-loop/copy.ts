@@ -259,7 +259,8 @@ export const COPY = {
     notJsonBody: '文件内容不是有效的 JSON。请选择 ClarityOKR 导出的 .json 文件。',
     invalidTitle: '文件内容有误，无法导入',
     invalidBody: '第一处错误：',
-    invalidMore: (n: number) => `另有 ${n} 处错误`,
+    // #69: more than 99 shows 99+
+    invalidMore: (n: number) => `另有 ${n > 99 ? '99+' : n} 处错误`,
     versionTitle: '这个文件的版本不受支持',
     versionBody: (v: string) => `这个文件的格式版本是 ${v}，当前只能导入版本 1 的文件。`,
     readTitle: '没能读取这个文件',
@@ -281,7 +282,7 @@ export const COPY = {
     // #50 backup import (S1§9.4; Q9-3: 「个」 everywhere)
     emptyBackupTitle: '备份中没有 OKR',
     emptyBackupBody: '这个备份文件里没有任何 OKR，没有可导入的内容。数据没有任何改动。',
-    backupInvalidBody: (n: number) => `备份里第 ${n} 个 OKR 有误，整份没有导入。第一处错误：`,
+    backupInvalidBody: (n: number) => `备份里第 ${n} 个 OKR 有误，整份没有导入。`,
     backupTitle: '导入备份？',
     backupBody: (n: number, at: string, version: string) =>
       `这个备份包含 ${n} 个 OKR，备份于 ${at}（ClarityOKR ${version}）。导入不会覆盖已有数据。`,
