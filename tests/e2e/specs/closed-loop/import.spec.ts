@@ -190,16 +190,16 @@ test.describe('#49 import', () => {
     many.progressEntries = Array.from({ length: 110 }, (_, i) => ({
       id: i + 1,
       krId: exported.keyResults[0].id,
-      kind: 'set',
+      kind: 'undo',
       value: 10,
-      status: 'blocked',
+      status: 'in_progress',
       revertsEntryId: null,
       recordedAt: exported.exportedAt,
     }));
     await plainDetail(
       'S1-10c-import-invalid-99plus',
       JSON.stringify(many),
-      '第 1 条进度记录的状态不是可选的状态',
+      '第 1 条进度记录的记录类型不是可选的类型',
       '另有 99+ 处',
     );
     await errorCase(

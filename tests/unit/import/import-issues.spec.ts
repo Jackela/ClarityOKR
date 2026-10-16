@@ -368,3 +368,45 @@ describe('#69 single-OKR body sentence', () => {
     expect(IMPORT_ISSUE_UI.singleBody).toBe('这个 OKR 有误，没有导入。');
   });
 });
+
+describe('#69 no field falls back to a generic sentence', () => {
+  it('progressEntries[i].kind uses the 记录类型 sentence, not the status one', () => {
+    const d = valid();
+    d.progressEntries[0].kind = 'undo';
+    const parsed = single(d);
+    if (parsed.ok || parsed.problem.kind !== 'invalid') throw new Error('expected invalid');
+    expect(parsed.problem.reason).toBe('第 1 条进度记录的记录类型不是可选的类型');
+    expect(parsed.problem.reason).not.toContain('状态');
+  });
+
+  it('every field of every item, missing or of the wrong type, gets a named place', () => {
+    const generic = /某一项|第 \d+ 项/;
+    const seen: string[] = [];
+    const lists: Array<[string, (d: Doc) => Record<string, unknown>]> = [
+      ['objective', (d) => d as unknown as Record<string, unknown>],
+      ['keyResults', (d) => d.keyResults[0] as unknown as Record<string, unknown>],
+      ['progressEntries', (d) => d.progressEntries[0] as unknown as Record<string, unknown>],
+      ['review', (d) => d.review as unknown as Record<string, unknown>],
+      ['snapshot', (d) => d.review.snapshot[0] as unknown as Record<string, unknown>],
+    ];
+    for (const [, pick] of lists) {
+      for (const key of Object.keys(pick(valid()))) {
+        for (const breakIt of [
+          (o: Record<string, unknown>) => delete o[key],
+          (o: Record<string, unknown>) => (o[key] = { bad: true }),
+        ]) {
+          const d = valid();
+          breakIt(pick(d));
+          for (const issue of validateOkrDocument(d)) {
+            const { reason } = presentIssue(issue);
+            seen.push(reason);
+            expect(reason).not.toBe(FALLBACK_REASON);
+            expect(reason).not.toMatch(generic);
+            expectPlain(reason);
+          }
+        }
+      }
+    }
+    expect(seen.length).toBeGreaterThan(20);
+  });
+});
