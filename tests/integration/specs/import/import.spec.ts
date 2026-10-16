@@ -199,13 +199,15 @@ describe('#49 import', () => {
     it('missing field', async () => {
       expect(await reject(mutate((d) => delete d.objective.title))).toMatchObject({
         kind: 'invalid',
-        field: 'objective.title',
-        reason: '缺失',
+        field: '',
+        reason: '目标标题不见了',
+        issues: [{ code: 'missing', location: ['objective', 'title'] }],
       });
     });
     it('illegal status', async () => {
       expect(await reject(mutate((d) => (d.keyResults[1].status = 'blocked')))).toMatchObject({
-        field: 'keyResults[1].status',
+        reason: '第 2 个关键结果的状态不是可选的状态',
+        issues: [{ code: 'invalid_status', location: ['keyResults', 1, 'status'] }],
       });
     });
     it('progress out of range, with the count of further problems', async () => {
@@ -217,15 +219,20 @@ describe('#49 import', () => {
       );
       expect(problem).toEqual({
         kind: 'invalid',
-        field: 'keyResults[0].progress',
-        reason: '超出 0–100',
+        field: '',
+        reason: '第 1 个关键结果的进度超出 0 到 100',
         more: 1,
+        issues: [
+          { code: 'out_of_range', location: ['keyResults', 0, 'progress'], params: {} },
+          { code: 'out_of_range', location: ['keyResults', 2, 'progress'], params: {} },
+        ],
+        total: 2,
       });
     });
     it('krId pointing nowhere', async () => {
       expect(await reject(mutate((d) => (d.progressEntries[0].krId = 'ghost')))).toMatchObject({
-        field: 'progressEntries[0].krId',
-        reason: '指向的关键结果不存在',
+        reason: '第 1 条进度记录的所属关键结果找不到',
+        issues: [{ code: 'unknown_key_result', location: ['progressEntries', 0, 'krId'] }],
       });
     });
     it('revertsEntryId pointing nowhere', async () => {
@@ -235,12 +242,13 @@ describe('#49 import', () => {
           revert.revertsEntryId = 9999;
         }),
       );
-      expect(problem).toMatchObject({ reason: '指向的进度记录不存在' });
+      expect(problem).toMatchObject({ issues: [{ code: 'unknown_entry' }] });
+      expect((problem as any).reason).toMatch(/^第 \d+ 条进度记录要撤回的记录找不到$/);
     });
     it('review section over 2000 characters', async () => {
       expect(await reject(mutate((d) => (d.review.wentWell = '好'.repeat(2001))))).toMatchObject({
-        field: 'review.wentWell',
-        reason: '超过 2000 字',
+        reason: '做得好超过 2000 字',
+        issues: [{ code: 'too_long', location: ['review', 'wentWell'], params: { max: 2000 } }],
       });
     });
     it('over 5 MB', async () => {
@@ -253,7 +261,10 @@ describe('#49 import', () => {
       });
     });
     it('an unknown kind', async () => {
-      expect(await reject(mutate((d) => (d.kind = 'other')))).toMatchObject({ field: 'kind' });
+      expect(await reject(mutate((d) => (d.kind = 'other')))).toMatchObject({
+        reason: '不支持这种文件类型',
+        issues: [{ code: 'unsupported_file_kind', location: ['kind'] }],
+      });
     });
     it('a file that cannot be read', async () => {
       chosen = join(dir, 'gone.json');
@@ -414,7 +425,10 @@ describe('#49 import', () => {
     delete doc.schemaVersion;
     expect(parseImportFile(Buffer.from(JSON.stringify(doc)))).toMatchObject({
       ok: false,
-      problem: { field: 'schemaVersion' },
+      problem: {
+        reason: '文件里缺少版本信息',
+        issues: [{ code: 'missing', location: ['schemaVersion'] }],
+      },
     });
   });
 });
