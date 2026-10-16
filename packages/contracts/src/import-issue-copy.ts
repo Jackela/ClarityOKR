@@ -237,14 +237,14 @@ export function presentIssue(issue: StructuredImportIssue): { field: string; rea
   return { field: '', reason: join(describePlace(where), message(issue.params)) };
 }
 
-/** Dialog layout and the remaining 【缺·文案】 placeholder (S1§8.6 v3.2). */
+/** Dialog layout and the single-OKR body sentence (S1§8.6 v3.2). */
 export const IMPORT_ISSUE_UI = {
   /** Detail area: at most this many lines; the rest merge into the last line. */
   maxLines: 5,
   /** Merged line (writer: 「另有 n 处」 / 「另有 99+ 处」 from 100). */
   moreLine: (n: number) => `另有 ${n >= 100 ? '99+' : n} 处`,
-  /** 【缺·文案】PLACEHOLDER — the writer has not given the single-OKR body sentence (N49). */
-  singleBody: '【缺·文案】这个文件里有内容不对，没有导入。',
+  /** Body sentence for a single OKR file that failed validation (N49, copy from the user). */
+  singleBody: '这个 OKR 有误，没有导入。',
 } as const;
 
 /** The issues that come with an `invalid` reply (first ones only; `total` counts all). */

@@ -362,3 +362,9 @@ describe('#69 import issues', () => {
     });
   });
 });
+
+describe('#69 single-OKR body sentence', () => {
+  it('is the final copy, no placeholder', () => {
+    expect(IMPORT_ISSUE_UI.singleBody).toBe('这个 OKR 有误，没有导入。');
+  });
+});
