@@ -349,7 +349,8 @@ describe('#69 import issues', () => {
       [100, '另有 99+ 处'],
     ])('n = %i → %s', (n, line) => {
       expect(IMPORT_ISSUE_UI.moreLine(n)).toBe(line);
-      // 4 shown + n merged
+      // 4 shown + n merged; 5 issues in all still fit on 5 lines, so n starts at 2 here
+      if (n === 1) return expect(issueLines(five, 5)).not.toContain(line);
       const lines = issueLines(five, 4 + n);
       expect(lines).toHaveLength(5);
       expect(lines[4]).toBe(line);
