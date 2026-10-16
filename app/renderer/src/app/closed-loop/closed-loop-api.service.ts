@@ -226,6 +226,41 @@ export class ClosedLoopApi {
     }
   }
 
+  /** #54: the reminder clock (fakeable in e2e) and closed review banners; null on failure. */
+  async getReminders(): Promise<{ now: string; dismissedQuarters: string[] } | null> {
+    const bridge = typeof window === 'undefined' ? undefined : window.clarifyOkr;
+    if (!bridge) return null;
+    try {
+      const reply = (await bridge.invoke(IPC_CHANNELS.REMINDERS_GET, undefined)) as {
+        now?: unknown;
+        dismissedQuarters?: unknown;
+      } | null;
+      if (typeof reply?.now !== 'string' || !Array.isArray(reply.dismissedQuarters)) return null;
+      return {
+        now: reply.now,
+        dismissedQuarters: reply.dismissedQuarters.filter(
+          (q): q is string => typeof q === 'string',
+        ),
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /** #54: close one quarter's review banner; false when it could not be saved. */
+  async dismissReminder(period: string): Promise<boolean> {
+    const bridge = typeof window === 'undefined' ? undefined : window.clarifyOkr;
+    if (!bridge) return false;
+    try {
+      const reply = (await bridge.invoke(IPC_CHANNELS.REMINDERS_DISMISS, { period })) as {
+        saved?: unknown;
+      } | null;
+      return reply?.saved === true;
+    } catch {
+      return false;
+    }
+  }
+
   /** Subscribes to a main → renderer event; returns the unsubscribe function. */
   onEvent(channel: string, listener: () => void): () => void {
     const bridge = typeof window === 'undefined' ? undefined : window.clarifyOkr;

@@ -22,6 +22,14 @@ export const STATUS_ICON: Record<KrStatus, string> = {
 export const STATUS_ORDER: readonly KrStatus[] = ['not_started', 'in_progress', 'at_risk', 'done'];
 
 export const COPY = {
+  /** #54 in-app reminders (S1§11). */
+  reminders: {
+    staleBadge: '7 天未更新',
+    endingText: '本季度即将结束，',
+    endedText: '本季度已经结束，还没复盘，',
+    goReview: '去复盘',
+    closeLabel: '关闭本季度复盘提醒',
+  },
   edit: {
     action: '编辑文字',
     formLabel: '编辑文字',

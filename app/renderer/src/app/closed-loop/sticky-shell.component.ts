@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
   HostListener,
   Input,
   ViewChild,
@@ -21,6 +22,8 @@ import { TabBarComponent, type TabItem } from '../shared/components/tab-bar.comp
 import { ClosedLoopStore } from './closed-loop.store';
 import { COPY } from './copy';
 import { HistoryTabComponent } from './history-tab.component';
+import { ReminderStore } from './reminder.store';
+import type { GoReviewRequest } from './review-reminder-banner.component';
 import { ReviewStore } from './review.store';
 import { ReviewTabComponent } from './review-tab.component';
 import { StorageNoticesComponent } from './storage-notices.component';
@@ -71,7 +74,7 @@ export type StickyTabId = 'note' | 'review' | 'history';
         [hidden]="tab() !== 'note'"
       >
         @if (okr) {
-          <clarityokr-sticky-note [okr]="okr" />
+          <clarityokr-sticky-note [okr]="okr" (goReview)="onGoReview($event)" />
         } @else {
           <div class="shell__empty" data-testid="note-empty">
             <p class="shell__empty-title">{{ copy.note.emptyTitle }}</p>
@@ -187,7 +190,11 @@ export class StickyShellComponent {
   private readonly editor = inject(EditModeStore);
   readonly review = inject(ReviewStore);
 
+  private readonly reminders = inject(ReminderStore);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+
   constructor() {
+    this.reminders.start();
     // Unsaved input of this window, for the restart / quit confirmation (spec §1.2c).
     inject(UnsavedReporter).watch(
       computed(() => ({
@@ -241,6 +248,28 @@ export class StickyShellComponent {
   private go(id: StickyTabId): void {
     this.tab.set(id);
     if (id === 'history') void this.store.refreshList();
+  }
+
+  /**
+   * #54 「去复盘」: switch to the banner's quarter (open its unreviewed OKR when another one is
+   * shown), then the review tab with focus on its title.
+   */
+  async onGoReview(request: GoReviewRequest): Promise<void> {
+    if (this.store.detail()?.objective.id !== request.okrId) {
+      const opened = await this.store.openFromHistory(request.okrId);
+      if (!opened) return;
+    }
+    this.select('review');
+    for (let tries = 0; tries < 60; tries++) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      const title = this.host.nativeElement.querySelector<HTMLElement>(
+        '[data-testid="review-objective"]',
+      );
+      if (title) {
+        title.focus();
+        return;
+      }
+    }
   }
 
   onOpened(): void {

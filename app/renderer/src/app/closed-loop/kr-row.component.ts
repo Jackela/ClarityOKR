@@ -73,6 +73,15 @@ const SLOW_SAVE_MS = 300;
           >
         }
         {{ kr.statement }}
+        @if (stale) {
+          <!-- #54: part of the statement (and so of the row's name); not focusable -->
+          <span class="kr__stale" data-testid="kr-stale-badge"
+            ><svg class="kr__stale-icon" viewBox="0 0 12 12" aria-hidden="true">
+              <circle cx="6" cy="6" r="4.75" fill="none" stroke="currentColor" stroke-width="1.2" />
+              <path d="M6 3.5V6l1.75 1" fill="none" stroke="currentColor" stroke-width="1.2" /></svg
+            >{{ copy.reminders.staleBadge }}</span
+          >
+        }
       </div>
     </div>
 
@@ -279,6 +288,8 @@ export class KrRowComponent implements OnChanges, OnDestroy {
   @Input() selected = false;
   /** Added by the last regeneration (the 「新增」 tag). */
   @Input() isNew = false;
+  /** #54: no progress for 7×24h (S1§11.2); clears with the next update. */
+  @Input() stale = false;
   @Output() toggle = new EventEmitter<string>();
   /** #53 「进度记录」: hidden on a row that is being regenerated (its skeleton). */
   @Input() history = true;

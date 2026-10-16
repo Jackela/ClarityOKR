@@ -62,7 +62,9 @@ describe('OkrHeaderComponent', () => {
   it('should conditionally render manual edits badge', () => {
     fixture.componentRef.setInput('hasManualEdits', false);
     fixture.detectChanges();
-    let manualEditBadge = fixture.nativeElement.querySelector('[data-testid="sticky-manual-edits"]');
+    let manualEditBadge = fixture.nativeElement.querySelector(
+      '[data-testid="sticky-manual-edits"]',
+    );
     expect(manualEditBadge).toBeNull();
 
     fixture.componentRef.setInput('hasManualEdits', true);

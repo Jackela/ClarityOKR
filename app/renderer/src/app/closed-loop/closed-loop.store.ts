@@ -150,13 +150,14 @@ export class ClosedLoopStore implements OnDestroy {
     }
   }
 
-  async refreshList(): Promise<void> {
-    this.listState.set('loading');
+  /** `silent` (#54 reminder ticks): keep what is shown while reading, no loading state. */
+  async refreshList(silent = false): Promise<void> {
+    if (!silent) this.listState.set('loading');
     const result = await this.api.list();
     if (result.ok) {
       this.list.set(result.data.items);
       this.listState.set('ready');
-    } else {
+    } else if (!silent) {
       this.listState.set('error');
     }
   }
