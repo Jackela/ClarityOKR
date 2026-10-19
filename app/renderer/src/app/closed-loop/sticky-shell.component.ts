@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   ElementRef,
   HostListener,
   Input,
@@ -12,6 +13,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
+import { IPC_CHANNELS } from '@clarityokr/contracts';
 
 import { OkrStickyNoteComponent } from '../okr-sticky/components/okr-sticky-note.component';
 import type { OkrStickyViewModel } from '../okr-sticky/services/okr-sticky.service';
@@ -22,8 +24,8 @@ import { TabBarComponent, type TabItem } from '../shared/components/tab-bar.comp
 import { ClosedLoopStore } from './closed-loop.store';
 import { COPY } from './copy';
 import { HistoryTabComponent } from './history-tab.component';
-import { ReminderStore } from './reminder.store';
-import type { GoReviewRequest } from './review-reminder-banner.component';
+import { ClosedLoopApi } from './closed-loop-api.service';
+import { ReminderNavigator, type GoReviewRequest } from './reminder-navigator.service';
 import { ReviewStore } from './review.store';
 import { ReviewTabComponent } from './review-tab.component';
 import { StorageNoticesComponent } from './storage-notices.component';
@@ -74,7 +76,7 @@ export type StickyTabId = 'note' | 'review' | 'history';
         [hidden]="tab() !== 'note'"
       >
         @if (okr) {
-          <clarityokr-sticky-note [okr]="okr" (goReview)="onGoReview($event)" />
+          <clarityokr-sticky-note [okr]="okr" />
         } @else {
           <div class="shell__empty" data-testid="note-empty">
             <p class="shell__empty-title">{{ copy.note.emptyTitle }}</p>
@@ -114,7 +116,7 @@ export type StickyTabId = 'note' | 'review' | 'history';
           testId="review-leave-dialog"
           [confirmDisabled]="review.saving()"
           [confirmNote]="review.saving() ? copy.review.leaveSaving : ''"
-          (cancelled)="leaveTarget.set(null)"
+          (cancelled)="keepEditingReview()"
           (confirmed)="leave(target)"
         />
       }
@@ -190,11 +192,32 @@ export class StickyShellComponent {
   private readonly editor = inject(EditModeStore);
   readonly review = inject(ReviewStore);
 
-  private readonly reminders = inject(ReminderStore);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   constructor() {
-    this.reminders.start();
+    // 「去复盘」 is answered here (this window has the review page), including requests handed
+    // over from the main window (#84 review).
+    const unregister = inject(ReminderNavigator).register((request) => this.onGoReview(request));
+    const api = inject(ClosedLoopApi);
+    const takeHandedOver = async (): Promise<void> => {
+      const okrId = await api.takeReviewRequest?.();
+      if (okrId) await this.onGoReview({ okrId });
+    };
+    const unsubscribe = api.onEvent?.(IPC_CHANNELS.REMINDERS_OPEN_REVIEW, () => {
+      void takeHandedOver();
+    });
+    // A freshly created sticky window: take a waiting request only once its own OKR is shown,
+    // so the document main sends on creation cannot replace Q's OKR afterwards (N55 case 1).
+    let tookInitial = false;
+    effect(() => {
+      if (tookInitial || this.store.detail() === null) return;
+      tookInitial = true;
+      untracked(() => setTimeout(() => void takeHandedOver(), 0));
+    });
+    inject(DestroyRef).onDestroy(() => {
+      unregister();
+      unsubscribe?.();
+    });
     // Unsaved input of this window, for the restart / quit confirmation (spec §1.2c).
     inject(UnsavedReporter).watch(
       computed(() => ({
@@ -245,7 +268,22 @@ export class StickyShellComponent {
     this.go(id);
   }
 
+  /** 「继续编辑」 in the leave dialog: stay, and forget a waiting 「去复盘」 (N55). */
+  keepEditingReview(): void {
+    this.leaveTarget.set(null);
+    this.pendingReview = null;
+  }
+
+  /** A 「去复盘」 waiting for the review leave dialog (N55). */
+  private pendingReview: Pick<GoReviewRequest, 'okrId'> | null = null;
+
   private go(id: StickyTabId): void {
+    const pending = this.pendingReview;
+    if (pending) {
+      this.pendingReview = null;
+      void this.onGoReview(pending);
+      return;
+    }
     this.tab.set(id);
     if (id === 'history') void this.store.refreshList();
   }
@@ -254,7 +292,23 @@ export class StickyShellComponent {
    * #54 「去复盘」: switch to the banner's quarter (open its unreviewed OKR when another one is
    * shown), then the review tab with focus on its title.
    */
-  async onGoReview(request: GoReviewRequest): Promise<void> {
+  async onGoReview(request: Pick<GoReviewRequest, 'okrId'>): Promise<void> {
+    // N55: never drop unsaved input silently — reuse the existing confirmations.
+    // Unsaved review text: the review leave dialog; the request goes on after 「放弃修改」 (or
+    // after a save in flight succeeds), and is dropped on 「继续编辑」.
+    if (this.tab() === 'review' && this.review.dirty()) {
+      this.pendingReview = request;
+      this.leaveTarget.set('note');
+      return;
+    }
+    // Text being edited on the note: unchanged edits just close; changed ones ask with the note's
+    // own 「放弃未保存的修改？」 dialog; 「继续编辑」 keeps the edits and stays.
+    if (this.editor.isEditing()) {
+      if (this.tab() !== 'note') this.go('note');
+      const leave = this.editor.isDirty() ? await this.note?.confirmDiscard() : true;
+      if (!leave) return;
+      this.editor.cancelEdits();
+    }
     if (this.store.detail()?.objective.id !== request.okrId) {
       const opened = await this.store.openFromHistory(request.okrId);
       if (!opened) return;
@@ -266,7 +320,8 @@ export class StickyShellComponent {
         '[data-testid="review-objective"]',
       );
       if (title) {
-        title.focus();
+        // N56: a visible focus ring after 「去复盘」 (also when handed over from the main window)
+        title.focus({ focusVisible: true } as FocusOptions);
         return;
       }
     }

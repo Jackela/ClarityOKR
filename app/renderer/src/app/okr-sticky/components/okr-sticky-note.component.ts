@@ -48,12 +48,10 @@ import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
-  EventEmitter,
   HostListener,
   Inject,
   Input,
   type OnChanges,
-  Output,
   ViewChild,
   inject,
   signal,
@@ -68,10 +66,7 @@ import { KrRowComponent } from '../../closed-loop/kr-row.component';
 import { OverallProgressComponent } from '../../closed-loop/overall-progress.component';
 import { PeriodPickerComponent } from '../../closed-loop/period-picker.component';
 import { ReminderStore } from '../../closed-loop/reminder.store';
-import {
-  ReviewReminderBannerComponent,
-  type GoReviewRequest,
-} from '../../closed-loop/review-reminder-banner.component';
+import { ReviewReminderBannerComponent } from '../../closed-loop/review-reminder-banner.component';
 import { DialogComponent } from '../../shared/components/dialog.component';
 import { SkeletonComponent } from '../../shared/components/skeleton.component';
 import {
@@ -181,10 +176,7 @@ function newKeyResultId(): string {
           }
         }
 
-        <clarityokr-review-reminder-banner
-          (goReview)="goReview.emit($event)"
-          (closed)="focusPeriodPicker()"
-        />
+        <clarityokr-review-reminder-banner (closed)="focusPeriodPicker()" />
         <div class="sticky-note__toprow" #toprow>
           <clarityokr-period-picker
             [value]="store.detail()?.objective?.period ?? null"
@@ -566,7 +558,7 @@ function newKeyResultId(): string {
         [confirmLabel]="t.edit.discard"
         [danger]="true"
         testId="discard-dialog"
-        (cancelled)="discardOpen.set(false)"
+        (cancelled)="keepEditing()"
         (confirmed)="discard()"
       />
     }
@@ -595,8 +587,6 @@ export class OkrStickyNoteComponent implements OnChanges {
 
   @ViewChild('title') private title?: ElementRef<HTMLElement>;
   @ViewChild('toprow') private toprow?: ElementRef<HTMLElement>;
-  /** #54 「去复盘」: the shell opens that OKR and its review tab. */
-  @Output() goReview = new EventEmitter<GoReviewRequest>();
   readonly reminders = inject(ReminderStore);
 
   /** #54: ✕ on the reminder banner moves focus to the quarter picker. */
@@ -604,7 +594,8 @@ export class OkrStickyNoteComponent implements OnChanges {
     setTimeout(() => {
       this.toprow?.nativeElement
         .querySelector<HTMLElement>('[data-testid="period-picker"]')
-        ?.focus();
+        // N56: the moved focus shows its ring (pointer click on ✕ would otherwise hide it)
+        ?.focus({ focusVisible: true } as FocusOptions);
     }, 0);
   }
   @ViewChild('editBtn') private editBtn?: ElementRef<HTMLElement>;
@@ -752,7 +743,35 @@ export class OkrStickyNoteComponent implements OnChanges {
     this.discard();
   }
 
+  /** Answer to a pending {@link confirmDiscard}: true = 放弃, false = 继续编辑. */
+  private discardAnswer: ((leave: boolean) => void) | null = null;
+
+  /**
+   * N55: asks with the same 「放弃未保存的修改？」 dialog before something else (「去复盘」 from the
+   * main window) replaces the note. Resolves true on 「放弃」, false on 「继续编辑」. The caller
+   * drops the edits itself.
+   */
+  confirmDiscard(): Promise<boolean> {
+    this.discardAnswer?.(false);
+    this.discardOpen.set(true);
+    return new Promise<boolean>((resolve) => (this.discardAnswer = resolve));
+  }
+
+  keepEditing(): void {
+    this.discardOpen.set(false);
+    const answer = this.discardAnswer;
+    this.discardAnswer = null;
+    answer?.(false);
+  }
+
   discard(): void {
+    const answer = this.discardAnswer;
+    if (answer) {
+      this.discardAnswer = null;
+      this.discardOpen.set(false);
+      answer(true);
+      return;
+    }
     this.discardOpen.set(false);
     if (!this.editor.isEditing()) return;
     this.editor.cancelEdits();
