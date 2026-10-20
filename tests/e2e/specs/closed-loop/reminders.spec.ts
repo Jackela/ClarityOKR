@@ -504,6 +504,10 @@ test.describe('#54 in-app reminders (fake time)', () => {
     await expect(mainWindow.locator('[role="dialog"], [role="alertdialog"]')).toHaveCount(0);
     await expect(go).toBeFocused();
     await expect(notice).toHaveText('复盘页没能打开，请再试一次');
+    // #90 design: focus stays on 去复盘 and shows its ring
+    await expect(go).toBeFocused();
+    expect(await focusVisible(go)).toBe(true);
+    expect(await ringDrawn(go)).toBe(true);
     await both(mainWindow, 'S2-15-goreview-timeout-notice');
     // clicked again: the original banner text is back at once (it may time out again)
     await go.click();

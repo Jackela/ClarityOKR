@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
   EventEmitter,
   Output,
   computed,
@@ -167,6 +168,7 @@ export class ReviewReminderBannerComponent {
   readonly t = COPY.reminders;
   private readonly reminders = inject(ReminderStore);
   private readonly navigator = inject(ReminderNavigator);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   readonly state = computed<BannerState>(() => this.reminders.banner());
   readonly live = signal(false);
   /** #88: 「去复盘」 could not reach the sticky note in time (session-only, this quarter). */
@@ -193,7 +195,19 @@ export class ReviewReminderBannerComponent {
       // clicked again: the original banner text is back at once; a new timeout shows it again
       this.reminders.clearHandoffNotice();
       void this.navigator.goReview({ okrId: s.targetOkrId, period }).then((outcome) => {
-        if (outcome === 'timeout') this.reminders.noteHandoffTimeout(period);
+        if (outcome !== 'timeout') return;
+        this.reminders.noteHandoffTimeout(period);
+        // #90 design: focus stays on 去复盘 with a visible ring (as #87 / N56)
+        // (already focused after a click: focus() would be a no-op and keep the mouse state,
+        // so it is taken off and put back to show the ring)
+        setTimeout(() => {
+          const button = this.host.nativeElement.querySelector<HTMLElement>(
+            '[data-testid="review-reminder-go"]',
+          );
+          if (!button) return;
+          button.blur();
+          button.focus({ focusVisible: true } as FocusOptions);
+        });
       });
     }
   }

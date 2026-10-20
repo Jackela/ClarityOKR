@@ -117,9 +117,11 @@ describe('#84 review: reminders in the main-window results panel', () => {
 
   describe('#88 hand-off timeout notice (session-only)', () => {
     const go = () => q('review-reminder-go') as HTMLButtonElement;
+    let focusSpy: jest.SpyInstance;
     const timeOut = async () => {
       api['goReviewElsewhere']!.mockResolvedValueOnce('timeout');
       go().focus();
+      focusSpy = jest.spyOn(go(), 'focus');
       go().click();
       await settle();
     };
@@ -132,6 +134,7 @@ describe('#84 review: reminders in the main-window results panel', () => {
       expect(q('review-reminder')?.contains(notice)).toBe(true); // the banner stays open
       expect(document.activeElement).toBe(go());
       expect(document.querySelector('[role="dialog"], [role="alertdialog"]')).toBeNull();
+      expect(focusSpy).toHaveBeenCalledWith({ focusVisible: true });
       expect(go().disabled).toBe(false);
     });
 
