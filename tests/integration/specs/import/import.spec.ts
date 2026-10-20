@@ -251,6 +251,25 @@ describe('#49 import', () => {
         issues: [{ code: 'too_long', location: ['review', 'wentWell'], params: { max: 2000 } }],
       });
     });
+    it('#89 exactly 5 × 1024 × 1024 bytes (a valid OKR padded to the limit) is read and imported', async () => {
+      const text = JSON.stringify(good);
+      const atLimit = `${text.slice(0, -1)}${' '.repeat(IMPORT_MAX_BYTES - Buffer.byteLength(text))}}`;
+      expect(Buffer.byteLength(atLimit)).toBe(IMPORT_MAX_BYTES);
+      file('at-limit.json', atLimit);
+      expect((await pick()).outcome).toBe('imported');
+      expect(counts(target.db).o).toBe(1);
+    });
+    it('#89 the same OKR one byte over the limit → too large', async () => {
+      const text = JSON.stringify(good);
+      const over = `${text.slice(0, -1)}${' '.repeat(IMPORT_MAX_BYTES + 1 - Buffer.byteLength(text))}}`;
+      expect(Buffer.byteLength(over)).toBe(IMPORT_MAX_BYTES + 1);
+      expect(await reject(over)).toEqual({
+        kind: 'too_large',
+        sizeBytes: IMPORT_MAX_BYTES + 1,
+        limitBytes: IMPORT_MAX_BYTES,
+        backup: false,
+      });
+    });
     it('over 5 MB', async () => {
       const problem = await reject(Buffer.alloc(IMPORT_MAX_BYTES + 1, 0x20));
       expect(problem).toEqual({

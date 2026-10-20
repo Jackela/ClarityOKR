@@ -1,3 +1,9 @@
+import {
+  BYTES_PER_MB,
+  IMPORT_BACKUP_MAX_BYTES,
+  IMPORT_MAX_BYTES,
+  IMPORT_MAX_MB,
+} from '@clarityokr/contracts';
 import { TestBed } from '@angular/core/testing';
 import { IMPORT_ISSUE_UI } from '@clarityokr/contracts';
 
@@ -110,23 +116,44 @@ describe('ImportFlow (#49, S1§8 + v3.1)', () => {
     expect(flow.dialog()).toBeNull();
   });
 
+  it('#89 too large (single OKR): the plain sentence without the file size, even just over the limit', async () => {
+    api['importPick']!.mockResolvedValue(
+      ok({
+        outcome: 'rejected',
+        problem: {
+          kind: 'too_large',
+          sizeBytes: IMPORT_MAX_BYTES + 1,
+          limitBytes: IMPORT_MAX_BYTES,
+          backup: false,
+        },
+      }),
+    );
+    await flow.start();
+    const body = flow.dialog()!.body;
+    expect(body).toBe('这个文件超过 5 MB，只能导入 5 MB 以内的文件。');
+    expect(body).not.toMatch(/\d+\.\d/); // never 「5.0 MB」
+    // the 5 in the copy is the limit the import enforces
+    expect(body.match(/(\d+) MB/g)).toEqual([`${IMPORT_MAX_MB} MB`, `${IMPORT_MAX_MB} MB`]);
+    expect(IMPORT_MAX_BYTES).toBe(IMPORT_MAX_MB * 1024 * 1024);
+  });
+
   it.each([
     [
       {
         kind: 'too_large',
-        sizeBytes: 7.3 * 1024 * 1024,
-        limitBytes: 5 * 1024 * 1024,
+        sizeBytes: IMPORT_MAX_BYTES + 1,
+        limitBytes: IMPORT_MAX_BYTES,
         backup: false,
       },
       '文件太大，无法导入',
-      '只能导入 5 MB 以内的文件，这个文件有 7.3 MB。',
+      '这个文件超过 5 MB，只能导入 5 MB 以内的文件。',
       'reselect',
     ],
     [
       {
         kind: 'too_large',
-        sizeBytes: 61.25 * 1024 * 1024,
-        limitBytes: 50 * 1024 * 1024,
+        sizeBytes: 61.25 * BYTES_PER_MB,
+        limitBytes: IMPORT_BACKUP_MAX_BYTES,
         backup: true,
       },
       '文件太大，无法导入',
