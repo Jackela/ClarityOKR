@@ -1,3 +1,4 @@
+import { IMPORT_BACKUP_MAX_BYTES } from '@clarityokr/contracts';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import type NodeModule from 'node:module';
 import { tmpdir } from 'node:os';
@@ -166,6 +167,33 @@ test.describe('#50 full backup', () => {
     await expect(error.locator('.dialog__title')).not.toHaveClass(/dialog__title--error/);
     await both(sticky, 'S1-27-backup-empty-plain');
     await error.getByRole('button', { name: '知道了' }).click();
+
+    // #93: exactly 50 × 1024 × 1024 bytes is read (the preview opens); one byte more → the plain
+    // backup sentence, never the file size
+    const padded = (bytes: number): string => {
+      const body = JSON.stringify({
+        ...file,
+        okrs: [variant('五十兆', '2026-02-01T00:00:00.000Z')],
+      });
+      return `${body.slice(0, -1)}${' '.repeat(bytes - Buffer.byteLength(body))}}`;
+    };
+    await stubDialogs(electronApp, null, write('at-limit', padded(IMPORT_BACKUP_MAX_BYTES)));
+    await button.click();
+    await expect(preview).toBeVisible();
+    await expect(error).toHaveCount(0);
+    await preview.getByRole('button', { name: '取消' }).click();
+    await expect(preview).toHaveCount(0);
+    await stubDialogs(electronApp, null, write('over-limit', padded(IMPORT_BACKUP_MAX_BYTES + 1)));
+    await button.click();
+    await expect(error).toContainText('文件太大，无法导入');
+    await expect(error).toContainText('这个备份文件超过 50 MB，只能导入 50 MB 以内的备份。');
+    await expect(error).toContainText('数据没有任何改动。');
+    await expect(error).not.toContainText(/\d+\.\d+ MB/);
+    await expect(error.getByRole('button', { name: '知道了' })).toBeFocused();
+    await expect(error.getByRole('button', { name: '重新选择文件…' })).toBeVisible();
+    await both(sticky, 'S1-30-backup-too-large');
+    await error.getByRole('button', { name: '知道了' }).click();
+    await expect(error).toHaveCount(0);
 
     // one bad OKR refuses the whole file (AC4)
     const bad = [okr, other, other, structuredClone(okr)].map((o) => structuredClone(o));

@@ -4,6 +4,8 @@ import { join } from 'node:path';
 import BetterSqlite3 from 'better-sqlite3';
 import type { Database } from 'better-sqlite3';
 import {
+  BYTES_PER_MB,
+  IMPORT_BACKUP_MAX_BYTES,
   IMPORT_MAX_BYTES,
   IPC_CHANNELS,
   type ImportReply,
@@ -281,7 +283,7 @@ describe('#50 full backup', () => {
   });
 
   describe('B5: size limits', () => {
-    const MB = 1024 * 1024;
+    const MB = BYTES_PER_MB;
     /** A valid backup of the seed, padded with whitespace to at least `bytes`. */
     async function bigBackup(bytes: number, kindLast = false): Promise<string> {
       seed(source.store);
@@ -341,15 +343,48 @@ describe('#50 full backup', () => {
       expect(target.store.listObjectives()).toHaveLength(0);
     });
 
-    it('any file over 50 MB is rejected with the backup wording, unread', async () => {
-      openPath = join(dir, 'huge.json');
-      writeFileSync(openPath, Buffer.alloc(50 * MB + 1, 0x20));
+    it('#93 a backup of exactly 50 × 1024 × 1024 bytes is read in full', async () => {
+      openPath = await bigBackup(IMPORT_BACKUP_MAX_BYTES);
+      expect(statSync(openPath).size).toBe(IMPORT_BACKUP_MAX_BYTES);
+      wire(target.store);
+      expect(await invoke<ImportReply>(IPC_CHANNELS.IMPORT_PICK)).toMatchObject({
+        ok: true,
+        data: { outcome: 'confirm' },
+      });
+    });
+
+    it('#93 the same backup one byte over 50 MB → too large (backup wording)', async () => {
+      openPath = await bigBackup(IMPORT_BACKUP_MAX_BYTES + 1);
+      expect(statSync(openPath).size).toBe(IMPORT_BACKUP_MAX_BYTES + 1);
       wire(target.store);
       expect(await invoke<ImportReply>(IPC_CHANNELS.IMPORT_PICK)).toMatchObject({
         ok: true,
         data: {
           outcome: 'rejected',
-          problem: { kind: 'too_large', sizeBytes: 50 * MB + 1, limitBytes: 50 * MB, backup: true },
+          problem: {
+            kind: 'too_large',
+            sizeBytes: IMPORT_BACKUP_MAX_BYTES + 1,
+            limitBytes: IMPORT_BACKUP_MAX_BYTES,
+            backup: true,
+          },
+        },
+      });
+    });
+
+    it('any file over 50 MB is rejected with the backup wording, unread', async () => {
+      openPath = join(dir, 'huge.json');
+      writeFileSync(openPath, Buffer.alloc(IMPORT_BACKUP_MAX_BYTES + 1, 0x20));
+      wire(target.store);
+      expect(await invoke<ImportReply>(IPC_CHANNELS.IMPORT_PICK)).toMatchObject({
+        ok: true,
+        data: {
+          outcome: 'rejected',
+          problem: {
+            kind: 'too_large',
+            sizeBytes: IMPORT_BACKUP_MAX_BYTES + 1,
+            limitBytes: IMPORT_BACKUP_MAX_BYTES,
+            backup: true,
+          },
         },
       });
     });

@@ -270,8 +270,11 @@ export const COPY = {
      * limit used to read 「5.0 MB」. The 5 is IMPORT_MAX_MB (a test keeps them equal).
      */
     tooLargeBody: '这个文件超过 5 MB，只能导入 5 MB 以内的文件。',
-    tooLargeBackupBody: (limit: number, mb: string) =>
-      `只能导入 ${limit} MB 以内的备份，这个文件有 ${mb} MB。`,
+    /**
+     * #93 (writer, clarityokr-88/copy.md §3): same pattern as tooLargeBody, no file size. The 50
+     * is BACKUP_MAX_MB (a test keeps them equal).
+     */
+    tooLargeBackupBody: '这个备份文件超过 50 MB，只能导入 50 MB 以内的备份。',
     invalidTitle: '文件内容有误，无法导入',
     invalidBody: '第一处错误：',
     // #69: more than 99 shows 99+

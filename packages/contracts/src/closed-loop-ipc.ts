@@ -253,8 +253,13 @@ export const IMPORT_MAX_MB = 5;
  * more is too large (#89). The one definition used by main, the renderer and the tests.
  */
 export const IMPORT_MAX_BYTES = IMPORT_MAX_MB * BYTES_PER_MB;
-/** #50 B5: largest full backup the import reads (50 MB). */
-export const IMPORT_BACKUP_MAX_BYTES = 50 * BYTES_PER_MB;
+/** #93: the backup limit in MB, the number the backup copy names (「50 MB」). */
+export const BACKUP_MAX_MB = 50;
+/**
+ * #50 B5 / #93: largest full backup the import reads: exactly 50 × 1024 × 1024 bytes is allowed,
+ * one byte more is too large.
+ */
+export const IMPORT_BACKUP_MAX_BYTES = BACKUP_MAX_MB * BYTES_PER_MB;
 
 /** #89: true when a single-OKR file of `bytes` is over the limit (the limit itself is fine). */
 export function exceedsImportLimit(bytes: number): boolean {

@@ -1,4 +1,5 @@
 import {
+  BACKUP_MAX_MB,
   BYTES_PER_MB,
   IMPORT_BACKUP_MAX_BYTES,
   IMPORT_MAX_BYTES,
@@ -116,6 +117,32 @@ describe('ImportFlow (#49, S1§8 + v3.1)', () => {
     expect(flow.dialog()).toBeNull();
   });
 
+  it('#93 too large (backup): the plain sentence without the file size; its 50 is the limit', async () => {
+    api['importPick']!.mockResolvedValue(
+      ok({
+        outcome: 'rejected',
+        problem: {
+          kind: 'too_large',
+          sizeBytes: IMPORT_BACKUP_MAX_BYTES + 1,
+          limitBytes: IMPORT_BACKUP_MAX_BYTES,
+          backup: true,
+        },
+      }),
+    );
+    await flow.start();
+    expect(flow.dialog()).toMatchObject({
+      kind: 'error',
+      title: '文件太大，无法导入',
+      body: '这个备份文件超过 50 MB，只能导入 50 MB 以内的备份。',
+      hint: '数据没有任何改动。',
+      action: 'reselect',
+    });
+    const body = flow.dialog()!.body;
+    expect(body).not.toMatch(/\d+\.\d/);
+    expect(body.match(/(\d+) MB/g)).toEqual([`${BACKUP_MAX_MB} MB`, `${BACKUP_MAX_MB} MB`]);
+    expect(IMPORT_BACKUP_MAX_BYTES).toBe(BACKUP_MAX_MB * BYTES_PER_MB);
+  });
+
   it('#89 too large (single OKR): the plain sentence without the file size, even just over the limit', async () => {
     api['importPick']!.mockResolvedValue(
       ok({
@@ -152,12 +179,12 @@ describe('ImportFlow (#49, S1§8 + v3.1)', () => {
     [
       {
         kind: 'too_large',
-        sizeBytes: 61.25 * BYTES_PER_MB,
+        sizeBytes: IMPORT_BACKUP_MAX_BYTES + 1,
         limitBytes: IMPORT_BACKUP_MAX_BYTES,
         backup: true,
       },
       '文件太大，无法导入',
-      '只能导入 50 MB 以内的备份，这个文件有 61.3 MB。',
+      '这个备份文件超过 50 MB，只能导入 50 MB 以内的备份。',
       'reselect',
     ],
     [{ kind: 'not_json' }, '这个文件导入不了', '这不是 ClarityOKR 导出的文件', 'reselect'],
