@@ -503,10 +503,20 @@ test.describe('#54 in-app reminders (fake time)', () => {
     await expect(panel.getByTestId('review-reminder')).toBeVisible(); // the banner stays
     await expect(mainWindow.locator('[role="dialog"], [role="alertdialog"]')).toHaveCount(0);
     await expect(go).toBeFocused();
+    await expect(notice).toHaveText('复盘页没能打开，请再试一次');
     await both(mainWindow, 'S2-15-goreview-timeout-notice');
+    // clicked again: the original banner text is back at once (it may time out again)
+    await go.click();
+    await expect(notice).toHaveCount(0);
+    await expect(panel.getByTestId('review-reminder')).toContainText('本季度已经结束，还没复盘，');
+    await expect(notice).toBeVisible({ timeout: 20_000 });
     // ✕ still works: the banner goes for this quarter
     await panel.getByTestId('review-reminder-close').click();
     await expect(panel.getByTestId('review-reminder')).toHaveCount(0);
+    // remembered for this quarter (saved in settings, unlike the notice)
+    await expect
+      .poll(async () => (await invoke(mainWindow, IPC_CHANNELS.REMINDERS_GET)).dismissedQuarters)
+      .toContain('2026-Q3');
   });
 
   test('#87 shell entry: 去复盘 in the sticky shell focuses the review heading with a drawn ring', async ({

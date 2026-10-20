@@ -21,9 +21,6 @@ export const STATUS_ICON: Record<KrStatus, string> = {
 
 export const STATUS_ORDER: readonly KrStatus[] = ['not_started', 'in_progress', 'at_risk', 'done'];
 
-/** #88: placeholder marker until the writer's copy lands (PR must not merge while it is used). */
-export const HANDOFF_TIMEOUT_PLACEHOLDER = '【待文案 #88：去复盘超时提示】';
-
 export const COPY = {
   /** #54 in-app reminders (S1§11). */
   reminders: {
@@ -33,11 +30,10 @@ export const COPY = {
     goReview: '去复盘',
     closeLabel: '关闭本季度复盘提醒',
     /**
-     * #88 PLACEHOLDER — the writer has not delivered this sentence yet (shown in the banner when
-     * 去复盘 from another window could not open the sticky note in time). Replace with the
-     * writer's copy before merging; never ship this marker.
+     * #88 (writer, clarityokr-88/copy.md §1): in the banner's place when 去复盘 from another
+     * window could not open the review in time; followed by the same 去复盘 button, no period.
      */
-    handoffTimeout: HANDOFF_TIMEOUT_PLACEHOLDER,
+    handoffTimeout: '复盘页没能打开，请再试一次',
   },
   edit: {
     action: '编辑文字',

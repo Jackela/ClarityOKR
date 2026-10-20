@@ -116,6 +116,11 @@ export class ReminderStore {
   }
 
   /** Closes this quarter's banner (other quarters keep theirs). Holds for this run even if saving fails. */
+  /** #88: 去复盘 clicked again (or the review opened): back to the original banner. */
+  clearHandoffNotice(): void {
+    this.handoffNotice.set(null);
+  }
+
   /** #88: the hand-off of 「去复盘」 for `period` timed out. */
   noteHandoffTimeout(period: Period): void {
     this.handoffNotice.set({ period, view: this.store.detail()?.objective.period ?? null });

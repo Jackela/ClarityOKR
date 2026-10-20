@@ -9,7 +9,7 @@ import {
 } from '../okr-sticky/services/okr-sticky.service';
 import { ClosedLoopApi } from './closed-loop-api.service';
 import { ClosedLoopStore } from './closed-loop.store';
-import { HANDOFF_TIMEOUT_PLACEHOLDER } from './copy';
+import { COPY } from './copy';
 import { ReminderStore } from './reminder.store';
 import { makeDetail, makeKr, makeListItem } from './testing/fixtures';
 
@@ -124,15 +124,44 @@ describe('#84 review: reminders in the main-window results panel', () => {
       await settle();
     };
 
-    it('timeout → placeholder notice in the banner slot, role=status, no dialog; focus stays on 去复盘', async () => {
+    it('timeout → 「复盘页没能打开，请再试一次」 + 去复盘 in the banner slot, role=status, no dialog; focus stays on 去复盘', async () => {
       await timeOut();
       const notice = q('review-reminder-notice');
       expect(notice?.getAttribute('role')).toBe('status');
-      expect(notice?.textContent.trim()).toBe(HANDOFF_TIMEOUT_PLACEHOLDER);
+      expect(notice?.textContent.trim()).toBe('复盘页没能打开，请再试一次');
       expect(q('review-reminder')?.contains(notice)).toBe(true); // the banner stays open
       expect(document.activeElement).toBe(go());
       expect(document.querySelector('[role="dialog"], [role="alertdialog"]')).toBeNull();
       expect(go().disabled).toBe(false);
+    });
+
+    it('the notice is followed by the same 去复盘 button, no trailing period', async () => {
+      await timeOut();
+      const notice = q('review-reminder-notice');
+      expect(COPY.reminders.handoffTimeout).toBe('复盘页没能打开，请再试一次');
+      expect(notice?.textContent.trim()).not.toMatch(/[。.]$/);
+      expect(notice?.nextElementSibling).toBe(go());
+      expect(go().textContent.trim()).toBe('去复盘');
+    });
+
+    it('去复盘 clicked again → back to the original banner at once; the review opening keeps it so', async () => {
+      await timeOut();
+      let answer!: (v: string) => void;
+      api['goReviewElsewhere']!.mockImplementationOnce(() => new Promise((r) => (answer = r)));
+      go().click();
+      fixture.detectChanges();
+      expect(q('review-reminder-notice')).toBeNull();
+      expect(q('review-reminder')?.textContent).toContain('本季度已经结束，还没复盘，');
+      answer('opened');
+      await settle();
+      expect(q('review-reminder-notice')).toBeNull();
+      expect(q('review-reminder')?.textContent).toContain('本季度已经结束，还没复盘，');
+    });
+
+    it('clicked again and it times out again → the notice shows again', async () => {
+      await timeOut();
+      await timeOut();
+      expect(q('review-reminder-notice')).not.toBeNull();
     });
 
     it('rapid double click: never disabled, no spinner; a superseded click shows nothing, the last one decides', async () => {

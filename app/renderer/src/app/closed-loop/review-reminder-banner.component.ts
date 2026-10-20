@@ -190,6 +190,8 @@ export class ReviewReminderBannerComponent {
   go(s: BannerState): void {
     const period = s.period;
     if (s.targetOkrId && period) {
+      // clicked again: the original banner text is back at once; a new timeout shows it again
+      this.reminders.clearHandoffNotice();
       void this.navigator.goReview({ okrId: s.targetOkrId, period }).then((outcome) => {
         if (outcome === 'timeout') this.reminders.noteHandoffTimeout(period);
       });
