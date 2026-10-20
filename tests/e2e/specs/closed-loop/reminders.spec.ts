@@ -590,6 +590,48 @@ test.describe('#54 in-app reminders (fake time)', () => {
     expect(await ringDrawn(sticky.getByTestId('review-objective'))).toBe(true);
   });
 
+  test('#54 P1 / N55 (2b): unsaved review draft in the sticky window → 去复盘 from the main window asks first (review leave dialog)', async ({
+    electronApp,
+    mainWindow,
+    mockServer,
+  }) => {
+    const { sticky, panel, threshold } = await mainWindowSetup(electronApp, mainWindow, mockServer);
+    await fakeNow(electronApp, new Date(threshold + 60_000).toISOString());
+    // the sticky note's own OKR (not Q's) on its review tab, with text not saved yet
+    await sticky.getByTestId('tab-review').click();
+    const draft = sticky.getByTestId('review-wentWell');
+    await draft.fill('还没保存的复盘');
+
+    // 去复盘 from the main window → the existing 「放弃未保存的复盘修改？」 dialog, nothing dropped yet
+    await panel.getByTestId('review-reminder-go').click();
+    const dialog = sticky.getByTestId('review-leave-dialog');
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText('放弃未保存的复盘修改？');
+    const keep = dialog.getByRole('button', { name: '继续编辑' });
+    await expect(keep).toBeFocused();
+    expect(await focusVisible(keep)).toBe(true);
+    await both(sticky, 'S2-14b-goreview-unsaved-review-confirm-focus');
+
+    // Enter on the default focus = 继续编辑: the draft stays, still its own review
+    await sticky.keyboard.press('Enter');
+    await expect(dialog).toHaveCount(0);
+    await expect(draft).toHaveValue('还没保存的复盘');
+    await expect(sticky.getByTestId('tab-review')).toHaveAttribute('aria-selected', 'true');
+    await expect(sticky.getByTestId('review-objective')).not.toHaveText('上季度 OKR');
+
+    // again, and 放弃修改: Q's review opens, heading focused with a visible ring
+    await panel.getByTestId('review-reminder-go').click();
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole('button', { name: '放弃修改' }).click();
+    await expect(sticky.getByTestId('review-period')).toHaveText('2026-Q3');
+    await expect(sticky.getByTestId('review-objective')).toHaveText('上季度 OKR');
+    await expect(sticky.getByTestId('review-objective')).toBeFocused();
+    expect(await focusVisible(sticky.getByTestId('review-objective'))).toBe(true);
+    // nothing unsaved is left behind: leaving again does not ask
+    await sticky.getByTestId('tab-history').click();
+    await expect(sticky.getByTestId('review-leave-dialog')).toHaveCount(0);
+  });
+
   test('N55 (3): sticky window editing with unsaved text → the existing discard dialog asks first', async ({
     electronApp,
     mainWindow,
