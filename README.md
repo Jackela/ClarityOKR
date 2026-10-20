@@ -1,6 +1,6 @@
 # ClarityOKR
 
-[![Version](https://img.shields.io/badge/version-0.2.0-blue)](./package.json)
+[![Version](https://img.shields.io/badge/version-0.3.0-blue)](./package.json)
 [![CI](https://github.com/Jackela/ClarityOKR/actions/workflows/ci.yml/badge.svg)](https://github.com/Jackela/ClarityOKR/actions/workflows/ci.yml)
 [![Clarify OKR CI](https://github.com/Jackela/ClarityOKR/actions/workflows/clarify-okr.yml/badge.svg)](https://github.com/Jackela/ClarityOKR/actions/workflows/clarify-okr.yml)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue)](https://www.typescriptlang.org/)
