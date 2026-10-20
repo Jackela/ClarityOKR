@@ -1,10 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import {
-  BYTES_PER_MB,
-  IMPORT_ISSUE_UI,
-  importFileProblemCopy,
-  issueLines,
-} from '@clarityokr/contracts';
+import { IMPORT_ISSUE_UI, importFileProblemCopy, issueLines } from '@clarityokr/contracts';
 import type { ImportProblem, ImportReply } from '@clarityokr/contracts';
 
 import { ToastService } from '../shared/components/toast.service';
@@ -354,12 +349,7 @@ export class ImportFlow {
         this.openDialog({
           ...base,
           title: C.tooLargeTitle,
-          body: problem.backup
-            ? C.tooLargeBackupBody(
-                Math.round(problem.limitBytes / BYTES_PER_MB),
-                (problem.sizeBytes / BYTES_PER_MB).toFixed(1),
-              )
-            : C.tooLargeBody,
+          body: problem.backup ? C.tooLargeBackupBody : C.tooLargeBody,
           action: 'reselect',
         });
         return;
