@@ -1,5 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { IMPORT_ISSUE_UI, issueLines } from '@clarityokr/contracts';
+import { IMPORT_ISSUE_UI, importFileProblemCopy, issueLines } from '@clarityokr/contracts';
 import type { ImportProblem, ImportReply } from '@clarityokr/contracts';
 
 import { ToastService } from '../shared/components/toast.service';
@@ -37,6 +37,8 @@ export type ImportDialog =
       hint: string;
       /** The second button: pick another file, or re-read the same one (Q8-3). */
       action: 'reselect' | 'retry' | null;
+      /** #85: an information dialog (empty backup): `dialog` role, no ⚠, primary title. */
+      info?: true;
     };
 
 export interface BackupRow {
@@ -322,6 +324,26 @@ export class ImportFlow {
 
   private showError(problem: ImportProblem): void {
     const base = { kind: 'error' as const, detail: [] as string[], hint: C.unchanged };
+    // #85: copy and tone from the shared copy file (contracts/import-issue-copy.ts). Not
+    // stacked case labels: the coverage build counts them and fails on noFallthroughCasesInSwitch.
+    if (
+      problem.kind === 'not_json' ||
+      problem.kind === 'unsupported_version' ||
+      problem.kind === 'empty_backup'
+    ) {
+      const copy = importFileProblemCopy(problem.kind, {
+        version: problem.kind === 'unsupported_version' ? problem.version : undefined,
+      });
+      this.openDialog({
+        ...base,
+        title: copy.title,
+        body: copy.body,
+        hint: copy.unchanged,
+        action: problem.kind === 'not_json' ? 'reselect' : null,
+        ...(copy.tone === 'info' ? { info: true as const } : {}),
+      });
+      return;
+    }
     switch (problem.kind) {
       case 'too_large':
         this.openDialog({
@@ -334,31 +356,6 @@ export class ImportFlow {
               )
             : C.tooLargeBody((problem.sizeBytes / (1024 * 1024)).toFixed(1)),
           action: 'reselect',
-        });
-        return;
-      case 'not_json':
-        this.openDialog({
-          ...base,
-          title: C.notJsonTitle,
-          body: C.notJsonBody,
-          action: 'reselect',
-        });
-        return;
-      case 'unsupported_version':
-        this.openDialog({
-          ...base,
-          title: C.versionTitle,
-          body: C.versionBody(problem.version),
-          action: null,
-        });
-        return;
-      case 'empty_backup':
-        this.openDialog({
-          ...base,
-          hint: '',
-          title: C.emptyBackupTitle,
-          body: C.emptyBackupBody,
-          action: null,
         });
         return;
       case 'invalid':

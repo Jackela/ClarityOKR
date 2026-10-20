@@ -43,7 +43,9 @@ const SWALLOWED_KEYS: ReadonlySet<string> = new Set(['1', '2', '3', 's']);
         [attr.data-testid]="testId"
         [attr.aria-busy]="busy ? 'true' : null"
       >
-        <h2 class="dialog__title" [id]="titleId">{{ title }}</h2>
+        <h2 class="dialog__title" [class.dialog__title--error]="errorTitle" [id]="titleId">
+          {{ title }}
+        </h2>
         <!-- prettier-ignore -->
         <p class="dialog__body" [id]="bodyId" [class.dialog__body--tight]="detail.length > 0 || !!hint">{{ body }}</p>
         @if (detail.length > 0) {
@@ -96,7 +98,8 @@ const SWALLOWED_KEYS: ReadonlySet<string> = new Set(['1', '2', '3', 's']);
             #confirmButton
             type="button"
             [hidden]="!confirmLabel"
-            class="dialog__btn dialog__btn--confirm"
+            class="dialog__btn"
+            [class.dialog__btn--confirm]="!primaryCancel"
             [class.dialog__btn--danger]="danger"
             [attr.aria-disabled]="confirmDisabled || busy ? 'true' : null"
             [attr.aria-describedby]="confirmNote ? noteId : null"
@@ -135,6 +138,13 @@ const SWALLOWED_KEYS: ReadonlySet<string> = new Set(['1', '2', '3', 's']);
         margin: 0 0 8px;
         font-size: var(--font-size-base);
         font-weight: var(--font-weight-semibold);
+      }
+      /* #85: error dialogs (⚠ title) read red; information dialogs keep the primary text colour */
+      .dialog__title--error {
+        color: #b91c1c;
+      }
+      :host-context([data-theme='dark']) .dialog__title--error {
+        color: #fca5a5;
       }
       .dialog__error {
         margin: 0 0 16px;
@@ -248,6 +258,8 @@ export class DialogComponent implements OnInit, OnDestroy {
   @Input() noteAbove = false;
   /** `alertdialog` role without the red button (S1§8.5: nothing here is destructive). */
   @Input() alert = false;
+  /** #85: red title (error dialogs with ⚠). */
+  @Input() errorTitle = false;
   /** A third answer between cancel and confirm (S1§8.5 「跳过」). */
   @Input() middleLabel = '';
   /** Monospace lines under the body, selectable (S1§8.6 field paths). */
@@ -295,11 +307,19 @@ export class DialogComponent implements OnInit, OnDestroy {
   private readonly inerted: Element[] = [];
   private readonly onDocumentKeydown = (event: KeyboardEvent): void => this.onKeydown(event);
 
+  /**
+   * The safe answer (「继续编辑」 / 取消) takes the focus with a visible ring, so Enter never
+   * picks the destructive one by accident (#85 review, S2-14).
+   */
+  private focusCancel(): void {
+    this.cancelButton.nativeElement.focus({ focusVisible: true } as FocusOptions);
+  }
+
   ngOnInit(): void {
     const active = this.doc.activeElement;
     this.opener = active instanceof HTMLElement && active !== this.doc.body ? active : null;
     // The view is created before ngOnInit with static queries, so focus can move right away.
-    this.cancelButton.nativeElement.focus();
+    this.focusCancel();
     // Everything behind the dialog is inert (no focus, no clicks, hidden from assistive tech).
     this.makeBackgroundInert();
     // Listen on the document so Esc / Tab still work when the focus fell out of the box.
@@ -342,7 +362,7 @@ export class DialogComponent implements OnInit, OnDestroy {
       !(active instanceof HTMLElement) ||
       !this.cancelButton.nativeElement.closest('.scrim')?.contains(active)
     ) {
-      this.cancelButton.nativeElement.focus();
+      this.focusCancel();
     }
   }
 

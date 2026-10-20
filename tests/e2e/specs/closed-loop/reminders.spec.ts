@@ -140,6 +140,14 @@ async function mainWindowSetup(
 const focusVisible = (locator: ReturnType<Page['getByTestId']>) =>
   locator.evaluate((el) => el === document.activeElement && el.matches(':focus-visible'));
 
+/** A ring is really drawn: a non-zero outline (or box-shadow) in the computed style. */
+const ringDrawn = (locator: ReturnType<Page['getByTestId']>) =>
+  locator.evaluate((el) => {
+    const cs = getComputedStyle(el);
+    const outline = cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) > 0;
+    return outline || (cs.boxShadow !== 'none' && cs.boxShadow !== '');
+  });
+
 const banner = (sticky: Page) => sticky.getByTestId('review-reminder');
 
 test.describe('#54 in-app reminders (fake time)', () => {
@@ -233,7 +241,9 @@ test.describe('#54 in-app reminders (fake time)', () => {
 
     // S2-11: viewing a quarter older than the one before (2026-Q4 at 2027-Q2) → no banner
     await fakeNow(electronApp, '2027-04-14T04:00:00.000Z');
-    await expect(sticky.getByTestId('period-picker')).toContainText('2026-Q4');
+    await expect(sticky.getByTestId('tab-note')).toHaveAttribute('aria-selected', 'true');
+    await expect(sticky.getByTestId('sticky-objective')).toBeVisible();
+    await expect(sticky.getByTestId('sticky-objective')).not.toHaveText('上季度 OKR');
     await expect(banner(sticky)).toHaveCount(0);
     await both(sticky, 'S2-11-older-quarter-no-banner');
 
@@ -425,6 +435,70 @@ test.describe('#54 in-app reminders (fake time)', () => {
     expect(front).toBe(true);
   });
 
+  test('#87 shell entry: 去复盘 in the sticky shell focuses the review heading with a drawn ring', async ({
+    electronApp,
+    mainWindow,
+    mockServer,
+  }) => {
+    const sticky = await openSticky(electronApp, mainWindow, mockServer);
+    await seed(electronApp, sticky);
+    await fakeNow(electronApp, AFTER_STALE);
+    await expect(banner(sticky)).toHaveAttribute('data-kind', 'ended');
+    await sticky.getByTestId('review-reminder-go').click();
+    const heading = sticky.getByTestId('review-objective');
+    await expect(sticky.getByTestId('tab-review')).toHaveAttribute('aria-selected', 'true');
+    await expect(heading).toBeFocused();
+    expect(await focusVisible(heading)).toBe(true);
+    expect(await ringDrawn(heading)).toBe(true);
+  });
+
+  test('N55 (3a): sticky window open on another quarter, no edits → 去复盘 from the main window raises it on Q review', async ({
+    electronApp,
+    mainWindow,
+    mockServer,
+  }) => {
+    const { sticky, panel, threshold } = await mainWindowSetup(electronApp, mainWindow, mockServer);
+    await fakeNow(electronApp, new Date(threshold + 60_000).toISOString());
+    // the sticky note shows 2026-Q4 (not Q), nothing being edited, and is out of sight (hidden to
+    // the tray; xvfb has no window manager, so minimize() does not take effect there)
+    await expect(sticky.getByTestId('tab-note')).toHaveAttribute('aria-selected', 'true');
+    await expect(sticky.getByTestId('sticky-objective')).toBeVisible();
+    await expect(sticky.getByTestId('sticky-objective')).not.toHaveText('上季度 OKR');
+    await expect(sticky.getByTestId('edit-objective')).toHaveCount(0);
+    await electronApp.evaluate(({ BrowserWindow }) => {
+      BrowserWindow.getAllWindows()
+        .find((w) => w.isAlwaysOnTop())!
+        .hide();
+    });
+    await expect
+      .poll(() =>
+        electronApp.evaluate(({ BrowserWindow }) =>
+          BrowserWindow.getAllWindows()
+            .find((w) => w.isAlwaysOnTop())!
+            .isVisible(),
+        ),
+      )
+      .toBe(false);
+
+    await panel.getByTestId('review-reminder-go').click();
+    // brought to the front: restored and visible, no discard dialog
+    await expect
+      .poll(() =>
+        electronApp.evaluate(({ BrowserWindow }) => {
+          const w = BrowserWindow.getAllWindows().find((x) => x.isAlwaysOnTop());
+          return w ? w.isVisible() && !w.isMinimized() : false;
+        }),
+      )
+      .toBe(true);
+    await expect(sticky.getByTestId('discard-dialog')).toHaveCount(0);
+    await expect(sticky.getByTestId('tab-review')).toHaveAttribute('aria-selected', 'true');
+    await expect(sticky.getByTestId('review-period')).toHaveText('2026-Q3');
+    await expect(sticky.getByTestId('review-objective')).toHaveText('上季度 OKR');
+    await expect(sticky.getByTestId('review-objective')).toBeFocused();
+    expect(await focusVisible(sticky.getByTestId('review-objective'))).toBe(true);
+    expect(await ringDrawn(sticky.getByTestId('review-objective'))).toBe(true);
+  });
+
   test('N55 (3): sticky window editing with unsaved text → the existing discard dialog asks first', async ({
     electronApp,
     mainWindow,
@@ -442,10 +516,14 @@ test.describe('#54 in-app reminders (fake time)', () => {
     const dialog = sticky.getByTestId('discard-dialog');
     await expect(dialog).toBeVisible();
     await expect(dialog).toContainText('放弃未保存的修改？');
-    await both(sticky, 'S2-14-goreview-unsaved-edit-confirm');
+    // #85 review: the safe answer holds the focus with a visible ring, so Enter keeps the edits
+    const keep = dialog.getByRole('button', { name: '继续编辑' });
+    await expect(keep).toBeFocused();
+    expect(await focusVisible(keep)).toBe(true);
+    await both(sticky, 'S2-14-goreview-unsaved-edit-confirm-focus');
 
-    // 继续编辑: the edits stay, no quarter switch
-    await dialog.getByRole('button', { name: '继续编辑' }).click();
+    // 继续编辑 (Enter on the default focus): the edits stay, no quarter switch
+    await sticky.keyboard.press('Enter');
     await expect(dialog).toHaveCount(0);
     await expect(objective).toHaveValue('改了一半的目标');
     await expect(sticky.getByTestId('tab-note')).toHaveAttribute('aria-selected', 'true');

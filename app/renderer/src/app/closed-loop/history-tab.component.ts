@@ -13,7 +13,7 @@ import type { OkrListItem } from '@clarityokr/contracts';
 
 import { DialogComponent } from '../shared/components/dialog.component';
 import { SkeletonComponent } from '../shared/components/skeleton.component';
-import { ImportFlow } from './import-flow.service';
+import { ImportFlow, type ImportDialog } from './import-flow.service';
 import { BackupDuplicatesComponent } from './backup-duplicates.component';
 import { COPY, formatRelativeTime } from './copy';
 import { ClosedLoopApi } from './closed-loop-api.service';
@@ -263,12 +263,13 @@ const PAGE_STEP = 5;
       }}</span>
       @if (importer.dialog(); as d) {
         <clarityokr-dialog
-          [title]="d.kind === 'error' ? '⚠ ' + d.title : d.title"
+          [title]="isErrorTone(d) ? '⚠ ' + d.title : d.title"
+          [errorTitle]="isErrorTone(d)"
           [body]="d.body"
           [detail]="d.kind === 'error' ? d.detail : []"
           [hint]="d.hint"
           [danger]="false"
-          [alert]="true"
+          [alert]="!(d.kind === 'error' && d.info)"
           [testId]="'import-dialog-' + d.kind"
           [busy]="importer.committing()"
           [confirmNote]="dialogNote(d)"
@@ -297,6 +298,11 @@ export class HistoryTabComponent {
   @Output() opened = new EventEmitter<string>();
 
   readonly copy = COPY;
+
+  /** #85: an error dialog (⚠ + red title); the empty backup is information only. */
+  isErrorTone(d: ImportDialog): boolean {
+    return d.kind === 'error' && !d.info;
+  }
   readonly threshold = SEARCH_THRESHOLD;
   readonly skeletonRows = [0, 1, 2, 3];
   readonly query = signal('');

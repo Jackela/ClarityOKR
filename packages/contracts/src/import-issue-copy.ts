@@ -247,6 +247,63 @@ export const IMPORT_ISSUE_UI = {
   singleBody: '这个 OKR 有误，没有导入。',
 } as const;
 
+/**
+ * #85 — whole-file import problems (S1§8.6 error table, S1§9.4 empty backup). Writer's copy
+ * (/workspace/clarityokr-85/copy.md) verbatim, with the product decisions on its 【待确认】:
+ * {v} only when it is 1–4 digits, else the writer's fallback 「这个文件来自不支持的版本」;
+ * the re-export sentence reads 「请用最新版 ClarityOKR 重新导出后再导入」; the empty backup stays an
+ * information dialog. Each body's last line is 「数据没有任何改动。」 (`unchanged`).
+ */
+export type ImportFileProblemCode = 'not_json' | 'unsupported_version' | 'empty_backup';
+
+export interface ImportFileProblemCopy {
+  title: string;
+  body: string;
+  /** Last line of the body. */
+  unchanged: string;
+  /** Error (alertdialog, ⚠, red title) or information (dialog, no icon, primary title). */
+  tone: 'error' | 'info';
+}
+
+export const IMPORT_UNCHANGED_LINE = '数据没有任何改动。';
+
+/** A version from the file is shown only when it is 1–4 plain digits (product decision). */
+export function displayableVersion(version: unknown): string | null {
+  return typeof version === 'string' && /^[0-9]{1,4}$/.test(version) ? version : null;
+}
+
+export function importFileProblemCopy(
+  code: ImportFileProblemCode,
+  params: { version?: string } = {},
+): ImportFileProblemCopy {
+  switch (code) {
+    case 'not_json':
+      return {
+        title: '这个文件导入不了',
+        body: '这不是 ClarityOKR 导出的文件，或者文件已经损坏。请选择 ClarityOKR 导出的 OKR 或备份文件。',
+        unchanged: IMPORT_UNCHANGED_LINE,
+        tone: 'error',
+      };
+    case 'unsupported_version': {
+      const v = displayableVersion(params.version);
+      const from = v === null ? '这个文件来自不支持的版本' : `这个文件来自版本 ${v}`;
+      return {
+        title: '这个文件的版本不支持',
+        body: `${from}，当前只能导入版本 1 的文件。请用最新版 ClarityOKR 重新导出后再导入。`,
+        unchanged: IMPORT_UNCHANGED_LINE,
+        tone: 'error',
+      };
+    }
+    case 'empty_backup':
+      return {
+        title: '备份里没有 OKR',
+        body: '这个备份里一个 OKR 也没有，没有可导入的内容。',
+        unchanged: IMPORT_UNCHANGED_LINE,
+        tone: 'info',
+      };
+  }
+}
+
 /** The issues that come with an `invalid` reply (first ones only; `total` counts all). */
 export const MAX_REPORTED_ISSUES = 5;
 

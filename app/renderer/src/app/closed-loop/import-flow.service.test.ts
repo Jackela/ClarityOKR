@@ -133,8 +133,13 @@ describe('ImportFlow (#49, S1§8 + v3.1)', () => {
       '只能导入 50 MB 以内的备份，这个文件有 61.3 MB。',
       'reselect',
     ],
-    [{ kind: 'not_json' }, '这不是可以导入的文件', '不是有效的 JSON', 'reselect'],
-    [{ kind: 'unsupported_version', version: '2' }, '这个文件的版本不受支持', '版本是 2', null],
+    [{ kind: 'not_json' }, '这个文件导入不了', '这不是 ClarityOKR 导出的文件', 'reselect'],
+    [
+      { kind: 'unsupported_version', version: '2' },
+      '这个文件的版本不支持',
+      '这个文件来自版本 2',
+      null,
+    ],
     [{ kind: 'read_failed', category: 'permission' }, '没能读取这个文件', '没有权限', 'reselect'],
   ])(
     'rejected %o → error dialog ending with 「数据没有任何改动。」',
@@ -280,16 +285,18 @@ describe('ImportFlow (#49, S1§8 + v3.1)', () => {
     ];
     const backup = { exportedAt: '2026-10-15T07:58:00.000Z', appVersion: '0.2.0' };
 
-    it('empty backup → 「备份中没有 OKR」 notice', async () => {
+    it('empty backup → 「备份里没有 OKR」 information notice (#85)', async () => {
       api['importPick']!.mockResolvedValue(
         ok({ outcome: 'rejected', problem: { kind: 'empty_backup' } }),
       );
       await flow.start();
       expect(flow.dialog()).toMatchObject({
         kind: 'error',
-        title: '备份中没有 OKR',
-        body: '这个备份文件里没有任何 OKR，没有可导入的内容。数据没有任何改动。',
+        title: '备份里没有 OKR',
+        body: '这个备份里一个 OKR 也没有，没有可导入的内容。',
+        hint: '数据没有任何改动。',
         action: null,
+        info: true,
       });
     });
 
