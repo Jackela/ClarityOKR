@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
   EventEmitter,
   Output,
   computed,
@@ -42,10 +43,17 @@ export type { GoReviewRequest } from './reminder-navigator.service';
               <circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5" />
               <path d="M8 4.5V8l2.5 1.5" fill="none" stroke="currentColor" stroke-width="1.5" />
             </svg>
-            {{ s.banner === 'ending' ? t.endingText : t.endedText
-            }}<button
+            @if (notice()) {
+              <span class="reminder__notice" role="status" data-testid="review-reminder-notice">{{
+                t.handoffTimeout
+              }}</span>
+            } @else {
+              {{ s.banner === 'ending' ? t.endingText : t.endedText }}
+            }
+            <button
               type="button"
               class="reminder__go"
+              [class.reminder__go--after-notice]="notice()"
               data-testid="review-reminder-go"
               (click)="go(s)"
             >
@@ -146,6 +154,13 @@ export type { GoReviewRequest } from './reminder-navigator.service';
       .reminder__close:hover {
         background: var(--color-neutral-badge);
       }
+      /* #90 design: after the timeout notice (no trailing punctuation) 去复盘 keeps a 4px gap */
+      .reminder__go--after-notice {
+        margin-inline-start: 4px;
+      }
+      .reminder__go:focus-visible {
+        border-radius: 4px;
+      }
       .reminder__go:focus-visible,
       .reminder__close:focus-visible {
         outline: 2px solid var(--color-brand-primary);
@@ -161,8 +176,11 @@ export class ReviewReminderBannerComponent {
   readonly t = COPY.reminders;
   private readonly reminders = inject(ReminderStore);
   private readonly navigator = inject(ReminderNavigator);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   readonly state = computed<BannerState>(() => this.reminders.banner());
   readonly live = signal(false);
+  /** #88: 「去复盘」 could not reach the sticky note in time (session-only, this quarter). */
+  readonly notice = computed<boolean>(() => this.reminders.showsHandoffNotice());
   private shownKey: string | null = null;
 
   constructor() {
@@ -175,9 +193,30 @@ export class ReviewReminderBannerComponent {
     });
   }
 
+  /**
+   * Never disabled, no spinner (#88): a second click while the first is waiting replaces it in
+   * main, and only the last one opens. A timeout shows the notice here; focus stays on the button.
+   */
   go(s: BannerState): void {
-    if (s.targetOkrId && s.period) {
-      void this.navigator.goReview({ okrId: s.targetOkrId, period: s.period });
+    const period = s.period;
+    if (s.targetOkrId && period) {
+      // clicked again: the original banner text is back at once; a new timeout shows it again
+      this.reminders.clearHandoffNotice();
+      void this.navigator.goReview({ okrId: s.targetOkrId, period }).then((outcome) => {
+        if (outcome !== 'timeout') return;
+        this.reminders.noteHandoffTimeout(period);
+        // #90 design: focus stays on 去复盘 with a visible ring (as #87 / N56)
+        // (already focused after a click: focus() would be a no-op and keep the mouse state,
+        // so it is taken off and put back to show the ring)
+        setTimeout(() => {
+          const button = this.host.nativeElement.querySelector<HTMLElement>(
+            '[data-testid="review-reminder-go"]',
+          );
+          if (!button) return;
+          button.blur();
+          button.focus({ focusVisible: true } as FocusOptions);
+        });
+      });
     }
   }
 

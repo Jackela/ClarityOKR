@@ -39,6 +39,7 @@ import {
   type HideWindowReply,
   type WindowStateReply,
 } from '@clarityokr/contracts';
+import type { GoReviewOutcome } from './reminder-navigator.service';
 
 function isIpcResult(value: unknown): value is IpcResult<unknown> {
   if (typeof value !== 'object' || value === null) return false;
@@ -261,17 +262,35 @@ export class ClosedLoopApi {
     }
   }
 
-  /** #84 review: ask main to open this OKR's review in the sticky shell; false when it could not. */
-  async goReviewElsewhere(okrId: string): Promise<boolean> {
+  /**
+   * #84 review / #88: ask main to open this OKR's review in the sticky shell. Resolves when the
+   * shell took it (`opened`), or it could not (`unavailable`, `timeout`), or a newer request
+   * replaced it (`superseded`).
+   */
+  async goReviewElsewhere(okrId: string): Promise<GoReviewOutcome> {
     const bridge = typeof window === 'undefined' ? undefined : window.clarifyOkr;
-    if (!bridge) return false;
+    if (!bridge) return 'unavailable';
     try {
       const reply = (await bridge.invoke(IPC_CHANNELS.REMINDERS_GO_REVIEW, { okrId })) as {
-        opened?: unknown;
+        outcome?: unknown;
       } | null;
-      return reply?.opened === true;
+      const outcome = reply?.outcome;
+      return outcome === 'opened' || outcome === 'timeout' || outcome === 'superseded'
+        ? outcome
+        : 'unavailable';
     } catch {
-      return false;
+      return 'unavailable';
+    }
+  }
+
+  /** #88: this sticky shell shows its first OKR and listens; main may now hand a request over. */
+  async reviewReady(): Promise<void> {
+    const bridge = typeof window === 'undefined' ? undefined : window.clarifyOkr;
+    if (!bridge) return;
+    try {
+      await bridge.invoke(IPC_CHANNELS.REMINDERS_REVIEW_READY, undefined);
+    } catch {
+      // main went away: nothing to hand over
     }
   }
 

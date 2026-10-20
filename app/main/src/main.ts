@@ -193,12 +193,10 @@ registerReviewHandoffHandlers(
   ipcMain,
   new ReviewHandoff({
     bringToFront: () => stickyWindowManager.bringToFront(),
-    notify: () => {
-      const sticky = stickyWindowManager.getWindow();
-      if (sticky && !sticky.isDestroyed() && !sticky.webContents.isLoading()) {
-        sticky.webContents.send(IPC_CHANNELS.REMINDERS_OPEN_REVIEW);
-      }
-    },
+    currentShell: () => stickyWindowManager.getWebContentsId(),
+    // #88: only called once the shell said it is ready, so this message is never lost
+    notify: () =>
+      stickyWindowManager.getWindow()?.webContents.send(IPC_CHANNELS.REMINDERS_OPEN_REVIEW),
   }),
 );
 

@@ -29,6 +29,11 @@ export const COPY = {
     endedText: '本季度已经结束，还没复盘，',
     goReview: '去复盘',
     closeLabel: '关闭本季度复盘提醒',
+    /**
+     * #88 (writer, clarityokr-88/copy.md §1): in the banner's place when 去复盘 from another
+     * window could not open the review in time; followed by the same 去复盘 button, no period.
+     */
+    handoffTimeout: '复盘页没能打开，请再试一次',
   },
   edit: {
     action: '编辑文字',

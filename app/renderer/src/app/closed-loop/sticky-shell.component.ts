@@ -206,13 +206,15 @@ export class StickyShellComponent {
     const unsubscribe = api.onEvent?.(IPC_CHANNELS.REMINDERS_OPEN_REVIEW, () => {
       void takeHandedOver();
     });
-    // A freshly created sticky window: take a waiting request only once its own OKR is shown,
-    // so the document main sends on creation cannot replace Q's OKR afterwards (N55 case 1).
-    let tookInitial = false;
+    // #88: once this window's own first OKR is shown, tell main it is ready. Main then sends
+    // REMINDERS_OPEN_REVIEW for a waiting request — always after the document it sent this
+    // window on creation (main → renderer messages keep their order), so that document can no
+    // longer supersede Q's OKR (the N55 (1) race).
+    let saidReady = false;
     effect(() => {
-      if (tookInitial || this.store.detail() === null) return;
-      tookInitial = true;
-      untracked(() => setTimeout(() => void takeHandedOver(), 0));
+      if (saidReady || this.store.detail() === null) return;
+      saidReady = true;
+      untracked(() => void api.reviewReady?.());
     });
     inject(DestroyRef).onDestroy(() => {
       unregister();

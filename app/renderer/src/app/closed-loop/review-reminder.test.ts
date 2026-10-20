@@ -1,3 +1,4 @@
+import { IPC_CHANNELS } from '@clarityokr/contracts';
 import { Component } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import type { OkrDetail } from '@clarityokr/contracts';
@@ -63,6 +64,7 @@ describe('#54 reminders UI', () => {
       title: '上季度 OKR',
       period: '2026-Q4',
     });
+    const events = new Map<string, () => void>();
     api = {
       open: jest
         .fn()
@@ -77,7 +79,10 @@ describe('#54 reminders UI', () => {
       restart: jest.fn(),
       getLegacyNotice: jest.fn().mockResolvedValue(false),
       ackLegacyNotice: jest.fn(),
-      onEvent: jest.fn().mockReturnValue(() => undefined),
+      onEvent: jest.fn((channel: string, fn: () => void) => {
+        events.set(channel, fn);
+        return () => undefined;
+      }),
       onPayload: jest.fn().mockReturnValue(() => undefined),
       getWindowState: jest.fn().mockResolvedValue({ ok: true, data: { alwaysOnTop: true } }),
       setAlwaysOnTop: jest.fn(),
@@ -95,8 +100,12 @@ describe('#54 reminders UI', () => {
         .fn()
         .mockResolvedValue({ now: s.now.toISOString(), dismissedQuarters: s.dismissed ?? [] }),
       dismissReminder: jest.fn().mockResolvedValue(true),
-      goReviewElsewhere: jest.fn().mockResolvedValue(true),
+      goReviewElsewhere: jest.fn().mockResolvedValue('opened'),
       takeReviewRequest: jest.fn().mockResolvedValue(s.handedOver ?? null),
+      // #88: like main, a waiting request is announced only once this shell said it is ready
+      reviewReady: jest.fn(async () => {
+        if (s.handedOver) events.get(IPC_CHANNELS.REMINDERS_OPEN_REVIEW)?.();
+      }),
     };
     await TestBed.configureTestingModule({
       imports: [Host],
@@ -247,6 +256,7 @@ describe('#54 reminders UI', () => {
       await settle();
       await new Promise((resolve) => setTimeout(resolve, 60));
     }
+    expect(api['reviewReady']).toHaveBeenCalledTimes(1);
     expect(api['takeReviewRequest']).toHaveBeenCalled();
     expect(api['open']).toHaveBeenCalledWith({ okrId: 'okr-q4' });
     expect(document.activeElement?.getAttribute('data-testid')).toBe('review-objective');

@@ -138,7 +138,9 @@
 
 .intent-submit:not(:disabled):hover {
   transform: translateY(-1px);
-  box-shadow: var(--shadow-md), 0 0 24px rgba(37, 99, 235, 0.3);
+  box-shadow:
+    var(--shadow-md),
+    0 0 24px rgba(37, 99, 235, 0.3);
 }
 
 .intent-submit:not(:disabled):active {
@@ -205,6 +207,13 @@
   border-radius: var(--radius-xl);
   padding: var(--space-xl);
   border: 1px solid var(--color-success-border);
+}
+
+/* #90 design: the success tokens have no dark values (mint green-50 in dark mode). The results
+   panel takes the dark surface and border, like the sticky shell panel (S2-13 dark). */
+:host-context([data-theme='dark']) .result-panel {
+  background: var(--color-bg-primary);
+  border-color: var(--color-border);
 }
 
 /* Responsive styles */
