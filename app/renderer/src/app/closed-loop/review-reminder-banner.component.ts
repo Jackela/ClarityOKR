@@ -42,8 +42,14 @@ export type { GoReviewRequest } from './reminder-navigator.service';
               <circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5" />
               <path d="M8 4.5V8l2.5 1.5" fill="none" stroke="currentColor" stroke-width="1.5" />
             </svg>
-            {{ s.banner === 'ending' ? t.endingText : t.endedText
-            }}<button
+            @if (notice()) {
+              <span class="reminder__notice" role="status" data-testid="review-reminder-notice">{{
+                t.handoffTimeout
+              }}</span>
+            } @else {
+              {{ s.banner === 'ending' ? t.endingText : t.endedText }}
+            }
+            <button
               type="button"
               class="reminder__go"
               data-testid="review-reminder-go"
@@ -163,6 +169,8 @@ export class ReviewReminderBannerComponent {
   private readonly navigator = inject(ReminderNavigator);
   readonly state = computed<BannerState>(() => this.reminders.banner());
   readonly live = signal(false);
+  /** #88: 「去复盘」 could not reach the sticky note in time (session-only, this quarter). */
+  readonly notice = computed<boolean>(() => this.reminders.showsHandoffNotice());
   private shownKey: string | null = null;
 
   constructor() {
@@ -175,9 +183,16 @@ export class ReviewReminderBannerComponent {
     });
   }
 
+  /**
+   * Never disabled, no spinner (#88): a second click while the first is waiting replaces it in
+   * main, and only the last one opens. A timeout shows the notice here; focus stays on the button.
+   */
   go(s: BannerState): void {
-    if (s.targetOkrId && s.period) {
-      void this.navigator.goReview({ okrId: s.targetOkrId, period: s.period });
+    const period = s.period;
+    if (s.targetOkrId && period) {
+      void this.navigator.goReview({ okrId: s.targetOkrId, period }).then((outcome) => {
+        if (outcome === 'timeout') this.reminders.noteHandoffTimeout(period);
+      });
     }
   }
 

@@ -28,6 +28,21 @@ export class ReminderStore {
   /** Banners already announced in this run (`kind:period`): role=status only the first time. */
   private readonly announced = new Set<string>();
   private started = false;
+  /**
+   * #88: 「去复盘」 handed to the sticky note timed out. Session-only (never saved): shown for
+   * this banner quarter while the same quarter is viewed; any other state drops it for good.
+   */
+  private readonly handoffNotice = signal<{ period: Period; view: Period | null } | null>(null);
+  readonly showsHandoffNotice = computed<boolean>(() => {
+    const notice = this.handoffNotice();
+    const b = this.banner();
+    return (
+      notice !== null &&
+      b.banner !== 'none' &&
+      b.period === notice.period &&
+      (this.store.detail()?.objective.period ?? null) === notice.view
+    );
+  });
 
   readonly staleIds = computed<ReadonlySet<string>>(() => {
     const detail = this.store.detail();
@@ -61,6 +76,13 @@ export class ReminderStore {
   });
 
   constructor() {
+    // #88: another quarter, the review saved, the banner closed → the notice is gone (and does
+    // not come back when the quarter is viewed again).
+    effect(() => {
+      if (this.handoffNotice() !== null && !this.showsHandoffNotice()) {
+        untracked(() => this.handoffNotice.set(null));
+      }
+    });
     // The open OKR, its quarter or its review changed: read the list again (silently), so the
     // banner sees the new quarter / review state at once.
     effect(() => {
@@ -94,7 +116,13 @@ export class ReminderStore {
   }
 
   /** Closes this quarter's banner (other quarters keep theirs). Holds for this run even if saving fails. */
+  /** #88: the hand-off of 「去复盘」 for `period` timed out. */
+  noteHandoffTimeout(period: Period): void {
+    this.handoffNotice.set({ period, view: this.store.detail()?.objective.period ?? null });
+  }
+
   async dismiss(period: Period): Promise<void> {
+    this.handoffNotice.set(null);
     this.dismissed.set(new Set([...this.dismissed(), period]));
     await this.api.dismissReminder?.(period);
   }

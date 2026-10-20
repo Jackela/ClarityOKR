@@ -60,6 +60,7 @@ export const ALLOWED_CHANNELS = [
   'clarityokr:reminders:go-review',
   'clarityokr:reminders:take-review',
   'clarityokr:reminders:open-review',
+  'clarityokr:reminders:review-ready',
 ] as const;
 
 /**
@@ -121,6 +122,8 @@ export const IPC_CHANNELS = {
   REMINDERS_TAKE_REVIEW: 'clarityokr:reminders:take-review',
   /** Main → sticky shell event: a request is waiting (call REMINDERS_TAKE_REVIEW). */
   REMINDERS_OPEN_REVIEW: 'clarityokr:reminders:open-review',
+  /** #88: the sticky shell shows its first OKR and listens; main may deliver a waiting request. */
+  REMINDERS_REVIEW_READY: 'clarityokr:reminders:review-ready',
   /** Atomically revert the latest `set` entry and write a new one ("edit this one"). */
   KR_REPLACE_PROGRESS: 'clarityokr:kr:replace-progress',
   /** Read the saved review (or null). */

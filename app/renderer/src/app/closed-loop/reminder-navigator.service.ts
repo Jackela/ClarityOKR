@@ -8,6 +8,9 @@ export interface GoReviewRequest {
   period: Period;
 }
 
+/** #88: how a 「去复盘」 ended (see the main process hand-off). */
+export type GoReviewOutcome = 'opened' | 'unavailable' | 'timeout' | 'superseded';
+
 export type GoReviewHandler = (request: GoReviewRequest) => Promise<void> | void;
 
 /**
@@ -29,11 +32,11 @@ export class ReminderNavigator {
     };
   }
 
-  async goReview(request: GoReviewRequest): Promise<void> {
+  async goReview(request: GoReviewRequest): Promise<GoReviewOutcome> {
     if (this.handler) {
       await this.handler(request);
-      return;
+      return 'opened';
     }
-    await this.api.goReviewElsewhere?.(request.okrId);
+    return (await this.api.goReviewElsewhere?.(request.okrId)) ?? 'unavailable';
   }
 }

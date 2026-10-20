@@ -241,9 +241,7 @@ test.describe('#54 in-app reminders (fake time)', () => {
 
     // S2-11: viewing a quarter older than the one before (2026-Q4 at 2027-Q2) → no banner
     await fakeNow(electronApp, '2027-04-14T04:00:00.000Z');
-    await expect(sticky.getByTestId('tab-note')).toHaveAttribute('aria-selected', 'true');
-    await expect(sticky.getByTestId('sticky-objective')).toBeVisible();
-    await expect(sticky.getByTestId('sticky-objective')).not.toHaveText('上季度 OKR');
+    await expect(sticky.getByTestId('period-picker')).toContainText('2026-Q4');
     await expect(banner(sticky)).toHaveCount(0);
     await both(sticky, 'S2-11-older-quarter-no-banner');
 
@@ -433,6 +431,82 @@ test.describe('#54 in-app reminders (fake time)', () => {
       return w ? w.isVisible() && !w.isMinimized() : false;
     });
     expect(front).toBe(true);
+  });
+
+  test('#88 rapid double click on 去复盘 while the new sticky window is not ready: Q review opens once', async ({
+    electronApp,
+    mainWindow,
+    mockServer,
+  }) => {
+    const { sticky, panel, threshold } = await mainWindowSetup(electronApp, mainWindow, mockServer);
+    await fakeNow(electronApp, new Date(threshold + 60_000).toISOString());
+    await electronApp.evaluate(({ BrowserWindow }) => {
+      for (const w of BrowserWindow.getAllWindows()) if (w.isAlwaysOnTop()) w.destroy();
+    });
+    await expect.poll(() => sticky.isClosed()).toBe(true);
+    // count the hand-overs the shell takes
+    await electronApp.evaluate(({ ipcMain }) => {
+      const g = globalThis as { __takes?: number };
+      g.__takes = 0;
+      const original = (
+        ipcMain as unknown as { _invokeHandlers: Map<string, (...args: unknown[]) => unknown> }
+      )._invokeHandlers;
+      const take = original.get('clarityokr:reminders:take-review')!;
+      ipcMain.removeHandler('clarityokr:reminders:take-review');
+      ipcMain.handle('clarityokr:reminders:take-review', (event, ...args) => {
+        const reply = take(event, ...args) as { okrId: string | null };
+        if (reply.okrId) g.__takes = (g.__takes ?? 0) + 1;
+        return reply;
+      });
+    });
+    const next = electronApp.waitForEvent('window', { timeout: 30_000 });
+    const go = panel.getByTestId('review-reminder-go');
+    await go.click();
+    await go.click(); // again, before the new window is ready; never disabled
+    await expect(go).toBeEnabled();
+    const fresh = await next;
+    await expect(fresh.getByTestId('tab-review')).toHaveAttribute('aria-selected', 'true');
+    await expect(fresh.getByTestId('review-period')).toHaveText('2026-Q3');
+    await expect(fresh.getByTestId('review-objective')).toBeFocused();
+    expect(await electronApp.evaluate(() => (globalThis as { __takes?: number }).__takes)).toBe(1);
+    const windows = await electronApp.evaluate(
+      ({ BrowserWindow }) => BrowserWindow.getAllWindows().filter((w) => w.isAlwaysOnTop()).length,
+    );
+    expect(windows).toBe(1);
+    await expect(panel.getByTestId('review-reminder-notice')).toHaveCount(0);
+  });
+
+  test('#88 the sticky window never gets ready: after 5 s + one silent retry, a notice in the banner (S2-15)', async ({
+    electronApp,
+    mainWindow,
+    mockServer,
+  }) => {
+    test.setTimeout(60_000);
+    const { sticky, panel, threshold } = await mainWindowSetup(electronApp, mainWindow, mockServer);
+    await fakeNow(electronApp, new Date(threshold + 60_000).toISOString());
+    // the shell's ready signal is swallowed: main waits, retries once, then gives up
+    await electronApp.evaluate(({ ipcMain }) => {
+      ipcMain.removeHandler('clarityokr:reminders:review-ready');
+      ipcMain.handle('clarityokr:reminders:review-ready', () => ({ ok: true }));
+    });
+    await electronApp.evaluate(({ BrowserWindow }) => {
+      for (const w of BrowserWindow.getAllWindows()) if (w.isAlwaysOnTop()) w.destroy();
+    });
+    await expect.poll(() => sticky.isClosed()).toBe(true);
+    const go = panel.getByTestId('review-reminder-go');
+    await go.focus();
+    await go.click();
+    // the outcome arrives once main gave up (2 × 5 s); the reply itself is the signal
+    const notice = panel.getByTestId('review-reminder-notice');
+    await expect(notice).toBeVisible({ timeout: 20_000 });
+    await expect(notice).toHaveAttribute('role', 'status');
+    await expect(panel.getByTestId('review-reminder')).toBeVisible(); // the banner stays
+    await expect(mainWindow.locator('[role="dialog"], [role="alertdialog"]')).toHaveCount(0);
+    await expect(go).toBeFocused();
+    await both(mainWindow, 'S2-15-goreview-timeout-notice');
+    // ✕ still works: the banner goes for this quarter
+    await panel.getByTestId('review-reminder-close').click();
+    await expect(panel.getByTestId('review-reminder')).toHaveCount(0);
   });
 
   test('#87 shell entry: 去复盘 in the sticky shell focuses the review heading with a drawn ring', async ({

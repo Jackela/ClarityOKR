@@ -21,6 +21,9 @@ export const STATUS_ICON: Record<KrStatus, string> = {
 
 export const STATUS_ORDER: readonly KrStatus[] = ['not_started', 'in_progress', 'at_risk', 'done'];
 
+/** #88: placeholder marker until the writer's copy lands (PR must not merge while it is used). */
+export const HANDOFF_TIMEOUT_PLACEHOLDER = '【待文案 #88：去复盘超时提示】';
+
 export const COPY = {
   /** #54 in-app reminders (S1§11). */
   reminders: {
@@ -29,6 +32,12 @@ export const COPY = {
     endedText: '本季度已经结束，还没复盘，',
     goReview: '去复盘',
     closeLabel: '关闭本季度复盘提醒',
+    /**
+     * #88 PLACEHOLDER — the writer has not delivered this sentence yet (shown in the banner when
+     * 去复盘 from another window could not open the sticky note in time). Replace with the
+     * writer's copy before merging; never ship this marker.
+     */
+    handoffTimeout: HANDOFF_TIMEOUT_PLACEHOLDER,
   },
   edit: {
     action: '编辑文字',
