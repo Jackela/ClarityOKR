@@ -12,7 +12,7 @@ module.exports = {
   productName: 'ClarityOKR',
   electronVersion,
   directories: { app: 'build/app', output: 'dist', buildResources: 'build/resources' },
-  // Versioned names: ClarityOKR-0.2.0-mac-arm64.dmg, ClarityOKR-0.2.0-win-x64.exe, …
+  // Versioned names: ClarityOKR-0.3.0-mac-arm64.dmg, ClarityOKR-0.3.0-win-x64.exe, …
   artifactName: '${productName}-${version}-${os}-${arch}.${ext}',
   asar: true,
   // better-sqlite3 is native: rebuilt for Electron and kept outside the asar archive.

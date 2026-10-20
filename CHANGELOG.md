@@ -7,9 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 待定
+
+导入与备份、KR 进度趋势、应用内提醒，以及更好懂的错误提示（v0.2.0 之后合并的 PR #58–#94）。
+
+### Added
+
+- 导入单个 OKR：历史页「导入…」，导入前提示与已有 OKR 的冲突，导入后带「新导入」标签（#49，PR #66 #67）
+- 全部备份与从备份恢复：「⋯」菜单「全部备份…」；导入备份前可预览，重复的 OKR 可逐条或一次性决定（#50，PR #71 #72）
+- KR 进度趋势：每条 KR 可查看进度随时间的变化（#53，PR #76 #77）
+- 应用内提醒：KR 长时间没更新、季度该复盘时，在主窗口给出提醒，可点「去复盘」直接打开复盘页（#54，PR #84 #86）
+- 从主窗口点「去复盘」时，如果便签窗里有没保存的复盘草稿，会先问你要不要放弃（#54，PR #86）
+
+### Changed
+
+- 导入出错时的提示改为大白话，不再出现技术代码；导入的 OKR 超过 10 条 KR 时会说明原因（#69，PR #70 #83）
+- 文件不是 JSON、版本不支持时提示改为大白话，并说明「数据没有任何改动。」；备份里没有 OKR 时改为普通提示，不再按错误显示（#85，PR #87）
+- 询问是否放弃修改的对话框，默认选中「继续编辑」，按回车不会误丢修改（#85，PR #87）
+- 文件太大时的提示不再显示文件的实际大小：「这个文件超过 5 MB，只能导入 5 MB 以内的文件。」（#89，PR #92）
+- 备份文件太大时的提示：「这个备份文件超过 50 MB，只能导入 50 MB 以内的备份。」备份上限为 50 MB（#50 #93，PR #80 #94）
+
+### Fixed
+
+- 从主窗口点「去复盘」新开便签窗时，有时停在便签页而不是复盘页；现在会可靠地打开复盘页。若复盘页始终打不开，提醒条会显示「复盘页没能打开，请再试一次」（#88，PR #90）
+- 深色模式下主窗口结果区背景和边框过亮（PR #90）
+- 正好 5 MB 的文件、正好 50 MB 的备份现在可以导入（#89 #93，PR #92 #94）
+- 没有配置 AI 服务时应用也能正常启动（PR #75）
+- 进度趋势图只有一个点时，时间标签对齐到点的正下方（#53，PR #80 #81）
+- 重新生成时的占位行与原来的 KR 行一样高，不再跳动（#40，PR #59）
+- 读屏与键盘：无托盘时「隐藏」按钮不再读出多余说明；锁定的下拉选择不再被空格 / 方向键改动（#39 #42，PR #58）
+- 用键盘在面板里移动时，聚焦的项目不再被顶部进度条挡住（#41，PR #62）
+
 ### Removed
 
-- 不再使用的旧重新生成通道 `clarityokr:okr:regenerate`（overwrite / append）及其主进程处理、渲染端 `OkrStickyService.regenerate()`（#48）
+- 不再使用的旧「重新生成」接口（#48，PR #61）
+
+### Internal
+
+- 「去复盘」时便签窗有未保存的复盘草稿会先询问——补充端到端测试与截图（#54，PR #91）
+- 推送版本 tag 时自动构建三平台安装包并附到 Release（#44，PR #73）；打包失败时 CI 会报错（#78，PR #79）
+- 一条命令运行本地端到端测试（#55，PR #65）
+- 依赖精简（#51，PR #63）
+- CHANGELOG 合并重复的 0.2.0 段落（#43，PR #60）
+
+### Known issues
+
+- 「未实测」：以下行为只有自动化测试，尚未在真机上手动验证
+  - 系统托盘（菜单「显示便签 / 退出」、点击唤回）：macOS、Windows、Linux 均未实测
+  - Dock 唤回便签：macOS 未实测
+  - ⌘Q 退出确认（含未保存修改的合并提示）：macOS 未实测
+- Windows 注销 / 关机时不会询问未保存的修改，没保存的内容会丢失（仍然如此，未实测）
+- Windows / Linux 上无法创建托盘图标时，关闭或隐藏最后一个可见窗口会直接退出应用（按钮提示里有说明）
+- 确认对话框里按钮文字不统一（有的写「放弃」，有的写「放弃修改」），尚未修复
 
 ## [0.2.0] - 2026-10-15
 
@@ -79,5 +128,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comprehensive test suite (unit, component, integration, E2E)
 - CI/CD pipeline with multi-platform builds
 
-[unreleased]: https://github.com/Jackela/ClarityOKR/compare/v0.2.0...HEAD
+[unreleased]: https://github.com/Jackela/ClarityOKR/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/Jackela/ClarityOKR/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Jackela/ClarityOKR/releases/tag/v0.2.0
