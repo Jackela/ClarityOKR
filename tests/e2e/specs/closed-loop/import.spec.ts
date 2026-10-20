@@ -145,7 +145,7 @@ test.describe('#49 import', () => {
       await expect(dialog).toHaveCount(0);
     };
     await errorCase('S1-08-import-too-large', Buffer.alloc(5 * 1024 * 1024 + 10, 0x20), '文件太大');
-    await errorCase('S1-09-import-not-json', '{ nope', '这不是可以导入的文件');
+    await errorCase('S1-09-import-not-json-plain', '{ nope', '⚠ 这个文件导入不了');
     const bad = structuredClone(exported);
     bad.keyResults[0].progress = 150;
     bad.keyResults[1].status = 'blocked';
@@ -203,9 +203,70 @@ test.describe('#49 import', () => {
       '另有 99+ 处',
     );
     await errorCase(
-      'S1-11-import-version',
+      'S1-11-import-version-plain',
       JSON.stringify({ ...exported, schemaVersion: 2 }),
-      '版本不受支持',
+      '⚠ 这个文件的版本不支持',
+    );
+    // #85: plain words only, a red title, and the version shown when it is 1–4 digits
+    const plainError = async (
+      name: string,
+      content: string,
+      body: string,
+      buttons: string[],
+      width?: number,
+    ) => {
+      const path = join(dir, `${name}.json`);
+      writeFileSync(path, content);
+      await stubDialogs(electronApp, null, path);
+      const prev = sticky.viewportSize();
+      if (width) await sticky.setViewportSize({ width, height: 640 });
+      await button.click();
+      const dialog = sticky.getByTestId('import-dialog-error');
+      await expect(dialog).toBeVisible();
+      await expect(sticky.getByRole('alertdialog')).toBeVisible();
+      await expect(dialog).toContainText(body);
+      await expect(dialog).toContainText('数据没有任何改动。');
+      const text = (await dialog.innerText()).replace(/ClarityOKR|OKR/g, '');
+      expect(text).not.toMatch(/[A-Za-z]/);
+      expect(text).not.toMatch(/[.[]\w/);
+      await expect(dialog.locator('.dialog__title')).toHaveCSS(
+        'color',
+        /rgb\((185, 28, 28|252, 165, 165)\)/,
+      );
+      await expect(dialog.getByRole('button')).toHaveText(buttons);
+      if (width) {
+        // nothing spills out sideways at a narrow width
+        const fits = await dialog.evaluate((el) =>
+          [...el.querySelectorAll<HTMLElement>('*')].every(
+            (c) => c.scrollWidth <= c.clientWidth + 1 || c.clientWidth === 0,
+          ),
+        );
+        expect(fits).toBe(true);
+      }
+      await both(sticky, name);
+      await sticky.keyboard.press('Escape');
+      await expect(dialog).toHaveCount(0);
+      if (width && prev) await sticky.setViewportSize(prev);
+    };
+    await plainError(
+      'S1-11b-import-version-fallback-plain',
+      JSON.stringify({ ...exported, schemaVersion: 'v2.x' }),
+      '这个文件来自不支持的版本，当前只能导入版本 1 的文件。请用最新版 ClarityOKR 重新导出后再导入。',
+      ['知道了'],
+    );
+    await plainError(
+      'S1-11c-import-version-narrow-plain',
+      JSON.stringify({ ...exported, schemaVersion: 2 }),
+      '这个文件来自版本 2，当前只能导入版本 1 的文件。请用最新版 ClarityOKR 重新导出后再导入。',
+      ['知道了'],
+      320,
+    );
+    await plainError(
+      'S1-09b-import-not-json-narrow-plain',
+      '{ nope',
+      '这不是 ClarityOKR 导出的文件，或者文件已经损坏。请选择 ClarityOKR 导出的 OKR 或备份文件。',
+      ['知道了', '重新选择文件…'],
+      320,
     );
     await axe(sticky, 'import error dialog');
 

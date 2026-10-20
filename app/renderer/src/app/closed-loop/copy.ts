@@ -263,14 +263,10 @@ export const COPY = {
     tooLargeBody: (mb: string) => `只能导入 5 MB 以内的文件，这个文件有 ${mb} MB。`,
     tooLargeBackupBody: (limit: number, mb: string) =>
       `只能导入 ${limit} MB 以内的备份，这个文件有 ${mb} MB。`,
-    notJsonTitle: '这不是可以导入的文件',
-    notJsonBody: '文件内容不是有效的 JSON。请选择 ClarityOKR 导出的 .json 文件。',
     invalidTitle: '文件内容有误，无法导入',
     invalidBody: '第一处错误：',
     // #69: more than 99 shows 99+
     invalidMore: (n: number) => `另有 ${n > 99 ? '99+' : n} 处错误`,
-    versionTitle: '这个文件的版本不受支持',
-    versionBody: (v: string) => `这个文件的格式版本是 ${v}，当前只能导入版本 1 的文件。`,
     readTitle: '没能读取这个文件',
     read: {
       permission: '没有权限读取这个文件。',
@@ -288,8 +284,6 @@ export const COPY = {
     rolledBack: '已撤销这次导入，没有留下不完整的数据。',
     failed: '导入时出错，请重试。',
     // #50 backup import (S1§9.4; Q9-3: 「个」 everywhere)
-    emptyBackupTitle: '备份中没有 OKR',
-    emptyBackupBody: '这个备份文件里没有任何 OKR，没有可导入的内容。数据没有任何改动。',
     backupInvalidBody: (n: number) => `备份里第 ${n} 个 OKR 有误，整份没有导入。`,
     backupTitle: '导入备份？',
     backupBody: (n: number, at: string, version: string) =>

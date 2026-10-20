@@ -4,6 +4,9 @@ import {
 } from '../../../app/main/src/import/import-document.js';
 import {
   FALLBACK_REASON,
+  IMPORT_UNCHANGED_LINE,
+  displayableVersion,
+  importFileProblemCopy,
   IMPORT_ISSUE_UI,
   issueLines,
   FIELD_LABELS,
@@ -408,5 +411,75 @@ describe('#69 no field falls back to a generic sentence', () => {
       }
     }
     expect(seen.length).toBeGreaterThan(20);
+  });
+});
+
+describe('#85 file problem dialogs (copy.md, verbatim)', () => {
+  const ui = (c: { title: string; body: string; unchanged: string }) =>
+    [c.title, c.body, c.unchanged].join('\n');
+
+  it('not_json: 「这个文件导入不了」, error tone, ends with 「数据没有任何改动。」', () => {
+    const c = importFileProblemCopy('not_json', {});
+    expect(c).toEqual({
+      title: '这个文件导入不了',
+      body: '这不是 ClarityOKR 导出的文件，或者文件已经损坏。请选择 ClarityOKR 导出的 OKR 或备份文件。',
+      unchanged: '数据没有任何改动。',
+      tone: 'error',
+    });
+  });
+
+  it('unsupported_version with a 1–4 digit version shows it', () => {
+    const c = importFileProblemCopy('unsupported_version', { version: '2' });
+    expect(c.title).toBe('这个文件的版本不支持');
+    expect(c.body).toBe(
+      '这个文件来自版本 2，当前只能导入版本 1 的文件。请用最新版 ClarityOKR 重新导出后再导入。',
+    );
+    expect(c.tone).toBe('error');
+    expect(c.unchanged).toBe(IMPORT_UNCHANGED_LINE);
+    expect(importFileProblemCopy('unsupported_version', { version: '9999' }).body).toContain(
+      '来自版本 9999，',
+    );
+  });
+
+  it.each(['v2', '2.0', '1e3', '', ' 2', '-1', '12345', '00000', 'schemaVersion'])(
+    'unsupported_version with %p (not 1–4 pure digits) → fallback sentence',
+    (version) => {
+      expect(displayableVersion(version)).toBeNull();
+      expect(importFileProblemCopy('unsupported_version', { version }).body).toBe(
+        '这个文件来自不支持的版本，当前只能导入版本 1 的文件。请用最新版 ClarityOKR 重新导出后再导入。',
+      );
+    },
+  );
+
+  it('unsupported_version without a version → fallback sentence', () => {
+    expect(importFileProblemCopy('unsupported_version', {}).body).toMatch(
+      /^这个文件来自不支持的版本，/,
+    );
+  });
+
+  it('empty_backup: information tone, 「备份里没有 OKR」', () => {
+    expect(importFileProblemCopy('empty_backup', {})).toEqual({
+      title: '备份里没有 OKR',
+      body: '这个备份里一个 OKR 也没有，没有可导入的内容。',
+      unchanged: '数据没有任何改动。',
+      tone: 'info',
+    });
+  });
+
+  it.each([
+    ['not_json', undefined],
+    ['unsupported_version', '3'],
+    ['unsupported_version', 'v3.x'],
+    ['unsupported_version', 'okrs[0].schema_version'],
+    ['empty_backup', undefined],
+  ] as const)('%s (%p): no raw codes, field names or paths in the UI text', (code, version) => {
+    const text = ui(importFileProblemCopy(code, { version }));
+    expect(text).not.toMatch(/not_json|unsupported_version|empty_backup/);
+    const rest = text.replace(/ClarityOKR|OKR/g, '');
+    expect(rest).not.toMatch(/[A-Za-z]+_[A-Za-z]+/); // snake_case
+    expect(rest).not.toMatch(/[a-z]+[A-Z][A-Za-z]*/); // camelCase
+    expect(rest).not.toMatch(/[A-Za-z0-9\]]\.[A-Za-z]/); // dotted path
+    expect(rest).not.toMatch(/\[/); // bracketed path
+    expect(rest).not.toMatch(/[A-Za-z]/); // nothing else in Latin letters
   });
 });

@@ -301,7 +301,11 @@ describe('OkrStickyNoteComponent regeneration (§3.7)', () => {
     expect(q('regen-details').textContent).toContain('查看详情');
     expect(
       all('sticky-key-result').map((r) =>
-        r.querySelector('[data-testid="kr-statement"]')!.textContent!.trim(),
+        // the 「7 天未更新」 badge depends on the real clock passing the fixture date
+        r
+          .querySelector('[data-testid="kr-statement"]')!
+          .textContent!.replace('7 天未更新', '')
+          .trim(),
       ),
     ).toEqual(['A', 'B', 'C']);
     api['regenerateKrs']!.mockResolvedValueOnce(

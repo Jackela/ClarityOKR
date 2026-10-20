@@ -442,10 +442,14 @@ test.describe('#54 in-app reminders (fake time)', () => {
     const dialog = sticky.getByTestId('discard-dialog');
     await expect(dialog).toBeVisible();
     await expect(dialog).toContainText('放弃未保存的修改？');
-    await both(sticky, 'S2-14-goreview-unsaved-edit-confirm');
+    // #85 review: the safe answer holds the focus with a visible ring, so Enter keeps the edits
+    const keep = dialog.getByRole('button', { name: '继续编辑' });
+    await expect(keep).toBeFocused();
+    expect(await focusVisible(keep)).toBe(true);
+    await both(sticky, 'S2-14-goreview-unsaved-edit-confirm-focus');
 
-    // 继续编辑: the edits stay, no quarter switch
-    await dialog.getByRole('button', { name: '继续编辑' }).click();
+    // 继续编辑 (Enter on the default focus): the edits stay, no quarter switch
+    await sticky.keyboard.press('Enter');
     await expect(dialog).toHaveCount(0);
     await expect(objective).toHaveValue('改了一半的目标');
     await expect(sticky.getByTestId('tab-note')).toHaveAttribute('aria-selected', 'true');

@@ -1,5 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { IMPORT_ISSUE_UI, issueLines } from '@clarityokr/contracts';
+import { IMPORT_ISSUE_UI, importFileProblemCopy, issueLines } from '@clarityokr/contracts';
 import type { ImportProblem, ImportReply } from '@clarityokr/contracts';
 
 import { ToastService } from '../shared/components/toast.service';
@@ -37,6 +37,8 @@ export type ImportDialog =
       hint: string;
       /** The second button: pick another file, or re-read the same one (Q8-3). */
       action: 'reselect' | 'retry' | null;
+      /** #85: an information dialog (empty backup): `dialog` role, no ⚠, primary title. */
+      info?: true;
     };
 
 export interface BackupRow {
@@ -336,31 +338,23 @@ export class ImportFlow {
           action: 'reselect',
         });
         return;
+      // #85: copy and tone from the shared copy file (contracts/import-issue-copy.ts)
       case 'not_json':
-        this.openDialog({
-          ...base,
-          title: C.notJsonTitle,
-          body: C.notJsonBody,
-          action: 'reselect',
-        });
-        return;
       case 'unsupported_version':
+      case 'empty_backup': {
+        const copy = importFileProblemCopy(problem.kind, {
+          version: problem.kind === 'unsupported_version' ? problem.version : undefined,
+        });
         this.openDialog({
           ...base,
-          title: C.versionTitle,
-          body: C.versionBody(problem.version),
-          action: null,
+          title: copy.title,
+          body: copy.body,
+          hint: copy.unchanged,
+          action: problem.kind === 'not_json' ? 'reselect' : null,
+          ...(copy.tone === 'info' ? { info: true as const } : {}),
         });
         return;
-      case 'empty_backup':
-        this.openDialog({
-          ...base,
-          hint: '',
-          title: C.emptyBackupTitle,
-          body: C.emptyBackupBody,
-          action: null,
-        });
-        return;
+      }
       case 'invalid':
         this.openDialog({
           ...base,

@@ -157,8 +157,14 @@ test.describe('#50 full backup', () => {
     await stubDialogs(electronApp, null, write('empty', { ...file, okrs: [] }));
     await button.click();
     const error = sticky.getByTestId('import-dialog-error');
-    await expect(error).toContainText('备份中没有 OKR');
-    await both(sticky, 'S1-27-backup-empty');
+    // #85: information, not an error: role=dialog, no ⚠, title in the primary text colour
+    await expect(error.locator('.dialog__title')).toHaveText('备份里没有 OKR');
+    await expect(error).toContainText('这个备份里一个 OKR 也没有，没有可导入的内容。');
+    await expect(error).toContainText('数据没有任何改动。');
+    await expect(sticky.getByRole('alertdialog')).toHaveCount(0);
+    await expect(sticky.getByRole('dialog', { name: '备份里没有 OKR' })).toBeVisible();
+    await expect(error.locator('.dialog__title')).not.toHaveClass(/dialog__title--error/);
+    await both(sticky, 'S1-27-backup-empty-plain');
     await error.getByRole('button', { name: '知道了' }).click();
 
     // one bad OKR refuses the whole file (AC4)

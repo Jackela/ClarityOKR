@@ -52,7 +52,7 @@ describe('DialogComponent (spec §2.6, T8)', () => {
   it('is a modal alertdialog named by its title and described by its body', () => {
     const box = q('[role="alertdialog"]');
     expect(box.getAttribute('aria-modal')).toBe('true');
-    expect(document.getElementById(box.getAttribute('aria-labelledby')!)!.textContent).toBe(
+    expect(document.getElementById(box.getAttribute('aria-labelledby')!)!.textContent!.trim()).toBe(
       '放弃未保存的修改？',
     );
     expect(document.getElementById(box.getAttribute('aria-describedby')!)!.textContent).toBe(
@@ -261,5 +261,25 @@ describe('DialogComponent (spec §2.6, T8)', () => {
       q('[data-testid="dialog-confirm"]').click();
       expect(fixture.componentInstance.confirmed).toBe(1);
     });
+  });
+
+  it('#85: opens with 「继续编辑」 focused and a visible ring (focusVisible), so Enter never discards', () => {
+    fixture.componentInstance.open = false;
+    fixture.detectChanges();
+    const spy = jest.spyOn(HTMLElement.prototype, 'focus');
+    q('#opener').click();
+    fixture.detectChanges();
+    const keep = Array.from(root().querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === '继续编辑',
+    )!;
+    expect(document.activeElement).toBe(keep);
+    const call = spy.mock.calls.find((_, i) => spy.mock.contexts[i] === keep);
+    expect(call?.[0]).toEqual({ focusVisible: true });
+    spy.mockRestore();
+    keep.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    keep.click(); // Enter on a focused button activates it
+    fixture.detectChanges();
+    expect(fixture.componentInstance.confirmed).toBe(0);
+    expect(fixture.componentInstance.cancelled).toBe(1);
   });
 });
