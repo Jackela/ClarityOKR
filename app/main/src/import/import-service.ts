@@ -5,6 +5,8 @@ import { isAbsolute } from 'node:path';
 import {
   IMPORT_BACKUP_MAX_BYTES,
   IMPORT_MAX_BYTES,
+  exceedsBackupLimit,
+  exceedsImportLimit,
   TEXT_LIMITS,
   countGraphemes,
   truncateGraphemes,
@@ -176,8 +178,8 @@ export class ImportService {
     let knownBackup = false;
     try {
       const size = await this.size(path);
-      if (size > IMPORT_BACKUP_MAX_BYTES) return tooLarge(size, true);
-      if (size > IMPORT_MAX_BYTES) {
+      if (exceedsBackupLimit(size)) return tooLarge(size, true);
+      if (exceedsImportLimit(size)) {
         knownBackup = BACKUP_KIND.test((await this.head(path, IMPORT_HEAD_BYTES)).toString('utf8'));
       }
       bytes = await this.read(path);
@@ -187,9 +189,9 @@ export class ImportService {
       if (isRetry) return { outcome: 'original_missing' };
       return { outcome: 'rejected', problem: { kind: 'read_failed', category } };
     }
-    if (bytes.length > IMPORT_BACKUP_MAX_BYTES) return tooLarge(bytes.length, true);
+    if (exceedsBackupLimit(bytes.length)) return tooLarge(bytes.length, true);
     const parsed = parseImportFile(bytes);
-    if (bytes.length > IMPORT_MAX_BYTES && !(parsed.ok && parsed.backup)) {
+    if (exceedsImportLimit(bytes.length) && !(parsed.ok && parsed.backup)) {
       return tooLarge(bytes.length, false);
     }
     if (knownBackup) Logger.info('[import] Large backup recognised from the file start');

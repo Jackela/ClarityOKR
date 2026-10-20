@@ -3,7 +3,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import BetterSqlite3 from 'better-sqlite3';
 import type { Database } from 'better-sqlite3';
-import { IPC_CHANNELS, type ImportReply, type IpcResult } from '@clarityokr/contracts';
+import {
+  IMPORT_MAX_BYTES,
+  IPC_CHANNELS,
+  type ImportReply,
+  type IpcResult,
+} from '@clarityokr/contracts';
 import { renderJson } from '../../../../app/main/src/export/export-document.js';
 import { ExportService } from '../../../../app/main/src/export/export-service.js';
 import { buildBackupFileName } from '../../../../app/main/src/export/export-file-name.js';
@@ -330,7 +335,7 @@ describe('#50 full backup', () => {
         ok: true,
         data: {
           outcome: 'rejected',
-          problem: { kind: 'too_large', limitBytes: 5 * MB, backup: false },
+          problem: { kind: 'too_large', limitBytes: IMPORT_MAX_BYTES, backup: false },
         },
       });
       expect(target.store.listObjectives()).toHaveLength(0);

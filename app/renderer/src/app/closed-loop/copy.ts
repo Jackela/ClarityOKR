@@ -265,7 +265,11 @@ export const COPY = {
       `历史里已有一个同名、同一创建时间的 OKR：「${title}」（创建于 ${createdAt}）。导入不会覆盖它。`,
     conflictHint: '作为副本导入时，新 OKR 的标题会加上「（导入）」。',
     tooLargeTitle: '文件太大，无法导入',
-    tooLargeBody: (mb: string) => `只能导入 5 MB 以内的文件，这个文件有 ${mb} MB。`,
+    /**
+     * #89 (writer, clarityokr-88/copy.md §2; decided 10:21): no file size — a file just over the
+     * limit used to read 「5.0 MB」. The 5 is IMPORT_MAX_MB (a test keeps them equal).
+     */
+    tooLargeBody: '这个文件超过 5 MB，只能导入 5 MB 以内的文件。',
     tooLargeBackupBody: (limit: number, mb: string) =>
       `只能导入 ${limit} MB 以内的备份，这个文件有 ${mb} MB。`,
     invalidTitle: '文件内容有误，无法导入',

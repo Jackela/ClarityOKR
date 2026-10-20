@@ -244,10 +244,26 @@ export type ExportReply =
 // file behind a one-time token, which `commit` / `retry` / `discard` refer to.
 // ---------------------------------------------------------------------------
 
-/** Largest single-OKR file the import reads (5 MB). */
-export const IMPORT_MAX_BYTES = 5 * 1024 * 1024;
+/** Bytes in one MB as the import limits count them (MiB). */
+export const BYTES_PER_MB = 1024 * 1024;
+/** #89: the single-OKR limit in MB, the one number the copy names (「5 MB」). */
+export const IMPORT_MAX_MB = 5;
+/**
+ * Largest single-OKR file the import reads: exactly 5 × 1024 × 1024 bytes is allowed, one byte
+ * more is too large (#89). The one definition used by main, the renderer and the tests.
+ */
+export const IMPORT_MAX_BYTES = IMPORT_MAX_MB * BYTES_PER_MB;
 /** #50 B5: largest full backup the import reads (50 MB). */
-export const IMPORT_BACKUP_MAX_BYTES = 50 * 1024 * 1024;
+export const IMPORT_BACKUP_MAX_BYTES = 50 * BYTES_PER_MB;
+
+/** #89: true when a single-OKR file of `bytes` is over the limit (the limit itself is fine). */
+export function exceedsImportLimit(bytes: number): boolean {
+  return bytes > IMPORT_MAX_BYTES;
+}
+/** #89: true when a backup file of `bytes` is over the backup limit. */
+export function exceedsBackupLimit(bytes: number): boolean {
+  return bytes > IMPORT_BACKUP_MAX_BYTES;
+}
 
 export type ImportReadCategory = 'permission' | 'not_found' | 'busy' | 'other';
 export type ImportWriteCategory = 'disk_full' | 'busy' | 'other';

@@ -1,3 +1,4 @@
+import { IMPORT_MAX_BYTES } from '@clarityokr/contracts';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import type NodeModule from 'node:module';
 import { tmpdir } from 'node:os';
@@ -144,7 +145,31 @@ test.describe('#49 import', () => {
       await sticky.keyboard.press('Escape');
       await expect(dialog).toHaveCount(0);
     };
-    await errorCase('S1-08-import-too-large', Buffer.alloc(5 * 1024 * 1024 + 10, 0x20), '文件太大');
+    // #89: one byte over the limit → the plain sentence, never the file size (「5.0 MB」)
+    await errorCase('S1-08-import-too-large', Buffer.alloc(IMPORT_MAX_BYTES + 1, 0x20), '文件太大');
+    {
+      await stubDialogs(electronApp, null, join(dir, 'S1-08-import-too-large.json'));
+      await button.click();
+      const tooLarge = sticky.getByTestId('import-dialog-error');
+      await expect(tooLarge).toContainText('这个文件超过 5 MB，只能导入 5 MB 以内的文件。');
+      await expect(tooLarge).not.toContainText(/\d+\.\d+ MB/);
+      await sticky.keyboard.press('Escape');
+      await expect(tooLarge).toHaveCount(0);
+    }
+    // #89: exactly the limit is still read (here: the same OKR again → the conflict dialog)
+    {
+      const text = JSON.stringify(exported);
+      const atLimit = `${text.slice(0, -1)}${' '.repeat(IMPORT_MAX_BYTES - Buffer.byteLength(text))}}`;
+      expect(Buffer.byteLength(atLimit)).toBe(IMPORT_MAX_BYTES);
+      const path = join(dir, 'at-limit.json');
+      writeFileSync(path, atLimit);
+      await stubDialogs(electronApp, null, path);
+      await button.click();
+      await expect(sticky.getByTestId('import-dialog-conflict')).toBeVisible();
+      await expect(sticky.getByTestId('import-dialog-error')).toHaveCount(0);
+      await sticky.keyboard.press('Escape');
+      await expect(sticky.getByTestId('import-dialog-conflict')).toHaveCount(0);
+    }
     await errorCase('S1-09-import-not-json-plain', '{ nope', '⚠ 这个文件导入不了');
     const bad = structuredClone(exported);
     bad.keyResults[0].progress = 150;
