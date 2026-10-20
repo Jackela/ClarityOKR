@@ -508,6 +508,9 @@ test.describe('#54 in-app reminders (fake time)', () => {
     await expect(go).toBeFocused();
     expect(await focusVisible(go)).toBe(true);
     expect(await ringDrawn(go)).toBe(true);
+    await expect(go).toHaveCSS('margin-inline-start', '4px');
+    await expect(go).toHaveCSS('outline-offset', '2px');
+    await expect(go).toHaveCSS('border-radius', '4px');
     await both(mainWindow, 'S2-15-goreview-timeout-notice');
     // clicked again: the original banner text is back at once (it may time out again)
     await go.click();

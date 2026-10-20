@@ -53,6 +53,7 @@ export type { GoReviewRequest } from './reminder-navigator.service';
             <button
               type="button"
               class="reminder__go"
+              [class.reminder__go--after-notice]="notice()"
               data-testid="review-reminder-go"
               (click)="go(s)"
             >
@@ -152,6 +153,13 @@ export type { GoReviewRequest } from './reminder-navigator.service';
       }
       .reminder__close:hover {
         background: var(--color-neutral-badge);
+      }
+      /* #90 design: after the timeout notice (no trailing punctuation) 去复盘 keeps a 4px gap */
+      .reminder__go--after-notice {
+        margin-inline-start: 4px;
+      }
+      .reminder__go:focus-visible {
+        border-radius: 4px;
       }
       .reminder__go:focus-visible,
       .reminder__close:focus-visible {
