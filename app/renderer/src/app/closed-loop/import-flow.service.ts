@@ -324,6 +324,26 @@ export class ImportFlow {
 
   private showError(problem: ImportProblem): void {
     const base = { kind: 'error' as const, detail: [] as string[], hint: C.unchanged };
+    // #85: copy and tone from the shared copy file (contracts/import-issue-copy.ts). Not
+    // stacked case labels: the coverage build counts them and fails on noFallthroughCasesInSwitch.
+    if (
+      problem.kind === 'not_json' ||
+      problem.kind === 'unsupported_version' ||
+      problem.kind === 'empty_backup'
+    ) {
+      const copy = importFileProblemCopy(problem.kind, {
+        version: problem.kind === 'unsupported_version' ? problem.version : undefined,
+      });
+      this.openDialog({
+        ...base,
+        title: copy.title,
+        body: copy.body,
+        hint: copy.unchanged,
+        action: problem.kind === 'not_json' ? 'reselect' : null,
+        ...(copy.tone === 'info' ? { info: true as const } : {}),
+      });
+      return;
+    }
     switch (problem.kind) {
       case 'too_large':
         this.openDialog({
@@ -338,23 +358,6 @@ export class ImportFlow {
           action: 'reselect',
         });
         return;
-      // #85: copy and tone from the shared copy file (contracts/import-issue-copy.ts)
-      case 'not_json':
-      case 'unsupported_version':
-      case 'empty_backup': {
-        const copy = importFileProblemCopy(problem.kind, {
-          version: problem.kind === 'unsupported_version' ? problem.version : undefined,
-        });
-        this.openDialog({
-          ...base,
-          title: copy.title,
-          body: copy.body,
-          hint: copy.unchanged,
-          action: problem.kind === 'not_json' ? 'reselect' : null,
-          ...(copy.tone === 'info' ? { info: true as const } : {}),
-        });
-        return;
-      }
       case 'invalid':
         this.openDialog({
           ...base,
