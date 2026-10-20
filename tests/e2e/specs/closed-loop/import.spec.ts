@@ -234,6 +234,14 @@ test.describe('#49 import', () => {
         /rgb\((185, 28, 28|252, 165, 165)\)/,
       );
       await expect(dialog.getByRole('button')).toHaveText(buttons);
+      // #87: only 知道了 is primary; 重新选择文件… is the outlined secondary (like 继续编辑)
+      await expect(dialog.getByRole('button', { name: '知道了' })).toHaveClass(
+        /dialog__btn--confirm/,
+      );
+      if (buttons.length > 1)
+        await expect(dialog.getByRole('button', { name: '重新选择文件…' })).not.toHaveClass(
+          /dialog__btn--confirm/,
+        );
       if (width) {
         // nothing spills out sideways at a narrow width
         const fits = await dialog.evaluate((el) =>

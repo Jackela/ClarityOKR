@@ -282,4 +282,22 @@ describe('DialogComponent (spec §2.6, T8)', () => {
     expect(fixture.componentInstance.confirmed).toBe(0);
     expect(fixture.componentInstance.cancelled).toBe(1);
   });
+
+  it('#87: primaryCancel → only the cancel answer is primary; the other is the outlined secondary', () => {
+    const f = TestBed.createComponent(DialogComponent);
+    f.componentRef.setInput('title', '这个文件导入不了');
+    f.componentRef.setInput('cancelLabel', '知道了');
+    f.componentRef.setInput('confirmLabel', '重新选择文件…');
+    f.componentRef.setInput('danger', false);
+    f.componentRef.setInput('primaryCancel', true);
+    f.detectChanges();
+    const [ok, reselect] = Array.from(
+      (f.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('.dialog__btn'),
+    );
+    expect(ok.textContent!.trim()).toBe('知道了');
+    expect(ok.classList).toContain('dialog__btn--confirm');
+    expect(reselect.textContent!.trim()).toBe('重新选择文件…');
+    expect(reselect.className.trim()).toBe('dialog__btn');
+    f.destroy();
+  });
 });

@@ -98,7 +98,8 @@ const SWALLOWED_KEYS: ReadonlySet<string> = new Set(['1', '2', '3', 's']);
             #confirmButton
             type="button"
             [hidden]="!confirmLabel"
-            class="dialog__btn dialog__btn--confirm"
+            class="dialog__btn"
+            [class.dialog__btn--confirm]="!primaryCancel"
             [class.dialog__btn--danger]="danger"
             [attr.aria-disabled]="confirmDisabled || busy ? 'true' : null"
             [attr.aria-describedby]="confirmNote ? noteId : null"
