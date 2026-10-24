@@ -157,10 +157,10 @@ describe('ImportFlow (#49, S1§8 + v3.1)', () => {
     );
     await flow.start();
     const body = flow.dialog()!.body;
-    expect(body).toBe('这个文件超过 5 MB，只能导入 5 MB 以内的文件。');
+    expect(body).toBe('这个文件超过 5 MB 的上限，无法导入。');
     expect(body).not.toMatch(/\d+\.\d/); // never 「5.0 MB」
     // the 5 in the copy is the limit the import enforces
-    expect(body.match(/(\d+) MB/g)).toEqual([`${IMPORT_MAX_MB} MB`, `${IMPORT_MAX_MB} MB`]);
+    expect(body.match(/(\d+) MB/g)).toEqual([`${IMPORT_MAX_MB} MB`]);
     expect(IMPORT_MAX_BYTES).toBe(IMPORT_MAX_MB * 1024 * 1024);
   });
 
@@ -173,7 +173,7 @@ describe('ImportFlow (#49, S1§8 + v3.1)', () => {
         backup: false,
       },
       '文件太大，无法导入',
-      '这个文件超过 5 MB，只能导入 5 MB 以内的文件。',
+      '这个文件超过 5 MB 的上限，无法导入。',
       'reselect',
     ],
     [

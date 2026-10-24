@@ -151,7 +151,7 @@ test.describe('#49 import', () => {
       await stubDialogs(electronApp, null, join(dir, 'S1-08-import-too-large.json'));
       await button.click();
       const tooLarge = sticky.getByTestId('import-dialog-error');
-      await expect(tooLarge).toContainText('这个文件超过 5 MB，只能导入 5 MB 以内的文件。');
+      await expect(tooLarge).toContainText('这个文件超过 5 MB 的上限，无法导入。');
       await expect(tooLarge).not.toContainText(/\d+\.\d+ MB/);
       await sticky.keyboard.press('Escape');
       await expect(tooLarge).toHaveCount(0);
