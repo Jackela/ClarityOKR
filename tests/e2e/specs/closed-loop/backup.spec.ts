@@ -186,7 +186,7 @@ test.describe('#50 full backup', () => {
     await stubDialogs(electronApp, null, write('over-limit', padded(IMPORT_BACKUP_MAX_BYTES + 1)));
     await button.click();
     await expect(error).toContainText('文件太大，无法导入');
-    await expect(error).toContainText('这个备份超过 50 MB，只能导入 50 MB 以内的文件。');
+    await expect(error).toContainText('这个备份超过 50 MB 的上限，无法导入。');
     await expect(error).toContainText('数据没有任何改动。');
     await expect(error).not.toContainText(/\d+\.\d+ MB/);
     await expect(error.getByRole('button', { name: '知道了' })).toBeFocused();
