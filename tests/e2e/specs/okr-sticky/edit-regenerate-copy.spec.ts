@@ -347,7 +347,7 @@ test.describe('Edit, Regenerate, and Copy OKR Workflow', () => {
     // Click cancel button
     // ==========================================
     await forceClick(stickyWindowPage, '[data-testid="edit-cancel"]');
-    // text was changed, so cancelling asks first (spec §3.9): 放弃
+    // text was changed, so cancelling asks first (spec §3.9): 放弃修改
     await waitForElement(stickyWindowPage, '[data-testid="dialog-confirm"]', { timeout: 5000 });
     await forceClick(stickyWindowPage, '[data-testid="dialog-confirm"]');
 

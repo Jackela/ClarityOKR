@@ -743,12 +743,12 @@ export class OkrStickyNoteComponent implements OnChanges {
     this.discard();
   }
 
-  /** Answer to a pending {@link confirmDiscard}: true = 放弃, false = 继续编辑. */
+  /** Answer to a pending {@link confirmDiscard}: true = 放弃修改, false = 继续编辑. */
   private discardAnswer: ((leave: boolean) => void) | null = null;
 
   /**
    * N55: asks with the same 「放弃未保存的修改？」 dialog before something else (「去复盘」 from the
-   * main window) replaces the note. Resolves true on 「放弃」, false on 「继续编辑」. The caller
+   * main window) replaces the note. Resolves true on 「放弃修改」, false on 「继续编辑」. The caller
    * drops the edits itself.
    */
   confirmDiscard(): Promise<boolean> {

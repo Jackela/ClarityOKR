@@ -182,7 +182,7 @@ test.describe('closed loop: review tab and text edit (D1b-1)', () => {
     await expect(sticky.getByTestId('edit-metric-0')).toHaveValue('');
     await sticky.keyboard.press('Control+Shift+z');
 
-    // cancel with changes asks; 继续编辑 keeps, 放弃 reverts to the last saved state
+    // cancel with changes asks; 继续编辑 keeps, 放弃修改 reverts to the last saved state
     await sticky.getByTestId('edit-cancel').click();
     await expect(sticky.getByTestId('discard-dialog')).toBeVisible();
     await expect(sticky.getByTestId('dialog-cancel')).toBeFocused();

@@ -133,7 +133,7 @@ describe('ImportFlow (#49, S1§8 + v3.1)', () => {
     expect(flow.dialog()).toMatchObject({
       kind: 'error',
       title: '文件太大，无法导入',
-      body: '这个备份文件超过 50 MB，只能导入 50 MB 以内的备份。',
+      body: '这个备份超过 50 MB，只能导入 50 MB 以内的文件。',
       hint: '数据没有任何改动。',
       action: 'reselect',
     });
@@ -184,7 +184,7 @@ describe('ImportFlow (#49, S1§8 + v3.1)', () => {
         backup: true,
       },
       '文件太大，无法导入',
-      '这个备份文件超过 50 MB，只能导入 50 MB 以内的备份。',
+      '这个备份超过 50 MB，只能导入 50 MB 以内的文件。',
       'reselect',
     ],
     [{ kind: 'not_json' }, '这个文件导入不了', '这不是 ClarityOKR 导出的文件', 'reselect'],

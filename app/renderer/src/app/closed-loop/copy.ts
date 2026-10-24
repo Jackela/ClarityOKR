@@ -63,7 +63,7 @@ export const COPY = {
     discardTitle: '放弃未保存的修改？',
     discardBody: '你修改的文字还没有保存。',
     keepEditing: '继续编辑',
-    discard: '放弃',
+    discard: '放弃修改',
   },
   limit: {
     over: (n: number) => `超出 ${n} 个字符，请删减后再保存。`,
@@ -274,7 +274,7 @@ export const COPY = {
      * #93 (writer, clarityokr-88/copy.md §3): same pattern as tooLargeBody, no file size. The 50
      * is BACKUP_MAX_MB (a test keeps them equal).
      */
-    tooLargeBackupBody: '这个备份文件超过 50 MB，只能导入 50 MB 以内的备份。',
+    tooLargeBackupBody: '这个备份超过 50 MB，只能导入 50 MB 以内的文件。',
     invalidTitle: '文件内容有误，无法导入',
     invalidBody: '第一处错误：',
     // #69: more than 99 shows 99+

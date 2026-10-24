@@ -98,7 +98,7 @@ export class ReviewStore {
 
   /**
    * Throws the typed text away (the user confirmed leaving). This only resets local state: it
-   * cannot undo a save the main process already wrote. Callers must not offer 「放弃」 while a
+   * cannot undo a save the main process already wrote. Callers must not offer 「放弃修改」 while a
    * save is in flight (the leave dialog keeps its confirm button `aria-disabled` then).
    */
   discard(): void {
