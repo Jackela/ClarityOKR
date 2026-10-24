@@ -9,7 +9,11 @@ import { join } from 'node:path';
 import { z } from 'zod';
 
 const llmConfigSchema = z.object({
-  apiKey: z.string().min(1, 'LLM API key is required'),
+  // Zod 4 reports a missing value as "Invalid input: expected string, received undefined";
+  // keep the Zod 3 wording ("Required") for a missing key.
+  apiKey: z
+    .string({ error: (issue) => (issue.input === undefined ? 'Required' : undefined) })
+    .min(1, 'LLM API key is required'),
   baseUrl: z.string().url().default('https://api.openai.com'),
   model: z.string().default('gpt-4o-mini'),
   timeoutMs: z.coerce.number().int().positive().default(5000),

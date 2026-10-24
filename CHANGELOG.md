@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- Electron 升到 44.9.3，修复 eMudhra 中间证书问题：被泄露的 eMudhra 中间证书签发的证书不再被信任，连接 AI 服务时不会被冒充（#102）
+- zod 升到 4.6.7，修复超长输入导致内存耗尽：收到异常大的数据时应用不会因内存耗尽而崩溃（#102）
+
 ## [0.3.0] - 2026-10-21
 
 导入与备份、KR 进度趋势、应用内提醒，以及更好懂的错误提示（v0.2.0 之后合并的 PR #58–#94）。
