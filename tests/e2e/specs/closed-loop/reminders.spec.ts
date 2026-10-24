@@ -661,10 +661,10 @@ test.describe('#54 in-app reminders (fake time)', () => {
     await expect(objective).toHaveValue('改了一半的目标');
     await expect(sticky.getByTestId('tab-note')).toHaveAttribute('aria-selected', 'true');
 
-    // again, and 放弃: Q's review opens with a visible focus ring on its heading
+    // again, and 放弃修改: Q's review opens with a visible focus ring on its heading
     await panel.getByTestId('review-reminder-go').click();
     await expect(dialog).toBeVisible();
-    await dialog.getByRole('button', { name: '放弃' }).click();
+    await dialog.getByRole('button', { name: '放弃修改', exact: true }).click();
     await expect(sticky.getByTestId('tab-review')).toHaveAttribute('aria-selected', 'true');
     await expect(sticky.getByTestId('review-objective')).toHaveText('上季度 OKR');
     await expect(sticky.getByTestId('review-objective')).toBeFocused();

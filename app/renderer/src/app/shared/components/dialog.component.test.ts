@@ -13,7 +13,7 @@ import { DialogComponent } from './dialog.component';
         title="放弃未保存的修改？"
         body="你写的内容还没有保存。"
         cancelLabel="继续编辑"
-        confirmLabel="放弃"
+        confirmLabel="放弃修改"
         [danger]="danger"
         [confirmDisabled]="disabled"
         [confirmNote]="note"
@@ -72,7 +72,7 @@ describe('DialogComponent (spec §2.6, T8)', () => {
 
   it('opens with the focus on the safe button (cancel), listed first', () => {
     const buttons = Array.from(root().querySelectorAll('.dialog__actions button'));
-    expect(buttons.map((b) => b.textContent!.trim())).toEqual(['继续编辑', '放弃']);
+    expect(buttons.map((b) => b.textContent!.trim())).toEqual(['继续编辑', '放弃修改']);
     expect(document.activeElement).toBe(buttons[0]);
   });
 

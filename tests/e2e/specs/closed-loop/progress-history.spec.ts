@@ -7,6 +7,7 @@ import { test, expect, cleanupPersistenceFiles } from '../../fixtures';
 import { ClarificationPage, waitForStickyWindow } from '../../page-objects';
 import { forceClick, waitForElement } from '../../helpers/native-dom';
 import { runAxe } from '../../helpers/axe';
+import { setTheme } from '../../helpers/closed-loop';
 
 test.beforeEach(async () => {
   await cleanupPersistenceFiles();
@@ -339,5 +340,37 @@ test.describe('closed loop: progress, history, period (D1a)', () => {
     await sticky.getByTestId('history-item').press('Enter');
     await expect(sticky.getByTestId('tab-note')).toHaveAttribute('aria-selected', 'true');
     await expect(sticky.getByTestId('sticky-objective')).toBeVisible();
+  });
+  test('progress save fails: 「⚠ 没能保存」 row with 重试 / 放弃修改; 放弃修改 closes the row (S2-16)', async ({
+    electronApp,
+    mainWindow,
+    mockServer,
+  }) => {
+    const sticky = await openSticky(electronApp, mainWindow, mockServer);
+
+    // the main process refuses every progress write
+    await electronApp.evaluate(({ ipcMain }) => {
+      ipcMain.removeHandler('clarityokr:kr:set-progress');
+      ipcMain.handle('clarityokr:kr:set-progress', () => ({
+        ok: false,
+        error: { code: 'INTERNAL', message: 'refused (e2e)' },
+      }));
+    });
+    const first = sticky.getByTestId('sticky-key-result').nth(0);
+    await first.getByTestId('kr-progress-value').click();
+    await first.getByTestId('kr-progress-input').fill('40');
+    await first.getByTestId('kr-progress-input').press('Enter');
+    const failed = first.getByTestId('kr-save-failed');
+    await expect(failed).toBeVisible();
+    await expect(failed).toHaveAttribute('role', 'alert');
+    await expect(failed).toContainText('没能保存，进度没有改动。');
+    await expect(failed.getByRole('button')).toHaveText(['重试', '放弃修改']);
+    await shot(sticky, 'S2-16-progress-save-failed-light');
+    await setTheme(sticky, 'dark');
+    await shot(sticky, 'S2-16-progress-save-failed-dark');
+    await setTheme(sticky, 'light');
+
+    await failed.getByRole('button', { name: '放弃修改', exact: true }).click();
+    await expect(failed).toHaveCount(0);
   });
 });

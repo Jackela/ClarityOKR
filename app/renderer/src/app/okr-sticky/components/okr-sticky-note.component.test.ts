@@ -254,7 +254,7 @@ describe('Sticky note DOM with actual edit store and gateway', () => {
     expect(store.draftKeyResults()[0].statement).toBe('Unsaved result');
     element('edit-cancel').click();
     await render();
-    // unsaved changes: asks first (spec §3.9); 放弃 throws them away
+    // unsaved changes: asks first (spec §3.9); 放弃修改 throws them away
     expect(element('discard-dialog').textContent).toContain('放弃未保存的修改？');
     element('dialog-confirm').click();
     await render();
