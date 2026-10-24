@@ -97,7 +97,12 @@ jobs:
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          if [ -z "${CSC_LINK}${WIN_CSC_LINK}" ]; then
+          # An unset secret still arrives as an empty string; electron-builder reads an empty
+          # CSC_LINK as a path (the repo folder) and fails ("not a file"). Drop empty ones.
+          for v in CSC_LINK CSC_KEY_PASSWORD WIN_CSC_LINK WIN_CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
+            if [ -z "${!v}" ]; then unset "$v"; fi
+          done
+          if [ -z "${CSC_LINK:-}${WIN_CSC_LINK:-}" ]; then
             export CSC_IDENTITY_AUTO_DISCOVERY=false
             echo "signed=false" > dist-signing.txt
           else

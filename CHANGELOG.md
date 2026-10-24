@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.3.0] - 待定
+## [0.3.0] - 2026-10-21
 
 导入与备份、KR 进度趋势、应用内提醒，以及更好懂的错误提示（v0.2.0 之后合并的 PR #58–#94）。
 
@@ -58,6 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - ⌘Q 退出确认（含未保存修改的合并提示）：macOS 未实测
 - Windows 注销 / 关机时不会询问未保存的修改，没保存的内容会丢失（仍然如此，未实测）
 - Windows / Linux 上无法创建托盘图标时，关闭或隐藏最后一个可见窗口会直接退出应用（按钮提示里有说明）
+- macOS 安装包未签名
 - 确认对话框里按钮文字不统一（有的写「放弃」，有的写「放弃修改」），尚未修复
 
 ## [0.2.0] - 2026-10-15
