@@ -266,12 +266,12 @@ export const COPY = {
     conflictHint: '作为副本导入时，新 OKR 的标题会加上「（导入）」。',
     tooLargeTitle: '文件太大，无法导入',
     /**
-     * #89 (writer, clarityokr-88/copy.md §2; decided 10:21): no file size — a file just over the
-     * limit used to read 「5.0 MB」. The 5 is IMPORT_MAX_MB (a test keeps them equal).
+     * #89 (writer, clarityokr-88/copy.md §2, §7): no file size — a file just over the limit used
+     * to read 「5.0 MB」. The 5 is IMPORT_MAX_MB (a test keeps them equal).
      */
-    tooLargeBody: '这个文件超过 5 MB，只能导入 5 MB 以内的文件。',
+    tooLargeBody: '这个文件超过 5 MB 的上限，无法导入。',
     /**
-     * #93 (writer, clarityokr-88/copy.md §6): short enough for one line, no file size. The 50
+     * #93 (writer, clarityokr-88/copy.md §6): same pattern as tooLargeBody, no file size. The 50
      * is BACKUP_MAX_MB (a test keeps them equal).
      */
     tooLargeBackupBody: '这个备份超过 50 MB 的上限，无法导入。',
