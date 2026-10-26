@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Electron 升到 44.9.3，修复 eMudhra 中间证书问题：被泄露的 eMudhra 中间证书签发的证书不再被信任，连接 AI 服务时不会被冒充（#102）
 - zod 升到 4.6.7，修复超长输入导致内存耗尽：收到异常大的数据时应用不会因内存耗尽而崩溃（#102）
+- 开发与构建工具依赖 fast-uri 升到 3.1.9、ip-address 升到 10.7.5，修复 4 个 fast-uri 和 1 个 ip-address 安全公告；两者都不打包进安装包，对已安装的应用没有影响
 
 ### Changed
 
