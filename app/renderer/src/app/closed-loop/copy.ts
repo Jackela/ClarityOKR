@@ -26,7 +26,7 @@ export const COPY = {
   draftRestore: {
     title: '上次没保存的内容还在',
     lead: '注销或关机时，这些内容还没保存：',
-    wizardLine: (step: number) => `新建 OKR 的向导（第 ${step} 步）`,
+    wizardLine: '新建 OKR 向导里填的目标',
     textEditLine: (title: string, krIndex: number) => `「${title}」第 ${krIndex} 个关键结果的文字`,
     reviewLine: (period: string) => `${period} 的复盘`,
     reviewNoPeriodLine: (title: string) => `「${title}」的复盘`,
@@ -38,6 +38,7 @@ export const COPY = {
     discardKeep: '先留着',
     discardConfirm: '放弃',
     replaceTitle: '用上次没保存的内容替换现在的修改？',
+    replaceBody: '替换后现在的修改找不回来。',
     replaceKeep: '保留现在的',
     replaceConfirm: '替换',
     restored: '已恢复上次没保存的内容。',

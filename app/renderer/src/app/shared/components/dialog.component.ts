@@ -39,15 +39,17 @@ const SWALLOWED_KEYS: ReadonlySet<string> = new Set(['1', '2', '3', 's']);
         [attr.role]="role"
         aria-modal="true"
         [attr.aria-labelledby]="titleId"
-        [attr.aria-describedby]="describedBy"
+        [attr.aria-describedby]="describedBy || null"
         [attr.data-testid]="testId"
         [attr.aria-busy]="busy ? 'true' : null"
       >
         <h2 class="dialog__title" [class.dialog__title--error]="errorTitle" [id]="titleId">
           {{ title }}
         </h2>
+        @if (body) {
         <!-- prettier-ignore -->
         <p class="dialog__body" [id]="bodyId" [class.dialog__body--tight]="detail.length > 0 || !!hint">{{ body }}</p>
+        }
         @if (detail.length > 0) {
           <div class="dialog__detail" [id]="detailId" data-testid="dialog-detail">
             @for (line of detail; track $index) {
@@ -296,7 +298,8 @@ export class DialogComponent implements OnInit, OnDestroy {
     return `dialog-hint-${this.uid}`;
   }
   get describedBy(): string {
-    return [this.bodyId, this.detail.length > 0 ? this.detailId : '', this.hint ? this.hintId : '']
+    // A title-only dialog (S3§12.3 replace confirm) has no body: no aria-describedby at all.
+    return [this.body ? this.bodyId : '', this.detail.length > 0 ? this.detailId : '', this.hint ? this.hintId : '']
       .filter(Boolean)
       .join(' ');
   }

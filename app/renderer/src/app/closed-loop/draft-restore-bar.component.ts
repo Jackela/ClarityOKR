@@ -122,7 +122,7 @@ type Failure = 'none' | 'restore' | 'discard';
     @if (dialog() === 'replace') {
       <clarityokr-dialog
         [title]="t.replaceTitle"
-        body=""
+        [body]="t.replaceBody"
         [cancelLabel]="t.replaceKeep"
         [confirmLabel]="t.replaceConfirm"
         [danger]="true"
@@ -358,14 +358,19 @@ export class DraftRestoreBarComponent implements OnInit {
     this.failure.set('none');
     let ok = false;
     try {
-      ok = await host.apply(rows.map((r) => r.row as DraftRow));
+      const applied = await host.apply(rows.map((r) => r.row as DraftRow));
+      ok = applied.ok;
+      if (ok) {
+        // The restored text is the window's unsaved input again (reported again from there).
+        const settled = await this.api.settleDraft({ keys: rows.map((r) => r.key) });
+        if (!settled.ok) {
+          // S3-05: the draft stays, so the spot goes back to what it was (no half restore).
+          applied.rollback?.();
+          ok = false;
+        }
+      }
     } catch {
       ok = false;
-    }
-    if (ok) {
-      // The restored text is the window's unsaved input again (reported again from there).
-      const settled = await this.api.settleDraft({ keys: rows.map((r) => r.key) });
-      ok = settled.ok;
     }
     this.busy.set('none');
     if (!ok) {

@@ -25,7 +25,7 @@ export function draftLine(item: ResolvedDraftRow): DraftLine {
     full: render(title),
   });
   if (item.row.kind === 'wizard') {
-    const text = t.wizardLine(item.row.step);
+    const text = t.wizardLine;
     return { key: item.key, visible: text, full: text };
   }
   if ('krIndex' in item) return make((title) => t.textEditLine(title, item.krIndex), item.okrTitle);
@@ -43,10 +43,19 @@ export function draftLine(item: ResolvedDraftRow): DraftLine {
 export interface DraftRestoreHost {
   /** S3§12.3: the spot of `row` now — saved since the draft, holding new edits, or untouched. */
   targetOf(row: DraftRow): RestoreTarget;
-  /** Puts the rows back (still unsaved) and focuses the first one's input. false = failed. */
-  apply(rows: readonly DraftRow[]): Promise<boolean>;
+  /**
+   * Puts the rows back (still unsaved) and focuses the first one's input (order: wizard, text
+   * edit, review). `ok: false` = nothing changed; `rollback` undoes a successful apply when the
+   * draft file could not be updated afterwards (S3-05: the spot is left as it was).
+   */
+  apply(rows: readonly DraftRow[]): Promise<DraftApplyResult>;
   /** The window's main heading (`tabindex=-1`), for the focus after 放弃 / an emptied bar. */
   focusHeading(): void;
+}
+
+export interface DraftApplyResult {
+  ok: boolean;
+  rollback?: () => void;
 }
 
 @Injectable({ providedIn: 'root' })

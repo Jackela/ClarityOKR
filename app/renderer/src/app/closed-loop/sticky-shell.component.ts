@@ -32,7 +32,7 @@ import { StorageNoticesComponent } from './storage-notices.component';
 import { TopBarComponent } from './top-bar.component';
 import { UnsavedReporter } from './unsaved-reporter.service';
 import { DraftRestoreBarComponent } from './draft-restore-bar.component';
-import { DraftRestoreHosts, sameSections } from './draft-restore';
+import { DraftRestoreHosts, sameSections, type DraftApplyResult } from './draft-restore';
 import { watchDraftRows } from './draft-reporter';
 
 export type StickyTabId = 'note' | 'review' | 'history';
@@ -323,18 +323,19 @@ export class StickyShellComponent {
 
   /**
    * #110 「恢复」: open the draft's OKR when another one is shown, put the key result texts back
-   * into the text edit and the review text into the review tab (all still unsaved). With a
-   * review draft the review tab ends up shown (leaving it would drop that text again).
+   * into the text edit and the review text into the review store (all still unsaved). Focus
+   * follows S3§12.3: the first kind in the order text edit, review. The review text survives
+   * on the note tab (the review store keeps unsaved text of the same OKR).
    */
-  private async applyDraft(rows: readonly DraftRow[]): Promise<boolean> {
+  private async applyDraft(rows: readonly DraftRow[]): Promise<DraftApplyResult> {
     const first = rows.find((r): r is Exclude<DraftRow, { kind: 'wizard' }> => r.kind !== 'wizard');
-    if (!first) return false;
+    if (!first) return { ok: false };
     const okrId = first.okrId;
     if (this.store.detail()?.objective.id !== okrId) {
       if (this.editor.isEditing()) this.editor.cancelEdits();
       if (this.review.dirty()) this.review.discard();
       const opened = await this.store.openFromHistory(okrId);
-      if (!opened) return false;
+      if (!opened) return { ok: false };
       await new Promise((resolve) => setTimeout(resolve, 0));
     }
     const krs = rows.flatMap((r) =>
@@ -342,25 +343,49 @@ export class StickyShellComponent {
         ? [{ krId: r.krId, statement: r.draft.statement, successMetric: r.draft.successMetric }]
         : [],
     );
-    const review = rows.find((r) => r.kind === 'review' && r.okrId === okrId);
-    if (krs.length > 0) {
-      if (this.tab() !== 'note' && !review) this.tab.set('note');
-      if (!this.note?.restoreDraft(krs)) return false;
-    }
-    if (review && review.kind === 'review') {
-      if (this.tab() !== 'review') this.tab.set('review');
-      for (let tries = 0; tries < 100 && this.review.loadState() !== 'ready'; tries++) {
-        await new Promise((resolve) => setTimeout(resolve, 30));
+    const review = rows.find(
+      (r): r is Extract<DraftRow, { kind: 'review' }> => r.kind === 'review' && r.okrId === okrId,
+    );
+    // What to put back if the draft file cannot be updated afterwards (S3-05).
+    const wasEditing = this.editor.isEditing();
+    const editBefore = this.editor.draftKeyResults().map((kr) => ({ ...kr }));
+    const reviewBefore = { ...this.review.draft() };
+    const rollback = (): void => {
+      if (krs.length > 0) {
+        if (!wasEditing) this.editor.cancelEdits();
+        else for (const kr of editBefore) this.editor.updateKeyResult(kr.id, kr);
       }
-      if (this.review.loadState() !== 'ready') return false;
+      if (review) this.review.draft.set(reviewBefore);
+    };
+    if (review) {
+      if (this.review.currentOkrId() !== okrId || this.review.loadState() !== 'ready') {
+        await this.review.load(okrId);
+      }
+      if (this.review.loadState() !== 'ready') return { ok: false };
       this.review.draft.set({ ...review.draft });
+    }
+    if (krs.length > 0) {
+      if (this.tab() !== 'note') this.tab.set('note');
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      if (!this.note?.restoreDraft(krs)) {
+        if (review) this.review.draft.set(reviewBefore);
+        return { ok: false };
+      }
+      const firstKr = krs[0].krId;
       setTimeout(() => {
         this.host.nativeElement
-          .querySelector<HTMLElement>('[data-testid="review-wentWell"]')
+          .querySelector<HTMLElement>(`[id="edit-kr-${firstKr}"]`)
           ?.focus({ focusVisible: true } as FocusOptions);
-      }, 0);
+      }, 50);
+      return { ok: true, rollback };
     }
-    return true;
+    if (this.tab() !== 'review') this.tab.set('review');
+    setTimeout(() => {
+      this.host.nativeElement
+        .querySelector<HTMLElement>('[data-testid="review-wentWell"]')
+        ?.focus({ focusVisible: true } as FocusOptions);
+    }, 50);
+    return { ok: true, rollback };
   }
 
   private focusHeading(): void {

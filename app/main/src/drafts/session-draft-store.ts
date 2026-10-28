@@ -139,18 +139,31 @@ export interface SessionEndSource {
 }
 
 /**
- * #110: Windows ends the session (log off / shut down). `query-session-end` comes first: the
- * drafts are written already, without preventing it (the shutdown is never blocked or
- * delayed); `session-end` writes again (newest input) and then lets the app quit.
+ * #110: ONE session-end handler for the whole app. Windows ends the session (log off / shut
+ * down) and Electron emits `query-session-end` / `session-end` on EVERY window; whichever
+ * comes first writes the drafts and lets the app quit, exactly once. The shutdown is never
+ * prevented or delayed. `attach` is called for each window as it is created.
  */
 export function wireSessionEndDrafts(
-  window: SessionEndSource,
   drafts: Pick<SessionDraftStore, 'writeAll'>,
   onSessionEnd: () => void,
-): void {
-  window.on('query-session-end', () => drafts.writeAll());
-  window.on('session-end', () => {
+): { attach: (window: SessionEndSource) => void } {
+  let written = false;
+  let ended = false;
+  const write = (): void => {
+    if (written) return;
+    written = true;
     drafts.writeAll();
-    onSessionEnd();
-  });
+  };
+  return {
+    attach: (window) => {
+      window.on('query-session-end', write);
+      window.on('session-end', () => {
+        write();
+        if (ended) return;
+        ended = true;
+        onSessionEnd();
+      });
+    },
+  };
 }

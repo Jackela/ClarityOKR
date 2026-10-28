@@ -233,17 +233,17 @@ export class AppComponent implements OnDestroy {
       targetOf: () => (this.wizardDirty() ? 'dirty' : 'untouched'),
       apply: async (rows) => {
         const row = rows.find((r) => r.kind === 'wizard');
-        if (!row || row.kind !== 'wizard') return false;
-        // The goal goes back into step 1; the clarification answers (an LLM session) do not.
+        if (!row || row.kind !== 'wizard') return { ok: false };
+        // The goal goes back into its field; the clarification answers (an LLM session) do
+        // not (known issue, follow-up issue). The wizard's own state is left as it is.
+        const before = this.intentControl.value;
         this.newOkrConfirm.set(false);
-        this.okrGenerated.set(false);
-        this.state.reset();
         this.intentControl.setValue(row.intent);
         setTimeout(() => {
           const input = document.getElementById('intent-input');
           input?.focus({ focusVisible: true } as FocusOptions);
         }, 0);
-        return true;
+        return { ok: true, rollback: () => this.intentControl.setValue(before) };
       },
       focusHeading: () => document.getElementById('main-heading')?.focus(),
     });

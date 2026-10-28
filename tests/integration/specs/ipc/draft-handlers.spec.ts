@@ -51,8 +51,9 @@ function launch(dbFile: string, draftsDir: string | null) {
   });
   const quit = jest.fn();
   const win = new EventEmitter();
-  wireSessionEndDrafts(win as never, drafts, quit);
-  return { db, store, drafts, ipc, quit, win };
+  const wiring = wireSessionEndDrafts(drafts, quit);
+  wiring.attach(win as never);
+  return { db, store, drafts, ipc, quit, win, wiring };
 }
 
 const okrInput = (title: string) => ({
@@ -188,10 +189,47 @@ describe('#110 session-end drafts through the main process (real OkrStore, temp 
     const second = launch(dbFile, draftsDir);
     const reply = await second.ipc.invoke<DraftGetReply>(STICKY, IPC_CHANNELS.APP_DRAFT_GET);
     expect(reply.ok && reply.data.deletedCount).toBe(1);
+    // partial: one valid row left, one deleted
     expect(reply.ok && reply.data.rows.map((r) => r.key)).toEqual([`textEdit:${kept.id}:kr-2`]);
     // the dropped rows are gone from the file too
     expect(second.drafts.load('sticky')).toEqual({ kind: 'ok', rows: [rows[1]] });
     second.db.close();
+  });
+
+  it('deleted objects, two-digit n: 12 gone + 1 valid → one line and 12 counted; 12 gone only → nothing', async () => {
+    const first = launch(dbFile, draftsDir);
+    const okr = first.store.createObjective(okrInput('保留的目标'));
+    const empty = { wentWell: '', fellShort: '', nextSteps: '' };
+    const valid: DraftRow = {
+      kind: 'review',
+      okrId: okr.id,
+      base: empty,
+      draft: { ...empty, wentWell: 'x' },
+    };
+    const gone = Array.from(
+      { length: 12 },
+      (_, i): DraftRow => ({ ...valid, okrId: `gone-${i}` }) as DraftRow,
+    );
+    first.drafts.report('sticky', [valid, ...gone]);
+    first.drafts.report('main', []);
+    first.win.emit('session-end');
+    first.db.close();
+    const second = launch(dbFile, draftsDir);
+    const partial = await second.ipc.invoke<DraftGetReply>(STICKY, IPC_CHANNELS.APP_DRAFT_GET);
+    expect(partial.ok && partial.data.deletedCount).toBe(12);
+    expect(partial.ok && partial.data.rows).toHaveLength(1);
+    second.db.close();
+
+    rmSync(draftsDir, { recursive: true, force: true });
+    const third = launch(dbFile, draftsDir);
+    third.drafts.report('sticky', gone);
+    third.win.emit('session-end');
+    third.db.close();
+    const fourth = launch(dbFile, draftsDir);
+    const all = await fourth.ipc.invoke<DraftGetReply>(STICKY, IPC_CHANNELS.APP_DRAFT_GET);
+    expect(all).toEqual({ ok: true, data: { rows: [], deletedCount: 0 } });
+    expect(existsSync(join(draftsDir, 'sticky.json'))).toBe(false);
+    fourth.db.close();
   });
 
   it('every row gone → no bar, and the draft is cleared silently', async () => {
@@ -238,6 +276,52 @@ describe('#110 session-end drafts through the main process (real OkrStore, temp 
     const reply = await app.ipc.invoke<DraftGetReply>(MAIN, IPC_CHANNELS.APP_DRAFT_GET);
     expect(reply).toEqual({ ok: true, data: { rows: [], deletedCount: 0 } });
     app.db.close();
+  });
+
+  it('one handler for the app: two windows ending the session → ONE write pass, ONE quit', () => {
+    const app = launch(dbFile, draftsDir);
+    const other = new EventEmitter();
+    app.wiring.attach(other as never);
+    const writeAll = jest.spyOn(app.drafts, 'writeAll');
+    app.drafts.report('main', [{ kind: 'wizard', step: 1, intent: 'x' }]);
+    for (const w of [app.win, other]) w.emit('query-session-end');
+    for (const w of [app.win, other]) w.emit('session-end');
+    expect(writeAll).toHaveBeenCalledTimes(1);
+    expect(app.quit).toHaveBeenCalledTimes(1);
+    expect(existsSync(join(draftsDir, 'main.json'))).toBe(true);
+    app.db.close();
+  });
+
+  it('a normal quit (no session end) leaves no draft: the next launch offers nothing', async () => {
+    const first = launch(dbFile, draftsDir);
+    await first.ipc.invoke(MAIN, IPC_CHANNELS.APP_REPORT_DRAFT, {
+      rows: [{ kind: 'wizard', step: 1, intent: '提高团队效率' }],
+    });
+    first.db.close(); // quit through 退出: no session-end event
+    const second = launch(dbFile, draftsDir);
+    const reply = await second.ipc.invoke<DraftGetReply>(MAIN, IPC_CHANNELS.APP_DRAFT_GET);
+    expect(reply).toEqual({ ok: true, data: { rows: [], deletedCount: 0 } });
+    expect(existsSync(draftsDir)).toBe(false);
+    second.db.close();
+  });
+
+  it('hiding / closing a window is not a decision: the draft is offered again until 恢复 / 放弃', async () => {
+    const first = launch(dbFile, draftsDir);
+    first.drafts.report('main', [{ kind: 'wizard', step: 1, intent: '提高团队效率' }]);
+    first.win.emit('session-end');
+    first.db.close();
+    const second = launch(dbFile, draftsDir);
+    // the window asks when it is shown; hidden / closed / shown again asks again
+    for (let shown = 0; shown < 3; shown++) {
+      const reply = await second.ipc.invoke<DraftGetReply>(MAIN, IPC_CHANNELS.APP_DRAFT_GET);
+      expect(reply.ok && reply.data.rows.map((r) => r.key)).toEqual(['wizard']);
+    }
+    second.db.close();
+    // and the next launch still has it
+    const third = launch(dbFile, draftsDir);
+    const reply = await third.ipc.invoke<DraftGetReply>(MAIN, IPC_CHANNELS.APP_DRAFT_GET);
+    expect(reply.ok && reply.data.rows.map((r) => r.key)).toEqual(['wizard']);
+    third.db.close();
   });
 
   it('rejects malformed payloads and unknown senders', async () => {

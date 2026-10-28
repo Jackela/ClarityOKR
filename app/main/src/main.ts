@@ -471,13 +471,12 @@ app.on('second-instance', () => {
 });
 
 // N16: Windows ends the session (log off / shut down) without waiting for a dialog.
-app.on('browser-window-created', (_event, window) => {
-  // #110: the unsaved input is saved as a draft first (never blocking the shutdown).
-  wireSessionEndDrafts(window, sessionDrafts, () => {
-    Logger.info('[main] The session is ending; quitting without the confirmation');
-    quitGate.sessionEnd();
-  });
+// #110: one handler for the app; the drafts are written once, before quitting.
+const sessionEnd = wireSessionEndDrafts(sessionDrafts, () => {
+  Logger.info('[main] The session is ending; quitting without the confirmation');
+  quitGate.sessionEnd();
 });
+app.on('browser-window-created', (_event, window) => sessionEnd.attach(window));
 
 if (testMode) {
   // E2E only: run as if the tray icon could not be created (N15).

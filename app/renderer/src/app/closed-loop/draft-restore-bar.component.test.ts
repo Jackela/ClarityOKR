@@ -70,7 +70,7 @@ describe('DraftRestoreBarComponent (#110, spec S3§12)', () => {
     };
     host = {
       targetOf: jest.fn(typeof target === 'function' ? target : () => target),
-      apply: jest.fn().mockResolvedValue(true),
+      apply: jest.fn().mockResolvedValue({ ok: true }),
       focusHeading: jest.fn(),
     };
     await TestBed.configureTestingModule({
@@ -116,10 +116,52 @@ describe('DraftRestoreBarComponent (#110, spec S3§12)', () => {
     expect(
       (fixture.nativeElement as HTMLElement).querySelector('[data-draft-live]')!.textContent,
     ).toBe('上次没保存的内容还在 注销或关机时，这些内容还没保存：');
-    // Esc does not close it
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  });
+
+  it('Esc does not close the bar and is not a decision', async () => {
+    await create({ rows: [review], deletedCount: 0 });
+    for (const target of [document, q('draft-bar')!]) {
+      target.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    }
     await settle();
     expect(q('draft-bar')).not.toBeNull();
+    expect(api.settleDraft).not.toHaveBeenCalled();
+  });
+
+  it('hiding / closing the window (component destroyed) is not a decision: nothing settled or discarded', async () => {
+    await create({ rows: [review], deletedCount: 0 });
+    fixture.destroy();
+    await settle();
+    expect(api.settleDraft).not.toHaveBeenCalled();
+    expect(host.apply).not.toHaveBeenCalled();
+  });
+
+  it('replace confirm has body 「替换后现在的修改找不回来。」 wired by aria-describedby; no empty aria-describedby', async () => {
+    await create({ rows: [textEdit], deletedCount: 0 }, 'dirty');
+    q('draft-restore')!.click();
+    await settle();
+    const root = fixture.nativeElement as HTMLElement;
+    const dlg = root.querySelector('[role="alertdialog"],[role="dialog"]')!;
+    const id = dlg.getAttribute('aria-describedby')!;
+    expect(id).toBeTruthy();
+    expect(document.getElementById(id)!.textContent!.trim()).toBe('替换后现在的修改找不回来。');
+    for (const el of Array.from(document.querySelectorAll('[aria-describedby]'))) {
+      const v = el.getAttribute('aria-describedby')!.trim();
+      expect(v).not.toBe('');
+      for (const ref of v.split(/\s+/)) expect(document.getElementById(ref)).not.toBeNull();
+    }
+  });
+
+  it('applied but settle failed: the restore is rolled back, bar stays, one alert line', async () => {
+    await create({ rows: [review], deletedCount: 0 });
+    const rollback = jest.fn();
+    host.apply.mockResolvedValue({ ok: true, rollback });
+    api.settleDraft.mockResolvedValue({ ok: false, error: { code: 'X', message: 'x' } });
+    q('draft-restore')!.click();
+    await settle();
+    expect(rollback).toHaveBeenCalledTimes(1);
+    expect(q('draft-bar')).not.toBeNull();
+    expect(q('draft-error')!.textContent!.trim()).toBe('⚠ 没能恢复，请再试一次。');
   });
 
   it('review without a period: 「{OKR 标题}」的复盘 (title cut the same way)', async () => {
@@ -197,7 +239,7 @@ describe('DraftRestoreBarComponent (#110, spec S3§12)', () => {
 
   it('restore failure: bar and draft stay, one alert line, focus back on 恢复', async () => {
     await create({ rows: [review], deletedCount: 0 });
-    host.apply.mockResolvedValue(false);
+    host.apply.mockResolvedValue({ ok: false });
     q('draft-restore')!.click();
     await settle();
     q('draft-restore')!.click();

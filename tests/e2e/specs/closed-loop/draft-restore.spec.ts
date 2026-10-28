@@ -157,11 +157,13 @@ test.describe('S3§12 session-end draft restore (#110)', () => {
     // Windows asks to end the session: the main process writes the drafts (no dialog, no wait)
     const profile = join(dirname(testInfo.outputPath('clarityokr.db')), 'profile');
     const stickyFile = join(profile, 'drafts', 'sticky.json');
+    await sticky.waitForTimeout(1500); // the reports reach the main process
+    // one app-wide handler: every window gets the event, the drafts are written once
+    await electronApp.evaluate(({ BrowserWindow }) => {
+      for (const w of BrowserWindow.getAllWindows()) w.emit('query-session-end');
+    });
     await expect
       .poll(async () => {
-        await electronApp.evaluate(({ BrowserWindow }) => {
-          for (const w of BrowserWindow.getAllWindows()) w.emit('query-session-end');
-        });
         try {
           return (JSON.parse(readFileSync(stickyFile, 'utf8')) as { rows: { kind: string }[] }).rows
             .map((r) => r.kind)
@@ -196,7 +198,7 @@ test.describe('S3§12 session-end draft restore (#110)', () => {
       await expect(mainBar).toBeVisible({ timeout: 30_000 });
       await expect(mainBar).toHaveAttribute('role', 'region');
       await expect(b.main.getByTestId('draft-line').locator('[aria-hidden="true"]')).toHaveText([
-        '新建 OKR 的向导（第 2 步）',
+        '新建 OKR 向导里填的目标',
       ]);
       await expect(b.main.getByTestId('draft-restore')).toBeFocused();
       await both(b.main, 'S3-01-main-bar-wizard');
@@ -210,9 +212,30 @@ test.describe('S3§12 session-end draft restore (#110)', () => {
       await b.main.keyboard.press('Escape');
       await expect(mainBar).toBeVisible();
 
-      const s = await openStickyOf(b.app, okrId);
+      // hiding / closing (to tray) and showing the main window again is not a decision
+      await b.app.evaluate(({ BrowserWindow }) => {
+        const w = BrowserWindow.getAllWindows().find((x) => !x.isAlwaysOnTop())!;
+        w.hide();
+        w.show();
+      });
+      await expect(mainBar).toBeVisible();
+      expect(readdirSync(join(testInfo.outputPath('b'), 'profile', 'drafts')).sort()).toEqual([
+        'main.json',
+        'sticky.json',
+      ]);
+
+      let s = await openStickyOf(b.app, okrId);
       await setStickyWidth(b.app, 420);
-      const bar = s.getByTestId('draft-bar');
+      let bar = s.getByTestId('draft-bar');
+      await expect(bar).toBeVisible({ timeout: 30_000 });
+      // hiding the sticky window (clarityokr:window:hide) and opening it again: the bar is back
+      await s.evaluate(() =>
+        (
+          window as unknown as { clarifyOkr: { invoke: (c: string) => Promise<unknown> } }
+        ).clarifyOkr.invoke('clarityokr:window:hide'),
+      );
+      s = await openStickyOf(b.app, okrId);
+      bar = s.getByTestId('draft-bar');
       await expect(bar).toBeVisible({ timeout: 30_000 });
       const lines = s.getByTestId('draft-line');
       await expect(lines).toHaveCount(2);
@@ -242,19 +265,17 @@ test.describe('S3§12 session-end draft restore (#110)', () => {
       await both(s, 'S3-07-replace-confirm');
       await s.getByTestId('dialog-confirm').click();
 
-      // restored, still unsaved, focus in the restored input with a ring (S3-03)
+      // restored, still unsaved; focus order wizard → text edit → review (S3§12.3):
+      // the KR text input gets the focus, with a ring (S3-03)
       await expect(bar).toHaveCount(0);
-      await expect(s.getByTestId('review-wentWell')).toHaveValue('发布流程更稳了');
-      await expect(s.getByTestId('review-wentWell')).toBeFocused();
+      await expect(s.getByTestId('edit-kr-1')).toHaveValue('测试覆盖率提升到 90%');
+      await expect(s.getByTestId('edit-kr-1')).toBeFocused();
       expect(await focusVisible(s)).toBe(true);
-      await expect(s.getByTestId('review-state')).toHaveText('有未保存的修改');
       await expect(s.locator('[data-draft-live]')).toHaveText('已恢复上次没保存的内容。');
       await both(s, 'S3-03-restored-focus');
-      await s
-        .getByTestId('tab-note')
-        .click({ trial: true })
-        .catch(() => undefined);
-      await expect(s.getByTestId('edit-kr-1')).toHaveValue('测试覆盖率提升到 90%');
+      await s.getByTestId('tab-review').click();
+      await expect(s.getByTestId('review-wentWell')).toHaveValue('发布流程更稳了');
+      await expect(s.getByTestId('review-state')).toHaveText('有未保存的修改');
       expect(readdirSync(join(testInfo.outputPath('b'), 'profile', 'drafts'))).toEqual([
         'main.json',
       ]);
@@ -279,7 +300,6 @@ test.describe('S3§12 session-end draft restore (#110)', () => {
       await expect(s.getByTestId('draft-line').locator('[aria-hidden="true"]')).toHaveText([
         `「${SHOWN}」的复盘`,
       ]);
-      await both(s, 'S3-08-review-no-period');
       await expect(s.getByTestId('draft-deleted')).toHaveText(
         '另有 12 条对应的内容已删除，无法恢复。',
       );
@@ -296,12 +316,35 @@ test.describe('S3§12 session-end draft restore (#110)', () => {
         await expect(c.main.getByTestId('draft-error')).toHaveAttribute('role', 'alert');
         await expect(c.main.getByTestId('draft-restore')).toBeFocused();
         await expect(c.main.getByTestId('draft-bar')).toBeVisible();
+        // rolled back: the goal is unchanged and 开始澄清 stays off
+        await expect(c.main.getByTestId('intent-input')).toHaveValue('');
+        await expect(c.main.getByTestId('start-clarification')).toBeDisabled();
         await both(c.main, 'S3-05-restore-failed');
       } finally {
         chmodSync(drafts, 0o755);
       }
     } finally {
       c.app.process().kill('SIGKILL');
+    }
+
+    // ---------- launch D: one review line without a period, nothing deleted (S3-08) ----------
+    const d = await relaunch(first, testInfo.outputPath('d'), mockServer.url, (drafts) => {
+      const file = join(drafts, 'sticky.json');
+      const data = JSON.parse(readFileSync(file, 'utf8'));
+      const review = data.rows.find((r: { kind: string }) => r.kind === 'review');
+      writeFileSync(file, JSON.stringify({ ...data, rows: [review] }));
+    });
+    try {
+      const s = await openStickyOf(d.app, okrId);
+      await setStickyWidth(d.app, 420);
+      await expect(s.getByTestId('draft-bar')).toBeVisible({ timeout: 30_000 });
+      await expect(s.getByTestId('draft-line').locator('[aria-hidden="true"]')).toHaveText([
+        `「${SHOWN}」的复盘`,
+      ]);
+      await expect(s.getByTestId('draft-deleted')).toHaveCount(0);
+      await both(s, 'S3-08-review-no-period');
+    } finally {
+      d.app.process().kill('SIGKILL');
     }
   });
 });
