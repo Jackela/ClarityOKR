@@ -66,14 +66,21 @@ export class ReviewStore {
   /** Latest read / save wins: a slow reply for an earlier request is ignored. */
   private seq = 0;
 
-  /** Reads the review of `okrId`. A different OKR than before drops the draft. */
+  /**
+   * Reads the review of `okrId`. A different OKR than before drops the draft; the SAME OKR
+   * keeps unsaved text (#110: a review restored while the review tab was not shown survives
+   * the tab mounting and reading it).
+   */
   async load(okrId: string | null): Promise<void> {
     const seq = ++this.seq;
+    const keep = okrId !== null && okrId === this.okrId && this.dirty() ? this.draft() : null;
     this.okrId = okrId;
     this.saveFailure.set('none');
     this.saving.set(false);
-    this.review.set(null);
-    this.draft.set({ ...EMPTY });
+    if (!keep) {
+      this.review.set(null);
+      this.draft.set({ ...EMPTY });
+    }
     if (okrId === null) {
       this.loadState.set('idle');
       return;
@@ -86,8 +93,13 @@ export class ReviewStore {
       return;
     }
     this.review.set(result.data.review);
-    this.draft.set({ ...this.baseline() });
+    this.draft.set(keep ? { ...keep } : { ...this.baseline() });
     this.loadState.set('ready');
+  }
+
+  /** The OKR whose review this store holds (null: none). */
+  currentOkrId(): string | null {
+    return this.okrId;
   }
 
   setSection(key: ReviewKey, text: string): void {

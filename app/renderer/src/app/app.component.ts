@@ -9,9 +9,10 @@ import {
   inject,
   signal,
   type OnDestroy,
+  ViewChild,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { IPC_CHANNELS } from '@clarityokr/contracts';
+import { IPC_CHANNELS, type DraftRow } from '@clarityokr/contracts';
 import { ReactiveFormsModule, FormControl, Validators } from '@angular/forms';
 import { Subject, defer } from 'rxjs';
 import { finalize, switchMap, takeUntil } from 'rxjs/operators';
@@ -32,11 +33,20 @@ import { Logger } from './core/services/logger.service';
 import { TranslatePipe } from './shared/pipes/translate.pipe';
 import { ThemeToggleComponent } from './shared/components/theme-toggle.component';
 import { DialogComponent } from './shared/components/dialog.component';
+import { ClosedLoopStore } from './closed-loop/closed-loop.store';
 import { ClosedLoopApi } from './closed-loop/closed-loop-api.service';
 import { COPY } from './closed-loop/copy';
 import { ExitConfirmComponent } from './closed-loop/exit-confirm.component';
 import { StorageNoticesComponent } from './closed-loop/storage-notices.component';
 import { UnsavedReporter } from './closed-loop/unsaved-reporter.service';
+import { DraftRestoreBarComponent } from './closed-loop/draft-restore-bar.component';
+import {
+  DraftRestoreHosts,
+  textEditDraftRows,
+  textEditTarget,
+  type DraftApplyResult,
+} from './closed-loop/draft-restore';
+import { watchDraftRows } from './closed-loop/draft-reporter';
 import { EditModeStore } from './okr-sticky/state/edit-mode.store';
 
 @Component({
@@ -53,12 +63,15 @@ import { EditModeStore } from './okr-sticky/state/edit-mode.store';
     StorageNoticesComponent,
     DialogComponent,
     ExitConfirmComponent,
+    DraftRestoreBarComponent,
   ],
   template: `
     @if (!isStickyShell) {
       <a href="#main-content" class="skip-link">{{ 'common.skipToContent' | translate }}</a>
       <!-- Full-width bars above the content (spec §7 / §7a): memory, fresh file, legacy. -->
       <clarityokr-storage-notices window="main" />
+      <!-- #110: what a session end left unsaved in the wizard (S3§12). -->
+      <clarityokr-draft-restore-bar />
       <main id="main-content" class="app-shell" tabindex="-1">
         <section class="intent-panel">
           <div class="intent-header">
@@ -129,7 +142,7 @@ import { EditModeStore } from './okr-sticky/state/edit-mode.store';
 
         @if (hasStickyNote()) {
           <section class="result-panel" data-testid="okr-summary" aria-label="OKR">
-            <clarityokr-sticky-note [okr]="stickyViewModel()"></clarityokr-sticky-note>
+            <clarityokr-sticky-note #mainNote [okr]="stickyViewModel()"></clarityokr-sticky-note>
           </section>
         }
         @if (newOkrConfirm()) {
@@ -183,7 +196,13 @@ export class AppComponent implements OnDestroy {
 
   private readonly intentValue = toSignal(this.intentControl.valueChanges, { initialValue: '' });
   private readonly editor = inject(EditModeStore);
+  /** The main window's note (its text edit), for 恢复 of a text edit draft (#110). */
+  @ViewChild('mainNote') private mainNoteRef?: OkrStickyNoteComponent;
+  private mainNote(): OkrStickyNoteComponent | undefined {
+    return this.mainNoteRef;
+  }
   private readonly closedLoopApi = inject(ClosedLoopApi);
+  private readonly closedLoopStore = inject(ClosedLoopStore);
   private readonly zone = inject(NgZone);
   private unsubscribeNewOkr: () => void = () => undefined;
 
@@ -214,9 +233,120 @@ export class AppComponent implements OnDestroy {
       })),
       inject(Injector),
     );
+    // #110: the wizard's content, for a draft if the session ends (S3§12.1).
+    watchDraftRows(
+      computed<DraftRow[]>(() => {
+        const rows: DraftRow[] = this.wizardDirty()
+          ? [{ kind: 'wizard', step: this.wizardStep(), intent: this.intentValue() }]
+          : [];
+        // The main window's own text edit (S3§12, 产品经理 decision 2①): same rows as the sticky's.
+        const okrId = this.stickyViewModel()?.id;
+        if (okrId) rows.push(...textEditDraftRows(this.editor, okrId));
+        return rows;
+      }),
+      inject(Injector),
+    );
+    inject(DraftRestoreHosts).register({
+      targetOf: (row) => {
+        if (row.kind === 'textEdit') {
+          const vm = this.stickyViewModel();
+          // Another OKR is shown: 恢复 switches to the draft's OKR first (its own confirm).
+          if (!vm || vm.id !== row.okrId) return 'untouched';
+          const saved =
+            vm && vm.id === row.okrId
+              ? vm.keyResults.map((kr) => ({
+                  id: kr.id,
+                  statement: kr.statement,
+                  successMetric: kr.metricLabel ?? '',
+                }))
+              : null;
+          return textEditTarget(row, saved, this.editor.isEditing() && this.editor.isDirty());
+        }
+        return this.wizardDirty() ? 'dirty' : 'untouched';
+      },
+      apply: (rows) => this.applyDraft(rows),
+      focusHeading: () => document.getElementById('main-heading')?.focus(),
+    });
     this.unsubscribeNewOkr = this.closedLoopApi.onEvent(IPC_CHANNELS.WIZARD_NEW_OKR, () =>
       this.zone.run(() => this.onNewOkr()),
     );
+  }
+
+  /**
+   * #110 「恢复」 in the main window: the wizard goal back into its field, the key result texts
+   * back into the note's text edit (all still unsaved). Focus (S3§12.3): wizard goal first, else
+   * the first restored key result input. Undone by `rollback` when the draft cannot be settled.
+   */
+  private async applyDraft(rows: readonly DraftRow[]): Promise<DraftApplyResult> {
+    const wizard = rows.find((r) => r.kind === 'wizard');
+    const target = rows.find((r) => r.kind === 'textEdit');
+    if (target && target.kind === 'textEdit' && this.stickyViewModel()?.id !== target.okrId) {
+      // The draft's OKR is not the one shown: switch first. Unsaved edits of the shown OKR are
+      // asked about with the existing 「放弃未保存的修改？」 (继续编辑 = nothing changes).
+      if (this.editor.isEditing() && this.editor.isDirty()) {
+        const leave = (await this.mainNote()?.confirmDiscard()) ?? false;
+        if (!leave) return { ok: false, cancelled: true };
+      }
+      if (this.editor.isEditing()) this.editor.cancelEdits();
+      const opened = await this.closedLoopStore.openFromHistory(target.okrId);
+      if (!opened) return { ok: false };
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    const vm = this.stickyViewModel();
+    const krs = rows.flatMap((r) =>
+      r.kind === 'textEdit' && vm && r.okrId === vm.id
+        ? [{ krId: r.krId, statement: r.draft.statement, successMetric: r.draft.successMetric }]
+        : [],
+    );
+    // A text edit row of an OKR this window does not show cannot be put back here.
+    if (rows.some((r) => r.kind === 'textEdit') && krs.length === 0) return { ok: false };
+    if (!wizard && krs.length === 0) return { ok: false };
+    const intentBefore = this.intentControl.value;
+    const c = this.intentControl;
+    const stateBefore = { touched: c.touched, dirty: c.dirty };
+    const wasEditing = this.editor.isEditing();
+    const editBefore = this.editor.draftKeyResults().map((kr) => ({ ...kr }));
+    if (krs.length > 0) {
+      const note = this.mainNote();
+      if (!note || !note.restoreDraft(krs)) return { ok: false };
+    }
+    if (wizard && wizard.kind === 'wizard') {
+      this.newOkrConfirm.set(false);
+      this.intentControl.setValue(wizard.intent);
+    }
+    const focusId = wizard ? 'intent-input' : `edit-kr-${krs[0].krId}`;
+    setTimeout(() => {
+      document
+        .querySelector<HTMLElement>(`[id="${focusId}"]`)
+        ?.focus({ focusVisible: true } as FocusOptions);
+    }, 50);
+    return {
+      ok: true,
+      rollback: () => {
+        if (wizard) {
+          // S3-05: the field goes back exactly as it was, validation state included (no hint).
+          c.setValue(intentBefore);
+          if (stateBefore.dirty) c.markAsDirty();
+          else c.markAsPristine();
+          if (stateBefore.touched) c.markAsTouched();
+          else c.markAsUntouched();
+          // the blur of the focused goal field must not mark it touched again
+          (document.activeElement as HTMLElement | null)?.blur?.();
+          setTimeout(() => {
+            if (!stateBefore.touched) c.markAsUntouched();
+          }, 0);
+        }
+        if (krs.length > 0) {
+          if (!wasEditing) this.editor.cancelEdits();
+          else for (const kr of editBefore) this.editor.updateKeyResult(kr.id, kr);
+        }
+      },
+    };
+  }
+
+  /** The wizard step on screen: 1 for the goal, then one per question answered. */
+  wizardStep(): number {
+    return this.state.workflowState() === 'idle' ? 1 : this.state.history().length + 1;
   }
 
   /** 「新建 OKR」 from the sticky window (spec §4.5 / §4.5a); the window is already shown. */

@@ -214,6 +214,7 @@ jobs:
         run: |
           sudo apt-get update || true
           sudo apt-get install -y --no-install-recommends \
+            fonts-noto-cjk \
             libatk-bridge2.0-0 \
             libgtk-3-0 \
             libnss3 \
@@ -267,6 +268,8 @@ jobs:
 
       - name: Run E2E tests
         timeout-minutes: 20
+        env:
+          S3_12_SHOTS_DIR: ${{ github.workspace }}/s3-12-shots
         run: |
           if command -v xvfb-run >/dev/null 2>&1; then
             echo "Running E2E tests with xvfb..."
@@ -275,6 +278,15 @@ jobs:
             echo "Running E2E tests without xvfb..."
             pnpm run test:e2e:ci
           fi
+
+      - name: Upload S3§12 screenshots
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: s3-12-screenshots-${{ github.run_id }}
+          path: s3-12-shots/
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Upload Playwright traces (on failure)
         if: ${{ failure() }}

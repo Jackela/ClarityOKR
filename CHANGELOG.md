@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Known issues
+
+- 注销或关机后，向导里澄清问题的回答不会保留（[#116](https://github.com/Jackela/ClarityOKR/issues/116)）
+- 在文字编辑里只改了目标标题，或新加、删除、调整了关键结果的顺序时，退出会提示有未保存的修改，但注销或关机后这些修改不会恢复（[#117](https://github.com/Jackela/ClarityOKR/issues/117)）
+
 ## [0.3.1] - 2026-10-28
 
 ### Security
