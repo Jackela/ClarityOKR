@@ -13,7 +13,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import { IPC_CHANNELS } from '@clarityokr/contracts';
+import { IPC_CHANNELS, type DraftRow, type RestoreTarget } from '@clarityokr/contracts';
 
 import { OkrStickyNoteComponent } from '../okr-sticky/components/okr-sticky-note.component';
 import type { OkrStickyViewModel } from '../okr-sticky/services/okr-sticky.service';
@@ -31,6 +31,9 @@ import { ReviewTabComponent } from './review-tab.component';
 import { StorageNoticesComponent } from './storage-notices.component';
 import { TopBarComponent } from './top-bar.component';
 import { UnsavedReporter } from './unsaved-reporter.service';
+import { DraftRestoreBarComponent } from './draft-restore-bar.component';
+import { DraftRestoreHosts, sameSections } from './draft-restore';
+import { watchDraftRows } from './draft-reporter';
 
 export type StickyTabId = 'note' | 'review' | 'history';
 
@@ -52,12 +55,15 @@ export type StickyTabId = 'note' | 'review' | 'history';
     ToastHostComponent,
     TopBarComponent,
     StorageNoticesComponent,
+    DraftRestoreBarComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="shell">
       <clarityokr-top-bar />
       <clarityokr-storage-notices window="sticky" />
+      <!-- #110: what a session end left unsaved in the text edit / review (S3§12). -->
+      <clarityokr-draft-restore-bar />
       <!-- right after the top bar in the DOM, so its buttons follow the control that made it -->
       @if (tab() !== 'review') {
         <clarityokr-toast-host />
@@ -229,6 +235,17 @@ export class StickyShellComponent {
       })),
       inject(Injector),
     );
+    // #110: the content of that input, for a draft if the session ends (S3§12.1).
+    watchDraftRows(
+      computed(() => this.draftRows()),
+      inject(Injector),
+    );
+    const unregisterDraftHost = inject(DraftRestoreHosts).register({
+      targetOf: (row) => this.draftTarget(row),
+      apply: (rows) => this.applyDraft(rows),
+      focusHeading: () => this.focusHeading(),
+    });
+    inject(DestroyRef).onDestroy(unregisterDraftHost);
     // The leave dialog is open and a save was started: when it succeeds the text is no longer
     // unsaved, the dialog closes by itself and the leave goes on. On failure the text is still
     // there (dirty) and 「放弃修改」 is clickable again.
@@ -242,6 +259,115 @@ export class StickyShellComponent {
         this.go(target);
       });
     });
+  }
+
+  /** #110: one row per key result changed in the text edit, one for the review text. */
+  private draftRows(): DraftRow[] {
+    const rows: DraftRow[] = [];
+    const okrId = this.store.detail()?.objective.id;
+    if (!okrId) return rows;
+    if (this.editor.isEditing() && this.editor.isDirty()) {
+      const originals = new Map(this.editor.originalKeyResults().map((kr) => [kr.id, kr]));
+      for (const kr of this.editor.draftKeyResults()) {
+        const base = originals.get(kr.id);
+        // A key result added in this edit has no saved spot to go back to (not drafted).
+        if (!base) continue;
+        const before = { statement: base.statement, successMetric: base.successMetric ?? '' };
+        const now = { statement: kr.statement, successMetric: kr.successMetric ?? '' };
+        if (before.statement === now.statement && before.successMetric === now.successMetric)
+          continue;
+        rows.push({ kind: 'textEdit', okrId, krId: kr.id, base: before, draft: now });
+      }
+    }
+    if (this.review.dirty()) {
+      rows.push({
+        kind: 'review',
+        okrId,
+        base: this.savedReview(),
+        draft: { ...this.review.draft() },
+      });
+    }
+    return rows;
+  }
+
+  private savedReview(): { wentWell: string; fellShort: string; nextSteps: string } {
+    const saved = this.review.review() ?? this.store.detail()?.review ?? null;
+    return saved
+      ? { wentWell: saved.wentWell, fellShort: saved.fellShort, nextSteps: saved.nextSteps }
+      : { wentWell: '', fellShort: '', nextSteps: '' };
+  }
+
+  /** S3§12.3: saved since the draft → void; new unsaved edits → confirm; else restore. */
+  private draftTarget(row: DraftRow): RestoreTarget {
+    const detail = this.store.detail();
+    const sameOkr = detail && row.kind !== 'wizard' && detail.objective.id === row.okrId;
+    if (row.kind === 'textEdit') {
+      if (sameOkr) {
+        const kr = detail.objective.keyResults.find((k) => k.id === row.krId);
+        if (
+          kr &&
+          (kr.statement !== row.base.statement ||
+            (kr.successMetric ?? '') !== row.base.successMetric)
+        ) {
+          return 'saved';
+        }
+      }
+      return this.editor.isEditing() && this.editor.isDirty() ? 'dirty' : 'untouched';
+    }
+    if (row.kind === 'review') {
+      if (sameOkr && !sameSections(this.savedReview(), row.base)) return 'saved';
+      return this.review.dirty() ? 'dirty' : 'untouched';
+    }
+    return 'untouched';
+  }
+
+  /**
+   * #110 「恢复」: open the draft's OKR when another one is shown, put the key result texts back
+   * into the text edit and the review text into the review tab (all still unsaved). With a
+   * review draft the review tab ends up shown (leaving it would drop that text again).
+   */
+  private async applyDraft(rows: readonly DraftRow[]): Promise<boolean> {
+    const first = rows.find((r): r is Exclude<DraftRow, { kind: 'wizard' }> => r.kind !== 'wizard');
+    if (!first) return false;
+    const okrId = first.okrId;
+    if (this.store.detail()?.objective.id !== okrId) {
+      if (this.editor.isEditing()) this.editor.cancelEdits();
+      if (this.review.dirty()) this.review.discard();
+      const opened = await this.store.openFromHistory(okrId);
+      if (!opened) return false;
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    const krs = rows.flatMap((r) =>
+      r.kind === 'textEdit' && r.okrId === okrId
+        ? [{ krId: r.krId, statement: r.draft.statement, successMetric: r.draft.successMetric }]
+        : [],
+    );
+    const review = rows.find((r) => r.kind === 'review' && r.okrId === okrId);
+    if (krs.length > 0) {
+      if (this.tab() !== 'note' && !review) this.tab.set('note');
+      if (!this.note?.restoreDraft(krs)) return false;
+    }
+    if (review && review.kind === 'review') {
+      if (this.tab() !== 'review') this.tab.set('review');
+      for (let tries = 0; tries < 100 && this.review.loadState() !== 'ready'; tries++) {
+        await new Promise((resolve) => setTimeout(resolve, 30));
+      }
+      if (this.review.loadState() !== 'ready') return false;
+      this.review.draft.set({ ...review.draft });
+      setTimeout(() => {
+        this.host.nativeElement
+          .querySelector<HTMLElement>('[data-testid="review-wentWell"]')
+          ?.focus({ focusVisible: true } as FocusOptions);
+      }, 0);
+    }
+    return true;
+  }
+
+  private focusHeading(): void {
+    const title = this.host.nativeElement.querySelector<HTMLElement>(
+      '[data-testid="sticky-objective"], [data-testid="review-objective"]',
+    );
+    title?.focus();
   }
 
   blockedReason(): string | null {

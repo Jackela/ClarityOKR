@@ -46,6 +46,9 @@ export const ALLOWED_CHANNELS = [
   'clarityokr:window:open-wizard',
   'clarityokr:wizard:new-okr',
   'clarityokr:app:report-unsaved',
+  'clarityokr:app:report-draft',
+  'clarityokr:app:draft-get',
+  'clarityokr:app:draft-settle',
   'clarityokr:app:confirm-exit',
   'clarityokr:app:exit-answer',
   'clarityokr:app:exit-pending',
@@ -152,6 +155,13 @@ export const IPC_CHANNELS = {
   WIZARD_NEW_OKR: 'clarityokr:wizard:new-okr',
   /** A window reports which of its unsaved-input flags changed (partial `UnsavedFlags`). */
   APP_REPORT_UNSAVED: 'clarityokr:app:report-unsaved',
+  /** #110: a window reports the content of its unsaved input (`DraftReport`), kept in memory
+   *  and written to `userData/drafts/` only when the session ends. */
+  APP_REPORT_DRAFT: 'clarityokr:app:report-draft',
+  /** #110: the draft this window left when the last session ended (`DraftGetReply`). */
+  APP_DRAFT_GET: 'clarityokr:app:draft-get',
+  /** #110: drop rows of this window's draft (`DraftSettleRequest`); restored, voided or discarded. */
+  APP_DRAFT_SETTLE: 'clarityokr:app:draft-settle',
   /** Main → renderer event: show the quit / restart dialog (`ConfirmExitEvent`). */
   APP_CONFIRM_EXIT: 'clarityokr:app:confirm-exit',
   /** The answer to that dialog (`ExitAnswer`); only the window hosting it may answer. */

@@ -63,6 +63,11 @@ export function truncateGraphemes(text: string, max: number): string {
   return text;
 }
 
+/** The user-perceived characters of `text` (the same segmentation as {@link countGraphemes}). */
+export function splitGraphemes(text: string): string[] {
+  return Array.from(segmenter.segment(text), ({ segment }) => segment);
+}
+
 export type TextCheck = { ok: true } | { ok: false; reason: 'too_long' | 'cluster_too_long' };
 
 /**

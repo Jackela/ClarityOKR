@@ -22,6 +22,29 @@ export const STATUS_ICON: Record<KrStatus, string> = {
 export const STATUS_ORDER: readonly KrStatus[] = ['not_started', 'in_progress', 'at_risk', 'done'];
 
 export const COPY = {
+  /** #110 session-end draft restore bar (S3§12.5; text from /workspace/clarityokr-s3-12/copy.md). */
+  draftRestore: {
+    title: '上次没保存的内容还在',
+    lead: '注销或关机时，这些内容还没保存：',
+    wizardLine: (step: number) => `新建 OKR 的向导（第 ${step} 步）`,
+    textEditLine: (title: string, krIndex: number) => `「${title}」第 ${krIndex} 个关键结果的文字`,
+    reviewLine: (period: string) => `${period} 的复盘`,
+    reviewNoPeriodLine: (title: string) => `「${title}」的复盘`,
+    deletedLine: (n: number) => `另有 ${n} 条对应的内容已删除，无法恢复。`,
+    restore: '恢复',
+    discard: '放弃',
+    discardTitle: '放弃上次没保存的内容？',
+    discardBody: '放弃后这些内容找不回来。',
+    discardKeep: '先留着',
+    discardConfirm: '放弃',
+    replaceTitle: '用上次没保存的内容替换现在的修改？',
+    replaceKeep: '保留现在的',
+    replaceConfirm: '替换',
+    restored: '已恢复上次没保存的内容。',
+    discarded: '已放弃上次没保存的内容。',
+    restoreFailed: '没能恢复，请再试一次。',
+    discardFailed: '没能放弃，请再试一次。',
+  },
   /** #54 in-app reminders (S1§11). */
   reminders: {
     staleBadge: '7 天未更新',

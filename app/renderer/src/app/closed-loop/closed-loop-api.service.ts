@@ -1,6 +1,10 @@
 import { Injectable } from '@angular/core';
 import {
   IPC_CHANNELS,
+  type DraftGetReply,
+  type DraftReport,
+  type DraftSettleReply,
+  type DraftSettleRequest,
   ipcFail,
   type CopyReply,
   type BackupReply,
@@ -173,6 +177,21 @@ export class ClosedLoopApi {
   /** Tells the main process which unsaved-input flags of this window changed. */
   reportUnsaved(report: UnsavedReport): Promise<IpcResult<UnsavedReportReply>> {
     return this.call(IPC_CHANNELS.APP_REPORT_UNSAVED, report);
+  }
+
+  /** #110: the content of this window's unsaved input (kept by main for a session end). */
+  reportDraft(report: DraftReport): Promise<IpcResult<{ recorded: boolean }>> {
+    return this.call(IPC_CHANNELS.APP_REPORT_DRAFT, report);
+  }
+
+  /** #110: the draft this window left when the last session ended. */
+  getDraft(): Promise<IpcResult<DraftGetReply>> {
+    return this.call(IPC_CHANNELS.APP_DRAFT_GET, undefined);
+  }
+
+  /** #110: drop restored / voided rows (`keys`) or the whole draft (`all`). */
+  settleDraft(request: DraftSettleRequest): Promise<IpcResult<DraftSettleReply>> {
+    return this.call(IPC_CHANNELS.APP_DRAFT_SETTLE, request);
   }
 
   /** The answer to the quit / restart dialog shown in this window. */

@@ -733,6 +733,28 @@ export class OkrStickyNoteComponent implements OnChanges {
     );
   }
 
+  /**
+   * #110 「恢复」: opens the text edit form and puts the drafted key result texts back (still
+   * unsaved). The focus goes to the first restored statement. false = the form cannot open.
+   */
+  restoreDraft(
+    krs: readonly { krId: string; statement: string; successMetric: string }[],
+  ): boolean {
+    if (krs.length === 0) return false;
+    if (!this.editor.isEditing()) this.beginEdit();
+    if (!this.editor.isEditing()) return false;
+    const ids = new Set(this.editor.draftKeyResults().map((kr) => kr.id));
+    if (!krs.every((kr) => ids.has(kr.krId))) return false;
+    for (const kr of krs) {
+      this.editor.updateKeyResult(kr.krId, {
+        statement: kr.statement,
+        successMetric: kr.successMetric,
+      });
+    }
+    this.focusTarget.set({ id: krs[0].krId, field: 'statement' });
+    return true;
+  }
+
   /** Esc / 取消: with unsaved changes ask first (spec §3.9). */
   cancel(): void {
     if (!this.editor.isEditing() || this.busy()) return;

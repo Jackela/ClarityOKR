@@ -11,7 +11,7 @@ import {
   type OnDestroy,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { IPC_CHANNELS } from '@clarityokr/contracts';
+import { IPC_CHANNELS, type DraftRow } from '@clarityokr/contracts';
 import { ReactiveFormsModule, FormControl, Validators } from '@angular/forms';
 import { Subject, defer } from 'rxjs';
 import { finalize, switchMap, takeUntil } from 'rxjs/operators';
@@ -37,6 +37,9 @@ import { COPY } from './closed-loop/copy';
 import { ExitConfirmComponent } from './closed-loop/exit-confirm.component';
 import { StorageNoticesComponent } from './closed-loop/storage-notices.component';
 import { UnsavedReporter } from './closed-loop/unsaved-reporter.service';
+import { DraftRestoreBarComponent } from './closed-loop/draft-restore-bar.component';
+import { DraftRestoreHosts } from './closed-loop/draft-restore';
+import { watchDraftRows } from './closed-loop/draft-reporter';
 import { EditModeStore } from './okr-sticky/state/edit-mode.store';
 
 @Component({
@@ -53,12 +56,15 @@ import { EditModeStore } from './okr-sticky/state/edit-mode.store';
     StorageNoticesComponent,
     DialogComponent,
     ExitConfirmComponent,
+    DraftRestoreBarComponent,
   ],
   template: `
     @if (!isStickyShell) {
       <a href="#main-content" class="skip-link">{{ 'common.skipToContent' | translate }}</a>
       <!-- Full-width bars above the content (spec §7 / §7a): memory, fresh file, legacy. -->
       <clarityokr-storage-notices window="main" />
+      <!-- #110: what a session end left unsaved in the wizard (S3§12). -->
+      <clarityokr-draft-restore-bar />
       <main id="main-content" class="app-shell" tabindex="-1">
         <section class="intent-panel">
           <div class="intent-header">
@@ -214,9 +220,41 @@ export class AppComponent implements OnDestroy {
       })),
       inject(Injector),
     );
+    // #110: the wizard's content, for a draft if the session ends (S3§12.1).
+    watchDraftRows(
+      computed<DraftRow[]>(() =>
+        this.wizardDirty()
+          ? [{ kind: 'wizard', step: this.wizardStep(), intent: this.intentValue() }]
+          : [],
+      ),
+      inject(Injector),
+    );
+    inject(DraftRestoreHosts).register({
+      targetOf: () => (this.wizardDirty() ? 'dirty' : 'untouched'),
+      apply: async (rows) => {
+        const row = rows.find((r) => r.kind === 'wizard');
+        if (!row || row.kind !== 'wizard') return false;
+        // The goal goes back into step 1; the clarification answers (an LLM session) do not.
+        this.newOkrConfirm.set(false);
+        this.okrGenerated.set(false);
+        this.state.reset();
+        this.intentControl.setValue(row.intent);
+        setTimeout(() => {
+          const input = document.getElementById('intent-input');
+          input?.focus({ focusVisible: true } as FocusOptions);
+        }, 0);
+        return true;
+      },
+      focusHeading: () => document.getElementById('main-heading')?.focus(),
+    });
     this.unsubscribeNewOkr = this.closedLoopApi.onEvent(IPC_CHANNELS.WIZARD_NEW_OKR, () =>
       this.zone.run(() => this.onNewOkr()),
     );
+  }
+
+  /** The wizard step on screen: 1 for the goal, then one per question answered. */
+  wizardStep(): number {
+    return this.state.workflowState() === 'idle' ? 1 : this.state.history().length + 1;
   }
 
   /** 「新建 OKR」 from the sticky window (spec §4.5 / §4.5a); the window is already shown. */

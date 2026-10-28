@@ -24,7 +24,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { IPC_CHANNELS } from '@clarityokr/contracts';
+import { IPC_CHANNELS, draftsEnabled } from '@clarityokr/contracts';
 import electron from 'electron';
 import type {
   BrowserWindow as ElectronBrowserWindow,
@@ -53,6 +53,8 @@ import { openDatabaseSafely } from './startup/open-database.js';
 import { wireClosedLoop } from './startup/closed-loop.js';
 import { registerStorageStateHandler } from './startup/storage-state.js';
 import { registerAppWindowHandlers, UnsavedRegistry } from './ipc/app-window-handlers.js';
+import { registerDraftHandlers } from './drafts/draft-handlers.js';
+import { SessionDraftStore, wireSessionEndDrafts } from './drafts/session-draft-store.js';
 import { ExitCoordinator, type ExitWindow } from './lifecycle/exit-coordinator.js';
 import { QuitGate, guardBeforeQuit, hideOnClose, hideQuits } from './lifecycle/quit-gate.js';
 import {
@@ -201,6 +203,23 @@ registerReviewHandoffHandlers(
 );
 
 let mainWindow: ElectronBrowserWindow | null = null;
+
+// #110: unsaved input saved as a draft at session end; none in in-memory mode (S3§12.1).
+const sessionDrafts = new SessionDraftStore({
+  dir: draftsEnabled(openedDatabase.storageMode)
+    ? path.join(app.getPath('userData'), 'drafts')
+    : null,
+});
+registerDraftHandlers(ipcMain, {
+  drafts: sessionDrafts,
+  store: okrStore,
+  windowOf: (senderId) => {
+    if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents.id === senderId) {
+      return 'main';
+    }
+    return stickyWindowManager.getWebContentsId() === senderId ? 'sticky' : null;
+  },
+});
 /** `quitting` (windows may really close) and `allowed` (before-quit lets the quit through). */
 const quitGate = new QuitGate();
 
@@ -453,7 +472,8 @@ app.on('second-instance', () => {
 
 // N16: Windows ends the session (log off / shut down) without waiting for a dialog.
 app.on('browser-window-created', (_event, window) => {
-  window.on('session-end', () => {
+  // #110: the unsaved input is saved as a draft first (never blocking the shutdown).
+  wireSessionEndDrafts(window, sessionDrafts, () => {
     Logger.info('[main] The session is ending; quitting without the confirmation');
     quitGate.sessionEnd();
   });
@@ -465,6 +485,11 @@ if (testMode) {
     dropTray: () => {
       tray?.destroy();
       tray = null;
+    },
+    // #110 e2e: show the sticky note of a relaunched app on one of its OKRs.
+    openSticky: async (okrId: string) => {
+      const okr = await okrRepository.findById(okrId);
+      if (okr) await stickyWindowManager.open(okr);
     },
   };
 }
