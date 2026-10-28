@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Internal
 
 - 仅开发与构建工具：fast-uri 升到 3.1.9、ip-address 升到 10.7.5（Dependabot 公告 #262–#266）；两者不打包进安装包，对已安装的应用没有影响（#106）
+- 移除 4 个不再需要的 pnpm override：node-forge、shell-quote、piscina@4、body-parser@2，依赖版本没有变化（#109）
+- qs 通过 pnpm override 固定到 ^6.16.1，修复 GHSA-6pq8-jhm2-2vcw；qs 只经 @angular/cli 引入，仅用于开发，不打包进安装包。另有一条 low 级别的 deepmerge 公告目前没有修复版本，在 #107 跟踪（#113）
 
 ### Known issues
 
