@@ -248,7 +248,7 @@ test.describe('S3§12 session-end draft restore (#110)', () => {
       await expect(s.getByTestId('review-wentWell')).toBeFocused();
       expect(await focusVisible(s)).toBe(true);
       await expect(s.getByTestId('review-state')).toHaveText('有未保存的修改');
-      await expect(s.getByTestId('draft-live')).toHaveText('已恢复上次没保存的内容。');
+      await expect(s.locator('[data-draft-live]')).toHaveText('已恢复上次没保存的内容。');
       await both(s, 'S3-03-restored-focus');
       await s
         .getByTestId('tab-note')

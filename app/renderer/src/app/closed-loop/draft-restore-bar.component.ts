@@ -131,7 +131,7 @@ type Failure = 'none' | 'restore' | 'discard';
         (confirmed)="replace()"
       />
     }
-    <span class="sr-only" aria-live="polite" data-testid="draft-live">{{ live() }}</span>
+    <span class="sr-only" aria-live="polite" data-draft-live>{{ live() }}</span>
   `,
   styles: [
     `
@@ -258,14 +258,6 @@ type Failure = 'none' | 'restore' | 'discard';
         .draft__spinner {
           animation: none;
         }
-      }
-      .sr-only {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        overflow: hidden;
-        clip: rect(0 0 0 0);
-        white-space: nowrap;
       }
     `,
   ],

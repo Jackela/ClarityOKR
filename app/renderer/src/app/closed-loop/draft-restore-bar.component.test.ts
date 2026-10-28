@@ -113,9 +113,9 @@ describe('DraftRestoreBarComponent (#110, spec S3§12)', () => {
     expect(document.activeElement).toBe(q('draft-restore'));
     await new Promise((resolve) => setTimeout(resolve, 100));
     fixture.detectChanges();
-    expect(q('draft-live')!.textContent).toBe(
-      '上次没保存的内容还在 注销或关机时，这些内容还没保存：',
-    );
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('[data-draft-live]')!.textContent,
+    ).toBe('上次没保存的内容还在 注销或关机时，这些内容还没保存：');
     // Esc does not close it
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     await settle();
@@ -144,7 +144,9 @@ describe('DraftRestoreBarComponent (#110, spec S3§12)', () => {
     expect(q('draft-bar')).toBeNull();
     await new Promise((resolve) => setTimeout(resolve, 100));
     fixture.detectChanges();
-    expect(q('draft-live')!.textContent).toBe('已恢复上次没保存的内容。');
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('[data-draft-live]')!.textContent,
+    ).toBe('已恢复上次没保存的内容。');
   });
 
   it('restore case 1 (new unsaved edits): asks first, 「保留现在的」 is the default and keeps everything', async () => {
@@ -188,7 +190,9 @@ describe('DraftRestoreBarComponent (#110, spec S3§12)', () => {
     expect(host.apply).not.toHaveBeenCalled();
     expect(q('draft-bar')).toBeNull();
     expect(host.focusHeading).toHaveBeenCalled();
-    expect(q('draft-live')!.textContent).not.toContain('已恢复');
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('[data-draft-live]')!.textContent,
+    ).not.toContain('已恢复');
   });
 
   it('restore failure: bar and draft stay, one alert line, focus back on 恢复', async () => {
@@ -231,7 +235,9 @@ describe('DraftRestoreBarComponent (#110, spec S3§12)', () => {
     expect(host.focusHeading).toHaveBeenCalled();
     await new Promise((resolve) => setTimeout(resolve, 100));
     fixture.detectChanges();
-    expect(q('draft-live')!.textContent).toBe('已放弃上次没保存的内容。');
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('[data-draft-live]')!.textContent,
+    ).toBe('已放弃上次没保存的内容。');
   });
 
   it('放弃 failure: ⚠ 没能放弃，请再试一次。 and the draft stays', async () => {
