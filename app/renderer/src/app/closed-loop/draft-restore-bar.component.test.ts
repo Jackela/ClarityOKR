@@ -251,6 +251,53 @@ describe('DraftRestoreBarComponent (#110, spec S3§12)', () => {
     expect(document.activeElement).toBe(q('draft-restore'));
   });
 
+  it('re-checked at 恢复: a row saved since in the other window is voided and counted in 「另有 n 条」', async () => {
+    await create({ rows: [textEdit, review], deletedCount: 0 });
+    api.getDraft.mockResolvedValueOnce({ ok: true, data: { rows: [review], deletedCount: 0 } });
+    q('draft-restore')!.click();
+    await settle();
+    expect(host.apply).toHaveBeenCalledWith([review.row]);
+    expect(api.settleDraft).toHaveBeenCalledWith({ keys: ['review:o1'] });
+  });
+
+  it('re-checked at 恢复: nothing changed in the other window → the row restores as before', async () => {
+    await create({ rows: [textEdit], deletedCount: 0 });
+    q('draft-restore')!.click();
+    await settle();
+    expect(api.getDraft).toHaveBeenCalledTimes(2);
+    expect(host.apply).toHaveBeenCalledWith([textEdit.row]);
+  });
+
+  it('re-checked at 恢复: the OKR was deleted → the row is voided, no switch, bar folds away', async () => {
+    await create({ rows: [textEdit], deletedCount: 0 });
+    api.getDraft.mockResolvedValueOnce({ ok: true, data: { rows: [], deletedCount: 0 } });
+    q('draft-restore')!.click();
+    await settle();
+    expect(host.apply).not.toHaveBeenCalled();
+    expect(q('draft-bar')).toBeNull();
+    expect(host.focusHeading).toHaveBeenCalled();
+  });
+
+  it('re-check voids one row of two: the bar shows 「另有 1 条…」 before the replace confirm', async () => {
+    await create({ rows: [textEdit, review], deletedCount: 0 }, 'dirty');
+    api.getDraft.mockResolvedValueOnce({ ok: true, data: { rows: [review], deletedCount: 0 } });
+    q('draft-restore')!.click();
+    await settle();
+    expect(q('draft-deleted')!.textContent!.trim()).toBe('另有 1 条对应的内容已删除，无法恢复。');
+    expect(q('draft-replace-dialog')).not.toBeNull();
+  });
+
+  it('a confirm kept the current edits (cancelled): no failure line, bar and draft stay, focus on 恢复', async () => {
+    await create({ rows: [textEdit], deletedCount: 0 });
+    host.apply.mockResolvedValue({ ok: false, cancelled: true });
+    q('draft-restore')!.click();
+    await settle();
+    expect(q('draft-error')).toBeNull();
+    expect(q('draft-bar')).not.toBeNull();
+    expect(api.settleDraft).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(q('draft-restore'));
+  });
+
   it('放弃 asks first; 「先留着」 is the default and keeps the draft', async () => {
     await create({ rows: [review], deletedCount: 0 });
     q('draft-discard')!.click();

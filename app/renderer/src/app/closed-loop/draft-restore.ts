@@ -55,6 +55,8 @@ export interface DraftRestoreHost {
 
 export interface DraftApplyResult {
   ok: boolean;
+  /** The user kept the current edits in a confirm (no failure line; bar and draft stay). */
+  cancelled?: boolean;
   rollback?: () => void;
 }
 

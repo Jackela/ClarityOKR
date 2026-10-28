@@ -388,6 +388,56 @@ describe('#110 session-end drafts through the main process (real OkrStore, temp 
     second.db.close();
   });
 
+  it.each([
+    ['saved in A → B voided', true],
+    ['restored without saving in A → B unaffected', false],
+  ])('same KR in both windows, re-checked at 恢复: %s', async (_name, savedInA) => {
+    {
+      rmSync(draftsDir, { recursive: true, force: true });
+      const first = launch(dbFile, draftsDir);
+      const okr = first.store.createObjective(okrInput(`两边 ${savedInA}`));
+      const kr = okr.keyResults[0];
+      const base = { statement: kr.statement, successMetric: kr.successMetric ?? '' };
+      const rowOf = (statement: string): DraftRow => ({
+        kind: 'textEdit',
+        okrId: okr.id,
+        krId: kr.id,
+        base,
+        draft: { ...base, statement },
+      });
+      first.drafts.report('main', [rowOf('A 版')]);
+      first.drafts.report('sticky', [rowOf('B 版')]);
+      first.win.emit('session-end');
+      first.db.close();
+      const second = launch(dbFile, draftsDir);
+      const key = `textEdit:${okr.id}:${kr.id}`;
+      // both bars are up
+      for (const w of [MAIN, STICKY]) {
+        const r = await second.ipc.invoke<DraftGetReply>(w, IPC_CHANNELS.APP_DRAFT_GET);
+        expect(r.ok && r.data.rows.map((x) => x.key)).toEqual([key]);
+      }
+      // window A restores (settles its row), and maybe saves the KR
+      await second.ipc.invoke(MAIN, IPC_CHANNELS.APP_DRAFT_SETTLE, { keys: [key] });
+      if (savedInA) {
+        second.store.syncObjective({
+          id: okr.id,
+          title: okr.title,
+          keyResults: okr.keyResults.map((k) =>
+            k.id === kr.id ? { id: k.id, statement: 'A 版', successMetric: k.successMetric } : k,
+          ),
+        });
+      }
+      // window B clicks 恢复: the bar asks again (app:draft-get) before restoring
+      const recheck = await second.ipc.invoke<DraftGetReply>(STICKY, IPC_CHANNELS.APP_DRAFT_GET);
+      if (savedInA) {
+        expect(recheck).toEqual({ ok: true, data: { rows: [], deletedCount: 0 } });
+      } else {
+        expect(recheck.ok && recheck.data.rows.map((x) => x.key)).toEqual([key]);
+      }
+      second.db.close();
+    }
+  });
+
   it('rejects malformed payloads and unknown senders', async () => {
     const app = launch(dbFile, draftsDir);
     const bad = await app.ipc.invoke(MAIN, IPC_CHANNELS.APP_REPORT_DRAFT, {

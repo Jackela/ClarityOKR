@@ -33,6 +33,7 @@ import { Logger } from './core/services/logger.service';
 import { TranslatePipe } from './shared/pipes/translate.pipe';
 import { ThemeToggleComponent } from './shared/components/theme-toggle.component';
 import { DialogComponent } from './shared/components/dialog.component';
+import { ClosedLoopStore } from './closed-loop/closed-loop.store';
 import { ClosedLoopApi } from './closed-loop/closed-loop-api.service';
 import { COPY } from './closed-loop/copy';
 import { ExitConfirmComponent } from './closed-loop/exit-confirm.component';
@@ -201,6 +202,7 @@ export class AppComponent implements OnDestroy {
     return this.mainNoteRef;
   }
   private readonly closedLoopApi = inject(ClosedLoopApi);
+  private readonly closedLoopStore = inject(ClosedLoopStore);
   private readonly zone = inject(NgZone);
   private unsubscribeNewOkr: () => void = () => undefined;
 
@@ -248,6 +250,8 @@ export class AppComponent implements OnDestroy {
       targetOf: (row) => {
         if (row.kind === 'textEdit') {
           const vm = this.stickyViewModel();
+          // Another OKR is shown: 恢复 switches to the draft's OKR first (its own confirm).
+          if (!vm || vm.id !== row.okrId) return 'untouched';
           const saved =
             vm && vm.id === row.okrId
               ? vm.keyResults.map((kr) => ({
@@ -275,6 +279,19 @@ export class AppComponent implements OnDestroy {
    */
   private async applyDraft(rows: readonly DraftRow[]): Promise<DraftApplyResult> {
     const wizard = rows.find((r) => r.kind === 'wizard');
+    const target = rows.find((r) => r.kind === 'textEdit');
+    if (target && target.kind === 'textEdit' && this.stickyViewModel()?.id !== target.okrId) {
+      // The draft's OKR is not the one shown: switch first. Unsaved edits of the shown OKR are
+      // asked about with the existing 「放弃未保存的修改？」 (继续编辑 = nothing changes).
+      if (this.editor.isEditing() && this.editor.isDirty()) {
+        const leave = (await this.mainNote()?.confirmDiscard()) ?? false;
+        if (!leave) return { ok: false, cancelled: true };
+      }
+      if (this.editor.isEditing()) this.editor.cancelEdits();
+      const opened = await this.closedLoopStore.openFromHistory(target.okrId);
+      if (!opened) return { ok: false };
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
     const vm = this.stickyViewModel();
     const krs = rows.flatMap((r) =>
       r.kind === 'textEdit' && vm && r.okrId === vm.id

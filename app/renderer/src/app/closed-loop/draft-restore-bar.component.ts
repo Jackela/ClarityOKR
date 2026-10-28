@@ -293,6 +293,21 @@ export class DraftRestoreBarComponent implements OnInit {
   async restore(): Promise<void> {
     const host = this.hosts.host();
     if (this.busy() !== 'none' || !host) return;
+    // Re-check now (S3§12.4): a row saved since the draft — e.g. restored and saved in the
+    // other window — or whose OKR / KR is gone is voided like at launch, counted in 「另有 n 条」.
+    const fresh = await this.api.getDraft?.();
+    if (fresh?.ok) {
+      const still = new Set(fresh.data.rows.map((r) => r.key));
+      const gone = this.rows().filter((r) => !still.has(r.key));
+      if (gone.length > 0) {
+        this.rows.set(fresh.data.rows);
+        this.deletedCount.update((n) => n + gone.length);
+        if (this.rows().length === 0) {
+          host.focusHeading();
+          return;
+        }
+      }
+    }
     const targets = this.rows().map((item) => ({
       item,
       action: restoreAction(host.targetOf(item.row)),
@@ -357,9 +372,11 @@ export class DraftRestoreBarComponent implements OnInit {
     this.busy.set('restore');
     this.failure.set('none');
     let ok = false;
+    let cancelled = false;
     try {
       const applied = await host.apply(rows.map((r) => r.row as DraftRow));
       ok = applied.ok;
+      cancelled = !ok && applied.cancelled === true;
       if (ok) {
         // The restored text is the window's unsaved input again (reported again from there).
         const settled = await this.api.settleDraft({ keys: rows.map((r) => r.key) });
@@ -373,6 +390,10 @@ export class DraftRestoreBarComponent implements OnInit {
       ok = false;
     }
     this.busy.set('none');
+    if (cancelled) {
+      this.focusLater(() => this.restoreButton?.nativeElement);
+      return;
+    }
     if (!ok) {
       this.failure.set('restore');
       this.focusLater(() => this.restoreButton?.nativeElement);

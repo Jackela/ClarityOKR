@@ -6,6 +6,8 @@ import { AppComponent } from './app.component';
 import { ClarificationOrchestratorService } from './clarification/services/clarification-orchestrator.service';
 import { ClarificationStateMachine } from './clarification/services/clarification-state-machine.service';
 import { ClosedLoopApi } from './closed-loop/closed-loop-api.service';
+import { ClosedLoopStore } from './closed-loop/closed-loop.store';
+import { EditModeStore } from './okr-sticky/state/edit-mode.store';
 import { DraftRestoreHosts, textEditDraftRows, textEditTarget } from './closed-loop/draft-restore';
 import { Logger } from './core/services/logger.service';
 import { OkrStickyService } from './okr-sticky/services/okr-sticky.service';
@@ -21,6 +23,16 @@ describe('AppComponent: main-window draft restore', () => {
   };
   let component: AppComponent;
   let hosts: DraftRestoreHosts;
+  const shown = signal<{ id: string; objective: string; keyResults: unknown[] }>(null as never);
+  const openFromHistory = jest.fn();
+  const editor = {
+    isEditing: jest.fn(() => false),
+    isDirty: jest.fn(() => false),
+    cancelEdits: jest.fn(),
+    originalKeyResults: () => [],
+    draftKeyResults: () => [],
+    updateKeyResult: jest.fn(),
+  };
   const vm = {
     id: 'o1',
     objective: 'x',
@@ -29,12 +41,19 @@ describe('AppComponent: main-window draft restore', () => {
 
   beforeEach(() => {
     jest.useFakeTimers();
+    shown.set(vm);
+    openFromHistory.mockReset();
+    editor.isEditing.mockReturnValue(false);
+    editor.isDirty.mockReturnValue(false);
+    editor.cancelEdits.mockClear();
     TestBed.configureTestingModule({
       imports: [AppComponent],
       providers: [
         { provide: ClarificationStateMachine, useValue: state },
         { provide: ClarificationOrchestratorService, useValue: {} },
-        { provide: OkrStickyService, useValue: { getCurrentViewModel: () => vm } },
+        { provide: OkrStickyService, useValue: { getCurrentViewModel: () => shown() } },
+        { provide: ClosedLoopStore, useValue: { openFromHistory } },
+        { provide: EditModeStore, useValue: editor },
         { provide: Logger, useValue: {} },
         {
           provide: ClosedLoopApi,
@@ -67,15 +86,75 @@ describe('AppComponent: main-window draft restore', () => {
     expect(c.invalid && c.touched).toBe(false);
   });
 
-  it('a text edit row of an OKR the main window does not show cannot be restored here', async () => {
-    const row: DraftRow = {
-      kind: 'textEdit',
-      okrId: 'other',
-      krId: 'k1',
-      base: { statement: 'A', successMetric: 'm' },
-      draft: { statement: 'B', successMetric: 'm' },
+  const other: DraftRow = {
+    kind: 'textEdit',
+    okrId: 'o2',
+    krId: 'k9',
+    base: { statement: 'A', successMetric: '' },
+    draft: { statement: 'B', successMetric: '' },
+  };
+  const note = (answer: boolean) => {
+    const restoreDraft = jest.fn(() => true);
+    const confirmDiscard = jest.fn().mockResolvedValue(answer);
+    (component as unknown as { mainNoteRef: unknown }).mainNoteRef = {
+      restoreDraft,
+      confirmDiscard,
     };
-    expect(await hosts.host()!.apply([row])).toEqual({ ok: false });
+    return { restoreDraft, confirmDiscard };
+  };
+
+  it('draft OKR not shown: 恢复 switches to it first, then restores (not a failure)', async () => {
+    const n = note(true);
+    openFromHistory.mockImplementation(async (id: string) => {
+      shown.set({ ...vm, id });
+      return true;
+    });
+    expect(hosts.host()!.targetOf(other)).toBe('untouched');
+    const done = hosts.host()!.apply([other]);
+    await jest.runAllTimersAsync();
+    expect(await done).toEqual(expect.objectContaining({ ok: true }));
+    expect(openFromHistory).toHaveBeenCalledWith('o2');
+    expect(n.confirmDiscard).not.toHaveBeenCalled();
+    expect(n.restoreDraft).toHaveBeenCalledWith([
+      { krId: 'k9', statement: 'B', successMetric: '' },
+    ]);
+  });
+
+  it('switch with unsaved edits: 继续编辑 (cancel) → nothing changes, cancelled (no failure line)', async () => {
+    const n = note(false);
+    editor.isEditing.mockReturnValue(true);
+    editor.isDirty.mockReturnValue(true);
+    const done = hosts.host()!.apply([other]);
+    await jest.runAllTimersAsync();
+    expect(await done).toEqual({ ok: false, cancelled: true });
+    expect(openFromHistory).not.toHaveBeenCalled();
+    expect(editor.cancelEdits).not.toHaveBeenCalled();
+    expect(n.restoreDraft).not.toHaveBeenCalled();
+    expect(shown().id).toBe('o1');
+  });
+
+  it('switch with unsaved edits: 放弃修改 (don’t save) → the edits go, switch, then restore', async () => {
+    const n = note(true);
+    editor.isEditing.mockReturnValue(true);
+    editor.isDirty.mockReturnValue(true);
+    openFromHistory.mockImplementation(async (id: string) => {
+      shown.set({ ...vm, id });
+      return true;
+    });
+    const done = hosts.host()!.apply([other]);
+    await jest.runAllTimersAsync();
+    expect((await done).ok).toBe(true);
+    expect(n.confirmDiscard).toHaveBeenCalled();
+    expect(editor.cancelEdits).toHaveBeenCalled();
+    expect(n.restoreDraft).toHaveBeenCalled();
+  });
+
+  it('a real failure opening the OKR after the switch → ok:false (the existing failure line)', async () => {
+    note(true);
+    openFromHistory.mockResolvedValue(false);
+    const done = hosts.host()!.apply([other]);
+    await jest.runAllTimersAsync();
+    expect(await done).toEqual({ ok: false });
   });
 
   it('targetOf a text edit row: saved since → saved; untouched otherwise', () => {
