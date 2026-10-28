@@ -298,6 +298,19 @@ describe('DraftRestoreBarComponent (#110, spec S3§12)', () => {
     expect(document.activeElement).toBe(q('draft-restore'));
   });
 
+  it('「恢复中」: while the host switches and restores, 恢复 shows its loading state (aria-busy)', async () => {
+    await create({ rows: [textEdit], deletedCount: 0 });
+    let finish: (v: { ok: boolean }) => void = () => undefined;
+    host.apply.mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    q('draft-restore')!.click();
+    await settle();
+    expect(q('draft-restore')!.getAttribute('aria-busy')).toBe('true');
+    expect(q('draft-restore')!.getAttribute('aria-disabled')).toBe('true');
+    finish({ ok: true });
+    await settle();
+    expect(q('draft-bar')).toBeNull();
+  });
+
   it('放弃 asks first; 「先留着」 is the default and keeps the draft', async () => {
     await create({ rows: [review], deletedCount: 0 });
     q('draft-discard')!.click();

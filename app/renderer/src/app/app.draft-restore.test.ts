@@ -149,6 +149,23 @@ describe('AppComponent: main-window draft restore', () => {
     expect(n.restoreDraft).toHaveBeenCalled();
   });
 
+  it('write fails after the switch: rollback drops the restored edits and stays on the switched OKR', async () => {
+    note(true);
+    openFromHistory.mockImplementation(async (id: string) => {
+      shown.set({ ...vm, id });
+      return true;
+    });
+    const done = hosts.host()!.apply([other]);
+    await jest.runAllTimersAsync();
+    const result = await done;
+    expect(result.ok).toBe(true);
+    editor.cancelEdits.mockClear();
+    result.rollback!();
+    expect(editor.cancelEdits).toHaveBeenCalledTimes(1);
+    expect(shown().id).toBe('o2');
+    expect(openFromHistory).toHaveBeenCalledTimes(1);
+  });
+
   it('a real failure opening the OKR after the switch → ok:false (the existing failure line)', async () => {
     note(true);
     openFromHistory.mockResolvedValue(false);

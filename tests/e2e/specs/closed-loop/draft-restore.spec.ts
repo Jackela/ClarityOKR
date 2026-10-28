@@ -34,10 +34,20 @@ test.beforeEach(async () => {
   await cleanupPersistenceFiles();
 });
 
+/** CI keeps the S3§12 shots as a workflow artifact (S3_12_SHOTS_DIR set in ci.yml). */
+async function ciShot(page: Page, name: string): Promise<void> {
+  const dir = process.env.S3_12_SHOTS_DIR;
+  if (!dir) return;
+  mkdirSync(dir, { recursive: true });
+  await page.screenshot({ path: join(dir, `${name}.png`) });
+}
+
 async function both(page: Page, name: string): Promise<void> {
   await shot(page, `${name}-light`);
+  await ciShot(page, `${name}-light`);
   await setTheme(page, 'dark');
   await shot(page, `${name}-dark`);
+  await ciShot(page, `${name}-dark`);
   await setTheme(page, 'light');
 }
 
@@ -432,6 +442,58 @@ test.describe('S3§12 session-end draft restore (#110)', () => {
       );
     } finally {
       f.app.process().kill('SIGKILL');
+    }
+
+    // ---------- launch G: the draft's OKR is not the one shown, which has unsaved edits ----------
+    // 恢复 → 「放弃未保存的修改？」 (§3.9, S3-13) → 放弃修改 → switch + restore, focus on the KR (S3-14)
+    const g = await relaunch(first, testInfo.outputPath('g'), mockServer.url, (drafts) => {
+      rmSync(join(drafts, 'sticky.json'));
+    });
+    try {
+      await g.app.evaluate(({ BrowserWindow }) => {
+        const w = BrowserWindow.getAllWindows().find((x) => !x.isAlwaysOnTop())!;
+        w.setSize(1200, 800);
+      });
+      await expect(g.main.getByTestId('draft-bar')).toBeVisible({ timeout: 30_000 });
+      // another OKR becomes the one shown in the main window
+      await mockServer.setResponses(mockFor('另一个目标：缩短上线等待时间'));
+      const wizard = new ClarificationPage(g.main);
+      await wizard.waitForReady();
+      await wizard.completeClarificationFlow('缩短上线等待', {
+        questionCount: 2,
+        selectOptionIndex: 0,
+        finalOptionIndex: 1,
+      });
+      await wizard.waitForOkrSummary(30000);
+      const summary = g.main.getByTestId('okr-summary');
+      await expect(summary).toContainText('另一个目标');
+      await summary.getByTestId('edit-button').click();
+      await summary.getByTestId('edit-kr-0').fill('另一个目标上没保存的修改');
+
+      await g.main.getByTestId('draft-restore').click();
+      const confirm = g.main.getByTestId('discard-dialog');
+      await expect(confirm).toBeVisible();
+      await expect(confirm).toContainText('放弃未保存的修改？');
+      // default focus on 「继续编辑」, 「放弃修改」 is the danger button
+      await expect(confirm.getByTestId('dialog-cancel')).toHaveText('继续编辑');
+      await expect(confirm.getByTestId('dialog-cancel')).toBeFocused();
+      await expect(confirm.getByTestId('dialog-confirm')).toHaveText('放弃修改');
+      await expect(confirm.getByTestId('dialog-confirm')).toHaveClass(/dialog__btn--danger/);
+      // 「恢复中」 while it switches and restores
+      await expect(g.main.getByTestId('draft-restore')).toHaveAttribute('aria-busy', 'true');
+      await both(g.main, 'S3-13-switch-discard-confirm');
+
+      await confirm.getByTestId('dialog-confirm').click();
+      await expect(g.main.getByTestId('draft-bar')).toHaveCount(0);
+      await expect(summary).not.toContainText('另一个目标');
+      const kr = summary.getByTestId('edit-kr-0');
+      await expect(kr).toHaveValue('主窗口改的关键结果');
+      await expect(kr).toBeFocused();
+      expect(await focusVisible(g.main)).toBe(true);
+      await expect(g.main.locator('[data-draft-live]')).toHaveText('已恢复上次没保存的内容。');
+      await both(g.main, 'S3-14-switched-restored-focus');
+    } finally {
+      g.app.process().kill('SIGKILL');
     }
   });
 });
