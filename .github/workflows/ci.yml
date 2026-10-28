@@ -214,6 +214,7 @@ jobs:
         run: |
           sudo apt-get update || true
           sudo apt-get install -y --no-install-recommends \
+            fonts-noto-cjk \
             libatk-bridge2.0-0 \
             libgtk-3-0 \
             libnss3 \
