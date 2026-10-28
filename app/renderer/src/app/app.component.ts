@@ -9,7 +9,7 @@ import {
   inject,
   signal,
   type OnDestroy,
-  viewChild,
+  ViewChild,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { IPC_CHANNELS, type DraftRow } from '@clarityokr/contracts';
@@ -196,7 +196,10 @@ export class AppComponent implements OnDestroy {
   private readonly intentValue = toSignal(this.intentControl.valueChanges, { initialValue: '' });
   private readonly editor = inject(EditModeStore);
   /** The main window's note (its text edit), for 恢复 of a text edit draft (#110). */
-  private readonly mainNote = viewChild<OkrStickyNoteComponent>('mainNote');
+  @ViewChild('mainNote') private mainNoteRef?: OkrStickyNoteComponent;
+  private mainNote(): OkrStickyNoteComponent | undefined {
+    return this.mainNoteRef;
+  }
   private readonly closedLoopApi = inject(ClosedLoopApi);
   private readonly zone = inject(NgZone);
   private unsubscribeNewOkr: () => void = () => undefined;
