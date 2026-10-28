@@ -7,17 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-28
+
 ### Security
 
 - Electron 升到 44.9.3，修复 eMudhra 中间证书问题：被泄露的 eMudhra 中间证书签发的证书不再被信任，连接 AI 服务时不会被冒充（#102）
 - zod 升到 4.6.7，修复超长输入导致内存耗尽：收到异常大的数据时应用不会因内存耗尽而崩溃（#102）
-- 开发与构建工具依赖 fast-uri 升到 3.1.9、ip-address 升到 10.7.5，修复 4 个 fast-uri 和 1 个 ip-address 安全公告；两者都不打包进安装包，对已安装的应用没有影响
 
 ### Changed
 
-- 单独的放弃按钮统一叫「放弃修改」：放弃未保存的文字修改时的确认按钮由「放弃」改为「放弃修改」，与复盘离开确认、进度保存失败行一致；「放弃并退出」「放弃并重启」不变
-- 备份文件太大时的提示改短：「这个备份超过 50 MB 的上限，无法导入。」
-- 文件太大时的提示改短：「这个文件超过 5 MB 的上限，无法导入。」
+- 单独的放弃按钮统一叫「放弃修改」：放弃未保存的文字修改时的确认按钮由「放弃」改为「放弃修改」，与复盘离开确认、进度保存失败行一致；「放弃并退出」「放弃并重启」不变（#104）
+- 备份文件太大时的提示改短：「这个备份超过 50 MB 的上限，无法导入。」（#104）
+- 文件太大时的提示改短：「这个文件超过 5 MB 的上限，无法导入。」（#105）
+
+### Internal
+
+- 仅开发与构建工具：fast-uri 升到 3.1.9、ip-address 升到 10.7.5（Dependabot 公告 #262–#266）；两者不打包进安装包，对已安装的应用没有影响（#106）
+
+### Known issues
+
+- 「未实测」：以下行为只有自动化测试，尚未在真机上手动验证
+  - 系统托盘（菜单「显示便签 / 退出」、点击唤回）：macOS、Windows、Linux 均未实测
+  - Dock 唤回便签：macOS 未实测
+  - ⌘Q 退出确认（含未保存修改的合并提示）：macOS 未实测
+- Windows 注销 / 关机时不会询问未保存的修改，没保存的内容会丢失（仍然如此，未实测）
+- Windows / Linux 上无法创建托盘图标时，关闭或隐藏最后一个可见窗口会直接退出应用（按钮提示里有说明）
+- macOS 安装包未签名
 
 ## [0.3.0] - 2026-10-21
 
@@ -141,6 +156,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comprehensive test suite (unit, component, integration, E2E)
 - CI/CD pipeline with multi-platform builds
 
-[unreleased]: https://github.com/Jackela/ClarityOKR/compare/v0.3.0...HEAD
+[unreleased]: https://github.com/Jackela/ClarityOKR/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/Jackela/ClarityOKR/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/Jackela/ClarityOKR/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Jackela/ClarityOKR/releases/tag/v0.2.0
