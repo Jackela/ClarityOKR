@@ -324,6 +324,70 @@ describe('#110 session-end drafts through the main process (real OkrStore, temp 
     third.db.close();
   });
 
+  it('main-window text edit: drafted in main.json and offered only in the main window', async () => {
+    const first = launch(dbFile, draftsDir);
+    const okr = first.store.createObjective(okrInput('主窗口的目标'));
+    const kr = okr.keyResults[0];
+    const base = { statement: kr.statement, successMetric: kr.successMetric ?? '' };
+    const row: DraftRow = {
+      kind: 'textEdit',
+      okrId: okr.id,
+      krId: kr.id,
+      base,
+      draft: { ...base, statement: '主窗口改的' },
+    };
+    await first.ipc.invoke(MAIN, IPC_CHANNELS.APP_REPORT_DRAFT, { rows: [row] });
+    first.win.emit('session-end');
+    first.db.close();
+    const second = launch(dbFile, draftsDir);
+    const main = await second.ipc.invoke<DraftGetReply>(MAIN, IPC_CHANNELS.APP_DRAFT_GET);
+    expect(main.ok && main.data.rows.map((r) => r.key)).toEqual([`textEdit:${okr.id}:${kr.id}`]);
+    const sticky = await second.ipc.invoke<DraftGetReply>(STICKY, IPC_CHANNELS.APP_DRAFT_GET);
+    expect(sticky.ok && sticky.data.rows).toHaveLength(0);
+    second.db.close();
+  });
+
+  it('the same KR edited in both windows: each window keeps its own row and bar (【缺】 safest choice)', async () => {
+    const first = launch(dbFile, draftsDir);
+    const okr = first.store.createObjective(okrInput('两边都改'));
+    const kr = okr.keyResults[0];
+    const base = { statement: kr.statement, successMetric: kr.successMetric ?? '' };
+    const rowOf = (statement: string): DraftRow => ({
+      kind: 'textEdit',
+      okrId: okr.id,
+      krId: kr.id,
+      base,
+      draft: { ...base, statement },
+    });
+    await first.ipc.invoke(MAIN, IPC_CHANNELS.APP_REPORT_DRAFT, { rows: [rowOf('主窗口版')] });
+    await first.ipc.invoke(STICKY, IPC_CHANNELS.APP_REPORT_DRAFT, { rows: [rowOf('便签版')] });
+    first.win.emit('session-end');
+    first.db.close();
+    const second = launch(dbFile, draftsDir);
+    const key = `textEdit:${okr.id}:${kr.id}`;
+    const main = await second.ipc.invoke<DraftGetReply>(MAIN, IPC_CHANNELS.APP_DRAFT_GET);
+    const sticky = await second.ipc.invoke<DraftGetReply>(STICKY, IPC_CHANNELS.APP_DRAFT_GET);
+    expect(
+      main.ok &&
+        main.data.rows.map((r) => [
+          r.key,
+          (r.row as { draft: { statement: string } }).draft.statement,
+        ]),
+    ).toEqual([[key, '主窗口版']]);
+    expect(
+      sticky.ok &&
+        sticky.data.rows.map((r) => [
+          r.key,
+          (r.row as { draft: { statement: string } }).draft.statement,
+        ]),
+    ).toEqual([[key, '便签版']]);
+    // settling one window's row leaves the other window's row
+    await second.ipc.invoke(MAIN, IPC_CHANNELS.APP_DRAFT_SETTLE, { keys: [key] });
+    const after = await second.ipc.invoke<DraftGetReply>(STICKY, IPC_CHANNELS.APP_DRAFT_GET);
+    expect(after.ok && after.data.rows.map((r) => r.key)).toEqual([key]);
+    second.db.close();
+  });
+
   it('rejects malformed payloads and unknown senders', async () => {
     const app = launch(dbFile, draftsDir);
     const bad = await app.ipc.invoke(MAIN, IPC_CHANNELS.APP_REPORT_DRAFT, {

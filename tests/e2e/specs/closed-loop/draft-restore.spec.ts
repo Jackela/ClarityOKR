@@ -4,6 +4,7 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  rmSync,
   writeFileSync,
 } from 'node:fs';
 import type NodeModule from 'node:module';
@@ -153,6 +154,10 @@ test.describe('S3§12 session-end draft restore (#110)', () => {
     await sticky.getByTestId('tab-review').click();
     await sticky.getByTestId('review-wentWell').fill('发布流程更稳了');
     await expect(sticky.getByTestId('review-state')).toHaveText('有未保存的修改');
+    // and key result 1 in the main window's own text edit (产品经理 decision 2①)
+    const summary = mainWindow.getByTestId('okr-summary');
+    await summary.getByTestId('edit-button').click();
+    await summary.getByTestId('edit-kr-0').fill('主窗口改的关键结果');
 
     // Windows asks to end the session: the main process writes the drafts (no dialog, no wait)
     const profile = join(dirname(testInfo.outputPath('clarityokr.db')), 'profile');
@@ -173,6 +178,18 @@ test.describe('S3§12 session-end draft restore (#110)', () => {
         }
       })
       .toEqual(['review', 'textEdit']);
+    const mainFile = join(profile, 'drafts', 'main.json');
+    await expect
+      .poll(() => {
+        try {
+          return (
+            JSON.parse(readFileSync(mainFile, 'utf8')) as { rows: { kind: string }[] }
+          ).rows.map((r) => r.kind);
+        } catch {
+          return [];
+        }
+      })
+      .toEqual(['textEdit']);
     const saved = JSON.parse(readFileSync(stickyFile, 'utf8'));
     expect(saved.version).toBe(1);
     expect(saved.window).toBe('sticky');
@@ -319,6 +336,10 @@ test.describe('S3§12 session-end draft restore (#110)', () => {
         // rolled back: the goal is unchanged and 开始澄清 stays off
         await expect(c.main.getByTestId('intent-input')).toHaveValue('');
         await expect(c.main.getByTestId('start-clarification')).toBeDisabled();
+        // and its validation state: no 「请输入至少3个字符」 hint
+        await c.main.waitForTimeout(300);
+        await expect(c.main.locator('#intent-error')).toHaveCount(0);
+        await expect(c.main.getByText('请输入至少3个字符')).toHaveCount(0);
         await both(c.main, 'S3-05-restore-failed');
       } finally {
         chmodSync(drafts, 0o755);
@@ -345,6 +366,72 @@ test.describe('S3§12 session-end draft restore (#110)', () => {
       await both(s, 'S3-08-review-no-period');
     } finally {
       d.app.process().kill('SIGKILL');
+    }
+
+    // ---------- launch E: the main window's own KR text edit, 1200 wide (S3-09a / S3-09b) ----------
+    const e = await relaunch(first, testInfo.outputPath('e'), mockServer.url, (drafts) => {
+      rmSync(join(drafts, 'sticky.json'));
+    });
+    try {
+      await e.app.evaluate(({ BrowserWindow }) => {
+        const w = BrowserWindow.getAllWindows().find((x) => !x.isAlwaysOnTop())!;
+        w.setSize(1200, 800);
+      });
+      const bar = e.main.getByTestId('draft-bar');
+      await expect(bar).toBeVisible({ timeout: 30_000 });
+      const line = e.main.getByTestId('draft-line');
+      await expect(line.locator('[aria-hidden="true"]')).toHaveText([
+        `「${SHOWN}」第 1 个关键结果的文字`,
+      ]);
+      await expect(e.main.getByTestId('draft-restore')).toBeFocused();
+      // 1200 wide: the buttons sit to the right of the text
+      const text = (await line.first().boundingBox())!;
+      const restore = (await e.main.getByTestId('draft-restore').boundingBox())!;
+      expect(restore.x).toBeGreaterThan(text.x + text.width);
+      // the bar is only in the window that owns the draft
+      const s = await openStickyOf(e.app, okrId);
+      await s.getByTestId('kr-list').waitFor({ state: 'visible' });
+      await s.waitForTimeout(1000);
+      await expect(s.getByTestId('draft-bar')).toHaveCount(0);
+      await e.main.bringToFront();
+      await e.main.getByTestId('draft-restore').focus();
+      await both(e.main, 'S3-09a-main-bar-text-edit');
+
+      await e.main.getByTestId('draft-restore').click();
+      await expect(bar).toHaveCount(0);
+      const kr = e.main.getByTestId('okr-summary').getByTestId('edit-kr-0');
+      await expect(kr).toHaveValue('主窗口改的关键结果');
+      await expect(kr).toBeFocused();
+      expect(await focusVisible(e.main)).toBe(true);
+      await both(e.main, 'S3-09b-main-restored-focus');
+    } finally {
+      e.app.process().kill('SIGKILL');
+    }
+
+    // ---------- launch F: wizard + KR text edit in the main window → focus on the wizard goal ----------
+    const f = await relaunch(first, testInfo.outputPath('f'), mockServer.url, (drafts) => {
+      rmSync(join(drafts, 'sticky.json'));
+      const file = join(drafts, 'main.json');
+      const data = JSON.parse(readFileSync(file, 'utf8'));
+      writeFileSync(
+        file,
+        JSON.stringify({
+          ...data,
+          rows: [{ kind: 'wizard', step: 1, intent: '提高团队效率' }, ...data.rows],
+        }),
+      );
+    });
+    try {
+      await expect(f.main.getByTestId('draft-line')).toHaveCount(2, { timeout: 30_000 });
+      await f.main.getByTestId('draft-restore').click();
+      await expect(f.main.getByTestId('draft-bar')).toHaveCount(0);
+      await expect(f.main.getByTestId('intent-input')).toHaveValue('提高团队效率');
+      await expect(f.main.getByTestId('intent-input')).toBeFocused();
+      await expect(f.main.getByTestId('okr-summary').getByTestId('edit-kr-0')).toHaveValue(
+        '主窗口改的关键结果',
+      );
+    } finally {
+      f.app.process().kill('SIGKILL');
     }
   });
 });

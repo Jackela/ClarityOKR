@@ -76,3 +76,50 @@ export function sameSections(
 ): boolean {
   return a.wentWell === b.wentWell && a.fellShort === b.fellShort && a.nextSteps === b.nextSteps;
 }
+
+/**
+ * #110: one `textEdit` row per existing key result whose text changed in the text edit — the
+ * same rule in both windows. Key results added in this edit, the objective, deletions and
+ * reordering are not drafted (#117).
+ */
+export function textEditDraftRows(
+  editor: {
+    isEditing(): boolean;
+    isDirty(): boolean;
+    originalKeyResults(): readonly {
+      id: string;
+      statement: string;
+      successMetric?: string | null;
+    }[];
+    draftKeyResults(): readonly { id: string; statement: string; successMetric?: string | null }[];
+  },
+  okrId: string,
+): DraftRow[] {
+  const rows: DraftRow[] = [];
+  if (!editor.isEditing() || !editor.isDirty()) return rows;
+  const originals = new Map(editor.originalKeyResults().map((kr) => [kr.id, kr]));
+  for (const kr of editor.draftKeyResults()) {
+    const base = originals.get(kr.id);
+    if (!base) continue;
+    const before = { statement: base.statement, successMetric: base.successMetric ?? '' };
+    const now = { statement: kr.statement, successMetric: kr.successMetric ?? '' };
+    if (before.statement === now.statement && before.successMetric === now.successMetric) continue;
+    rows.push({ kind: 'textEdit', okrId, krId: kr.id, base: before, draft: now });
+  }
+  return rows;
+}
+
+/** S3§12.3 for a text edit row against the key results saved now. */
+export function textEditTarget(
+  row: Extract<DraftRow, { kind: 'textEdit' }>,
+  saved: readonly { id: string; statement: string; successMetric?: string | null }[] | null,
+  editorDirty: boolean,
+): RestoreTarget {
+  const kr = saved?.find((k) => k.id === row.krId);
+  if (
+    kr &&
+    (kr.statement !== row.base.statement || (kr.successMetric ?? '') !== row.base.successMetric)
+  )
+    return 'saved';
+  return editorDirty ? 'dirty' : 'untouched';
+}

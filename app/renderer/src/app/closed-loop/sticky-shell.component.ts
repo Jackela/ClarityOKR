@@ -32,7 +32,12 @@ import { StorageNoticesComponent } from './storage-notices.component';
 import { TopBarComponent } from './top-bar.component';
 import { UnsavedReporter } from './unsaved-reporter.service';
 import { DraftRestoreBarComponent } from './draft-restore-bar.component';
-import { DraftRestoreHosts, sameSections, type DraftApplyResult } from './draft-restore';
+import {
+  DraftRestoreHosts,
+  sameSections,
+  textEditDraftRows,
+  type DraftApplyResult,
+} from './draft-restore';
 import { watchDraftRows } from './draft-reporter';
 
 export type StickyTabId = 'note' | 'review' | 'history';
@@ -266,19 +271,7 @@ export class StickyShellComponent {
     const rows: DraftRow[] = [];
     const okrId = this.store.detail()?.objective.id;
     if (!okrId) return rows;
-    if (this.editor.isEditing() && this.editor.isDirty()) {
-      const originals = new Map(this.editor.originalKeyResults().map((kr) => [kr.id, kr]));
-      for (const kr of this.editor.draftKeyResults()) {
-        const base = originals.get(kr.id);
-        // A key result added in this edit has no saved spot to go back to (not drafted).
-        if (!base) continue;
-        const before = { statement: base.statement, successMetric: base.successMetric ?? '' };
-        const now = { statement: kr.statement, successMetric: kr.successMetric ?? '' };
-        if (before.statement === now.statement && before.successMetric === now.successMetric)
-          continue;
-        rows.push({ kind: 'textEdit', okrId, krId: kr.id, base: before, draft: now });
-      }
-    }
+    rows.push(...textEditDraftRows(this.editor, okrId));
     if (this.review.dirty()) {
       rows.push({
         kind: 'review',

@@ -9,6 +9,7 @@ import {
   inject,
   signal,
   type OnDestroy,
+  viewChild,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { IPC_CHANNELS, type DraftRow } from '@clarityokr/contracts';
@@ -38,7 +39,12 @@ import { ExitConfirmComponent } from './closed-loop/exit-confirm.component';
 import { StorageNoticesComponent } from './closed-loop/storage-notices.component';
 import { UnsavedReporter } from './closed-loop/unsaved-reporter.service';
 import { DraftRestoreBarComponent } from './closed-loop/draft-restore-bar.component';
-import { DraftRestoreHosts } from './closed-loop/draft-restore';
+import {
+  DraftRestoreHosts,
+  textEditDraftRows,
+  textEditTarget,
+  type DraftApplyResult,
+} from './closed-loop/draft-restore';
 import { watchDraftRows } from './closed-loop/draft-reporter';
 import { EditModeStore } from './okr-sticky/state/edit-mode.store';
 
@@ -135,7 +141,7 @@ import { EditModeStore } from './okr-sticky/state/edit-mode.store';
 
         @if (hasStickyNote()) {
           <section class="result-panel" data-testid="okr-summary" aria-label="OKR">
-            <clarityokr-sticky-note [okr]="stickyViewModel()"></clarityokr-sticky-note>
+            <clarityokr-sticky-note #mainNote [okr]="stickyViewModel()"></clarityokr-sticky-note>
           </section>
         }
         @if (newOkrConfirm()) {
@@ -189,6 +195,8 @@ export class AppComponent implements OnDestroy {
 
   private readonly intentValue = toSignal(this.intentControl.valueChanges, { initialValue: '' });
   private readonly editor = inject(EditModeStore);
+  /** The main window's note (its text edit), for 恢复 of a text edit draft (#110). */
+  private readonly mainNote = viewChild<OkrStickyNoteComponent>('mainNote');
   private readonly closedLoopApi = inject(ClosedLoopApi);
   private readonly zone = inject(NgZone);
   private unsubscribeNewOkr: () => void = () => undefined;
@@ -222,34 +230,98 @@ export class AppComponent implements OnDestroy {
     );
     // #110: the wizard's content, for a draft if the session ends (S3§12.1).
     watchDraftRows(
-      computed<DraftRow[]>(() =>
-        this.wizardDirty()
+      computed<DraftRow[]>(() => {
+        const rows: DraftRow[] = this.wizardDirty()
           ? [{ kind: 'wizard', step: this.wizardStep(), intent: this.intentValue() }]
-          : [],
-      ),
+          : [];
+        // The main window's own text edit (S3§12, 产品经理 decision 2①): same rows as the sticky's.
+        const okrId = this.stickyViewModel()?.id;
+        if (okrId) rows.push(...textEditDraftRows(this.editor, okrId));
+        return rows;
+      }),
       inject(Injector),
     );
     inject(DraftRestoreHosts).register({
-      targetOf: () => (this.wizardDirty() ? 'dirty' : 'untouched'),
-      apply: async (rows) => {
-        const row = rows.find((r) => r.kind === 'wizard');
-        if (!row || row.kind !== 'wizard') return { ok: false };
-        // The goal goes back into its field; the clarification answers (an LLM session) do
-        // not (known issue, follow-up issue). The wizard's own state is left as it is.
-        const before = this.intentControl.value;
-        this.newOkrConfirm.set(false);
-        this.intentControl.setValue(row.intent);
-        setTimeout(() => {
-          const input = document.getElementById('intent-input');
-          input?.focus({ focusVisible: true } as FocusOptions);
-        }, 0);
-        return { ok: true, rollback: () => this.intentControl.setValue(before) };
+      targetOf: (row) => {
+        if (row.kind === 'textEdit') {
+          const vm = this.stickyViewModel();
+          const saved =
+            vm && vm.id === row.okrId
+              ? vm.keyResults.map((kr) => ({
+                  id: kr.id,
+                  statement: kr.statement,
+                  successMetric: kr.metricLabel ?? '',
+                }))
+              : null;
+          return textEditTarget(row, saved, this.editor.isEditing() && this.editor.isDirty());
+        }
+        return this.wizardDirty() ? 'dirty' : 'untouched';
       },
+      apply: (rows) => this.applyDraft(rows),
       focusHeading: () => document.getElementById('main-heading')?.focus(),
     });
     this.unsubscribeNewOkr = this.closedLoopApi.onEvent(IPC_CHANNELS.WIZARD_NEW_OKR, () =>
       this.zone.run(() => this.onNewOkr()),
     );
+  }
+
+  /**
+   * #110 「恢复」 in the main window: the wizard goal back into its field, the key result texts
+   * back into the note's text edit (all still unsaved). Focus (S3§12.3): wizard goal first, else
+   * the first restored key result input. Undone by `rollback` when the draft cannot be settled.
+   */
+  private async applyDraft(rows: readonly DraftRow[]): Promise<DraftApplyResult> {
+    const wizard = rows.find((r) => r.kind === 'wizard');
+    const vm = this.stickyViewModel();
+    const krs = rows.flatMap((r) =>
+      r.kind === 'textEdit' && vm && r.okrId === vm.id
+        ? [{ krId: r.krId, statement: r.draft.statement, successMetric: r.draft.successMetric }]
+        : [],
+    );
+    // A text edit row of an OKR this window does not show cannot be put back here.
+    if (rows.some((r) => r.kind === 'textEdit') && krs.length === 0) return { ok: false };
+    if (!wizard && krs.length === 0) return { ok: false };
+    const intentBefore = this.intentControl.value;
+    const c = this.intentControl;
+    const stateBefore = { touched: c.touched, dirty: c.dirty };
+    const wasEditing = this.editor.isEditing();
+    const editBefore = this.editor.draftKeyResults().map((kr) => ({ ...kr }));
+    if (krs.length > 0) {
+      const note = this.mainNote();
+      if (!note || !note.restoreDraft(krs)) return { ok: false };
+    }
+    if (wizard && wizard.kind === 'wizard') {
+      this.newOkrConfirm.set(false);
+      this.intentControl.setValue(wizard.intent);
+    }
+    const focusId = wizard ? 'intent-input' : `edit-kr-${krs[0].krId}`;
+    setTimeout(() => {
+      document
+        .querySelector<HTMLElement>(`[id="${focusId}"]`)
+        ?.focus({ focusVisible: true } as FocusOptions);
+    }, 50);
+    return {
+      ok: true,
+      rollback: () => {
+        if (wizard) {
+          // S3-05: the field goes back exactly as it was, validation state included (no hint).
+          c.setValue(intentBefore);
+          if (stateBefore.dirty) c.markAsDirty();
+          else c.markAsPristine();
+          if (stateBefore.touched) c.markAsTouched();
+          else c.markAsUntouched();
+          // the blur of the focused goal field must not mark it touched again
+          (document.activeElement as HTMLElement | null)?.blur?.();
+          setTimeout(() => {
+            if (!stateBefore.touched) c.markAsUntouched();
+          }, 0);
+        }
+        if (krs.length > 0) {
+          if (!wasEditing) this.editor.cancelEdits();
+          else for (const kr of editBefore) this.editor.updateKeyResult(kr.id, kr);
+        }
+      },
+    };
   }
 
   /** The wizard step on screen: 1 for the goal, then one per question answered. */
