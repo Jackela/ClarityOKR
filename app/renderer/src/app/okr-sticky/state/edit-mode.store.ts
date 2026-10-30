@@ -348,6 +348,21 @@ export class EditModeStore {
     this.lastKey = null;
   }
 
+  /** #117: the history point now, for {@link rollbackTo} (S3-05: undo a restore exactly). */
+  checkpoint(): number {
+    return this.cursor();
+  }
+
+  /**
+   * #117 S3-05: back to a {@link checkpoint} of this edit — objective, key result texts and
+   * added key results as they were — and forget the steps after it.
+   */
+  rollbackTo(index: number): void {
+    if (!this.history()[index]) return;
+    this.history.set(this.history().slice(0, index + 1));
+    this.moveTo(index);
+  }
+
   // === History plumbing ===
 
   private record(key: string, coalesce = true): void {

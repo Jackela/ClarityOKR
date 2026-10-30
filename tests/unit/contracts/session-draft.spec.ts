@@ -78,6 +78,37 @@ describe('when a draft is written / offered', () => {
     expect(result.voidedCount).toBe(1);
   });
 
+  it('#117: lines in bar order wizard, objective, KR text, added KRs, review; keys per OKR', () => {
+    const more: DraftRow[] = [
+      { kind: 'addedKr', okrId: 'o1', krs: [{ id: 'n1', statement: '', successMetric: '' }] },
+      ...rows,
+      { kind: 'objective', okrId: 'o1', base: 'a', draft: 'b' },
+    ];
+    expect(sortDraftRows(more.map((row) => ({ row }))).map((r) => r.row.kind)).toEqual([
+      'wizard',
+      'objective',
+      'textEdit',
+      'addedKr',
+      'review',
+    ]);
+    expect(draftRowKey(more[0])).toBe('addedKr:o1');
+    expect(draftRowKey(more[more.length - 1])).toBe('objective:o1');
+  });
+
+  it('#117: objective / added rows are valid in the draft file; an empty added list is not', () => {
+    const base = { version: 1, window: 'main', savedAt: 'x' };
+    const objective = { kind: 'objective', okrId: 'o1', base: 'a', draft: 'b' };
+    const added = {
+      kind: 'addedKr',
+      okrId: 'o1',
+      krs: [{ id: 'n1', statement: 'c', successMetric: '' }],
+    };
+    expect(draftFileSchema.safeParse({ ...base, rows: [objective, added] }).success).toBe(true);
+    expect(draftFileSchema.safeParse({ ...base, rows: [{ ...added, krs: [] }] }).success).toBe(
+      false,
+    );
+  });
+
   it('every row gone → nothing valid (no bar)', () => {
     expect(filterDraftRows(rows, () => ({ exists: false })).valid).toEqual([]);
   });

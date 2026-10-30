@@ -32,6 +32,25 @@ export const textEditDraftRowSchema = z.strictObject({
   base: krText,
   draft: krText,
 });
+/**
+ * #117: the objective text changed in the text edit. `base` = the objective when editing began
+ * (the saved title then).
+ */
+export const objectiveDraftRowSchema = z.strictObject({
+  kind: z.literal('objective'),
+  okrId: id,
+  base: text,
+  draft: text,
+});
+/** #117: key results added in the text edit and not saved yet, in their order in the form. */
+export const addedKrDraftRowSchema = z.strictObject({
+  kind: z.literal('addedKr'),
+  okrId: id,
+  krs: z
+    .array(z.strictObject({ id, statement: text, successMetric: text }))
+    .min(1)
+    .max(100),
+});
 /** The review tab of one OKR (sticky window). `base` = the saved review when typing began. */
 export const reviewDraftRowSchema = z.strictObject({
   kind: z.literal('review'),
@@ -41,12 +60,16 @@ export const reviewDraftRowSchema = z.strictObject({
 });
 export const draftRowSchema = z.discriminatedUnion('kind', [
   wizardDraftRowSchema,
+  objectiveDraftRowSchema,
   textEditDraftRowSchema,
+  addedKrDraftRowSchema,
   reviewDraftRowSchema,
 ]);
 export type WizardDraftRow = z.infer<typeof wizardDraftRowSchema>;
 export type TextEditDraftRow = z.infer<typeof textEditDraftRowSchema>;
 export type ReviewDraftRow = z.infer<typeof reviewDraftRowSchema>;
+export type ObjectiveDraftRow = z.infer<typeof objectiveDraftRowSchema>;
+export type AddedKrDraftRow = z.infer<typeof addedKrDraftRowSchema>;
 export type DraftRow = z.infer<typeof draftRowSchema>;
 export type DraftSections = z.infer<typeof sections>;
 
@@ -66,8 +89,12 @@ export function draftRowKey(row: DraftRow): string {
   switch (row.kind) {
     case 'wizard':
       return 'wizard';
+    case 'objective':
+      return `objective:${row.okrId}`;
     case 'textEdit':
       return `textEdit:${row.okrId}:${row.krId}`;
+    case 'addedKr':
+      return `addedKr:${row.okrId}`;
     case 'review':
       return `review:${row.okrId}`;
   }
@@ -76,6 +103,7 @@ export function draftRowKey(row: DraftRow): string {
 /** A row the bar shows, with what its line needs (resolved by the main process). */
 export type ResolvedDraftRow =
   | { key: string; row: WizardDraftRow }
+  | { key: string; row: ObjectiveDraftRow | AddedKrDraftRow; okrTitle: string }
   | { key: string; row: TextEditDraftRow; okrTitle: string; krIndex: number }
   | { key: string; row: ReviewDraftRow; okrTitle: string; period: string | null };
 
@@ -100,8 +128,17 @@ export function draftsEnabled(storageMode: 'normal' | 'fresh-file' | 'memory'): 
   return storageMode !== 'memory';
 }
 
-/** Fixed order of the lines: wizard, text edit, review (S3§12.2, same as §1.2c). */
-const ORDER: Record<DraftRow['kind'], number> = { wizard: 0, textEdit: 1, review: 2 };
+/**
+ * Fixed order of the lines (S3§12.2 / §12.7): wizard, objective text, key result texts, added
+ * key results, review.
+ */
+const ORDER: Record<DraftRow['kind'], number> = {
+  wizard: 0,
+  objective: 1,
+  textEdit: 2,
+  addedKr: 3,
+  review: 4,
+};
 export function sortDraftRows<T extends { row: DraftRow }>(rows: readonly T[]): T[] {
   return [...rows].sort((a, b) => ORDER[a.row.kind] - ORDER[b.row.kind]);
 }

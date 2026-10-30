@@ -35,6 +35,7 @@ import { DraftRestoreBarComponent } from './draft-restore-bar.component';
 import {
   DraftRestoreHosts,
   sameSections,
+  structuralTarget,
   textEditDraftRows,
   type DraftApplyResult,
 } from './draft-restore';
@@ -307,6 +308,18 @@ export class StickyShellComponent {
       }
       return this.editor.isEditing() && this.editor.isDirty() ? 'dirty' : 'untouched';
     }
+    if (row.kind === 'objective' || row.kind === 'addedKr') {
+      return structuralTarget(
+        row,
+        sameOkr
+          ? {
+              objective: detail.objective.title,
+              keyResultIds: detail.objective.keyResults.map((kr) => kr.id),
+            }
+          : null,
+        this.editor.isEditing() && this.editor.isDirty(),
+      );
+    }
     if (row.kind === 'review') {
       if (sameOkr && !sameSections(this.savedReview(), row.base)) return 'saved';
       return this.review.dirty() ? 'dirty' : 'untouched';
@@ -336,17 +349,23 @@ export class StickyShellComponent {
         ? [{ krId: r.krId, statement: r.draft.statement, successMetric: r.draft.successMetric }]
         : [],
     );
+    const objective = rows.find(
+      (r): r is Extract<DraftRow, { kind: 'objective' }> =>
+        r.kind === 'objective' && r.okrId === okrId,
+    );
+    const added = rows.flatMap((r) => (r.kind === 'addedKr' && r.okrId === okrId ? r.krs : []));
+    const noteRows = krs.length + added.length + (objective ? 1 : 0);
     const review = rows.find(
       (r): r is Extract<DraftRow, { kind: 'review' }> => r.kind === 'review' && r.okrId === okrId,
     );
     // What to put back if the draft file cannot be updated afterwards (S3-05).
     const wasEditing = this.editor.isEditing();
-    const editBefore = this.editor.draftKeyResults().map((kr) => ({ ...kr }));
+    const checkpoint = this.editor.checkpoint();
     const reviewBefore = { ...this.review.draft() };
     const rollback = (): void => {
-      if (krs.length > 0) {
+      if (noteRows > 0) {
         if (!wasEditing) this.editor.cancelEdits();
-        else for (const kr of editBefore) this.editor.updateKeyResult(kr.id, kr);
+        else this.editor.rollbackTo(checkpoint);
       }
       if (review) this.review.draft.set(reviewBefore);
     };
@@ -357,17 +376,18 @@ export class StickyShellComponent {
       if (this.review.loadState() !== 'ready') return { ok: false };
       this.review.draft.set({ ...review.draft });
     }
-    if (krs.length > 0) {
+    if (noteRows > 0) {
       if (this.tab() !== 'note') this.tab.set('note');
       await new Promise((resolve) => setTimeout(resolve, 0));
-      if (!this.note?.restoreDraft(krs)) {
+      if (!this.note?.restoreDraft({ objective: objective?.draft, krs, added })) {
         if (review) this.review.draft.set(reviewBefore);
         return { ok: false };
       }
-      const firstKr = krs[0].krId;
+      // Focus on the first kind restored, in bar order (S3§12.3 / §12.7).
+      const focusId = objective ? 'edit-objective' : `edit-kr-${krs[0]?.krId ?? added[0].id}`;
       setTimeout(() => {
         this.host.nativeElement
-          .querySelector<HTMLElement>(`[id="edit-kr-${firstKr}"]`)
+          .querySelector<HTMLElement>(`[id="${focusId}"]`)
           ?.focus({ focusVisible: true } as FocusOptions);
       }, 50);
       return { ok: true, rollback };
