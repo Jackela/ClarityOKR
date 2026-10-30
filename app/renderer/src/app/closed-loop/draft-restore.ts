@@ -28,6 +28,10 @@ export function draftLine(item: ResolvedDraftRow): DraftLine {
     const text = t.wizardLine;
     return { key: item.key, visible: text, full: text };
   }
+  if (item.row.kind === 'objective')
+    return make(t.objectiveLine, (item as { okrTitle: string }).okrTitle);
+  if (item.row.kind === 'addedKr')
+    return make(t.addedKrLine, (item as { okrTitle: string }).okrTitle);
   if ('krIndex' in item) return make((title) => t.textEditLine(title, item.krIndex), item.okrTitle);
   if ('period' in item && item.period) {
     const text = t.reviewLine(item.period);
@@ -80,14 +84,17 @@ export function sameSections(
 }
 
 /**
- * #110: one `textEdit` row per existing key result whose text changed in the text edit — the
- * same rule in both windows. Key results added in this edit, the objective, deletions and
- * reordering are not drafted (#117).
+ * #110 / #117: the text edit's unsaved changes as draft rows — the same rule in both windows.
+ * An `objective` row when the objective text changed, one `textEdit` row per existing key result
+ * whose text changed, and one `addedKr` row with the key results added in this edit (in form
+ * order). The text edit has no way to delete or reorder key results, so there is nothing else.
  */
 export function textEditDraftRows(
   editor: {
     isEditing(): boolean;
     isDirty(): boolean;
+    originalObjective(): string;
+    draftObjective(): string;
     originalKeyResults(): readonly {
       id: string;
       statement: string;
@@ -99,16 +106,46 @@ export function textEditDraftRows(
 ): DraftRow[] {
   const rows: DraftRow[] = [];
   if (!editor.isEditing() || !editor.isDirty()) return rows;
+  if (editor.draftObjective() !== editor.originalObjective()) {
+    rows.push({
+      kind: 'objective',
+      okrId,
+      base: editor.originalObjective(),
+      draft: editor.draftObjective(),
+    });
+  }
   const originals = new Map(editor.originalKeyResults().map((kr) => [kr.id, kr]));
+  const added: { id: string; statement: string; successMetric: string }[] = [];
   for (const kr of editor.draftKeyResults()) {
     const base = originals.get(kr.id);
-    if (!base) continue;
+    if (!base) {
+      added.push({ id: kr.id, statement: kr.statement, successMetric: kr.successMetric ?? '' });
+      continue;
+    }
     const before = { statement: base.statement, successMetric: base.successMetric ?? '' };
     const now = { statement: kr.statement, successMetric: kr.successMetric ?? '' };
     if (before.statement === now.statement && before.successMetric === now.successMetric) continue;
     rows.push({ kind: 'textEdit', okrId, krId: kr.id, base: before, draft: now });
   }
+  if (added.length > 0) rows.push({ kind: 'addedKr', okrId, krs: added });
   return rows;
+}
+
+/**
+ * #117 rule 1 for an objective / added-key-result row against the OKR saved now (`null` = another
+ * OKR is shown: 恢复 switches first, its own confirm covers the edits there).
+ */
+export function structuralTarget(
+  row: Extract<DraftRow, { kind: 'objective' | 'addedKr' }>,
+  saved: { objective: string; keyResultIds: readonly string[] } | null,
+  editorDirty: boolean,
+): RestoreTarget {
+  if (saved) {
+    if (row.kind === 'objective' && saved.objective !== row.base) return 'saved';
+    if (row.kind === 'addedKr' && row.krs.some((kr) => saved.keyResultIds.includes(kr.id)))
+      return 'saved';
+  }
+  return editorDirty ? 'dirty' : 'untouched';
 }
 
 /** S3§12.3 for a text edit row against the key results saved now. */

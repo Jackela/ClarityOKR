@@ -42,6 +42,7 @@ import { UnsavedReporter } from './closed-loop/unsaved-reporter.service';
 import { DraftRestoreBarComponent } from './closed-loop/draft-restore-bar.component';
 import {
   DraftRestoreHosts,
+  structuralTarget,
   textEditDraftRows,
   textEditTarget,
   type DraftApplyResult,
@@ -262,6 +263,15 @@ export class AppComponent implements OnDestroy {
               : null;
           return textEditTarget(row, saved, this.editor.isEditing() && this.editor.isDirty());
         }
+        if (row.kind === 'objective' || row.kind === 'addedKr') {
+          const vm = this.stickyViewModel();
+          if (!vm || vm.id !== row.okrId) return 'untouched';
+          return structuralTarget(
+            row,
+            { objective: vm.objective, keyResultIds: vm.keyResults.map((kr) => kr.id) },
+            this.editor.isEditing() && this.editor.isDirty(),
+          );
+        }
         return this.wizardDirty() ? 'dirty' : 'untouched';
       },
       apply: (rows) => this.applyDraft(rows),
@@ -279,8 +289,11 @@ export class AppComponent implements OnDestroy {
    */
   private async applyDraft(rows: readonly DraftRow[]): Promise<DraftApplyResult> {
     const wizard = rows.find((r) => r.kind === 'wizard');
-    const target = rows.find((r) => r.kind === 'textEdit');
-    if (target && target.kind === 'textEdit' && this.stickyViewModel()?.id !== target.okrId) {
+    const target = rows.find(
+      (r): r is Exclude<DraftRow, { kind: 'wizard' | 'review' }> =>
+        r.kind === 'textEdit' || r.kind === 'objective' || r.kind === 'addedKr',
+    );
+    if (target && this.stickyViewModel()?.id !== target.okrId) {
       // The draft's OKR is not the one shown: switch first. Unsaved edits of the shown OKR are
       // asked about with the existing 「放弃未保存的修改？」 (继续编辑 = nothing changes).
       if (this.editor.isEditing() && this.editor.isDirty()) {
@@ -298,23 +311,37 @@ export class AppComponent implements OnDestroy {
         ? [{ krId: r.krId, statement: r.draft.statement, successMetric: r.draft.successMetric }]
         : [],
     );
-    // A text edit row of an OKR this window does not show cannot be put back here.
-    if (rows.some((r) => r.kind === 'textEdit') && krs.length === 0) return { ok: false };
-    if (!wizard && krs.length === 0) return { ok: false };
+    const objective = rows.find(
+      (r): r is Extract<DraftRow, { kind: 'objective' }> =>
+        r.kind === 'objective' && !!vm && r.okrId === vm.id,
+    );
+    const added = rows.flatMap((r) =>
+      r.kind === 'addedKr' && vm && r.okrId === vm.id ? r.krs : [],
+    );
+    const noteRows = krs.length + added.length + (objective ? 1 : 0);
+    // A note row of an OKR this window does not show cannot be put back here.
+    if (target && noteRows === 0) return { ok: false };
+    if (!wizard && noteRows === 0) return { ok: false };
     const intentBefore = this.intentControl.value;
     const c = this.intentControl;
     const stateBefore = { touched: c.touched, dirty: c.dirty };
     const wasEditing = this.editor.isEditing();
-    const editBefore = this.editor.draftKeyResults().map((kr) => ({ ...kr }));
-    if (krs.length > 0) {
+    const checkpoint = this.editor.checkpoint();
+    if (noteRows > 0) {
       const note = this.mainNote();
-      if (!note || !note.restoreDraft(krs)) return { ok: false };
+      if (!note || !note.restoreDraft({ objective: objective?.draft, krs, added }))
+        return { ok: false };
     }
     if (wizard && wizard.kind === 'wizard') {
       this.newOkrConfirm.set(false);
       this.intentControl.setValue(wizard.intent);
     }
-    const focusId = wizard ? 'intent-input' : `edit-kr-${krs[0].krId}`;
+    // Focus on the first kind restored, in bar order (S3§12.3 / §12.7).
+    const focusId = wizard
+      ? 'intent-input'
+      : objective
+        ? 'edit-objective'
+        : `edit-kr-${krs[0]?.krId ?? added[0].id}`;
     setTimeout(() => {
       document
         .querySelector<HTMLElement>(`[id="${focusId}"]`)
@@ -336,9 +363,9 @@ export class AppComponent implements OnDestroy {
             if (!stateBefore.touched) c.markAsUntouched();
           }, 0);
         }
-        if (krs.length > 0) {
+        if (noteRows > 0) {
           if (!wasEditing) this.editor.cancelEdits();
-          else for (const kr of editBefore) this.editor.updateKeyResult(kr.id, kr);
+          else this.editor.rollbackTo(checkpoint);
         }
       },
     };
