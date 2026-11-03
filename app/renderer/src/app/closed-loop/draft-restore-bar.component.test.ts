@@ -118,6 +118,30 @@ describe('DraftRestoreBarComponent (#110, spec S3§12)', () => {
     ).toBe('上次没保存的内容还在 注销或关机时，这些内容还没保存：');
   });
 
+  it('#117: objective text and added key results get their own lines, in bar order', async () => {
+    const objective: ResolvedDraftRow = {
+      key: 'objective:o1',
+      row: { kind: 'objective', okrId: 'o1', base: 'a', draft: 'b' },
+      okrTitle: TITLE,
+    };
+    const added: ResolvedDraftRow = {
+      key: 'addedKr:o1',
+      row: { kind: 'addedKr', okrId: 'o1', krs: [{ id: 'n1', statement: 'x', successMetric: '' }] },
+      okrTitle: TITLE,
+    };
+    // the main process sends them sorted (sortDraftRows): objective → KR text → added → review
+    await create({ rows: [objective, textEdit, added, review], deletedCount: 0 });
+    const lines = all('draft-line');
+    expect(lines.map((l) => l.querySelector('[aria-hidden="true"]')!.textContent)).toEqual([
+      '「提升团队交付效率与…」的目标文字',
+      '「提升团队交付效率与…」第 2 个关键结果的文字',
+      '「提升团队交付效率与…」新加的关键结果',
+      '2026-Q4 的复盘',
+    ]);
+    expect(lines[0].getAttribute('title')).toBe(`「${TITLE}」的目标文字`);
+    expect(lines[2].getAttribute('title')).toBe(`「${TITLE}」新加的关键结果`);
+  });
+
   it('Esc does not close the bar and is not a decision', async () => {
     await create({ rows: [review], deletedCount: 0 });
     for (const target of [document, q('draft-bar')!]) {

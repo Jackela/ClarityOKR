@@ -734,24 +734,40 @@ export class OkrStickyNoteComponent implements OnChanges {
   }
 
   /**
-   * #110 「恢复」: opens the text edit form and puts the drafted key result texts back (still
-   * unsaved). The focus goes to the first restored statement. false = the form cannot open.
+   * #110 / #117 「恢复」: opens the text edit form and puts the drafted objective, key result
+   * texts and added key results back (still unsaved). The focus target is the first restored
+   * key result (the objective field is focused by the caller). false = the form cannot open or a
+   * drafted key result is not in it; nothing is changed then.
    */
-  restoreDraft(
-    krs: readonly { krId: string; statement: string; successMetric: string }[],
-  ): boolean {
-    if (krs.length === 0) return false;
+  restoreDraft(draft: {
+    objective?: string;
+    krs: readonly { krId: string; statement: string; successMetric: string }[];
+    added?: readonly { id: string; statement: string; successMetric: string }[];
+  }): boolean {
+    const added = draft.added ?? [];
+    if (draft.objective === undefined && draft.krs.length === 0 && added.length === 0) return false;
     if (!this.editor.isEditing()) this.beginEdit();
     if (!this.editor.isEditing()) return false;
     const ids = new Set(this.editor.draftKeyResults().map((kr) => kr.id));
-    if (!krs.every((kr) => ids.has(kr.krId))) return false;
-    for (const kr of krs) {
+    if (!draft.krs.every((kr) => ids.has(kr.krId))) return false;
+    if (draft.objective !== undefined) this.editor.updateObjective(draft.objective);
+    for (const kr of draft.krs) {
       this.editor.updateKeyResult(kr.krId, {
         statement: kr.statement,
         successMetric: kr.successMetric,
       });
     }
-    this.focusTarget.set({ id: krs[0].krId, field: 'statement' });
+    for (const kr of added) {
+      if (!ids.has(kr.id)) this.editor.addKeyResult(kr.id);
+      this.editor.updateKeyResult(kr.id, {
+        statement: kr.statement,
+        successMetric: kr.successMetric,
+      });
+    }
+    const firstKr = draft.krs[0]?.krId ?? added[0]?.id;
+    this.focusTarget.set(
+      draft.objective === undefined && firstKr ? { id: firstKr, field: 'statement' } : null,
+    );
     return true;
   }
 

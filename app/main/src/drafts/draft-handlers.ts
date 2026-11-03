@@ -43,6 +43,14 @@ export function targetState(store: DraftHandlerDeps['store'], row: DraftRow): Dr
   if (row.kind === 'wizard') return { exists: true, unchangedSinceDraft: true };
   const found = liveKrs(store, row.okrId);
   if (!found) return { exists: false };
+  if (row.kind === 'objective') {
+    return { exists: true, unchangedSinceDraft: found.objective.title === row.base };
+  }
+  if (row.kind === 'addedKr') {
+    // Saved since the draft: the added key results are in the OKR now (#117 rule 1).
+    const saved = new Set(found.objective.keyResults.map((kr) => kr.id));
+    return { exists: true, unchangedSinceDraft: !row.krs.some((kr) => saved.has(kr.id)) };
+  }
   if (row.kind === 'textEdit') {
     const kr = found.krs.find((k) => k.id === row.krId);
     if (!kr) return { exists: false };
@@ -71,6 +79,9 @@ function resolve(store: DraftHandlerDeps['store'], row: DraftRow): ResolvedDraft
   if (row.kind === 'wizard') return { key, row };
   const found = liveKrs(store, row.okrId);
   if (!found) throw new Error('resolve() is only called for rows whose OKR exists');
+  if (row.kind === 'objective' || row.kind === 'addedKr') {
+    return { key, row, okrTitle: found.objective.title };
+  }
   if (row.kind === 'textEdit') {
     return {
       key,

@@ -347,6 +347,88 @@ describe('#110 session-end drafts through the main process (real OkrStore, temp 
     second.db.close();
   });
 
+  it('#117: objective and added-KR rows are drafted, offered in bar order with the OKR title', async () => {
+    const first = launch(dbFile, draftsDir);
+    const okr = first.store.createObjective(okrInput('只改目标的目标'));
+    const kr = okr.keyResults[0];
+    const base = { statement: kr.statement, successMetric: kr.successMetric ?? '' };
+    const rows: DraftRow[] = [
+      {
+        kind: 'addedKr',
+        okrId: okr.id,
+        krs: [{ id: 'new-1', statement: '新加的', successMetric: '' }],
+      },
+      { kind: 'textEdit', okrId: okr.id, krId: kr.id, base, draft: { ...base, statement: '改了' } },
+      { kind: 'objective', okrId: okr.id, base: '只改目标的目标', draft: '改过的目标' },
+    ];
+    await first.ipc.invoke(MAIN, IPC_CHANNELS.APP_REPORT_DRAFT, { rows });
+    first.win.emit('session-end');
+    first.db.close();
+
+    const second = launch(dbFile, draftsDir);
+    const reply = await second.ipc.invoke<DraftGetReply>(MAIN, IPC_CHANNELS.APP_DRAFT_GET);
+    expect(reply.ok && reply.data.rows.map((r) => r.key)).toEqual([
+      `objective:${okr.id}`,
+      `textEdit:${okr.id}:${kr.id}`,
+      `addedKr:${okr.id}`,
+    ]);
+    expect(reply.ok && reply.data.rows.map((r) => (r as { okrTitle?: string }).okrTitle)).toEqual([
+      '只改目标的目标',
+      '只改目标的目标',
+      '只改目标的目标',
+    ]);
+    expect(reply.ok && reply.data.deletedCount).toBe(0);
+    second.db.close();
+  });
+
+  it('#117 rule 1: objective saved since the draft / added KR saved into the OKR → those rows are voided', async () => {
+    const first = launch(dbFile, draftsDir);
+    const okr = first.store.createObjective(okrInput('原来的目标'));
+    const rows: DraftRow[] = [
+      { kind: 'objective', okrId: okr.id, base: '原来的目标', draft: '草稿里的目标' },
+      {
+        kind: 'addedKr',
+        okrId: okr.id,
+        krs: [{ id: 'new-1', statement: '新加的', successMetric: '' }],
+      },
+    ];
+    await first.ipc.invoke(MAIN, IPC_CHANNELS.APP_REPORT_DRAFT, { rows });
+    first.win.emit('session-end');
+    // saved after the draft: the objective text and the added key result
+    first.store.syncObjective({
+      id: okr.id,
+      title: '草稿里的目标',
+      keyResults: [...okrInput('x').keyResults, { id: 'new-1', statement: '新加的' }],
+    });
+    first.db.close();
+
+    const second = launch(dbFile, draftsDir);
+    const reply = await second.ipc.invoke<DraftGetReply>(MAIN, IPC_CHANNELS.APP_DRAFT_GET);
+    expect(reply.ok && reply.data.rows).toEqual([]);
+    expect(reply.ok && reply.data.deletedCount).toBe(0);
+    second.db.close();
+  });
+
+  it('#117 rule 1: nothing saved since → the objective / added-KR rows stay offered', async () => {
+    const first = launch(dbFile, draftsDir);
+    const okr = first.store.createObjective(okrInput('原来的目标'));
+    const rows: DraftRow[] = [
+      { kind: 'objective', okrId: okr.id, base: '原来的目标', draft: '草稿里的目标' },
+      {
+        kind: 'addedKr',
+        okrId: okr.id,
+        krs: [{ id: 'new-1', statement: '新加的', successMetric: '' }],
+      },
+    ];
+    await first.ipc.invoke(MAIN, IPC_CHANNELS.APP_REPORT_DRAFT, { rows });
+    first.win.emit('session-end');
+    first.db.close();
+    const second = launch(dbFile, draftsDir);
+    const reply = await second.ipc.invoke<DraftGetReply>(MAIN, IPC_CHANNELS.APP_DRAFT_GET);
+    expect(reply.ok && reply.data.rows.map((r) => r.row)).toEqual(rows);
+    second.db.close();
+  });
+
   it('the same KR edited in both windows: each window keeps its own row and bar (【缺】 safest choice)', async () => {
     const first = launch(dbFile, draftsDir);
     const okr = first.store.createObjective(okrInput('两边都改'));

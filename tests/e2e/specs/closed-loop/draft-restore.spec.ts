@@ -495,5 +495,87 @@ test.describe('S3§12 session-end draft restore (#110)', () => {
     } finally {
       g.app.process().kill('SIGKILL');
     }
+
+    // ---------- launch H (#117): objective text + KR text + added KR (S3-10 / S3-10b) ----------
+    const structural = (drafts: string, window: 'main' | 'sticky'): void => {
+      const data = JSON.parse(readFileSync(join(drafts, 'main.json'), 'utf8'));
+      const textEdit = data.rows.filter((r: { kind: string }) => r.kind === 'textEdit');
+      writeFileSync(
+        join(drafts, `${window}.json`),
+        JSON.stringify({
+          version: 1,
+          window,
+          savedAt: new Date().toISOString(),
+          rows: [
+            { kind: 'objective', okrId, base: LONG, draft: '恢复回来的目标文字' },
+            ...textEdit,
+            {
+              kind: 'addedKr',
+              okrId,
+              krs: [{ id: 'e2e-added-kr', statement: '恢复回来的新关键结果', successMetric: '' }],
+            },
+          ],
+        }),
+      );
+    };
+    const threeLines = [
+      `「${SHOWN}」的目标文字`,
+      `「${SHOWN}」第 1 个关键结果的文字`,
+      `「${SHOWN}」新加的关键结果`,
+    ];
+    const h = await relaunch(first, testInfo.outputPath('h'), mockServer.url, (drafts) => {
+      rmSync(join(drafts, 'sticky.json'));
+      structural(drafts, 'main');
+    });
+    try {
+      await h.app.evaluate(({ BrowserWindow }) => {
+        const w = BrowserWindow.getAllWindows().find((x) => !x.isAlwaysOnTop())!;
+        w.setSize(1200, 800);
+      });
+      await expect(h.main.getByTestId('draft-bar')).toBeVisible({ timeout: 30_000 });
+      await expect(h.main.getByTestId('draft-line').locator('[aria-hidden="true"]')).toHaveText(
+        threeLines,
+      );
+      await h.main.getByTestId('draft-restore').focus();
+      await both(h.main, 'S3-10-main-bar-objective-kr-added');
+
+      await h.main.getByTestId('draft-restore').click();
+      await expect(h.main.getByTestId('draft-bar')).toHaveCount(0);
+      const summary = h.main.getByTestId('okr-summary');
+      const objective = summary.getByTestId('edit-objective');
+      await expect(objective).toHaveValue('恢复回来的目标文字');
+      await expect(summary.getByTestId('edit-kr-0')).toHaveValue('主窗口改的关键结果');
+      await expect(summary.getByTestId('edit-kr').last().locator('textarea').first()).toHaveValue(
+        '恢复回来的新关键结果',
+      );
+      // focus on the first kind restored: the objective input, with a ring (S3§12.7)
+      await expect(objective).toBeFocused();
+      expect(await focusVisible(h.main)).toBe(true);
+      await both(h.main, 'S3-10b-restored-focus-objective');
+    } finally {
+      h.app.process().kill('SIGKILL');
+    }
+
+    // ---------- launch I (#117): the same three lines in the 420-wide sticky window (S3-10) ----------
+    const i = await relaunch(first, testInfo.outputPath('i'), mockServer.url, (drafts) => {
+      structural(drafts, 'sticky');
+      rmSync(join(drafts, 'main.json'));
+    });
+    try {
+      const s = await openStickyOf(i.app, okrId);
+      await setStickyWidth(i.app, 420);
+      await expect(s.getByTestId('draft-bar')).toBeVisible({ timeout: 30_000 });
+      await expect(s.getByTestId('draft-line').locator('[aria-hidden="true"]')).toHaveText(
+        threeLines,
+      );
+      // no line runs out of the bar sideways (nowrap unchanged, S3§12.7 v4.0)
+      const overflow = await s
+        .getByTestId('draft-line')
+        .evaluateAll((els) => els.filter((el) => el.scrollWidth > el.clientWidth + 1).length);
+      expect(overflow).toBe(0);
+      await both(s, 'S3-10-sticky-420-objective-kr-added');
+    } finally {
+      i.app.process().kill('SIGKILL');
+    }
   });
 });

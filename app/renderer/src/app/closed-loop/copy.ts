@@ -27,7 +27,10 @@ export const COPY = {
     title: '上次没保存的内容还在',
     lead: '注销或关机时，这些内容还没保存：',
     wizardLine: '新建 OKR 向导里填的目标',
+    /** #117 (copy.md 「#117」). */
+    objectiveLine: (title: string) => `「${title}」的目标文字`,
     textEditLine: (title: string, krIndex: number) => `「${title}」第 ${krIndex} 个关键结果的文字`,
+    addedKrLine: (title: string) => `「${title}」新加的关键结果`,
     reviewLine: (period: string) => `${period} 的复盘`,
     reviewNoPeriodLine: (title: string) => `「${title}」的复盘`,
     deletedLine: (n: number) => `另有 ${n} 条对应的内容已删除，无法恢复。`,

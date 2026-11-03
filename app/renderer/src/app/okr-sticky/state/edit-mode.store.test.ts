@@ -1,3 +1,7 @@
+import { EventEmitter } from '@angular/core';
+import { TestBed } from '@angular/core/testing';
+
+import { TextEditComponent } from '../../closed-loop/text-edit.component';
 import { EditModeStore } from './edit-mode.store';
 import { VALIDATION_LIMITS } from './edit-mode.types';
 
@@ -380,5 +384,72 @@ describe('Undo coalescing (spec §3.9): same input, < 1000ms; every other bounda
     type('S12', 10);
     store.undo();
     expect(store.draftObjective()).toBe('Start');
+  });
+});
+
+describe('#117 checkpoint / rollbackTo (S3-05: undo a restore exactly)', () => {
+  it('rolls objective, KR texts and added KRs back to the checkpoint and drops later steps', () => {
+    const store = new EditModeStore();
+    store.enterEditMode('Goal', [{ id: 'a', statement: 'First' }]);
+    store.updateKeyResult('a', { statement: 'Typed before' });
+    store.breakCoalescing();
+    const before = {
+      objective: store.draftObjective(),
+      krs: store.draftKeyResults().map((kr) => ({ ...kr })),
+    };
+    const point = store.checkpoint();
+    store.updateObjective('Restored goal');
+    store.updateKeyResult('a', { statement: 'Restored first' });
+    store.addKeyResult('n1');
+    store.updateKeyResult('n1', { statement: 'Restored added' });
+    store.rollbackTo(point);
+    expect(store.draftObjective()).toBe(before.objective);
+    expect(store.draftKeyResults()).toEqual(before.krs);
+    expect(store.canRedo()).toBe(false);
+    expect(store.isDirty()).toBe(true);
+  });
+
+  it('an unknown checkpoint does nothing', () => {
+    const store = new EditModeStore();
+    store.enterEditMode('Goal', [{ id: 'a', statement: 'First' }]);
+    store.updateObjective('Changed');
+    store.rollbackTo(99);
+    expect(store.draftObjective()).toBe('Changed');
+  });
+});
+
+/**
+ * Guard (#117 / #119, spec S3§12.7z): the text edit has no way to delete or reorder key results,
+ * so those two draft categories are not implemented. Whoever adds delete or reorder to the text
+ * edit must add those draft categories too (S3§12.7z, tracked in #119) — §12: everything that
+ * triggers the leave confirm must be drafted. This test fails as soon as such an operation shows up.
+ */
+describe('Guard #119 / S3§12.7z: no delete-KR or reorder-KR in the text edit', () => {
+  const forbidden =
+    /(remove|delete|drop)(Key)?Results?|reorder|(move|swap|sort)(Key)?Results?|moveUp|moveDown/i;
+
+  it('EditModeStore offers no delete / reorder operation', () => {
+    const names = Object.getOwnPropertyNames(EditModeStore.prototype);
+    expect(names).toContain('addKeyResult');
+    expect(names.filter((n) => forbidden.test(n))).toEqual([]);
+  });
+
+  it('the text edit form emits only the known outputs (none deletes or reorders)', () => {
+    const outputs = Object.entries(TestBed.runInInjectionContext(() => new TextEditComponent()))
+      .filter(([, v]) => v instanceof EventEmitter)
+      .map(([k]) => k)
+      .sort();
+    expect(outputs).toEqual(
+      [
+        'boundary',
+        'cancel',
+        'metricChange',
+        'objectiveChange',
+        'redo',
+        'save',
+        'statementChange',
+        'undo',
+      ].sort(),
+    );
   });
 });

@@ -263,6 +263,65 @@ describe('Sticky note DOM with actual edit store and gateway', () => {
     expect(legacyCalls()).toEqual([]);
   });
 
+  it('#118 → #117: the switch-OKR confirm body is exactly 「你修改的文字还没有保存。」 (wizard input does not change it)', async () => {
+    // AppComponent asks this confirm when the main-window wizard has input AND the note's text
+    // edit is dirty (app.draft-restore.test.ts); the note never words it differently.
+    await enterEdit();
+    await input('edit-objective', 'Unsaved objective');
+    const answer = note.confirmDiscard();
+    await render();
+    const dialog = element('discard-dialog');
+    expect(dialog.textContent).toContain('放弃未保存的修改？');
+    expect(dialog.querySelector('.dialog__body')!.textContent!.trim()).toBe(
+      '你修改的文字还没有保存。',
+    );
+    element('dialog-cancel').click();
+    await render();
+    expect(await answer).toBe(false);
+    expect(store.draftObjective()).toBe('Unsaved objective');
+  });
+
+  it('#117 restoreDraft puts the objective, KR texts and added KRs back, still unsaved', async () => {
+    expect(
+      note.restoreDraft({
+        objective: 'Drafted objective',
+        krs: [{ krId: 'second', statement: 'Drafted second', successMetric: '' }],
+        added: [{ id: 'n1', statement: 'Drafted added', successMetric: '50%' }],
+      }),
+    ).toBe(true);
+    await render();
+    expect(store.draftObjective()).toBe('Drafted objective');
+    expect(store.draftKeyResults().map((kr) => kr.statement)).toEqual([
+      original.keyResults[0].statement,
+      'Drafted second',
+      'Drafted added',
+    ]);
+    expect(store.isDirty()).toBe(true);
+    // a drafted KR that is not in the form → refused, nothing changed
+    expect(note.restoreDraft({ krs: [{ krId: 'gone', statement: 'x', successMetric: '' }] })).toBe(
+      false,
+    );
+  });
+
+  it('#117 rule 2: one 恢复 of all kinds = restoring objective → KR text → added KR one by one', async () => {
+    const objective = 'Drafted objective';
+    const krs = [{ krId: 'first', statement: 'Drafted first', successMetric: '80%' }];
+    const added = [{ id: 'n1', statement: 'Drafted added', successMetric: '' }];
+    const snapshot = () => ({
+      objective: store.draftObjective(),
+      krs: store.draftKeyResults().map((kr) => ({ ...kr })),
+      dirty: store.isDirty(),
+    });
+    expect(note.restoreDraft({ objective, krs, added })).toBe(true);
+    const once = snapshot();
+    store.cancelEdits();
+    await render();
+    expect(note.restoreDraft({ objective, krs: [] })).toBe(true);
+    expect(note.restoreDraft({ krs })).toBe(true);
+    expect(note.restoreDraft({ krs: [], added })).toBe(true);
+    expect(snapshot()).toEqual(once);
+  });
+
   it('blur and paste in the real form start a new undo step (spec §3.9)', async () => {
     await enterEdit();
     await input('edit-objective', 'One');
