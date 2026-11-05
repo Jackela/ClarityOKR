@@ -510,6 +510,21 @@ export class ClarificationStateMachine {
    * }
    * ```
    */
+  /**
+   * #116 (S3§12.9): puts a wizard draft back as it was left, from the saved questions and answers
+   * only (no model call, no loading state). The last step is shown; `ready` shows the
+   * 「可以生成」 screen instead.
+   */
+  restore(payload: Extract<StateAction, { type: 'RESTORE' }>['payload']): void {
+    this.logger.debug('[STATE-MACHINE] Action: RESTORE', { steps: payload.steps.length });
+    this.dispatch({ type: 'RESTORE', payload });
+  }
+
+  /** #116: puts back a snapshot taken before a restore (S3-05 rollback). */
+  loadSnapshot(state: ClarificationState): void {
+    this.dispatch({ type: 'LOAD_SNAPSHOT', payload: { state } });
+  }
+
   reset(): void {
     this.logger.debug('[STATE-MACHINE] Action: RESET');
     this.dispatch({ type: 'RESET' });
@@ -757,6 +772,29 @@ export class ClarificationStateMachine {
           workflowState: 'completed',
         };
         return this.validateTransition(state, newState);
+      }
+
+      case 'RESTORE': {
+        const { intent, sessionId, steps, ready } = action.payload;
+        const history = steps.map((s) => s.prompt);
+        const selections: Record<string, string> = {};
+        for (const s of steps) if (s.selectedOptionId) selections[s.prompt.id] = s.selectedOptionId;
+        const answered = Object.keys(selections).length > 0;
+        const last = steps.at(-1);
+        return {
+          ...INITIAL_STATE,
+          intent,
+          sessionId,
+          history,
+          selections,
+          isReadyToGenerate: answered,
+          currentPrompt: ready ? null : (last?.prompt ?? null),
+          workflowState: ready || last?.selectedOptionId ? 'ready' : 'prompting',
+        };
+      }
+
+      case 'LOAD_SNAPSHOT': {
+        return action.payload.state;
       }
 
       case 'RESET': {

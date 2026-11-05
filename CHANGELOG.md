@@ -10,10 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - 只改了目标文字、或新加了关键结果时，注销或关机后也能在下次启动时恢复（[#117](https://github.com/Jackela/ClarityOKR/issues/117)）
-
-### Known issues
-
-- 注销或关机后，向导里澄清问题的回答不会保留（[#116](https://github.com/Jackela/ClarityOKR/issues/116)）
+- 注销或关机后，新建 OKR 向导会恢复到离开时的那一步，已经回答的澄清问题原样保留，不会重新调用模型（[#116](https://github.com/Jackela/ClarityOKR/issues/116)）
 
 ## [0.3.1] - 2026-10-28
 

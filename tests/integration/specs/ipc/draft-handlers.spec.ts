@@ -8,6 +8,7 @@ import type { Database } from 'better-sqlite3';
 import {
   ALLOWED_CHANNELS,
   IPC_CHANNELS,
+  WIZARD_DRAFT_FORMAT,
   type DraftGetReply,
   type DraftRow,
   type IpcResult,
@@ -426,6 +427,74 @@ describe('#110 session-end drafts through the main process (real OkrStore, temp 
     const second = launch(dbFile, draftsDir);
     const reply = await second.ipc.invoke<DraftGetReply>(MAIN, IPC_CHANNELS.APP_DRAFT_GET);
     expect(reply.ok && reply.data.rows.map((r) => r.row)).toEqual(rows);
+    second.db.close();
+  });
+
+  const wizardRow = (sessionId: string): DraftRow => ({
+    kind: 'wizard',
+    step: 3,
+    intent: '提升团队交付效率',
+    format: WIZARD_DRAFT_FORMAT,
+    sessionId,
+    steps: [
+      {
+        prompt: {
+          id: 'q1',
+          question: '你最想先改善哪一环？',
+          sequence: 0,
+          context: '提升团队交付效率',
+          options: [
+            { id: 'a', label: '代码评审', scopeTag: 'llm' },
+            { id: 'b', label: '测试', scopeTag: 'llm' },
+          ],
+        },
+        selectedOptionId: 'a',
+      },
+    ],
+    ready: true,
+  });
+
+  it('#116: an OKR from the wizard session was saved after the draft → the wizard row is voided (by session id)', async () => {
+    const first = launch(dbFile, draftsDir);
+    await first.ipc.invoke(MAIN, IPC_CHANNELS.APP_REPORT_DRAFT, {
+      rows: [wizardRow('wiz-session-1')],
+    });
+    first.win.emit('session-end');
+    // 生成 OKR finished just before the session ended: the OKR carries the wizard session id.
+    first.store.createObjective({
+      ...okrInput('提升团队交付效率'),
+      sourceSessionId: 'wiz-session-1',
+    });
+    first.db.close();
+
+    const second = launch(dbFile, draftsDir);
+    const reply = await second.ipc.invoke<DraftGetReply>(MAIN, IPC_CHANNELS.APP_DRAFT_GET);
+    expect(reply.ok && reply.data.rows).toEqual([]);
+    expect(reply.ok && reply.data.deletedCount).toBe(0);
+    // voided for good: no duplicate OKR can be restored on a later launch
+    second.db.close();
+    const third = launch(dbFile, draftsDir);
+    const again = await third.ipc.invoke<DraftGetReply>(MAIN, IPC_CHANNELS.APP_DRAFT_GET);
+    expect(again.ok && again.data.rows).toEqual([]);
+    third.db.close();
+  });
+
+  it('#116: a same-titled OKR from another session does not void the wizard row', async () => {
+    const first = launch(dbFile, draftsDir);
+    first.store.createObjective({ ...okrInput('提升团队交付效率'), sourceSessionId: 'other' });
+    first.store.createObjective({
+      title: '提升团队交付效率',
+      keyResults: [{ statement: '无会话' }],
+    });
+    await first.ipc.invoke(MAIN, IPC_CHANNELS.APP_REPORT_DRAFT, {
+      rows: [wizardRow('wiz-session-2')],
+    });
+    first.win.emit('session-end');
+    first.db.close();
+
+    const second = launch(dbFile, draftsDir);
+    const reply = await second.ipc.invoke<DraftGetReply>(MAIN, IPC_CHANNELS.APP_DRAFT_GET);
+    expect(reply.ok && reply.data.rows.map((r) => r.row)).toEqual([wizardRow('wiz-session-2')]);
     second.db.close();
   });
 

@@ -12,7 +12,12 @@ import {
   ViewChild,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { IPC_CHANNELS, type DraftRow } from '@clarityokr/contracts';
+import {
+  IPC_CHANNELS,
+  WIZARD_DRAFT_FORMAT,
+  restorableWizardSteps,
+  type DraftRow,
+} from '@clarityokr/contracts';
 import { ReactiveFormsModule, FormControl, Validators } from '@angular/forms';
 import { Subject, defer } from 'rxjs';
 import { finalize, switchMap, takeUntil } from 'rxjs/operators';
@@ -237,9 +242,7 @@ export class AppComponent implements OnDestroy {
     // #110: the wizard's content, for a draft if the session ends (S3§12.1).
     watchDraftRows(
       computed<DraftRow[]>(() => {
-        const rows: DraftRow[] = this.wizardDirty()
-          ? [{ kind: 'wizard', step: this.wizardStep(), intent: this.intentValue() }]
-          : [];
+        const rows: DraftRow[] = this.wizardDirty() ? [this.wizardDraftRow()] : [];
         // The main window's own text edit (S3§12, 产品经理 decision 2①): same rows as the sticky's.
         const okrId = this.stickyViewModel()?.id;
         if (okrId) rows.push(...textEditDraftRows(this.editor, okrId));
@@ -332,25 +335,59 @@ export class AppComponent implements OnDestroy {
       if (!note || !note.restoreDraft({ objective: objective?.draft, krs, added }))
         return { ok: false };
     }
+    let undoWizardSteps: (() => void) | null = null;
+    let wizardFocus = '[id="intent-input"]';
     if (wizard && wizard.kind === 'wizard') {
       this.newOkrConfirm.set(false);
       this.intentControl.setValue(wizard.intent);
+      // #116 (S3§12.9): back to the step left, from the saved questions only (no model call).
+      const plan = restorableWizardSteps(wizard);
+      if (plan.fallback === 'damaged' || plan.fallback === 'version') {
+        // Not shown to the user (no error, no new copy): one local log line.
+        this.logger.warn('[drafts] Wizard draft steps cut back on restore', {
+          reason: plan.fallback,
+          kept: plan.steps.length,
+        });
+      }
+      if (plan.sessionId && plan.steps.length > 0) {
+        const stateBeforeRestore = this.state.getStateSnapshot();
+        const sessionBefore = this.currentSessionId;
+        const okrGeneratedBefore = this.okrGenerated();
+        undoWizardSteps = () => {
+          this.state.loadSnapshot(stateBeforeRestore);
+          this.currentSessionId = sessionBefore;
+          this.okrGenerated.set(okrGeneratedBefore);
+        };
+        this.okrGenerated.set(false);
+        this.currentSessionId = plan.sessionId;
+        this.state.restore({
+          intent: plan.intent,
+          sessionId: plan.sessionId,
+          steps: plan.steps,
+          ready: plan.ready,
+        });
+        const last = plan.steps.at(-1);
+        wizardFocus = plan.ready
+          ? '.ready-state [data-testid="clarification-generate"]'
+          : last?.selectedOptionId
+            ? '.option-card--selected'
+            : '[data-testid="clarification-option"]';
+      }
     }
-    // Focus on the first kind restored, in bar order (S3§12.3 / §12.7).
-    const focusId = wizard
-      ? 'intent-input'
-      : objective
-        ? 'edit-objective'
-        : `edit-kr-${krs[0]?.krId ?? added[0].id}`;
+    // Focus on the first kind restored, in bar order (S3§12.3 / §12.7 / §12.9).
+    const focusSelector = wizard
+      ? wizardFocus
+      : `[id="${objective ? 'edit-objective' : `edit-kr-${krs[0]?.krId ?? added[0].id}`}"]`;
     setTimeout(() => {
       document
-        .querySelector<HTMLElement>(`[id="${focusId}"]`)
+        .querySelector<HTMLElement>(focusSelector)
         ?.focus({ focusVisible: true } as FocusOptions);
     }, 50);
     return {
       ok: true,
       rollback: () => {
         if (wizard) {
+          undoWizardSteps?.();
           // S3-05: the field goes back exactly as it was, validation state included (no hint).
           c.setValue(intentBefore);
           if (stateBefore.dirty) c.markAsDirty();
@@ -368,6 +405,32 @@ export class AppComponent implements OnDestroy {
           else this.editor.rollbackTo(checkpoint);
         }
       },
+    };
+  }
+
+  /**
+   * #116: the wizard's draft row — the goal, the session, and every question shown with its
+   * options and the chosen option id (S3§12.9), in format WIZARD_DRAFT_FORMAT.
+   */
+  private wizardDraftRow(): DraftRow {
+    const workflow = this.state.workflowState();
+    const selections = this.state.getStateSnapshot().selections;
+    const steps = this.state.history().map((prompt) => ({
+      prompt,
+      selectedOptionId: selections[prompt.id] ?? null,
+    }));
+    const ready =
+      steps.length > 0 &&
+      ((this.state.isReadyToGenerate() && !this.state.currentPrompt()) ||
+        workflow === 'generating');
+    return {
+      kind: 'wizard',
+      step: this.wizardStep(),
+      intent: this.intentValue(),
+      format: WIZARD_DRAFT_FORMAT,
+      ...(this.currentSessionId && steps.length > 0 ? { sessionId: this.currentSessionId } : {}),
+      steps,
+      ready,
     };
   }
 

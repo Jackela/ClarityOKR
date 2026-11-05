@@ -5,6 +5,8 @@ import {
   draftsEnabled,
   filterDraftRows,
   restoreAction,
+  restorableWizardSteps,
+  WIZARD_DRAFT_FORMAT,
   sortDraftRows,
   truncateDraftTitle,
   type DraftRow,
@@ -135,5 +137,85 @@ describe('S3§12.3 restore over a spot (one case each)', () => {
   it('several spots: one with new edits asks for the whole restore', () => {
     expect(combineRestoreActions(['restore', 'confirm'])).toBe('confirm');
     expect(combineRestoreActions(['restore'])).toBe('restore');
+  });
+});
+
+describe('#116 S3§12.9 restorableWizardSteps (which saved wizard steps come back)', () => {
+  const step = (n: number, selected: boolean) => ({
+    prompt: {
+      id: `q${n}`,
+      sequence: n - 1,
+      question: `问题 ${n}`,
+      context: '目标',
+      options: [
+        { id: `q${n}-a`, label: 'A', scopeTag: 'llm' },
+        { id: `q${n}-b`, label: 'B', scopeTag: 'llm' },
+      ],
+    },
+    selectedOptionId: selected ? `q${n}-a` : null,
+  });
+  const row = (steps: unknown[], extra: Record<string, unknown> = {}) =>
+    ({
+      kind: 'wizard',
+      step: 1,
+      intent: '目标',
+      format: WIZARD_DRAFT_FORMAT,
+      sessionId: 's1',
+      steps,
+      ...extra,
+    }) as Extract<DraftRow, { kind: 'wizard' }>;
+
+  it('every step complete, last unanswered → all of them, not ready', () => {
+    const plan = restorableWizardSteps(row([step(1, true), step(2, false)]));
+    expect(plan).toMatchObject({ sessionId: 's1', ready: false, fallback: null });
+    expect(plan.steps).toHaveLength(2);
+  });
+  it('ready only when nothing was cut and every step is answered', () => {
+    expect(restorableWizardSteps(row([step(1, true)], { ready: true })).ready).toBe(true);
+    expect(restorableWizardSteps(row([step(1, false)], { ready: true })).ready).toBe(false);
+  });
+  it.each([
+    ['unreadable', { prompt: 1 }],
+    ['chosen option not among its options', { ...step(2, false), selectedOptionId: 'zz' }],
+  ])('step 2 damaged (%s) → step 1 only', (_name, bad) => {
+    const plan = restorableWizardSteps(row([step(1, true), bad, step(3, false)], { ready: true }));
+    expect(plan.steps.map((s) => s.prompt.id)).toEqual(['q1']);
+    expect(plan).toMatchObject({ fallback: 'damaged', ready: false });
+  });
+  it('an earlier step with no answer counts as damaged from there', () => {
+    const plan = restorableWizardSteps(row([step(1, false), step(2, false)]));
+    expect(plan).toMatchObject({ steps: [], sessionId: null, fallback: 'damaged' });
+  });
+  it('steps but no session id → goal text only (damaged)', () => {
+    expect(restorableWizardSteps(row([step(1, true)], { sessionId: undefined }))).toMatchObject({
+      steps: [],
+      fallback: 'damaged',
+    });
+  });
+  it('format mismatch → goal text only (version); old #115 row → goal text only, no fallback', () => {
+    expect(restorableWizardSteps(row([step(1, true)], { format: 99 }))).toMatchObject({
+      steps: [],
+      intent: '目标',
+      fallback: 'version',
+    });
+    expect(restorableWizardSteps({ kind: 'wizard', step: 2, intent: '目标' })).toMatchObject({
+      steps: [],
+      fallback: null,
+    });
+  });
+  it('a format-2 row with only the goal typed (no steps) → goal only, nothing logged', () => {
+    expect(restorableWizardSteps(row([], { sessionId: undefined }))).toMatchObject({
+      steps: [],
+      fallback: null,
+    });
+  });
+  it('a damaged step never breaks the draft file schema', () => {
+    const file = {
+      version: 1,
+      window: 'main',
+      savedAt: 'x',
+      rows: [row([{ junk: true }])],
+    };
+    expect(draftFileSchema.safeParse(file).success).toBe(true);
   });
 });

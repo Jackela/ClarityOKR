@@ -227,7 +227,13 @@ export class ClarificationOrchestratorService implements OnDestroy {
 
     this.state.setLoading(true);
 
-    return defer(() => bridge.invoke(IPC_CHANNELS.LLM_NEXT_QUESTION, { context, lastChoice })).pipe(
+    // #116: name the session explicitly, so a wizard restored after a restart continues its own
+    // session (the main process no longer has it as the current one).
+    const payload = snapshot.sessionId
+      ? { sessionId: snapshot.sessionId, currentQuestionId: _questionId, context, lastChoice }
+      : { context, lastChoice };
+
+    return defer(() => bridge.invoke(IPC_CHANNELS.LLM_NEXT_QUESTION, payload)).pipe(
       map((response) => clarificationPromptResponseSchema.safeParse(response)),
       tap((result) => {
         if (!result.success) {

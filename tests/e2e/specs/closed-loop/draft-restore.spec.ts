@@ -225,7 +225,7 @@ test.describe('S3§12 session-end draft restore (#110)', () => {
       await expect(mainBar).toBeVisible({ timeout: 30_000 });
       await expect(mainBar).toHaveAttribute('role', 'region');
       await expect(b.main.getByTestId('draft-line').locator('[aria-hidden="true"]')).toHaveText([
-        '新建 OKR 向导里填的目标',
+        '新建 OKR 向导里填的内容',
       ]);
       await expect(b.main.getByTestId('draft-restore')).toBeFocused();
       await both(b.main, 'S3-01-main-bar-wizard');
@@ -576,6 +576,113 @@ test.describe('S3§12 session-end draft restore (#110)', () => {
       await both(s, 'S3-10-sticky-420-objective-kr-added');
     } finally {
       i.app.process().kill('SIGKILL');
+    }
+  });
+});
+
+/** #116 (S3§12.9): three saved questions with long Chinese text, 3 options each, with notes. */
+function wizardSteps(answered: number, total = 3) {
+  return Array.from({ length: total }, (_, i) => ({
+    prompt: {
+      id: `e2e-q${i + 1}`,
+      sequence: i,
+      question: `第 ${i + 1} 个问题：为了把团队的交付效率稳定提升上去，你觉得这个季度最该先改善流程里的哪一个环节？`,
+      context: '提升团队交付效率',
+      options: ['代码评审', '自动化测试', '发布流程'].map((label, k) => ({
+        id: `e2e-q${i + 1}-o${k + 1}`,
+        label,
+        description: `${label}这一环目前最拖慢交付，先从这里着手`,
+        scopeTag: 'llm',
+      })),
+    },
+    selectedOptionId: i < answered ? `e2e-q${i + 1}-o${(i % 3) + 1}` : null,
+  }));
+}
+
+test.describe('S3§12.9 wizard restored to the step left (#116)', () => {
+  test('restored at step n without calling the model; left while generating → step n−1', async ({
+    mainWindow,
+    mockServer,
+  }, testInfo) => {
+    test.setTimeout(180_000);
+    await mainWindow.waitForLoadState('domcontentloaded');
+    const first = dirname(testInfo.outputPath('clarityokr.db'));
+    mkdirSync(join(first, 'profile', 'drafts'), { recursive: true });
+    const wizardDraft =
+      (steps: ReturnType<typeof wizardSteps>) =>
+      (drafts: string): void =>
+        writeFileSync(
+          join(drafts, 'main.json'),
+          JSON.stringify({
+            version: 1,
+            window: 'main',
+            savedAt: new Date().toISOString(),
+            rows: [
+              {
+                kind: 'wizard',
+                step: steps.filter((st) => st.selectedOptionId).length + 1,
+                intent: '提升团队交付效率',
+                format: 2,
+                sessionId: 'e2e-wizard-session',
+                steps,
+              },
+            ],
+          }),
+        );
+    // Nothing is asked of the model on restore (asserted in the component tests).
+    const mockUrl = mockServer.url;
+    const setWidth = (app: ElectronApplication) =>
+      app.evaluate(({ BrowserWindow }) => {
+        const w = BrowserWindow.getAllWindows().find((x) => !x.isAlwaysOnTop());
+        if (w) w.setSize(1200, w.getSize()[1]);
+      });
+
+    // ---------- S3-16: question 3 on screen, not answered ----------
+    const a = await relaunch(
+      first,
+      testInfo.outputPath('w1'),
+      mockUrl,
+      wizardDraft(wizardSteps(2)),
+    );
+    try {
+      await setWidth(a.app);
+      await expect(a.main.getByTestId('draft-bar')).toBeVisible({ timeout: 30_000 });
+      await a.main.getByTestId('draft-restore').click();
+      await expect(a.main.getByTestId('draft-bar')).toHaveCount(0);
+      await expect(a.main.getByTestId('prompt-question')).toContainText('第 3 个问题');
+      const wizard = a.main.locator('.wizard-container');
+      await expect(wizard).toHaveAttribute('aria-busy', 'false');
+      await expect(a.main.locator('.loading-container')).toHaveCount(0);
+      const options = a.main.getByTestId('clarification-option');
+      await expect(options).toHaveCount(3);
+      await expect(options.first()).toBeFocused();
+      await expect(a.main.locator('[role="radio"][aria-checked="true"]')).toHaveCount(0);
+      await expect(a.main.locator('.back-button')).toBeVisible();
+      await both(a.main, 'S3-16-wizard-restored-step-n');
+    } finally {
+      a.app.process().kill('SIGKILL');
+    }
+
+    // ---------- S3-16b: question 3 was being generated → back at question 2, answer kept ----------
+    const b = await relaunch(
+      first,
+      testInfo.outputPath('w2'),
+      mockUrl,
+      wizardDraft(wizardSteps(2, 2)),
+    );
+    try {
+      await setWidth(b.app);
+      await expect(b.main.getByTestId('draft-bar')).toBeVisible({ timeout: 30_000 });
+      await b.main.getByTestId('draft-restore').click();
+      await expect(b.main.getByTestId('prompt-question')).toContainText('第 2 个问题');
+      await expect(b.main.locator('.loading-container')).toHaveCount(0);
+      await expect(b.main.locator('.wizard-container')).toHaveAttribute('aria-busy', 'false');
+      const selected = b.main.locator('[role="radio"][aria-checked="true"]');
+      await expect(selected).toHaveCount(1);
+      await expect(selected).toBeFocused();
+      await both(b.main, 'S3-16b-wizard-left-while-generating');
+    } finally {
+      b.app.process().kill('SIGKILL');
     }
   });
 });

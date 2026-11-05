@@ -27,6 +27,16 @@ export type StateAction =
   | { type: 'SET_GENERATING' }
   | { type: 'SET_COMPLETED'; payload: { okr?: { objectives: unknown[] } } }
   | { type: 'SET_INTENT'; payload: { intent: string } }
+  | {
+      type: 'RESTORE';
+      payload: {
+        intent: string;
+        sessionId: string;
+        steps: ReadonlyArray<{ prompt: ClarificationPrompt; selectedOptionId: string | null }>;
+        ready: boolean;
+      };
+    }
+  | { type: 'LOAD_SNAPSHOT'; payload: { state: ClarificationState } }
   | { type: 'RESET' };
 
 /**

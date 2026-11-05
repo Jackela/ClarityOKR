@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { countGraphemes, splitGraphemes } from './okr-model.js';
+import { clarificationPromptSchema } from './validators/clarify-to-okr.validator.js';
 
 /**
  * #110 (new-1, spec S3§12): unsaved input saved as a draft when the session ends (log off /
@@ -18,12 +19,98 @@ const text = z.string().max(20000);
 const sections = z.strictObject({ wentWell: text, fellShort: text, nextSteps: text });
 const krText = z.strictObject({ statement: text, successMetric: text });
 
-/** The wizard in the main window: the goal typed in step 1 and the step reached. */
+/**
+ * #116: format of the wizard's steps inside its draft row. Bumped whenever the shape of a step
+ * changes; a row of another format puts back the goal text only (S3§12.9).
+ */
+export const WIZARD_DRAFT_FORMAT = 2;
+
+/**
+ * The wizard in the main window: the goal typed in step 1 and the step reached. #116 adds the
+ * steps (each question as shown, its options and the chosen option id), the wizard session id
+ * and their format number. Rows from #115 have only `step` and `intent`. `steps` stays loosely
+ * typed here so one damaged step cannot void the whole draft file; it is checked step by step
+ * with `restorableWizardSteps` when put back.
+ */
 export const wizardDraftRowSchema = z.strictObject({
   kind: z.literal('wizard'),
   step: z.number().int().min(1).max(100),
   intent: text,
+  format: z.number().int().optional(),
+  sessionId: id.optional(),
+  steps: z.array(z.unknown()).max(100).optional(),
+  /** All questions answered and the 「可以生成」 screen shown (or 生成 OKR still running). */
+  ready: z.boolean().optional(),
 });
+
+/** One wizard step as saved: the question shown and the option chosen (`null`: not yet). */
+export const wizardDraftStepSchema = z.strictObject({
+  prompt: clarificationPromptSchema,
+  selectedOptionId: z.string().min(1).nullable(),
+});
+export type WizardDraftStep = z.infer<typeof wizardDraftStepSchema>;
+
+/** What 恢复 puts back into the wizard (S3§12.9). */
+export interface WizardRestorePlan {
+  intent: string;
+  /** Wizard session id to continue (`null`: goal text only, a new session on 开始). */
+  sessionId: string | null;
+  /** Complete steps, oldest first; empty = goal text only at step 1. */
+  steps: WizardDraftStep[];
+  /** Show the 「可以生成」 screen (every step answered, nothing damaged). */
+  ready: boolean;
+  /** Why the steps were cut back (logged locally, never shown). */
+  fallback: null | 'old-format' | 'version' | 'damaged';
+}
+
+/**
+ * S3§12.9: which steps of a wizard draft can be put back, without calling the model.
+ * - #115 rows (no format) → goal text only.
+ * - another format number → goal text only (`version`).
+ * - step k damaged (unreadable, chosen option not among its options, or an earlier step with
+ *   no answer) → the steps before k (`damaged`); none left → goal text only.
+ * - the last step answered = the next question was still being generated → stop there with the
+ *   answer kept (the next click generates as usual).
+ */
+export function restorableWizardSteps(row: WizardDraftRow): WizardRestorePlan {
+  const intentOnly = (fallback: WizardRestorePlan['fallback']): WizardRestorePlan => ({
+    intent: row.intent,
+    sessionId: null,
+    steps: [],
+    ready: false,
+    fallback,
+  });
+  if (row.format === undefined && row.steps === undefined) return intentOnly(null);
+  if (row.format !== WIZARD_DRAFT_FORMAT) return intentOnly('version');
+  const raw = row.steps ?? [];
+  const steps: WizardDraftStep[] = [];
+  let damaged = raw.length > 0 && !row.sessionId;
+  for (const [index, value] of raw.entries()) {
+    if (damaged) break;
+    const parsed = wizardDraftStepSchema.safeParse(value);
+    const step = parsed.success ? parsed.data : null;
+    const isLast = index === raw.length - 1;
+    if (
+      !step ||
+      (step.selectedOptionId !== null &&
+        !step.prompt.options.some((o) => o.id === step.selectedOptionId)) ||
+      (!isLast && step.selectedOptionId === null)
+    ) {
+      damaged = true;
+      break;
+    }
+    steps.push(step);
+  }
+  if (steps.length === 0) return intentOnly(damaged ? 'damaged' : null);
+  const allAnswered = steps.every((s) => s.selectedOptionId !== null);
+  return {
+    intent: row.intent,
+    sessionId: row.sessionId ?? null,
+    steps,
+    ready: !damaged && row.ready === true && allAnswered,
+    fallback: damaged ? 'damaged' : null,
+  };
+}
 /** One key result changed in the text edit (sticky window). `base` = its text when editing began. */
 export const textEditDraftRowSchema = z.strictObject({
   kind: z.literal('textEdit'),

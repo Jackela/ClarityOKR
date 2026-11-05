@@ -23,7 +23,7 @@ import type { SessionDraftStore } from './session-draft-store.js';
 
 export interface DraftHandlerDeps {
   drafts: SessionDraftStore;
-  store: Pick<OkrStore, 'getObjective' | 'getReview'>;
+  store: Pick<OkrStore, 'getObjective' | 'getReview' | 'listObjectivesBySession'>;
   /** Which window an IPC sender is (`null`: neither, e.g. a closed one). */
   windowOf: (senderId: number) => DraftWindow | null;
 }
@@ -40,7 +40,13 @@ function liveKrs(store: DraftHandlerDeps['store'], okrId: string) {
 
 /** Where a row would go back to: still there? unchanged since the draft? (S3§12.4 / §12.3) */
 export function targetState(store: DraftHandlerDeps['store'], row: DraftRow): DraftTargetState {
-  if (row.kind === 'wizard') return { exists: true, unchangedSinceDraft: true };
+  if (row.kind === 'wizard') {
+    // #116: an OKR generated from this wizard session was saved after the draft (e.g. the
+    // session ended between saving the OKR and closing the wizard) → void, no duplicate OKR.
+    // Decided by the wizard session id only, never by the title.
+    const saved = row.sessionId ? store.listObjectivesBySession(row.sessionId).length > 0 : false;
+    return { exists: true, unchangedSinceDraft: !saved };
+  }
   const found = liveKrs(store, row.okrId);
   if (!found) return { exists: false };
   if (row.kind === 'objective') {
