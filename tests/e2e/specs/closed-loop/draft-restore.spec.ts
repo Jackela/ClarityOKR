@@ -759,10 +759,12 @@ test.describe('S3§12.9 restored wizard continues its real session (#116)', () =
     const clarification = new ClarificationPage(mainWindow);
     await clarification.waitForReady();
     await clarification.startClarification('提升团队交付效率');
-    await clarification.waitForQuestion();
-    await clarification.answerQuestion(0);
-    await clarification.answerQuestion(1);
-    await expect(mainWindow.getByTestId('prompt-question')).toContainText('第 3 个问题');
+    const question = mainWindow.getByTestId('prompt-question');
+    await expect(question).toContainText('第 1 个问题', { timeout: 30_000 });
+    await mainWindow.getByTestId('clarification-option').nth(0).click();
+    await expect(question).toContainText('第 2 个问题', { timeout: 30_000 });
+    await mainWindow.getByTestId('clarification-option').nth(1).click();
+    await expect(question).toContainText('第 3 个问题', { timeout: 30_000 });
 
     // Windows ends the session: the main process writes the wizard draft
     const first = dirname(testInfo.outputPath('clarityokr.db'));
