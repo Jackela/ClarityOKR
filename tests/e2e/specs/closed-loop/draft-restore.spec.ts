@@ -609,7 +609,7 @@ test.describe('S3§12.9 wizard restored to the step left (#116)', () => {
     const first = dirname(testInfo.outputPath('clarityokr.db'));
     mkdirSync(join(first, 'profile', 'drafts'), { recursive: true });
     const wizardDraft =
-      (steps: ReturnType<typeof wizardSteps>) =>
+      (steps: ReturnType<typeof wizardSteps>, ready = false) =>
       (drafts: string): void =>
         writeFileSync(
           join(drafts, 'main.json'),
@@ -625,6 +625,7 @@ test.describe('S3§12.9 wizard restored to the step left (#116)', () => {
                 format: 2,
                 sessionId: 'e2e-wizard-session',
                 steps,
+                ...(ready ? { ready: true } : {}),
               },
             ],
           }),
@@ -637,19 +638,19 @@ test.describe('S3§12.9 wizard restored to the step left (#116)', () => {
         if (w) w.setSize(1200, w.getSize()[1]);
       });
 
-    // ---------- S3-16: question 3 on screen, not answered ----------
+    // ---------- S3-16: question 4 on screen, not answered ----------
     const a = await relaunch(
       first,
       testInfo.outputPath('w1'),
       mockUrl,
-      wizardDraft(wizardSteps(2)),
+      wizardDraft(wizardSteps(3, 4)),
     );
     try {
       await setWidth(a.app);
       await expect(a.main.getByTestId('draft-bar')).toBeVisible({ timeout: 30_000 });
       await a.main.getByTestId('draft-restore').click();
       await expect(a.main.getByTestId('draft-bar')).toHaveCount(0);
-      await expect(a.main.getByTestId('prompt-question')).toContainText('第 3 个问题');
+      await expect(a.main.getByTestId('prompt-question')).toContainText('第 4 个问题');
       const wizard = a.main.locator('.wizard-container');
       await expect(wizard).toHaveAttribute('aria-busy', 'false');
       await expect(a.main.locator('.loading-container')).toHaveCount(0);
@@ -663,18 +664,18 @@ test.describe('S3§12.9 wizard restored to the step left (#116)', () => {
       a.app.process().kill('SIGKILL');
     }
 
-    // ---------- S3-16b: question 3 was being generated → back at question 2, answer kept ----------
+    // ---------- S3-16b: question 4 was being generated → back at question 3, answer kept ----------
     const b = await relaunch(
       first,
       testInfo.outputPath('w2'),
       mockUrl,
-      wizardDraft(wizardSteps(2, 2)),
+      wizardDraft(wizardSteps(3, 3)),
     );
     try {
       await setWidth(b.app);
       await expect(b.main.getByTestId('draft-bar')).toBeVisible({ timeout: 30_000 });
       await b.main.getByTestId('draft-restore').click();
-      await expect(b.main.getByTestId('prompt-question')).toContainText('第 2 个问题');
+      await expect(b.main.getByTestId('prompt-question')).toContainText('第 3 个问题');
       await expect(b.main.locator('.loading-container')).toHaveCount(0);
       await expect(b.main.locator('.wizard-container')).toHaveAttribute('aria-busy', 'false');
       const selected = b.main.locator('[role="radio"][aria-checked="true"]');
@@ -683,6 +684,26 @@ test.describe('S3§12.9 wizard restored to the step left (#116)', () => {
       await both(b.main, 'S3-16b-wizard-left-while-generating');
     } finally {
       b.app.process().kill('SIGKILL');
+    }
+
+    // ---------- S3-16c: all answered / 生成 OKR not finished → the ready screen ----------
+    const c = await relaunch(
+      first,
+      testInfo.outputPath('w3'),
+      mockUrl,
+      wizardDraft(wizardSteps(3, 3), true),
+    );
+    try {
+      await setWidth(c.app);
+      await expect(c.main.getByTestId('draft-bar')).toBeVisible({ timeout: 30_000 });
+      await c.main.getByTestId('draft-restore').click();
+      const generate = c.main.locator('.ready-state [data-testid="clarification-generate"]');
+      await expect(generate).toBeVisible();
+      await expect(generate).toBeFocused();
+      await expect(c.main.locator('.loading-container')).toHaveCount(0);
+      await both(c.main, 'S3-16c-wizard-ready-to-generate');
+    } finally {
+      c.app.process().kill('SIGKILL');
     }
   });
 });

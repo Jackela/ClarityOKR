@@ -96,7 +96,7 @@ describe('AppComponent: wizard draft restored to step n (#116)', () => {
           @if (showClarificationWizard()) {
             <clarityokr-clarification-wizard
               (optionSelected)="onOptionSelected($event)"
-              (goBack)="state.reset()"
+              (goBack)="onWizardBack()"
             ></clarityokr-clarification-wizard>
           }
         `,
@@ -239,6 +239,8 @@ describe('AppComponent: wizard draft restored to step n (#116)', () => {
     await restore(row([step(1, true), step(2, true), step(3, false)]));
     el().querySelector<HTMLElement>('.back-button')!.click();
     fixture.detectChanges();
+    jest.advanceTimersByTime(10);
+    expect(document.activeElement?.id).toBe('intent-input');
     expect(state.workflowState()).toBe('idle');
     expect(state.history()).toHaveLength(0);
     expect(state.getStateSnapshot().selections).toEqual({});
@@ -250,6 +252,8 @@ describe('AppComponent: wizard draft restored to step n (#116)', () => {
     await restore(row([step(1, true), step(2, true), step(3, false)]));
     document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     fixture.detectChanges();
+    jest.advanceTimersByTime(10);
+    expect(document.activeElement?.id).toBe('intent-input');
     expect(state.workflowState()).toBe('idle');
     expect(state.history()).toHaveLength(0);
     expect(component.intentControl.value).toBe('提升团队交付效率');

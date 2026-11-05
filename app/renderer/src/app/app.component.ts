@@ -142,7 +142,7 @@ import { EditModeStore } from './okr-sticky/state/edit-mode.store';
             (optionSelected)="onOptionSelected($event)"
             (generate)="onGenerate()"
             (retry)="onRetry()"
-            (goBack)="state.reset()"
+            (goBack)="onWizardBack()"
           ></clarityokr-clarification-wizard>
         }
 
@@ -437,6 +437,15 @@ export class AppComponent implements OnDestroy {
   /** The wizard step on screen: 1 for the goal, then one per question answered. */
   wizardStep(): number {
     return this.state.workflowState() === 'idle' ? 1 : this.state.history().length + 1;
+  }
+
+  /**
+   * 「返回」 / Esc in the wizard: the whole round is cleared (as before), the goal text stays, and
+   * the focus goes to the goal field (S3§12.9).
+   */
+  onWizardBack(): void {
+    this.state.reset();
+    setTimeout(() => document.getElementById('intent-input')?.focus(), 0);
   }
 
   /** 「新建 OKR」 from the sticky window (spec §4.5 / §4.5a); the window is already shown. */
