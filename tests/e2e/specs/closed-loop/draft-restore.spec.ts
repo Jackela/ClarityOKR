@@ -137,6 +137,13 @@ async function setStickyWidth(app: ElectronApplication, width: number): Promise<
   }, width);
 }
 
+/** S3§12.9 v4.3: the focused element's ring (a solid 2px outline). */
+const outlineOf = (page: Page): Promise<{ style: string; width: string }> =>
+  page.evaluate(() => {
+    const css = getComputedStyle(document.activeElement as Element);
+    return { style: css.outlineStyle, width: css.outlineWidth };
+  });
+
 const focusVisible = (page: Page): Promise<boolean> =>
   page.evaluate(() => document.activeElement?.matches(':focus-visible') ?? false);
 
@@ -225,7 +232,7 @@ test.describe('S3§12 session-end draft restore (#110)', () => {
       await expect(mainBar).toBeVisible({ timeout: 30_000 });
       await expect(mainBar).toHaveAttribute('role', 'region');
       await expect(b.main.getByTestId('draft-line').locator('[aria-hidden="true"]')).toHaveText([
-        '新建 OKR 向导里填的目标',
+        '新建 OKR 向导里填的内容',
       ]);
       await expect(b.main.getByTestId('draft-restore')).toBeFocused();
       await both(b.main, 'S3-01-main-bar-wizard');
@@ -576,6 +583,292 @@ test.describe('S3§12 session-end draft restore (#110)', () => {
       await both(s, 'S3-10-sticky-420-objective-kr-added');
     } finally {
       i.app.process().kill('SIGKILL');
+    }
+  });
+});
+
+/** #116 (S3§12.9): three saved questions with long Chinese text, 3 options each, with notes. */
+function wizardSteps(answered: number, total = 3) {
+  return Array.from({ length: total }, (_, i) => ({
+    prompt: {
+      id: `e2e-q${i + 1}`,
+      sequence: i,
+      question: `第 ${i + 1} 个问题：为了把团队的交付效率稳定提升上去，你觉得这个季度最该先改善流程里的哪一个环节？`,
+      context: '提升团队交付效率',
+      options: ['代码评审', '自动化测试', '发布流程'].map((label, k) => ({
+        id: `e2e-q${i + 1}-o${k + 1}`,
+        label,
+        description: `${label}这一环目前最拖慢交付，先从这里着手`,
+        scopeTag: 'llm',
+      })),
+    },
+    selectedOptionId: i < answered ? `e2e-q${i + 1}-o${(i % 3) + 1}` : null,
+  }));
+}
+
+test.describe('S3§12.9 wizard restored to the step left (#116)', () => {
+  test('restored at step n without calling the model; left while generating → step n−1', async ({
+    mainWindow,
+    mockServer,
+  }, testInfo) => {
+    test.setTimeout(180_000);
+    await mainWindow.waitForLoadState('domcontentloaded');
+    const first = dirname(testInfo.outputPath('clarityokr.db'));
+    mkdirSync(join(first, 'profile', 'drafts'), { recursive: true });
+    const wizardDraft =
+      (steps: ReturnType<typeof wizardSteps>, ready = false) =>
+      (drafts: string): void =>
+        writeFileSync(
+          join(drafts, 'main.json'),
+          JSON.stringify({
+            version: 1,
+            window: 'main',
+            savedAt: new Date().toISOString(),
+            rows: [
+              {
+                kind: 'wizard',
+                step: steps.filter((st) => st.selectedOptionId).length + 1,
+                intent: '提升团队交付效率',
+                format: 2,
+                sessionId: 'e2e-wizard-session',
+                steps,
+                ...(ready ? { ready: true } : {}),
+              },
+            ],
+          }),
+        );
+    // Nothing is asked of the model on restore (asserted in the component tests).
+    const mockUrl = mockServer.url;
+    const setWidth = (app: ElectronApplication) =>
+      app.evaluate(({ BrowserWindow }) => {
+        const w = BrowserWindow.getAllWindows().find((x) => !x.isAlwaysOnTop());
+        if (w) w.setSize(1200, w.getSize()[1]);
+      });
+
+    // ---------- S3-16: question 4 on screen, not answered ----------
+    const a = await relaunch(
+      first,
+      testInfo.outputPath('w1'),
+      mockUrl,
+      wizardDraft(wizardSteps(3, 4)),
+    );
+    try {
+      await setWidth(a.app);
+      await expect(a.main.getByTestId('draft-bar')).toBeVisible({ timeout: 30_000 });
+      await a.main.getByTestId('draft-restore').click();
+      await expect(a.main.getByTestId('draft-bar')).toHaveCount(0);
+      await expect(a.main.getByTestId('prompt-question')).toContainText('第 4 个问题');
+      const wizard = a.main.locator('.wizard-container');
+      await expect(wizard).toHaveAttribute('aria-busy', 'false');
+      await expect(a.main.locator('.loading-container')).toHaveCount(0);
+      const options = a.main.getByTestId('clarification-option');
+      await expect(options).toHaveCount(3);
+      await expect(options.first()).toBeFocused();
+      await expect(
+        a.main.locator('.wizard-container [role="radio"][aria-checked="true"]'),
+      ).toHaveCount(0);
+      await expect(a.main.locator('.back-button')).toBeVisible();
+      expect(await focusVisible(a.main)).toBe(true);
+      expect(await outlineOf(a.main)).toEqual({ style: 'solid', width: '2px' });
+      await both(a.main, 'S3-16-wizard-restored-step-n');
+    } finally {
+      a.app.process().kill('SIGKILL');
+    }
+
+    // ---------- S3-16b: question 4 was being generated → back at question 3, answer kept ----------
+    const b = await relaunch(
+      first,
+      testInfo.outputPath('w2'),
+      mockUrl,
+      wizardDraft(wizardSteps(3, 3)),
+    );
+    try {
+      await setWidth(b.app);
+      await expect(b.main.getByTestId('draft-bar')).toBeVisible({ timeout: 30_000 });
+      await b.main.getByTestId('draft-restore').click();
+      await expect(b.main.getByTestId('prompt-question')).toContainText('第 3 个问题');
+      await expect(b.main.locator('.loading-container')).toHaveCount(0);
+      await expect(b.main.locator('.wizard-container')).toHaveAttribute('aria-busy', 'false');
+      const selected = b.main.locator('.wizard-container [role="radio"][aria-checked="true"]');
+      await expect(selected).toHaveCount(1);
+      await expect(selected).toBeFocused();
+      expect(await focusVisible(b.main)).toBe(true);
+      expect(await outlineOf(b.main)).toEqual({ style: 'solid', width: '2px' });
+      await both(b.main, 'S3-16b-wizard-left-while-generating');
+    } finally {
+      b.app.process().kill('SIGKILL');
+    }
+
+    // ---------- S3-16c: all answered / 生成 OKR not finished → the ready screen ----------
+    const c = await relaunch(
+      first,
+      testInfo.outputPath('w3'),
+      mockUrl,
+      wizardDraft(wizardSteps(3, 3), true),
+    );
+    try {
+      await setWidth(c.app);
+      await expect(c.main.getByTestId('draft-bar')).toBeVisible({ timeout: 30_000 });
+      await c.main.getByTestId('draft-restore').click();
+      const generate = c.main.locator('.ready-state [data-testid="clarification-generate"]');
+      await expect(generate).toBeVisible();
+      await expect(generate).toBeFocused();
+      await expect(c.main.locator('.loading-container')).toHaveCount(0);
+      expect(await focusVisible(c.main)).toBe(true);
+      expect(await outlineOf(c.main)).toEqual({ style: 'solid', width: '2px' });
+      await both(c.main, 'S3-16c-wizard-ready-to-generate');
+    } finally {
+      c.app.process().kill('SIGKILL');
+    }
+  });
+});
+
+interface Row {
+  kind: string;
+  sessionId?: string;
+  steps?: unknown[];
+}
+
+/** Reads the e2e database of an app (its E2E_DB_PATH) in the main process. */
+async function query<T>(app: ElectronApplication, statement: string, arg: string): Promise<T[]> {
+  return app.evaluate(
+    (_electron, [s, a]) => {
+      const { createRequire } = process.getBuiltinModule('node:module') as typeof NodeModule;
+      const require = createRequire(`${process.cwd()}/app/main/package.json`);
+      const Database = require('better-sqlite3') as new (p: string) => {
+        prepare: (q: string) => { all: (x: string) => unknown[] };
+        close: () => void;
+      };
+      const db = new Database(process.env.E2E_DB_PATH as string);
+      const rows = db.prepare(s).all(a);
+      db.close();
+      return rows;
+    },
+    [statement, arg] as const,
+  ) as Promise<T[]>;
+}
+
+test.describe('S3§12.9 restored wizard continues its real session (#116)', () => {
+  test('walk to step 3, session end, relaunch, restore, answer → question 4 in the same session; ready → 生成 OKR saves with that session id', async ({
+    electronApp,
+    mainWindow,
+    mockServer,
+  }, testInfo) => {
+    test.setTimeout(240_000);
+    await mockServer.setResponses({
+      nextQuestion: (n) => ({
+        question: {
+          id: `real-q${n}`,
+          text: `真实会话的第 ${n} 个问题`,
+          options: [
+            { id: 'a', label: '甲', value: 'a' },
+            { id: 'b', label: '乙', value: 'b' },
+            { id: 'c', label: '丙', value: 'c' },
+          ],
+        },
+      }),
+      draft: mockFor('恢复后生成的目标').draft,
+    });
+    const clarification = new ClarificationPage(mainWindow);
+    await clarification.waitForReady();
+    await clarification.startClarification('提升团队交付效率');
+    const question = mainWindow.getByTestId('prompt-question');
+    await expect(question).toContainText('第 1 个问题', { timeout: 30_000 });
+    await mainWindow.getByTestId('clarification-option').nth(0).click();
+    await expect(question).toContainText('第 2 个问题', { timeout: 30_000 });
+    await mainWindow.getByTestId('clarification-option').nth(1).click();
+    await expect(question).toContainText('第 3 个问题', { timeout: 30_000 });
+
+    // Windows ends the session: the main process writes the wizard draft
+    const first = dirname(testInfo.outputPath('clarityokr.db'));
+    const mainFile = join(first, 'profile', 'drafts', 'main.json');
+    await mainWindow.waitForTimeout(1500);
+    await electronApp.evaluate(({ BrowserWindow }) => {
+      for (const w of BrowserWindow.getAllWindows()) w.emit('query-session-end');
+    });
+    await expect
+      .poll(() => {
+        try {
+          const row = (JSON.parse(readFileSync(mainFile, 'utf8')) as { rows: Row[] }).rows[0];
+          return row.steps?.length ?? 0;
+        } catch {
+          return 0;
+        }
+      })
+      .toBe(3);
+    const saved = (JSON.parse(readFileSync(mainFile, 'utf8')) as { rows: Row[] }).rows[0];
+    const sessionId = saved.sessionId as string;
+    expect(sessionId).toBeTruthy();
+    const sessions = await query<{ id: string }>(
+      electronApp,
+      'SELECT id FROM sessions WHERE id = ?',
+      sessionId,
+    );
+    expect(sessions).toHaveLength(1);
+
+    // ---------- relaunch, restore at question 3, answer → question 4 of the same session ----------
+    const a = await relaunch(first, testInfo.outputPath('real-a'), mockServer.url, () => undefined);
+    try {
+      await expect(a.main.getByTestId('draft-bar')).toBeVisible({ timeout: 30_000 });
+      const before = mockServer.getRequestLog().length;
+      await a.main.getByTestId('draft-restore').click();
+      await expect(a.main.getByTestId('prompt-question')).toContainText('第 3 个问题');
+      // restoring asked the model nothing
+      await a.main.waitForTimeout(1000);
+      expect(mockServer.getRequestLog().length).toBe(before);
+      await a.main.getByTestId('clarification-option').nth(2).click();
+      await expect(a.main.getByTestId('prompt-question')).toContainText('第 4 个问题', {
+        timeout: 30_000,
+      });
+      expect(mockServer.getRequestLog().length).toBe(before + 1);
+      // the next question went to the ORIGINAL session: it holds q1..q3 answered + question 4
+      const [row] = await query<{ steps: string; selected_options: string }>(
+        a.app,
+        'SELECT steps, selected_options FROM sessions WHERE id = ?',
+        sessionId,
+      );
+      const steps = JSON.parse(row.steps) as { question: string }[];
+      expect(steps.map((st) => st.question)).toEqual(
+        [1, 2, 3, 4].map((n) => `真实会话的第 ${n} 个问题`),
+      );
+      const answers = JSON.parse(row.selected_options) as { optionId: string }[];
+      expect(answers.map((x) => x.optionId)).toEqual(['a', 'b', 'c']);
+    } finally {
+      a.app.process().kill('SIGKILL');
+    }
+
+    // ---------- S3-16c on the real session: 生成 OKR clicked, not finished → ready, generate ----------
+    const c = await relaunch(first, testInfo.outputPath('real-c'), mockServer.url, (drafts) => {
+      const file = join(drafts, 'main.json');
+      const draft = JSON.parse(readFileSync(file, 'utf8')) as {
+        rows: (Row & { ready?: boolean })[];
+      };
+      // every shown question answered (the last one dropped as if never shown), 生成 OKR clicked
+      draft.rows[0].steps = draft.rows[0].steps?.slice(0, 2);
+      draft.rows[0].ready = true;
+      writeFileSync(file, JSON.stringify(draft));
+    });
+    try {
+      await expect(c.main.getByTestId('draft-bar')).toBeVisible({ timeout: 30_000 });
+      await c.main.getByTestId('draft-restore').click();
+      const generate = c.main.locator('.ready-state [data-testid="clarification-generate"]');
+      await expect(generate).toBeFocused();
+      await generate.click();
+      await expect(c.main.getByTestId('okr-summary')).toBeVisible({ timeout: 30_000 });
+      await expect
+        .poll(
+          async () =>
+            (
+              await query<{ id: string }>(
+                c.app,
+                'SELECT id FROM objectives WHERE source_session_id = ?',
+                sessionId,
+              )
+            ).length,
+        )
+        .toBe(1);
+    } finally {
+      c.app.process().kill('SIGKILL');
     }
   });
 });

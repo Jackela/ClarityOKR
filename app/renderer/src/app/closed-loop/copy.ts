@@ -26,7 +26,7 @@ export const COPY = {
   draftRestore: {
     title: '上次没保存的内容还在',
     lead: '注销或关机时，这些内容还没保存：',
-    wizardLine: '新建 OKR 向导里填的目标',
+    wizardLine: '新建 OKR 向导里填的内容',
     /** #117 (copy.md 「#117」). */
     objectiveLine: (title: string) => `「${title}」的目标文字`,
     textEditLine: (title: string, krIndex: number) => `「${title}」第 ${krIndex} 个关键结果的文字`,

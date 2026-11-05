@@ -20,6 +20,10 @@ describe('AppComponent: 新建 OKR and the unsaved wizard flag', () => {
     history,
     hasPrompt: () => false,
     hasError: () => false,
+    // #116: the wizard draft row reads the answers and the screen shown
+    getStateSnapshot: () => ({ selections: {} }),
+    isReadyToGenerate: () => false,
+    currentPrompt: () => null,
   };
   let api: { onEvent: jest.Mock; reportUnsaved: jest.Mock };
   let newOkr: () => void;

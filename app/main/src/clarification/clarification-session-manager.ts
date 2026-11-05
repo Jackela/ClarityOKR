@@ -25,6 +25,8 @@ import { SessionNotFoundError, StateTransitionError } from './types.js';
 export class ClarificationSessionManager implements IClarificationSessionManager {
   private readonly sessions = new Map<string, ClarificationSession>();
   private currentSessionId: string | null = null;
+  /** #116: one load per session, so concurrent callers after a restart share one object. */
+  private readonly loading = new Map<string, Promise<ClarificationSession | null>>();
 
   constructor(
     private readonly sessionRepository: ISessionRepository,
@@ -69,21 +71,28 @@ export class ClarificationSessionManager implements IClarificationSessionManager
 
   async getSession(sessionId: string): Promise<ClarificationSession | null> {
     // 先尝试内存缓存
-    let session = this.sessions.get(sessionId);
+    const session = this.sessions.get(sessionId);
     if (session) {
       return session;
     }
 
     // 回退到持久化存储
-    const persisted = await this.sessionRepository.getById(sessionId);
-    if (persisted) {
-      session = persisted;
-      this.sessions.set(sessionId, session);
-      this.currentSessionId = sessionId;
-      return session;
-    }
-
-    return null;
+    const pending = this.loading.get(sessionId);
+    if (pending) return pending;
+    const load = (async () => {
+      try {
+        const persisted = await this.sessionRepository.getById(sessionId);
+        if (!persisted) return null;
+        const cached = this.sessions.get(sessionId) ?? persisted;
+        this.sessions.set(sessionId, cached);
+        this.currentSessionId = sessionId;
+        return cached;
+      } finally {
+        this.loading.delete(sessionId);
+      }
+    })();
+    this.loading.set(sessionId, load);
+    return load;
   }
 
   /**
