@@ -188,41 +188,35 @@ describe('AppComponent: wizard draft restored to step n (#116)', () => {
     expect(state.getStateSnapshot().selections).toEqual({ q1: 'q1-o2', q2: 'q2-o2' });
   });
 
-  it('step 3 damaged: back to step 2 (last complete before it), one local log line, no error shown', async () => {
+  it('step 3 damaged: back to step 2 (last complete before it), no error shown (logged in main)', async () => {
     await restore(row([step(1, true), step(2, true), { prompt: { id: 'q3' } }]));
     noModelCall();
     expect(el().querySelector('[data-testid="prompt-question"]')?.textContent).toContain(
       '第 2 个问题',
     );
-    expect(logger.warn).toHaveBeenCalledTimes(1);
-    expect(logger.warn).toHaveBeenCalledWith(
-      '[drafts] Wizard draft steps cut back on restore',
-      expect.objectContaining({ reason: 'damaged', kept: 2 }),
-    );
+    // logged by the main process (draft-handlers integration test), not in the window
+    expect(logger.warn).not.toHaveBeenCalled();
     noErrorShown();
   });
 
-  it('step 1 damaged: goal text only at step 1, focus in the goal field, logged, no error', async () => {
+  it('step 1 damaged: goal text only at step 1, focus in the goal field, no error', async () => {
     await restore(row([{ prompt: 'broken' }, step(2, false)]));
     noModelCall();
     expect(state.workflowState()).toBe('idle');
     expect(component.intentControl.value).toBe('提升团队交付效率');
     expect(document.activeElement?.id).toBe('intent-input');
-    expect(logger.warn).toHaveBeenCalledTimes(1);
+    expect(logger.warn).not.toHaveBeenCalled();
     noErrorShown();
   });
 
-  it('format number does not match: goal text only at step 1, logged, no error', async () => {
+  it('format number does not match: goal text only at step 1, no error', async () => {
     await restore(row([step(1, true), step(2, false)], { format: WIZARD_DRAFT_FORMAT + 1 }));
     noModelCall();
     expect(state.workflowState()).toBe('idle');
     expect(state.history()).toHaveLength(0);
     expect(component.intentControl.value).toBe('提升团队交付效率');
     expect(document.activeElement?.id).toBe('intent-input');
-    expect(logger.warn).toHaveBeenCalledWith(
-      '[drafts] Wizard draft steps cut back on restore',
-      expect.objectContaining({ reason: 'version' }),
-    );
+    expect(logger.warn).not.toHaveBeenCalled();
     noErrorShown();
   });
 

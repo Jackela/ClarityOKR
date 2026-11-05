@@ -6,6 +6,7 @@ import {
   ipcFail,
   ipcOk,
   sortDraftRows,
+  trimWizardDraftRow,
   draftRowKey,
   type DraftGetReply,
   type DraftRow,
@@ -17,6 +18,7 @@ import {
 } from '@clarityokr/contracts';
 import type { IpcMain } from 'electron';
 
+import type { LocalLogFile } from '../core/local-log-file.js';
 import { Logger } from '../core/logger.js';
 import type { OkrStore } from '../persistence/okr-store/okr-store.js';
 import type { SessionDraftStore } from './session-draft-store.js';
@@ -26,6 +28,8 @@ export interface DraftHandlerDeps {
   store: Pick<OkrStore, 'getObjective' | 'getReview' | 'listObjectivesBySession'>;
   /** Which window an IPC sender is (`null`: neither, e.g. a closed one). */
   windowOf: (senderId: number) => DraftWindow | null;
+  /** #116: the main process log file (wizard steps cut back on restore). */
+  log?: Pick<LocalLogFile, 'warn'>;
 }
 
 interface Sender {
@@ -137,8 +141,22 @@ export function registerDraftHandlers(ipcMain: Pick<IpcMain, 'handle'>, deps: Dr
       }
       // S3§12.4: every row gone → no bar, the draft is cleared silently.
       if (valid.length === 0) return empty;
+      // #116 (S3§12.9): wizard steps that cannot be put back are cut here and logged once in
+      // the main process log file — the step, the reason and the format only, never user text.
+      const usable = valid.map((row) => {
+        if (row.kind !== 'wizard') return row;
+        const trimmed = trimWizardDraftRow(row);
+        if (trimmed.damage) {
+          deps.log?.warn('[drafts] wizard-draft-fallback', {
+            step: trimmed.damage.step,
+            reason: trimmed.damage.reason,
+            format: row.format ?? null,
+          });
+        }
+        return trimmed.row;
+      });
       return ipcOk({
-        rows: sortDraftRows(valid.map((row) => resolve(deps.store, row))),
+        rows: sortDraftRows(usable.map((row) => resolve(deps.store, row))),
         deletedCount,
       });
     } catch (error) {

@@ -709,3 +709,151 @@ test.describe('S3§12.9 wizard restored to the step left (#116)', () => {
     }
   });
 });
+
+interface Row {
+  kind: string;
+  sessionId?: string;
+  steps?: unknown[];
+}
+
+/** Reads the e2e database of an app (its E2E_DB_PATH) in the main process. */
+async function query<T>(app: ElectronApplication, statement: string, arg: string): Promise<T[]> {
+  return app.evaluate(
+    (_electron, [s, a]) => {
+      const { createRequire } = process.getBuiltinModule('node:module') as typeof NodeModule;
+      const require = createRequire(`${process.cwd()}/app/main/package.json`);
+      const Database = require('better-sqlite3') as new (p: string) => {
+        prepare: (q: string) => { all: (x: string) => unknown[] };
+        close: () => void;
+      };
+      const db = new Database(process.env.E2E_DB_PATH as string);
+      const rows = db.prepare(s).all(a);
+      db.close();
+      return rows;
+    },
+    [statement, arg] as const,
+  ) as Promise<T[]>;
+}
+
+test.describe('S3§12.9 restored wizard continues its real session (#116)', () => {
+  test('walk to step 3, session end, relaunch, restore, answer → question 4 in the same session; ready → 生成 OKR saves with that session id', async ({
+    electronApp,
+    mainWindow,
+    mockServer,
+  }, testInfo) => {
+    test.setTimeout(240_000);
+    await mockServer.setResponses({
+      nextQuestion: (n) => ({
+        question: {
+          id: `real-q${n}`,
+          text: `真实会话的第 ${n} 个问题`,
+          options: [
+            { id: 'a', label: '甲', value: 'a' },
+            { id: 'b', label: '乙', value: 'b' },
+            { id: 'c', label: '丙', value: 'c' },
+          ],
+        },
+      }),
+      draft: mockFor('恢复后生成的目标').draft,
+    });
+    const clarification = new ClarificationPage(mainWindow);
+    await clarification.waitForReady();
+    await clarification.startClarification('提升团队交付效率');
+    await clarification.waitForQuestion();
+    await clarification.answerQuestion(0);
+    await clarification.answerQuestion(1);
+    await expect(mainWindow.getByTestId('prompt-question')).toContainText('第 3 个问题');
+
+    // Windows ends the session: the main process writes the wizard draft
+    const first = dirname(testInfo.outputPath('clarityokr.db'));
+    const mainFile = join(first, 'profile', 'drafts', 'main.json');
+    await mainWindow.waitForTimeout(1500);
+    await electronApp.evaluate(({ BrowserWindow }) => {
+      for (const w of BrowserWindow.getAllWindows()) w.emit('query-session-end');
+    });
+    await expect
+      .poll(() => {
+        try {
+          const row = (JSON.parse(readFileSync(mainFile, 'utf8')) as { rows: Row[] }).rows[0];
+          return row.steps?.length ?? 0;
+        } catch {
+          return 0;
+        }
+      })
+      .toBe(3);
+    const saved = (JSON.parse(readFileSync(mainFile, 'utf8')) as { rows: Row[] }).rows[0];
+    const sessionId = saved.sessionId as string;
+    expect(sessionId).toBeTruthy();
+    const sessions = await query<{ id: string }>(
+      electronApp,
+      'SELECT id FROM sessions WHERE id = ?',
+      sessionId,
+    );
+    expect(sessions).toHaveLength(1);
+
+    // ---------- relaunch, restore at question 3, answer → question 4 of the same session ----------
+    const a = await relaunch(first, testInfo.outputPath('real-a'), mockServer.url, () => undefined);
+    try {
+      await expect(a.main.getByTestId('draft-bar')).toBeVisible({ timeout: 30_000 });
+      const before = mockServer.getRequestLog().length;
+      await a.main.getByTestId('draft-restore').click();
+      await expect(a.main.getByTestId('prompt-question')).toContainText('第 3 个问题');
+      // restoring asked the model nothing
+      await a.main.waitForTimeout(1000);
+      expect(mockServer.getRequestLog().length).toBe(before);
+      await a.main.getByTestId('clarification-option').nth(2).click();
+      await expect(a.main.getByTestId('prompt-question')).toContainText('第 4 个问题', {
+        timeout: 30_000,
+      });
+      expect(mockServer.getRequestLog().length).toBe(before + 1);
+      // the next question went to the ORIGINAL session: it holds q1..q3 answered + question 4
+      const [row] = await query<{ steps: string; selected_options: string }>(
+        a.app,
+        'SELECT steps, selected_options FROM sessions WHERE id = ?',
+        sessionId,
+      );
+      const steps = JSON.parse(row.steps) as { question: string }[];
+      expect(steps.map((st) => st.question)).toEqual(
+        [1, 2, 3, 4].map((n) => `真实会话的第 ${n} 个问题`),
+      );
+      const answers = JSON.parse(row.selected_options) as { optionId: string }[];
+      expect(answers.map((x) => x.optionId)).toEqual(['a', 'b', 'c']);
+    } finally {
+      a.app.process().kill('SIGKILL');
+    }
+
+    // ---------- S3-16c on the real session: 生成 OKR clicked, not finished → ready, generate ----------
+    const c = await relaunch(first, testInfo.outputPath('real-c'), mockServer.url, (drafts) => {
+      const file = join(drafts, 'main.json');
+      const draft = JSON.parse(readFileSync(file, 'utf8')) as {
+        rows: (Row & { ready?: boolean })[];
+      };
+      // every shown question answered (the last one dropped as if never shown), 生成 OKR clicked
+      draft.rows[0].steps = draft.rows[0].steps?.slice(0, 2);
+      draft.rows[0].ready = true;
+      writeFileSync(file, JSON.stringify(draft));
+    });
+    try {
+      await expect(c.main.getByTestId('draft-bar')).toBeVisible({ timeout: 30_000 });
+      await c.main.getByTestId('draft-restore').click();
+      const generate = c.main.locator('.ready-state [data-testid="clarification-generate"]');
+      await expect(generate).toBeFocused();
+      await generate.click();
+      await expect(c.main.getByTestId('okr-summary')).toBeVisible({ timeout: 30_000 });
+      await expect
+        .poll(
+          async () =>
+            (
+              await query<{ id: string }>(
+                c.app,
+                'SELECT id FROM objectives WHERE source_session_id = ?',
+                sessionId,
+              )
+            ).length,
+        )
+        .toBe(1);
+    } finally {
+      c.app.process().kill('SIGKILL');
+    }
+  });
+});

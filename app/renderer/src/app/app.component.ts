@@ -342,13 +342,7 @@ export class AppComponent implements OnDestroy {
       this.intentControl.setValue(wizard.intent);
       // #116 (S3§12.9): back to the step left, from the saved questions only (no model call).
       const plan = restorableWizardSteps(wizard);
-      if (plan.fallback === 'damaged' || plan.fallback === 'version') {
-        // Not shown to the user (no error, no new copy): one local log line.
-        this.logger.warn('[drafts] Wizard draft steps cut back on restore', {
-          reason: plan.fallback,
-          kept: plan.steps.length,
-        });
-      }
+      // Steps that cannot be used were cut (and logged) by the main process already.
       if (plan.sessionId && plan.steps.length > 0) {
         const stateBeforeRestore = this.state.getStateSnapshot();
         const sessionBefore = this.currentSessionId;

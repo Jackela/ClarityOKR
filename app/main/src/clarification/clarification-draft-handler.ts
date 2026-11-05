@@ -84,8 +84,14 @@ export class ClarificationDraftHandler implements IClarificationDraftHandler {
     Logger.info(`[DraftHandler] Generating draft for session ${sessionId}`);
 
     // 构建上下文
+    // #116: a question stored after the last answer (generated while the session ended, never
+    // answered) is not part of what the user chose.
+    const answered = new Set(session.selectedOptions.map((selection) => selection.promptId));
+    let lastAnswered = session.steps.length - 1;
+    while (lastAnswered >= 0 && !answered.has(session.steps[lastAnswered].id)) lastAnswered -= 1;
+    const steps = lastAnswered >= 0 ? session.steps.slice(0, lastAnswered + 1) : session.steps;
     const context = {
-      turns: session.steps.map((p) => ({
+      turns: steps.map((p) => ({
         questionId: p.id,
         optionId:
           session.selectedOptions.filter((selection) => selection.promptId === p.id).at(-1)

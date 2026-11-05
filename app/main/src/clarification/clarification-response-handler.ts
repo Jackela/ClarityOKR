@@ -83,8 +83,18 @@ export class ClarificationResponseHandler implements IClarificationResponseHandl
     if (!promptId) {
       throw new InvalidSelectionError('Pending prompt ID is required to record a selection');
     }
+    // #116: one answer per question. Answering a question again (e.g. after a restore that
+    // stopped at step n−1 while question n was being generated) replaces its answer, and any
+    // question after it — never shown, or shown and left unanswered — is dropped, so the session
+    // continues from exactly what the user sees.
+    const index = session.steps.findIndex((step) => step.id === promptId);
+    if (index >= 0 && index < session.steps.length - 1) {
+      const dropped = new Set(session.steps.slice(index + 1).map((step) => step.id));
+      session.steps = session.steps.slice(0, index + 1);
+      session.selectedOptions = session.selectedOptions.filter((s) => !dropped.has(s.promptId));
+    }
     session.selectedOptions = [
-      ...session.selectedOptions,
+      ...session.selectedOptions.filter((selection) => selection.promptId !== promptId),
       { promptId, optionId, selectedAt: new Date().toISOString() },
     ];
     session.pendingQuestionId = null;

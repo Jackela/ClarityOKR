@@ -53,6 +53,7 @@ import { openDatabaseSafely } from './startup/open-database.js';
 import { wireClosedLoop } from './startup/closed-loop.js';
 import { registerStorageStateHandler } from './startup/storage-state.js';
 import { registerAppWindowHandlers, UnsavedRegistry } from './ipc/app-window-handlers.js';
+import { LocalLogFile } from './core/local-log-file.js';
 import { registerDraftHandlers } from './drafts/draft-handlers.js';
 import { SessionDraftStore, wireSessionEndDrafts } from './drafts/session-draft-store.js';
 import { ExitCoordinator, type ExitWindow } from './lifecycle/exit-coordinator.js';
@@ -213,6 +214,7 @@ const sessionDrafts = new SessionDraftStore({
 registerDraftHandlers(ipcMain, {
   drafts: sessionDrafts,
   store: okrStore,
+  log: new LocalLogFile(path.join(app.getPath('logs'), 'main.log')),
   windowOf: (senderId) => {
     if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents.id === senderId) {
       return 'main';

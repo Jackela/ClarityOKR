@@ -1,8 +1,8 @@
 import { jest } from '@jest/globals';
 import { EventEmitter } from 'node:events';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import BetterSqlite3 from 'better-sqlite3';
 import type { Database } from 'better-sqlite3';
 import {
@@ -14,6 +14,7 @@ import {
   type IpcResult,
 } from '@clarityokr/contracts';
 
+import { LocalLogFile } from '../../../../app/main/src/core/local-log-file.js';
 import { Logger } from '../../../../app/main/src/core/logger.js';
 import { registerDraftHandlers } from '../../../../app/main/src/drafts/draft-handlers.js';
 import {
@@ -45,9 +46,11 @@ function launch(dbFile: string, draftsDir: string | null) {
   const store = new OkrStore(db);
   const drafts = new SessionDraftStore({ dir: draftsDir });
   const ipc = new FakeIpcMain();
+  const log = new LocalLogFile(join(dirname(dbFile), 'logs', 'main.log'));
   registerDraftHandlers(ipc as never, {
     drafts,
     store,
+    log,
     windowOf: (id) => (id === MAIN ? 'main' : id === STICKY ? 'sticky' : null),
   });
   const quit = jest.fn();
@@ -495,6 +498,80 @@ describe('#110 session-end drafts through the main process (real OkrStore, temp 
     const second = launch(dbFile, draftsDir);
     const reply = await second.ipc.invoke<DraftGetReply>(MAIN, IPC_CHANNELS.APP_DRAFT_GET);
     expect(reply.ok && reply.data.rows.map((r) => r.row)).toEqual([wizardRow('wiz-session-2')]);
+    second.db.close();
+  });
+
+  it('#116: a corrupt wizard step → cut back in main, one line in the main log file (step, reason, format; no user text)', async () => {
+    const intent = '独特目标文字甲乙丙XYZ';
+    const answer = '独特答案丁戊己ABC';
+    const question = '独特问题庚辛壬QWE';
+    const good = {
+      prompt: {
+        id: 'q1',
+        question,
+        sequence: 0,
+        context: intent,
+        options: [
+          { id: 'a', label: answer, scopeTag: 'llm' },
+          { id: 'b', label: '另一个', scopeTag: 'llm' },
+        ],
+      },
+      selectedOptionId: 'a',
+    };
+    const first = launch(dbFile, draftsDir);
+    const row: DraftRow = {
+      kind: 'wizard',
+      step: 3,
+      intent,
+      format: WIZARD_DRAFT_FORMAT,
+      sessionId: 'wiz-corrupt',
+      steps: [good, { prompt: { id: 'q2', question: `${question}-2` }, selectedOptionId: 'x' }],
+    };
+    await first.ipc.invoke(MAIN, IPC_CHANNELS.APP_REPORT_DRAFT, { rows: [row] });
+    first.win.emit('session-end');
+    first.db.close();
+
+    const second = launch(dbFile, draftsDir);
+    const reply = await second.ipc.invoke<DraftGetReply>(MAIN, IPC_CHANNELS.APP_DRAFT_GET);
+    // the window gets only the usable steps (no error, the bar line is the usual one)
+    expect(reply.ok && reply.data.rows.map((r) => r.row)).toEqual([
+      {
+        kind: 'wizard',
+        step: 2,
+        intent,
+        format: WIZARD_DRAFT_FORMAT,
+        sessionId: 'wiz-corrupt',
+        steps: [good],
+        ready: false,
+      },
+    ]);
+    const logged = readFileSync(join(dir, 'logs', 'main.log'), 'utf8');
+    const lines = logged.trim().split('\n');
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatch(
+      /^\S+ WARN \[drafts\] wizard-draft-fallback \{"step":2,"reason":"corrupt","format":2\}$/,
+    );
+    for (const secret of [intent, answer, question, 'wiz-corrupt']) {
+      expect(logged).not.toContain(secret);
+    }
+    second.db.close();
+  });
+
+  it('#116: wizard draft of another format → goal only, logged as a version mismatch', async () => {
+    const first = launch(dbFile, draftsDir);
+    await first.ipc.invoke(MAIN, IPC_CHANNELS.APP_REPORT_DRAFT, {
+      rows: [{ kind: 'wizard', step: 2, intent: '机密目标', format: 99, steps: [] }],
+    });
+    first.win.emit('session-end');
+    first.db.close();
+    const second = launch(dbFile, draftsDir);
+    const reply = await second.ipc.invoke<DraftGetReply>(MAIN, IPC_CHANNELS.APP_DRAFT_GET);
+    expect(reply.ok && reply.data.rows.map((r) => r.row)).toEqual([
+      { kind: 'wizard', step: 1, intent: '机密目标' },
+    ]);
+    const logged = readFileSync(join(dir, 'logs', 'main.log'), 'utf8');
+    expect(logged).toContain('{"step":1,"reason":"version","format":99}');
+    expect(logged).not.toContain('机密目标');
     second.db.close();
   });
 

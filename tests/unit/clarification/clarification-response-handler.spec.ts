@@ -353,7 +353,12 @@ describe('ClarificationResponseHandler', () => {
       mockSessionManager.saveSession.mockResolvedValue(undefined);
       mockStateMachine.canTransition.mockReturnValue(true);
 
+      // the next question arrives only after the answer (#116: answering an earlier question
+      // again drops the questions after it)
+      const [first, second] = session.steps;
+      session.steps = [first];
       await handler.handleResponse('test-session-001', 'prompt-1', 'opt-1');
+      session.steps.push(second);
       await handler.handleResponse('test-session-001', 'prompt-2', 'opt-3');
 
       expect(session.selectedOptions).toHaveLength(2);
