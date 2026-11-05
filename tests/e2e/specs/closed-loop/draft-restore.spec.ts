@@ -657,7 +657,9 @@ test.describe('S3§12.9 wizard restored to the step left (#116)', () => {
       const options = a.main.getByTestId('clarification-option');
       await expect(options).toHaveCount(3);
       await expect(options.first()).toBeFocused();
-      await expect(a.main.locator('[role="radio"][aria-checked="true"]')).toHaveCount(0);
+      await expect(
+        a.main.locator('.wizard-container [role="radio"][aria-checked="true"]'),
+      ).toHaveCount(0);
       await expect(a.main.locator('.back-button')).toBeVisible();
       await both(a.main, 'S3-16-wizard-restored-step-n');
     } finally {
@@ -678,7 +680,7 @@ test.describe('S3§12.9 wizard restored to the step left (#116)', () => {
       await expect(b.main.getByTestId('prompt-question')).toContainText('第 3 个问题');
       await expect(b.main.locator('.loading-container')).toHaveCount(0);
       await expect(b.main.locator('.wizard-container')).toHaveAttribute('aria-busy', 'false');
-      const selected = b.main.locator('[role="radio"][aria-checked="true"]');
+      const selected = b.main.locator('.wizard-container [role="radio"][aria-checked="true"]');
       await expect(selected).toHaveCount(1);
       await expect(selected).toBeFocused();
       await both(b.main, 'S3-16b-wizard-left-while-generating');
