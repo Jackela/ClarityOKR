@@ -137,6 +137,13 @@ async function setStickyWidth(app: ElectronApplication, width: number): Promise<
   }, width);
 }
 
+/** S3§12.9 v4.3: the focused element's ring (a solid 2px outline). */
+const outlineOf = (page: Page): Promise<{ style: string; width: string }> =>
+  page.evaluate(() => {
+    const css = getComputedStyle(document.activeElement as Element);
+    return { style: css.outlineStyle, width: css.outlineWidth };
+  });
+
 const focusVisible = (page: Page): Promise<boolean> =>
   page.evaluate(() => document.activeElement?.matches(':focus-visible') ?? false);
 
@@ -661,6 +668,8 @@ test.describe('S3§12.9 wizard restored to the step left (#116)', () => {
         a.main.locator('.wizard-container [role="radio"][aria-checked="true"]'),
       ).toHaveCount(0);
       await expect(a.main.locator('.back-button')).toBeVisible();
+      expect(await focusVisible(a.main)).toBe(true);
+      expect(await outlineOf(a.main)).toEqual({ style: 'solid', width: '2px' });
       await both(a.main, 'S3-16-wizard-restored-step-n');
     } finally {
       a.app.process().kill('SIGKILL');
@@ -683,6 +692,8 @@ test.describe('S3§12.9 wizard restored to the step left (#116)', () => {
       const selected = b.main.locator('.wizard-container [role="radio"][aria-checked="true"]');
       await expect(selected).toHaveCount(1);
       await expect(selected).toBeFocused();
+      expect(await focusVisible(b.main)).toBe(true);
+      expect(await outlineOf(b.main)).toEqual({ style: 'solid', width: '2px' });
       await both(b.main, 'S3-16b-wizard-left-while-generating');
     } finally {
       b.app.process().kill('SIGKILL');
@@ -703,6 +714,8 @@ test.describe('S3§12.9 wizard restored to the step left (#116)', () => {
       await expect(generate).toBeVisible();
       await expect(generate).toBeFocused();
       await expect(c.main.locator('.loading-container')).toHaveCount(0);
+      expect(await focusVisible(c.main)).toBe(true);
+      expect(await outlineOf(c.main)).toEqual({ style: 'solid', width: '2px' });
       await both(c.main, 'S3-16c-wizard-ready-to-generate');
     } finally {
       c.app.process().kill('SIGKILL');
