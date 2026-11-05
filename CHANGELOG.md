@@ -7,14 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-11-06
+
 ### Fixed
 
+- Windows 注销 / 关机时，向导、文字编辑和复盘里没保存的内容会写成草稿，不会直接丢掉（[#110](https://github.com/Jackela/ClarityOKR/issues/110)）
+- 下次启动时，有草稿的窗口会显示「恢复 / 放弃」条，可把上次没保存的内容恢复回来（[#115](https://github.com/Jackela/ClarityOKR/pull/115)）
 - 只改了目标文字、或新加了关键结果时，注销或关机后也能在下次启动时恢复（[#117](https://github.com/Jackela/ClarityOKR/issues/117)）
 - 注销或关机后，新建 OKR 向导会恢复到离开时的那一步，已经回答的澄清问题原样保留，不会重新调用模型（[#116](https://github.com/Jackela/ClarityOKR/issues/116)）
 
 ### Internal
 
 - 仅 CI：GitHub Actions 升到 Node 24 运行时，Linux runner 固定为 ubuntu-24.04，对已安装的应用没有影响（[#111](https://github.com/Jackela/ClarityOKR/issues/111)）
+
+### Known issues
+
+- 「未实测」：以下行为只有自动化测试，尚未在真机上手动验证
+  - 系统托盘（菜单「显示便签 / 退出」、点击唤回）：macOS、Windows、Linux 均未实测
+  - Dock 唤回便签：macOS 未实测
+  - ⌘Q 退出确认（含未保存修改的合并提示）：macOS 未实测
+  - Windows 注销 / 关机时保存草稿并在下次启动提供恢复（#110，跟踪 #45）
+- Windows / Linux 上无法创建托盘图标时，关闭或隐藏最后一个可见窗口会直接退出应用（按钮提示里有说明）
+- macOS 安装包未签名
+- 澄清向导的进度计数多算 1：答第 k 题时显示「问题 k+1 / …」（[#123](https://github.com/Jackela/ClarityOKR/issues/123)）
 
 ## [0.3.1] - 2026-10-28
 
@@ -167,7 +182,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comprehensive test suite (unit, component, integration, E2E)
 - CI/CD pipeline with multi-platform builds
 
-[unreleased]: https://github.com/Jackela/ClarityOKR/compare/v0.3.1...HEAD
+[unreleased]: https://github.com/Jackela/ClarityOKR/compare/v0.3.2...HEAD
+[0.3.2]: https://github.com/Jackela/ClarityOKR/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/Jackela/ClarityOKR/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/Jackela/ClarityOKR/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Jackela/ClarityOKR/releases/tag/v0.2.0
