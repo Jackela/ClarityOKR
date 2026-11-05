@@ -43,7 +43,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             platform: linux
             target: --linux
           - os: windows-latest
@@ -54,12 +54,12 @@ jobs:
             target: --mac
     steps:
       - name: Checkout the tag
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: refs/tags/${{ env.TAG }}
 
       - name: Setup Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -121,7 +121,7 @@ jobs:
           ls -la out
           test "$(ls out | grep -vc '^signing-')" -gt 0
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: installers-${{ matrix.platform }}
           path: out/*
@@ -132,7 +132,7 @@ jobs:
     name: Attach to the Release
     needs: build
     if: github.event_name == 'push' || github.event.inputs.upload == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: write
@@ -140,7 +140,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: installers-*
           path: out
