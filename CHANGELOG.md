@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Internal
 
 - 仅开发与构建：去掉 `undici@6` / `undici@7` 的 pnpm override；锁文件仍解析到 ≥ 6.29.1 / ≥ 7.30.1，审计保持干净（[#107](https://github.com/Jackela/ClarityOKR/issues/107)）
+- 仅开发与构建：去掉 `tar` / `handlebars` 的 pnpm override；锁文件仍解析到 ≥ 7.5.21 / ≥ 4.7.10，审计无新增 findings（[#107](https://github.com/Jackela/ClarityOKR/issues/107)）
 
 ## [0.3.2] - 2026-11-06
 
