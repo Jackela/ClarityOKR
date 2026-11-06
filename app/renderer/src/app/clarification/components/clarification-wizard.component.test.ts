@@ -5,6 +5,20 @@ import { Logger } from '../../core/services/logger.service';
 import { ClarificationStateMachine } from '../services/clarification-state-machine.service';
 import { ClarificationWizardComponent } from './clarification-wizard.component';
 
+
+function buildPromptAt(n: number): ClarificationPrompt {
+  return {
+    id: `prompt-${n}`,
+    question: `Question ${n}`,
+    sequence: n - 1,
+    context: 'Select the area to explore first',
+    options: [
+      { id: `opt-${n}-a`, label: 'Team productivity', description: undefined, scopeTag: 'team' },
+      { id: `opt-${n}-b`, label: 'Customer success', description: undefined, scopeTag: 'customer' },
+    ],
+  } satisfies ClarificationPrompt;
+}
+
 function buildPrompt(): ClarificationPrompt {
   return {
     id: 'prompt-1',
@@ -256,4 +270,101 @@ describe('ClarificationWizardComponent', () => {
     const skeletonElement = fixture.nativeElement.querySelector('clarityokr-skeleton');
     expect(skeletonElement).toBeTruthy();
   });
+
+  describe('#123 question counter', () => {
+    function counterText(): string {
+      const el = fixture.nativeElement.querySelector('.progress-counter') as HTMLElement | null;
+      return el ? el.textContent.replace(/\s+/g, ' ').trim() : '';
+    }
+
+    it('shows question k / total when answering the k-th prompt (current already in history)', () => {
+      state.setLoading(true);
+      state.setLoading(false);
+      state.setPrompt(buildPromptAt(1));
+      fixture.detectChanges();
+      expect(component.progressCurrent).toBe(1);
+      expect(component.progressTotal).toBe(5);
+      expect(counterText()).toMatch(/1 \/ 5/);
+      expect(
+        (fixture.nativeElement.querySelector('.progress-fill') as HTMLElement).style.width,
+      ).toBe('0%');
+
+      state.setPrompt(buildPromptAt(2));
+      state.setPrompt(buildPromptAt(3));
+      state.setPrompt(buildPromptAt(4));
+      fixture.detectChanges();
+      expect(component.progressCurrent).toBe(4);
+      expect(counterText()).toMatch(/4 \/ 5/);
+      expect(
+        (fixture.nativeElement.querySelector('.progress-fill') as HTMLElement).style.width,
+      ).toBe('60%');
+    });
+
+    it('after restore to step n, counter matches the restored question number', () => {
+      state.restore({
+        intent: '提高团队效率',
+        sessionId: 's-123',
+        steps: [
+          { prompt: buildPromptAt(1), selectedOptionId: 'opt-1-a' },
+          { prompt: buildPromptAt(2), selectedOptionId: 'opt-2-a' },
+          { prompt: buildPromptAt(3), selectedOptionId: 'opt-3-a' },
+          { prompt: buildPromptAt(4), selectedOptionId: null },
+        ],
+        ready: false,
+      });
+      fixture.detectChanges();
+      expect(state.currentPrompt()?.id).toBe('prompt-4');
+      expect(component.progressCurrent).toBe(4);
+      expect(counterText()).toMatch(/4 \/ 5/);
+      expect(
+        (fixture.nativeElement.querySelector('.progress-fill') as HTMLElement).style.width,
+      ).toBe('60%');
+    });
+
+    it('ready-to-generate screen (normal flow): no counter in DOM, full green bar', () => {
+      state.setLoading(true);
+      state.setLoading(false);
+      state.setPrompt(buildPromptAt(1));
+      state.recordSelection('prompt-1', 'opt-1-a');
+      // Next question: must go through loading (ready → prompting is invalid).
+      state.setLoading(true);
+      state.setPrompt(buildPromptAt(2));
+      state.recordSelection('prompt-2', 'opt-2-a');
+      state.setPrompt(null);
+      fixture.detectChanges();
+      expect(state.isReadyToGenerate()).toBe(true);
+      expect(state.currentPrompt()).toBeNull();
+      expect(component.isReadyScreen).toBe(true);
+      expect(fixture.nativeElement.querySelector('.ready-state')).toBeTruthy();
+      expect(fixture.nativeElement.querySelector('.progress-counter')).toBeNull();
+      expect(fixture.nativeElement.querySelector('clarityokr-progress-indicator')).toBeTruthy();
+      const fill = fixture.nativeElement.querySelector('.progress-fill') as HTMLElement;
+      expect(fill.style.width).toBe('100%');
+      expect(fill.classList.contains('progress-fill--complete')).toBe(true);
+    });
+
+    it('ready-to-generate screen after #116 restore: no counter in DOM, full green bar', () => {
+      state.restore({
+        intent: '提高团队效率',
+        sessionId: 's-ready',
+        steps: [
+          { prompt: buildPromptAt(1), selectedOptionId: 'opt-1-a' },
+          { prompt: buildPromptAt(2), selectedOptionId: 'opt-2-a' },
+          { prompt: buildPromptAt(3), selectedOptionId: 'opt-3-a' },
+        ],
+        ready: true,
+      });
+      fixture.detectChanges();
+      expect(state.currentPrompt()).toBeNull();
+      expect(state.isReadyToGenerate()).toBe(true);
+      expect(component.isReadyScreen).toBe(true);
+      expect(fixture.nativeElement.querySelector('.ready-state')).toBeTruthy();
+      expect(fixture.nativeElement.querySelector('.progress-counter')).toBeNull();
+      expect(fixture.nativeElement.querySelector('clarityokr-progress-indicator')).toBeTruthy();
+      const fill = fixture.nativeElement.querySelector('.progress-fill') as HTMLElement;
+      expect(fill.style.width).toBe('100%');
+      expect(fill.classList.contains('progress-fill--complete')).toBe(true);
+    });
+  });
+
 });

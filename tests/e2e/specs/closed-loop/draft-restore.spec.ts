@@ -42,6 +42,23 @@ async function ciShot(page: Page, name: string): Promise<void> {
   await page.screenshot({ path: join(dir, `${name}.png`) });
 }
 
+
+/** #123: 「问题 n / total」 on question pages; absent on the ready screen. */
+async function expectQuestionCounter(page: Page, n: number, total = 5): Promise<void> {
+  const counter = page.locator('.progress-counter');
+  await expect(counter).toBeVisible();
+  await expect(counter).toHaveText(new RegExp(`问题\\s+${n}\\s+/\\s+${total}`));
+}
+
+async function expectNoQuestionCounter(page: Page): Promise<void> {
+  // Ready screen (S3§12.9): counter row not in DOM; bar stays, full + green.
+  await expect(page.locator('.progress-counter')).toHaveCount(0);
+  await expect(page.locator('clarityokr-progress-indicator')).toHaveCount(1);
+  const fill = page.locator('.progress-fill');
+  await expect(fill).toHaveClass(/progress-fill--complete/);
+  expect(await fill.evaluate((el) => (el as HTMLElement).style.width)).toBe('100%');
+}
+
 async function both(page: Page, name: string): Promise<void> {
   await shot(page, `${name}-light`);
   await ciShot(page, `${name}-light`);
@@ -658,6 +675,7 @@ test.describe('S3§12.9 wizard restored to the step left (#116)', () => {
       await a.main.getByTestId('draft-restore').click();
       await expect(a.main.getByTestId('draft-bar')).toHaveCount(0);
       await expect(a.main.getByTestId('prompt-question')).toContainText('第 4 个问题');
+      await expectQuestionCounter(a.main, 4);
       const wizard = a.main.locator('.wizard-container');
       await expect(wizard).toHaveAttribute('aria-busy', 'false');
       await expect(a.main.locator('.loading-container')).toHaveCount(0);
@@ -687,6 +705,7 @@ test.describe('S3§12.9 wizard restored to the step left (#116)', () => {
       await expect(b.main.getByTestId('draft-bar')).toBeVisible({ timeout: 30_000 });
       await b.main.getByTestId('draft-restore').click();
       await expect(b.main.getByTestId('prompt-question')).toContainText('第 3 个问题');
+      await expectQuestionCounter(b.main, 3);
       await expect(b.main.locator('.loading-container')).toHaveCount(0);
       await expect(b.main.locator('.wizard-container')).toHaveAttribute('aria-busy', 'false');
       const selected = b.main.locator('.wizard-container [role="radio"][aria-checked="true"]');
@@ -713,6 +732,7 @@ test.describe('S3§12.9 wizard restored to the step left (#116)', () => {
       const generate = c.main.locator('.ready-state [data-testid="clarification-generate"]');
       await expect(generate).toBeVisible();
       await expect(generate).toBeFocused();
+      await expectNoQuestionCounter(c.main);
       await expect(c.main.locator('.loading-container')).toHaveCount(0);
       expect(await focusVisible(c.main)).toBe(true);
       expect(await outlineOf(c.main)).toEqual({ style: 'solid', width: '2px' });
@@ -774,10 +794,13 @@ test.describe('S3§12.9 restored wizard continues its real session (#116)', () =
     await clarification.startClarification('提升团队交付效率');
     const question = mainWindow.getByTestId('prompt-question');
     await expect(question).toContainText('第 1 个问题', { timeout: 30_000 });
+    await expectQuestionCounter(mainWindow, 1);
     await mainWindow.getByTestId('clarification-option').nth(0).click();
     await expect(question).toContainText('第 2 个问题', { timeout: 30_000 });
+    await expectQuestionCounter(mainWindow, 2);
     await mainWindow.getByTestId('clarification-option').nth(1).click();
     await expect(question).toContainText('第 3 个问题', { timeout: 30_000 });
+    await expectQuestionCounter(mainWindow, 3);
 
     // Windows ends the session: the main process writes the wizard draft
     const first = dirname(testInfo.outputPath('clarityokr.db'));
@@ -813,6 +836,7 @@ test.describe('S3§12.9 restored wizard continues its real session (#116)', () =
       const before = mockServer.getRequestLog().length;
       await a.main.getByTestId('draft-restore').click();
       await expect(a.main.getByTestId('prompt-question')).toContainText('第 3 个问题');
+      await expectQuestionCounter(a.main, 3);
       // restoring asked the model nothing
       await a.main.waitForTimeout(1000);
       expect(mockServer.getRequestLog().length).toBe(before);
@@ -820,6 +844,7 @@ test.describe('S3§12.9 restored wizard continues its real session (#116)', () =
       await expect(a.main.getByTestId('prompt-question')).toContainText('第 4 个问题', {
         timeout: 30_000,
       });
+      await expectQuestionCounter(a.main, 4);
       expect(mockServer.getRequestLog().length).toBe(before + 1);
       // the next question went to the ORIGINAL session: it holds q1..q3 answered + question 4
       const [row] = await query<{ steps: string; selected_options: string }>(
@@ -853,6 +878,7 @@ test.describe('S3§12.9 restored wizard continues its real session (#116)', () =
       await c.main.getByTestId('draft-restore').click();
       const generate = c.main.locator('.ready-state [data-testid="clarification-generate"]');
       await expect(generate).toBeFocused();
+      await expectNoQuestionCounter(c.main);
       await generate.click();
       await expect(c.main.getByTestId('okr-summary')).toBeVisible({ timeout: 30_000 });
       await expect
