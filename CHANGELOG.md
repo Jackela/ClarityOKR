@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 澄清向导进度计数：答第 k 题时显示「问题 k / …」，不再多算 1；进度条按已回答题数占比；「可以生成」屏不渲染题号行、进度条满格绿色上移到题号位置（[#123](https://github.com/Jackela/ClarityOKR/issues/123)）
 - 坏掉的向导草稿回退只记一条 `wizard-draft-fallback`：显示恢复条、点「恢复」、再启动都不再重复写（[#124](https://github.com/Jackela/ClarityOKR/issues/124)）
 
+### Internal
+
+- 仅开发与构建：去掉 `undici@6` / `undici@7` 的 pnpm override；锁文件仍解析到 ≥ 6.29.1 / ≥ 7.30.1，审计保持干净（[#107](https://github.com/Jackela/ClarityOKR/issues/107)）
+
 ## [0.3.2] - 2026-11-06
 
 ### Fixed
