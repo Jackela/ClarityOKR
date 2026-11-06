@@ -39,19 +39,21 @@ import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
       class="progress-container"
       role="progressbar"
       [attr.aria-label]="label + ' progress'"
-      [attr.aria-valuenow]="current"
+      [attr.aria-valuenow]="complete ? total : current"
       [attr.aria-valuemin]="1"
       [attr.aria-valuemax]="total"
     >
-      <!-- Step counter -->
-      <span class="progress-counter"> {{ label }} {{ current }} / {{ total }} </span>
+      <!-- #123 S3§12.9: counter omitted from DOM on ready (not visibility/opacity) -->
+      @if (showCounter) {
+        <span class="progress-counter"> {{ label }} {{ current }} / {{ total }} </span>
+      }
 
-      <!-- Progress bar -->
+      <!-- Progress bar (keeps height/radius; on ready moves up into the counter row spot) -->
       <div class="progress-bar" aria-hidden="true">
         <div
           class="progress-fill"
           [style.width.%]="calculatePercentage()"
-          [class.progress-fill--complete]="current === total"
+          [class.progress-fill--complete]="complete"
         ></div>
       </div>
     </div>
@@ -98,6 +100,11 @@ import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
         position: relative;
       }
 
+      /* No width animation when jumping to the ready full bar (#123 S3§12.9) */
+      .progress-fill--complete {
+        transition: none;
+      }
+
       /* Glow effect on the leading edge */
       .progress-fill::after {
         content: '';
@@ -114,7 +121,7 @@ import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
         transition: opacity var(--duration-fast);
       }
 
-      [data-theme="dark"] .progress-fill::after {
+      [data-theme='dark'] .progress-fill::after {
         box-shadow: 0 0 12px var(--color-brand-primary);
       }
 
@@ -122,7 +129,7 @@ import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
         opacity: 1;
       }
 
-      /* Complete state */
+      /* Complete state — full green gradient */
       .progress-fill--complete {
         background: var(--gradient-success);
       }
@@ -137,14 +144,10 @@ import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
   ],
 })
 export class ProgressIndicatorComponent {
-  /**
-   * Current step number (1-based)
-   */
+  /** Current step number (1-based), the question on screen. */
   @Input({ required: true }) current!: number;
 
-  /**
-   * Total number of steps
-   */
+  /** Total number of steps. */
   @Input({ required: true }) total!: number;
 
   /**
@@ -154,11 +157,24 @@ export class ProgressIndicatorComponent {
   @Input() label: string = 'Step';
 
   /**
-   * Calculate percentage for progress bar width
+   * When false, the 「n / total」 row is not rendered (#123 ready screen).
+   * @default true
+   */
+  @Input() showCounter = true;
+
+  /**
+   * When true, bar is full with the green complete gradient (ready-to-generate).
+   * Question pages leave this false so the last open question stays answered/total.
+   */
+  @Input() complete = false;
+
+  /**
+   * Bar width = answered / total. `current` is the question on screen (1-based);
+   * answered count is current − 1 while that question is still open.
    */
   calculatePercentage(): number {
     if (this.total <= 0) return 0;
-    if (this.current >= this.total) return 100;
-    return Math.max(0, ((this.current - 1) / this.total) * 100);
+    if (this.complete) return 100;
+    return Math.max(0, Math.min(100, ((this.current - 1) / this.total) * 100));
   }
 }

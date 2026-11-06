@@ -51,9 +51,19 @@ describe('ProgressIndicatorComponent', () => {
     expect(component.calculatePercentage()).toBe(0);
   });
 
-  it('should clamp progress to 100 when current equals total', () => {
+  it('on the last question, bar is answered/total (not full) until complete (#123)', () => {
     component.current = 5;
     component.total = 5;
+    component.complete = false;
+
+    // Q5 of 5 still open → 4 answered → 80%
+    expect(component.calculatePercentage()).toBe(80);
+  });
+
+  it('complete input forces a full green bar', () => {
+    component.current = 5;
+    component.total = 5;
+    component.complete = true;
 
     expect(component.calculatePercentage()).toBe(100);
   });
@@ -75,12 +85,50 @@ describe('ProgressIndicatorComponent', () => {
     expect(progressFill.nativeElement.style.width).toBe('25%');
   });
 
-  it('should apply progress-fill--complete class when current equals total', () => {
-    component.current = 4;
-    component.total = 4;
+  it('applies progress-fill--complete only when complete is set', () => {
+    fixture.componentRef.setInput('current', 4);
+    fixture.componentRef.setInput('total', 4);
+    fixture.componentRef.setInput('complete', false);
     fixture.detectChanges();
 
+    expect(
+      fixture.debugElement.query(By.css('.progress-fill')).nativeElement.classList.contains(
+        'progress-fill--complete',
+      ),
+    ).toBe(false);
+
+    fixture.componentRef.setInput('complete', true);
+    fixture.detectChanges();
+    expect(
+      fixture.debugElement.query(By.css('.progress-fill')).nativeElement.classList.contains(
+        'progress-fill--complete',
+      ),
+    ).toBe(true);
+  });
+
+  it('Q4 of 5: counter reflects question 4 and bar width is 3/5 (#123)', () => {
+    component.current = 4;
+    component.total = 5;
+    component.label = '问题';
+    fixture.detectChanges();
+
+    const counter = fixture.debugElement.query(By.css('.progress-counter'));
+    expect(counter.nativeElement.textContent.replace(/\s+/g, ' ').trim()).toBe('问题 4 / 5');
+    expect(component.calculatePercentage()).toBe(60);
     const progressFill = fixture.debugElement.query(By.css('.progress-fill'));
+    expect(progressFill.nativeElement.style.width).toBe('60%');
+  });
+
+  it('showCounter false omits the counter from the DOM (#123)', () => {
+    component.current = 3;
+    component.total = 5;
+    component.showCounter = false;
+    component.complete = true;
+    fixture.detectChanges();
+
+    expect(fixture.debugElement.query(By.css('.progress-counter'))).toBeNull();
+    const progressFill = fixture.debugElement.query(By.css('.progress-fill'));
+    expect(progressFill.nativeElement.style.width).toBe('100%');
     expect(progressFill.nativeElement.classList.contains('progress-fill--complete')).toBe(true);
   });
 });

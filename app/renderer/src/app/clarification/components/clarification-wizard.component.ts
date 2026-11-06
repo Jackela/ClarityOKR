@@ -36,12 +36,15 @@ import { ClarificationStateMachine } from '../services/clarification-state-machi
       [attr.aria-label]="'clarification.wizard.ariaLabel' | translate"
       [attr.aria-busy]="state.isLoading()"
     >
-      <!-- Progress Indicator -->
+      <!-- Progress (#123 / S3§12.9): question pages show 「n / total」; ready screen
+           keeps the bar (full, green) but does not render the counter row. -->
       @if (state.history().length > 0 || state.currentPrompt()) {
         <clarityokr-progress-indicator
-          [current]="state.history().length + (state.currentPrompt() ? 1 : 0)"
+          [current]="progressCurrent"
           [total]="progressTotal"
           [label]="'clarification.wizard.question' | translate"
+          [showCounter]="!isReadyScreen"
+          [complete]="isReadyScreen"
         ></clarityokr-progress-indicator>
       }
 
@@ -221,11 +224,21 @@ import { ClarificationStateMachine } from '../services/clarification-state-machi
 export class ClarificationWizardComponent {
   readonly estimatedTotalSteps = 5;
 
+  /**
+   * Question number on screen (#123). SET_PROMPT / RESTORE already put the current
+   * prompt in `history`, so do not add an extra 1 for `currentPrompt`.
+   */
+  get progressCurrent(): number {
+    return this.state.history().length;
+  }
+
   get progressTotal(): number {
-    const historyLength = this.state.history().length;
-    const hasCurrent = this.state.currentPrompt() ? 1 : 0;
-    const current = historyLength + hasCurrent;
-    return Math.max(current, this.estimatedTotalSteps);
+    return Math.max(this.progressCurrent, this.estimatedTotalSteps);
+  }
+
+  /** Ready-to-generate screen: no current prompt, generate CTA in `.ready-state`. */
+  get isReadyScreen(): boolean {
+    return this.state.isReadyToGenerate() && !this.state.currentPrompt();
   }
 
   constructor(public readonly state: ClarificationStateMachine) {}

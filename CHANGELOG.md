@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- 澄清向导进度计数：答第 k 题时显示「问题 k / …」，不再多算 1；进度条按已回答题数占比；「可以生成」屏不渲染题号行、进度条满格绿色上移到题号位置（[#123](https://github.com/Jackela/ClarityOKR/issues/123)）
+
 ## [0.3.2] - 2026-11-06
 
 ### Fixed
