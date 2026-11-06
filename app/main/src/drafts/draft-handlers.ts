@@ -143,6 +143,9 @@ export function registerDraftHandlers(ipcMain: Pick<IpcMain, 'handle'>, deps: Dr
       if (valid.length === 0) return empty;
       // #116 (S3§12.9): wizard steps that cannot be put back are cut here and logged once in
       // the main process log file — the step, the reason and the format only, never user text.
+      // #124: after the first fallback, persist the trimmed row so showing the bar, clicking
+      // 「恢复」, and later restarts do not append another wizard-draft-fallback line.
+      let fallbackLogged = false;
       const usable = valid.map((row) => {
         if (row.kind !== 'wizard') return row;
         const trimmed = trimWizardDraftRow(row);
@@ -152,9 +155,13 @@ export function registerDraftHandlers(ipcMain: Pick<IpcMain, 'handle'>, deps: Dr
             reason: trimmed.damage.reason,
             format: row.format ?? null,
           });
+          fallbackLogged = true;
         }
         return trimmed.row;
       });
+      if (fallbackLogged) {
+        deps.drafts.replace(window, usable);
+      }
       return ipcOk({
         rows: sortDraftRows(usable.map((row) => resolve(deps.store, row))),
         deletedCount,

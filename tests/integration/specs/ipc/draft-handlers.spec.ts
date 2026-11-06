@@ -501,6 +501,70 @@ describe('#110 session-end drafts through the main process (real OkrStore, temp 
     second.db.close();
   });
 
+
+  it('#124: the same damaged wizard draft logs wizard-draft-fallback only once across bar / 恢复 / restart', async () => {
+    const intent = '独特目标文字甲乙丙XYZ';
+    const answer = '独特答案丁戊己ABC';
+    const question = '独特问题庚辛壬QWE';
+    const good = {
+      prompt: {
+        id: 'q1',
+        question,
+        sequence: 0,
+        context: intent,
+        options: [
+          { id: 'a', label: answer, scopeTag: 'llm' },
+          { id: 'b', label: '另一个', scopeTag: 'llm' },
+        ],
+      },
+      selectedOptionId: 'a',
+    };
+    const first = launch(dbFile, draftsDir);
+    const row: DraftRow = {
+      kind: 'wizard',
+      step: 3,
+      intent,
+      format: WIZARD_DRAFT_FORMAT,
+      sessionId: 'wiz-corrupt-once',
+      steps: [good, { prompt: { id: 'q2', question: `${question}-2` }, selectedOptionId: 'x' }],
+    };
+    await first.ipc.invoke(MAIN, IPC_CHANNELS.APP_REPORT_DRAFT, { rows: [row] });
+    first.win.emit('session-end');
+    first.db.close();
+
+    const logPath = join(dir, 'logs', 'main.log');
+    const fallbackLines = () =>
+      readFileSync(logPath, 'utf8')
+        .trim()
+        .split('\n')
+        .filter((line) => line.includes('wizard-draft-fallback'));
+
+    // 1) show the restore bar
+    const second = launch(dbFile, draftsDir);
+    const bar = await second.ipc.invoke<DraftGetReply>(MAIN, IPC_CHANNELS.APP_DRAFT_GET);
+    expect(bar.ok && bar.data.rows).toHaveLength(1);
+    expect(fallbackLines()).toHaveLength(1);
+
+    // 2) click 「恢复」 → main reads the draft again
+    const restore = await second.ipc.invoke<DraftGetReply>(MAIN, IPC_CHANNELS.APP_DRAFT_GET);
+    expect(restore.ok && restore.data.rows).toHaveLength(1);
+    expect(fallbackLines()).toHaveLength(1);
+    second.db.close();
+
+    // 3) restart with the same unused draft still on disk
+    const third = launch(dbFile, draftsDir);
+    const again = await third.ipc.invoke<DraftGetReply>(MAIN, IPC_CHANNELS.APP_DRAFT_GET);
+    expect(again.ok && again.data.rows).toHaveLength(1);
+    expect(fallbackLines()).toHaveLength(1);
+    expect(fallbackLines()[0]).toMatch(
+      /^\S+ WARN \[drafts\] wizard-draft-fallback \{"step":2,"reason":"corrupt","format":2\}$/,
+    );
+    for (const secret of [intent, answer, question, 'wiz-corrupt-once']) {
+      expect(readFileSync(logPath, 'utf8')).not.toContain(secret);
+    }
+    third.db.close();
+  });
+
   it('#116: a corrupt wizard step → cut back in main, one line in the main log file (step, reason, format; no user text)', async () => {
     const intent = '独特目标文字甲乙丙XYZ';
     const answer = '独特答案丁戊己ABC';

@@ -103,6 +103,14 @@ export class SessionDraftStore {
     return { kind: 'ok', rows: parsed.rows };
   }
 
+  /**
+   * #124: rewrite the on-disk draft (e.g. after trimming a damaged wizard row so the
+   * fallback is not logged again on the next draft-get / restart).
+   */
+  replace(window: DraftWindow, rows: DraftRow[]): void {
+    this.write(window, rows);
+  }
+
   /** Drops rows (by key) or the whole draft of `window`. Returns how many rows are left. */
   settle(window: DraftWindow, drop: { all: true } | { keys: readonly string[] }): number {
     const loaded = this.load(window);
