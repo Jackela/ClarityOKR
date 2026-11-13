@@ -7,8 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Internal
+## [0.3.4] - 2026-11-14
 
+### Internal
 - 将 Angular 从 21 升到 22：框架包 21.2.26 → 22.2.6，`@angular/cli` / `@angular/build` 21.2.30 → 22.2.7；TypeScript 5.9.3 → 6.0.3（Angular 22 要求 ≥6.0 <6.1）。继续通过已有的 `provideZoneChangeDetection()` 保留 ZoneJS 变更检测。v22 将未声明策略的组件默认改为 `OnPush`；官方 `change-detection-eager` 迁移给 `AppComponent` 和 `ErrorBoundaryComponent`（仅有的两个未声明策略的生产组件）加上 `ChangeDetectionStrategy.Eager`，其余 35 个生产组件本来就是 `OnPush`，测试夹具里的 host 组件也显式钉了 Eager，以保持 v22 之前的默认检查行为。为满足 peer，将 `@ngrx/component-store` 21.1.1 → 22.0.1。未改 Electron / Playwright / prettier / typescript-eslint / Jest，也未使用 pnpm.overrides（[#52](https://github.com/Jackela/ClarityOKR/issues/52) PR3）
 - 将 Angular 从 20 LTS 升到 21 LTS：框架包 20.3.34 → 21.2.26，`@angular/cli` / `@angular/build` 20.3.42 → 21.2.30；通过 `provideZoneChangeDetection()` 保留现有 ZoneJS 变更检测。为满足 peer，将 `@ngrx/component-store` 20.1.0 → 21.1.1，将 `jest-preset-angular` 升到 17.0.3，并把工作区 Jest 升到 30（jsdom 26）。未改 Electron / Playwright / prettier / typescript-eslint，也未使用 pnpm.overrides（[#52](https://github.com/Jackela/ClarityOKR/issues/52) PR2）
 - 仅测试：复盘保存挂起的 E2E 改走测试模式钩子 `__clarityokrE2E.armReviewSaveHold`，不再替换 Electron 内部 `_invokeHandlers`（[#57](https://github.com/Jackela/ClarityOKR/issues/57)）
@@ -17,6 +18,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 仅开发与构建：去掉 `qs` 的 pnpm override；锁文件仍解析到 6.16.1（≥ 6.16.1 / GHSA-6pq8-jhm2-2vcw）（[#107](https://github.com/Jackela/ClarityOKR/issues/107)，[#114](https://github.com/Jackela/ClarityOKR/issues/114)）
 - 仅开发与构建：去掉 `js-yaml@3`、`js-yaml@4` 和 `@istanbuljs/load-nyc-config>js-yaml` 的 pnpm override；锁文件仍解析到 js-yaml 4.3.2（≥ 3.15.2 / ≥ 4.3.2 / GHSA-2883-xcg3-v3hh）（[#107](https://github.com/Jackela/ClarityOKR/issues/107)）
 - 仅开发与构建：因 [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) 已于 2026-10-23 撤回，去掉原先 must-keep 的 `braces` vendor patch（`file:vendor/braces`）与 pnpm override；锁文件改回上游 braces 3.0.3（仍覆盖 [GHSA-grv7-fg5c-xmjg](https://github.com/advisories/GHSA-grv7-fg5c-xmjg)）（[#107](https://github.com/Jackela/ClarityOKR/issues/107)，[#128](https://github.com/Jackela/ClarityOKR/issues/128)）
+
+### Known issues
+
+- 「未实测」：以下行为只有自动化测试，尚未在真机上手动验证
+  - 系统托盘（菜单「显示便签 / 退出」、点击唤回）：macOS、Windows、Linux 均未实测
+  - Dock 唤回便签：macOS 未实测
+  - ⌘Q 退出确认（含未保存修改的合并提示）：macOS 未实测
+  - Windows 注销 / 关机时保存草稿并在下次启动提供恢复（#110，跟踪 #45）
+- Windows / Linux 上无法创建托盘图标时，关闭或隐藏最后一个可见窗口会直接退出应用（按钮提示里有说明）
+- macOS 安装包未签名
 
 ## [0.3.3] - 2026-11-13
 
@@ -218,7 +229,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comprehensive test suite (unit, component, integration, E2E)
 - CI/CD pipeline with multi-platform builds
 
-[unreleased]: https://github.com/Jackela/ClarityOKR/compare/v0.3.3...HEAD
+[unreleased]: https://github.com/Jackela/ClarityOKR/compare/v0.3.4...HEAD
+[0.3.4]: https://github.com/Jackela/ClarityOKR/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/Jackela/ClarityOKR/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/Jackela/ClarityOKR/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/Jackela/ClarityOKR/compare/v0.3.0...v0.3.1
