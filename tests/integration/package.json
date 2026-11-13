@@ -7,14 +7,14 @@
     "test": "cross-env NODE_OPTIONS=--experimental-vm-modules pnpm exec jest --config jest.config.cjs --forceExit"
   },
   "dependencies": {
-    "jest": "^29.7.0",
-    "jest-resolve": "^29.7.0",
+    "jest": "^30.5.2",
+    "jest-resolve": "^30.5.1",
     "nock": "^13.5.4",
     "node-fetch": "^3.3.2",
     "ts-jest": "^29.4.6"
   },
   "devDependencies": {
-    "@types/jest": "^29.5.12",
+    "@types/jest": "^30.0.0",
     "cross-env": "^7.0.3",
     "typescript": "~5.9.3"
   }
