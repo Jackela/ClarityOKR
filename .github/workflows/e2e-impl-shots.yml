@@ -3,6 +3,10 @@ name: E2E design screenshots (temporary)
 # Temporary workflow for the Angular 20→21 visual comparison. Not part of the product CI.
 # Dispatch on a chosen ref: `gh workflow run e2e-impl-shots.yml --ref <branch>`
 on:
+  # Push on these temp branches (the file is not on main, so workflow_dispatch
+  # from the default branch is unavailable). Do not add this workflow to a PR.
+  push:
+    branches: ['ci/temp-e2e-impl-shots-main', 'ci/temp-e2e-impl-shots-ng21']
   workflow_dispatch:
 
 concurrency:
