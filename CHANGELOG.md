@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Internal
 
+- 仅开发与构建：在 `@angular/cli` / `@angular/build` 20.3.42 之后，去掉 `@modelcontextprotocol/sdk`、`vite@7`、`zod@4` 的 pnpm override；锁文件仍解析到 SDK 1.32.1、vite 7.3.7，应用内 zod 仍为 4.6.7（CLI 副本 4.6.6 ≥ 4.6.6）（[#107](https://github.com/Jackela/ClarityOKR/issues/107)）
 - 仅开发与构建：`@angular/cli` / `@angular/build`（及随之的 devkit / schematics）20.3.39 → 20.3.42；框架包仍为 20.3.34，overrides 未改（[#107](https://github.com/Jackela/ClarityOKR/issues/107)）
 - 仅开发与构建：锁文件将 `@hono/node-server` 从 2.1.4 升到 2.1.8，修复 GHSA-qv5m-9pm6-hqp3 / GHSA-jpvv-r467-5p4w；不打包进安装包（[#132](https://github.com/Jackela/ClarityOKR/issues/132)）
 - 仅开发与构建：去掉 `undici@6` / `undici@7` 的 pnpm override；锁文件仍解析到 ≥ 6.29.1 / ≥ 7.30.1，审计保持干净（[#107](https://github.com/Jackela/ClarityOKR/issues/107)）
