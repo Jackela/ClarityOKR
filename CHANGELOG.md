@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-11-13
+
 ### Fixed
 
 - 导入对话框「版本不支持」正文与 #85 定稿对齐：「最新版」改为「当前版本的」；读不出版本号时改为「这个文件的版本无法识别」（[#112](https://github.com/Jackela/ClarityOKR/issues/112)）
@@ -20,6 +22,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 仅开发与构建：锁文件将 `@hono/node-server` 从 2.1.4 升到 2.1.8，修复 GHSA-qv5m-9pm6-hqp3 / GHSA-jpvv-r467-5p4w；不打包进安装包（[#132](https://github.com/Jackela/ClarityOKR/issues/132)）
 - 仅开发与构建：去掉 `undici@6` / `undici@7` 的 pnpm override；锁文件仍解析到 ≥ 6.29.1 / ≥ 7.30.1，审计保持干净（[#107](https://github.com/Jackela/ClarityOKR/issues/107)）
 - 仅开发与构建：去掉 `tar` / `handlebars` 的 pnpm override；锁文件仍解析到 ≥ 7.5.21 / ≥ 4.7.10，审计无新增 findings（[#107](https://github.com/Jackela/ClarityOKR/issues/107)）
+
+### Known issues
+
+- 「未实测」：以下行为只有自动化测试，尚未在真机上手动验证
+  - 系统托盘（菜单「显示便签 / 退出」、点击唤回）：macOS、Windows、Linux 均未实测
+  - Dock 唤回便签：macOS 未实测
+  - ⌘Q 退出确认（含未保存修改的合并提示）：macOS 未实测
+  - Windows 注销 / 关机时保存草稿并在下次启动提供恢复（#110，跟踪 #45）
+- Windows / Linux 上无法创建托盘图标时，关闭或隐藏最后一个可见窗口会直接退出应用（按钮提示里有说明）
+- macOS 安装包未签名
 
 ## [0.3.2] - 2026-11-06
 
@@ -43,7 +55,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Windows 注销 / 关机时保存草稿并在下次启动提供恢复（#110，跟踪 #45）
 - Windows / Linux 上无法创建托盘图标时，关闭或隐藏最后一个可见窗口会直接退出应用（按钮提示里有说明）
 - macOS 安装包未签名
-- 澄清向导的进度计数多算 1：答第 k 题时显示「问题 k+1 / …」（[#123](https://github.com/Jackela/ClarityOKR/issues/123)）
 
 ## [0.3.1] - 2026-10-28
 
@@ -196,7 +207,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comprehensive test suite (unit, component, integration, E2E)
 - CI/CD pipeline with multi-platform builds
 
-[unreleased]: https://github.com/Jackela/ClarityOKR/compare/v0.3.2...HEAD
+[unreleased]: https://github.com/Jackela/ClarityOKR/compare/v0.3.3...HEAD
+[0.3.3]: https://github.com/Jackela/ClarityOKR/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/Jackela/ClarityOKR/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/Jackela/ClarityOKR/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/Jackela/ClarityOKR/compare/v0.2.0...v0.3.0
