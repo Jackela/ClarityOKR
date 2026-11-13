@@ -191,7 +191,7 @@ describe('ImportFlow (#49, S1§8 + v3.1)', () => {
     [
       { kind: 'unsupported_version', version: '2' },
       '这个文件的版本不支持',
-      '这个文件来自版本 2',
+      '这个文件来自版本 2，当前只能导入版本 1 的文件。请用当前版本的 ClarityOKR 重新导出后再导入。',
       null,
     ],
     [{ kind: 'read_failed', category: 'permission' }, '没能读取这个文件', '没有权限', 'reselect'],

@@ -248,11 +248,11 @@ export const IMPORT_ISSUE_UI = {
 } as const;
 
 /**
- * #85 — whole-file import problems (S1§8.6 error table, S1§9.4 empty backup). Writer's copy
- * (/workspace/clarityokr-85/copy.md) verbatim, with the product decisions on its 【待确认】:
- * {v} only when it is 1–4 digits, else the writer's fallback 「这个文件来自不支持的版本」;
- * the re-export sentence reads 「请用最新版 ClarityOKR 重新导出后再导入」; the empty backup stays an
- * information dialog. Each body's last line is 「数据没有任何改动。」 (`unchanged`).
+ * #85 / #112 — whole-file import problems (S1§8.6 error table, S1§9.4 empty backup). Writer's
+ * copy (/workspace/clarityokr-85/copy.md) verbatim, with the product decisions on its 【待确认】:
+ * {v} only when it is 1–4 digits, else 「这个文件的版本无法识别」; the re-export sentence reads
+ * 「请用当前版本的 ClarityOKR 重新导出后再导入」; the empty backup stays an information dialog.
+ * Each body's last line is 「数据没有任何改动。」 (`unchanged`).
  */
 export type ImportFileProblemCode = 'not_json' | 'unsupported_version' | 'empty_backup';
 
@@ -286,10 +286,10 @@ export function importFileProblemCopy(
       };
     case 'unsupported_version': {
       const v = displayableVersion(params.version);
-      const from = v === null ? '这个文件来自不支持的版本' : `这个文件来自版本 ${v}`;
+      const from = v === null ? '这个文件的版本无法识别' : `这个文件来自版本 ${v}`;
       return {
         title: '这个文件的版本不支持',
-        body: `${from}，当前只能导入版本 1 的文件。请用最新版 ClarityOKR 重新导出后再导入。`,
+        body: `${from}，当前只能导入版本 1 的文件。请用当前版本的 ClarityOKR 重新导出后再导入。`,
         unchanged: IMPORT_UNCHANGED_LINE,
         tone: 'error',
       };

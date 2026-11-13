@@ -284,13 +284,13 @@ test.describe('#49 import', () => {
     await plainError(
       'S1-11b-import-version-fallback-plain',
       JSON.stringify({ ...exported, schemaVersion: 'v2.x' }),
-      '这个文件来自不支持的版本，当前只能导入版本 1 的文件。请用最新版 ClarityOKR 重新导出后再导入。',
+      '这个文件的版本无法识别，当前只能导入版本 1 的文件。请用当前版本的 ClarityOKR 重新导出后再导入。',
       ['知道了'],
     );
     await plainError(
       'S1-11c-import-version-narrow-plain',
       JSON.stringify({ ...exported, schemaVersion: 2 }),
-      '这个文件来自版本 2，当前只能导入版本 1 的文件。请用最新版 ClarityOKR 重新导出后再导入。',
+      '这个文件来自版本 2，当前只能导入版本 1 的文件。请用当前版本的 ClarityOKR 重新导出后再导入。',
       ['知道了'],
       320,
     );
