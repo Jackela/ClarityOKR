@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Internal
+
+- N38：500 个 OKR 导出测得 3.41 MB（3,576,701 字节）；往返导入后数据一致（[#82](https://github.com/Jackela/ClarityOKR/issues/82)）
+
 ## [0.3.4] - 2026-11-14
 
 ### Internal
