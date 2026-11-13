@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Internal
 
-- 500 个 OKR 的备份集成测试现在还会断言导出文件小于 50 MB，并把导出结果再导入空库，按有意义字段做深比较；测得大小会打在测试日志里（[#82](https://github.com/Jackela/ClarityOKR/issues/82) N38）
+- N38：500 个 OKR 导出测得 3.41 MB（3,576,701 字节）；往返导入后数据一致（[#82](https://github.com/Jackela/ClarityOKR/issues/82)）
 
 ## [0.3.4] - 2026-11-14
 
