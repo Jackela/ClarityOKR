@@ -5,7 +5,6 @@
  * <clarityokr-loading-spinner size="md" message="Loading..." />
  */
 
-import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 
 /**

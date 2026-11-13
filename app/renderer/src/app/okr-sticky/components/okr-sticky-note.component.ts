@@ -43,7 +43,6 @@
  *
  * @module okr-sticky/components/okr-sticky-note
  */
-import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,

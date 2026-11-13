@@ -15,7 +15,6 @@
  *
  * @module okr-sticky/components/okr-feedback
  */
-import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,

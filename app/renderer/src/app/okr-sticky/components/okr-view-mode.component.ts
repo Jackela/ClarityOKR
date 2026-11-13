@@ -16,7 +16,6 @@
  *
  * @module okr-sticky/components/okr-view-mode
  */
-import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 
 import type { KeyResultViewModel } from './types.js';
@@ -29,7 +28,7 @@ import type { KeyResultViewModel } from './types.js';
   template: `
     <div class="okr-view-mode">
       <ol class="okr-view-mode__list">
-        @for (kr of keyResults; track trackByKeyResultId(i, kr); let i = $index) {
+        @for (kr of keyResults; track kr.id; let i = $index) {
           <li
             class="okr-view-mode__item animate-enter-up"
             [class.animate-stagger-1]="i === 0"
