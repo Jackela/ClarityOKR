@@ -1,4 +1,3 @@
-import { CommonModule } from '@angular/common';
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import {
   Component,
@@ -59,7 +58,6 @@ import { EditModeStore } from './okr-sticky/state/edit-mode.store';
   selector: 'clarityokr-root',
   standalone: true,
   imports: [
-    CommonModule,
     ReactiveFormsModule,
     ClarificationWizardComponent,
     OkrStickyNoteComponent,

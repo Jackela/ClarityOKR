@@ -14,7 +14,6 @@
  *   </clarityokr-card>
  */
 
-import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 
 export type CardVariant = 'default' | 'elevated' | 'outlined';
@@ -23,7 +22,7 @@ export type CardPadding = 'sm' | 'md' | 'lg' | 'xl';
 @Component({
   selector: 'clarityokr-card',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div

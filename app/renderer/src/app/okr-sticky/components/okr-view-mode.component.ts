@@ -24,28 +24,31 @@ import type { KeyResultViewModel } from './types.js';
 @Component({
   selector: 'clarityokr-okr-view-mode',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="okr-view-mode">
       <ol class="okr-view-mode__list">
-        <li
-          class="okr-view-mode__item animate-enter-up"
-          *ngFor="let kr of keyResults; trackBy: trackByKeyResultId; let i = index"
-          [class.animate-stagger-1]="i === 0"
-          [class.animate-stagger-2]="i === 1"
-          [class.animate-stagger-3]="i === 2"
-          [class.animate-stagger-4]="i === 3"
-          [class.animate-stagger-5]="i >= 4"
-          data-testid="sticky-key-result"
-        >
-          <div class="okr-view-mode__item-text">{{ kr.statement }}</div>
-          <div class="okr-view-mode__item-badges">
-            <span *ngIf="kr.metricLabel" class="okr-view-mode__badge" data-testid="sticky-kr-badge">
-              {{ kr.metricLabel }}
-            </span>
-          </div>
-        </li>
+        @for (kr of keyResults; track trackByKeyResultId(i, kr); let i = $index) {
+          <li
+            class="okr-view-mode__item animate-enter-up"
+            [class.animate-stagger-1]="i === 0"
+            [class.animate-stagger-2]="i === 1"
+            [class.animate-stagger-3]="i === 2"
+            [class.animate-stagger-4]="i === 3"
+            [class.animate-stagger-5]="i >= 4"
+            data-testid="sticky-key-result"
+          >
+            <div class="okr-view-mode__item-text">{{ kr.statement }}</div>
+            <div class="okr-view-mode__item-badges">
+              @if (kr.metricLabel) {
+                <span class="okr-view-mode__badge" data-testid="sticky-kr-badge">
+                  {{ kr.metricLabel }}
+                </span>
+              }
+            </div>
+          </li>
+        }
       </ol>
     </div>
   `,

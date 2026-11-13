@@ -8,7 +8,12 @@
 import './polyfills';
 
 import { bootstrapApplication } from '@angular/platform-browser';
-import { ErrorHandler, inject, provideAppInitializer } from '@angular/core';
+import {
+  ErrorHandler,
+  inject,
+  provideAppInitializer,
+  provideZoneChangeDetection,
+} from '@angular/core';
 
 import { AppComponent } from './app/app.component';
 import { ReminderStore } from './app/closed-loop/reminder.store';
@@ -19,6 +24,7 @@ import { environment } from './environments/environment';
 
 bootstrapApplication(AppComponent, {
   providers: [
+    provideZoneChangeDetection(),
     { provide: 'LlmGateway', useClass: IpcLlmGateway },
     { provide: ErrorHandler, useClass: GlobalErrorHandler },
     Logger,

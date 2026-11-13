@@ -27,7 +27,7 @@ import { ClarificationStateMachine } from '../services/clarification-state-machi
 @Component({
   selector: 'clarityokr-clarification-wizard',
   standalone: true,
-  imports: [CommonModule, ProgressIndicatorComponent, SkeletonComponent, TranslatePipe],
+  imports: [ProgressIndicatorComponent, SkeletonComponent, TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrls: ['./clarification-wizard.component.scss'],
   template: `

@@ -15,7 +15,6 @@
  *   </clarityokr-input>
  */
 
-import { CommonModule } from '@angular/common';
 // Angular constructor injection requires this runtime token.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { ChangeDetectorRef } from '@angular/core';
@@ -33,7 +32,7 @@ import type { ControlValueAccessor } from '@angular/forms';
 @Component({
   selector: 'clarityokr-input',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="input-wrapper">

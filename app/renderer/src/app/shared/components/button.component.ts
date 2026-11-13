@@ -28,7 +28,7 @@ import { createRipple } from './button.component.utils.js';
 @Component({
   selector: 'clarityokr-button',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <button
