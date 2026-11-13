@@ -432,7 +432,7 @@ describe('#85 file problem dialogs (copy.md, verbatim)', () => {
     const c = importFileProblemCopy('unsupported_version', { version: '2' });
     expect(c.title).toBe('这个文件的版本不支持');
     expect(c.body).toBe(
-      '这个文件来自版本 2，当前只能导入版本 1 的文件。请用最新版 ClarityOKR 重新导出后再导入。',
+      '这个文件来自版本 2，当前只能导入版本 1 的文件。请用当前版本的 ClarityOKR 重新导出后再导入。',
     );
     expect(c.tone).toBe('error');
     expect(c.unchanged).toBe(IMPORT_UNCHANGED_LINE);
@@ -445,16 +445,22 @@ describe('#85 file problem dialogs (copy.md, verbatim)', () => {
     'unsupported_version with %p (not 1–4 pure digits) → fallback sentence',
     (version) => {
       expect(displayableVersion(version)).toBeNull();
-      expect(importFileProblemCopy('unsupported_version', { version }).body).toBe(
-        '这个文件来自不支持的版本，当前只能导入版本 1 的文件。请用最新版 ClarityOKR 重新导出后再导入。',
+      const body = importFileProblemCopy('unsupported_version', { version }).body;
+      expect(body).toBe(
+        '这个文件的版本无法识别，当前只能导入版本 1 的文件。请用当前版本的 ClarityOKR 重新导出后再导入。',
       );
+      expect(body).not.toContain('{v}');
+      expect(body).not.toMatch(/来自版本\s*，|版本\s+，/);
     },
   );
 
-  it('unsupported_version without a version → fallback sentence', () => {
-    expect(importFileProblemCopy('unsupported_version', {}).body).toMatch(
-      /^这个文件来自不支持的版本，/,
+  it('unsupported_version without a version → fallback sentence, no {v} or empty version', () => {
+    const body = importFileProblemCopy('unsupported_version', {}).body;
+    expect(body).toBe(
+      '这个文件的版本无法识别，当前只能导入版本 1 的文件。请用当前版本的 ClarityOKR 重新导出后再导入。',
     );
+    expect(body).not.toContain('{v}');
+    expect(body).not.toMatch(/来自版本\s*，|版本\s+，/);
   });
 
   it('empty_backup: information tone, 「备份里没有 OKR」', () => {
