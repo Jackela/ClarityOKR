@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Internal
+
+- 仅开发与构建：去掉 `js-yaml@3`、`js-yaml@4` 和 `@istanbuljs/load-nyc-config>js-yaml` 的 pnpm override；锁文件仍解析到 js-yaml 4.3.2（≥ 3.15.2 / ≥ 4.3.2 / GHSA-2883-xcg3-v3hh）（[#107](https://github.com/Jackela/ClarityOKR/issues/107)）
+
 ## [0.3.3] - 2026-11-13
 
 ### Fixed
