@@ -1,10 +1,11 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 
 import type { DraftKeyResult } from '../okr-sticky/state/edit-mode.store';
 import { TextEditComponent, type TextSaveFailure } from './text-edit.component';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   standalone: true,
   imports: [TextEditComponent],
   template: `<clarityokr-text-edit

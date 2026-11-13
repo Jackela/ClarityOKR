@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import {
   readConfirmExitEvent,
@@ -10,6 +10,7 @@ import { ClosedLoopApi } from './closed-loop-api.service';
 import { ExitConfirmComponent } from './exit-confirm.component';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   standalone: true,
   imports: [ExitConfirmComponent],
   template: `

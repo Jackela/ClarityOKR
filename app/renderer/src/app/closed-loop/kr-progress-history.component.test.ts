@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import type { ProgressEntryRecord } from '@clarityokr/contracts';
 
@@ -7,6 +7,7 @@ import { KrProgressHistoryComponent } from './kr-progress-history.component';
 import { makeEntry } from './testing/fixtures';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   standalone: true,
   imports: [KrProgressHistoryComponent],
   template: `<clarityokr-kr-progress-history krId="kr-1" statement="提升留存" status="at_risk" />`,

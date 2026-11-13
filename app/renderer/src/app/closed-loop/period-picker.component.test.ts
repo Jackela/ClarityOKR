@@ -1,10 +1,11 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import type { Period } from '@clarityokr/contracts';
 
 import { PeriodPickerComponent } from './period-picker.component';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   standalone: true,
   imports: [PeriodPickerComponent],
   template: `<clarityokr-period-picker

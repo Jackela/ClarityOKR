@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import type { ClosedLoopError, KeyResultRecord, KrProgressInfo } from '@clarityokr/contracts';
 
@@ -10,6 +10,7 @@ import { KrRowComponent } from './kr-row.component';
 import { makeChange, makeDetail, makeEntry, makeInfo, makeKr } from './testing/fixtures';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   standalone: true,
   imports: [KrRowComponent],
   template: `

@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 
 import { Logger } from '../core/services/logger.service';
@@ -14,6 +14,7 @@ import { StickyShellComponent } from './sticky-shell.component';
 import { makeDetail, makeKr, makeListItem } from './testing/fixtures';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   standalone: true,
   imports: [StickyShellComponent],
   template: `<clarityokr-sticky-shell [okr]="okr" />`,

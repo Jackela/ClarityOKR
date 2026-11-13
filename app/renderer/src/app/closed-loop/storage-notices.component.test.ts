@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import type { StorageModeName } from '@clarityokr/contracts';
 
@@ -8,6 +8,7 @@ import { ClosedLoopApi } from './closed-loop-api.service';
 import { StorageNoticesComponent } from './storage-notices.component';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   standalone: true,
   imports: [StorageNoticesComponent],
   template: `

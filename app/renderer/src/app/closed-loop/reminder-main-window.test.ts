@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 
 import { Logger } from '../core/services/logger.service';
@@ -18,6 +18,7 @@ import { makeDetail, makeKr, makeListItem } from './testing/fixtures';
  * still show there, and 「去复盘」 is handed to the main process (the shell has the review page).
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   standalone: true,
   imports: [OkrStickyNoteComponent],
   template: `<clarityokr-sticky-note [okr]="okr" />`,

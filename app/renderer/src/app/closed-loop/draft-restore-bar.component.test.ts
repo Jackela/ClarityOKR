@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import type {
   DraftGetReply,
@@ -12,6 +12,7 @@ import { DraftRestoreBarComponent } from './draft-restore-bar.component';
 import { DraftRestoreHosts, type DraftRestoreHost } from './draft-restore';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   standalone: true,
   imports: [DraftRestoreBarComponent],
   template: `<h1 id="main-heading" tabindex="-1">ClarityOKR</h1>

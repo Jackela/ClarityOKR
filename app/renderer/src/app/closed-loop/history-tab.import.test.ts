@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import type { OkrListItem } from '@clarityokr/contracts';
 
@@ -11,6 +11,7 @@ import { ImportFlow } from './import-flow.service';
 import { makeListItem } from './testing/fixtures';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   standalone: true,
   imports: [HistoryTabComponent],
   template: `<clarityokr-history-tab [blockedReason]="blocked" />`,
