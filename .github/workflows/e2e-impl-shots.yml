@@ -1,0 +1,338 @@
+name: E2E design screenshots (temporary)
+
+# Temporary workflow for the Angular 20→21 visual comparison. Not part of the product CI.
+# Dispatch on a chosen ref: `gh workflow run e2e-impl-shots.yml --ref <branch>`
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-impl-shots-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '24'
+  PNPM_VERSION: '9'
+  CI: 'true'
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+# 全局超时配置
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build-and-test:
+    name: Lint • Typecheck • Unit • Component • Integration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    outputs:
+      coverage-path: ${{ steps.coverage.outputs.path }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install pnpm
+        run: |
+          npm install -g pnpm@${{ env.PNPM_VERSION }}
+          pnpm --version
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        run: |
+          echo "STORE_PATH=$(pnpm store path)" >> "$GITHUB_OUTPUT"
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v6
+        id: cache-pnpm
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Run npm audit security scan
+        timeout-minutes: 5
+        run: |
+          pnpm run test:audit
+          pnpm run test:dependency-security
+          pnpm run audit:security
+
+      - name: Release setup checks (#44)
+        run: pnpm run test:release-config
+
+      - name: Build contracts
+        run: pnpm run build:contracts
+
+      - name: Lint
+        timeout-minutes: 15
+        if: ${{ github.actor != 'nektos/act' || env.ALLOW_LINT == 'true' }}
+        run: pnpm run lint
+
+      - name: Typecheck
+        timeout-minutes: 5
+        run: pnpm run typecheck
+
+      - name: Build
+        timeout-minutes: 20
+        env:
+          NODE_OPTIONS: '--max-old-space-size=4096'
+        run: pnpm run build:ci
+
+      - name: Collect unit, component and integration coverage for final combined gate
+        id: coverage
+        timeout-minutes: 30
+        run: |
+          pnpm run coverage:collect
+          echo "path=coverage" >> "$GITHUB_OUTPUT"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: build-artifacts
+          path: |
+            app/main/dist
+            app/renderer/dist
+            packages/contracts/dist
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: test-results
+          path: |
+            coverage/
+            tests/unit/coverage/
+            app/renderer/coverage/
+            tests/integration/coverage/
+            tests/unit/junit.xml
+          retention-days: 7
+          if-no-files-found: ignore
+
+  e2e:
+    name: E2E (Playwright + Electron)
+    needs: build-and-test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      LLM_API_KEY: test
+      LLM_BASE_URL: http://127.0.0.1:7777
+      LLM_MODEL: gpt-4o-mini
+      ELECTRON_PATH: ./node_modules/.bin/electron
+      ELECTRON_EXTRA_LAUNCH_ARGS: --no-sandbox --disable-setuid-sandbox --disable-gpu --disable-dev-shm-usage
+      ELECTRON_DISABLE_SANDBOX: 'true'
+      ELECTRON_ENABLE_LOGGING: 'true'
+      CI_DEBUG_SCREENSHOTS: 'true'
+      DEBUG: 'pw:api'
+      E2E_COVERAGE: 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install pnpm
+        run: |
+          npm install -g pnpm@${{ env.PNPM_VERSION }}
+          pnpm --version
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        run: |
+          echo "STORE_PATH=$(pnpm store path)" >> "$GITHUB_OUTPUT"
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v6
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Run npm audit security scan
+        timeout-minutes: 5
+        run: |
+          echo "🔒 Running npm audit security scan..."
+          pnpm run test:dependency-security
+          pnpm run audit:security
+
+      - name: Rebuild native modules for Electron
+        run: pnpm run rebuild:electron
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: build-artifacts
+          path: .
+
+      - name: Download coverage from the same workflow head
+        uses: actions/download-artifact@v8
+        with:
+          name: test-results
+          path: .
+
+      - name: Build instrumented main, sandboxed preload and Angular renderer
+        run: pnpm run build:coverage
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v6
+        id: cache-playwright
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('**/playwright.config.ts') }}
+          restore-keys: |
+            pw-${{ runner.os }}-
+
+      - name: Install Playwright browsers + deps
+        if: steps.cache-playwright.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Install Electron system deps
+        run: |
+          sudo apt-get update || true
+          sudo apt-get install -y --no-install-recommends \
+            fonts-noto-cjk \
+            libatk-bridge2.0-0 \
+            libgtk-3-0 \
+            libnss3 \
+            libxss1 \
+            libasound2t64 \
+            libxtst6 \
+            libdrm2 \
+            libgbm1 \
+            libxcomposite1 \
+            libxrandr2 \
+            libxdamage1 \
+            libglib2.0-0 \
+            libxkbcommon0 \
+            libx11-xcb1 \
+            libxshmfence1 \
+            libcups2 \
+            libpangocairo-1.0-0 \
+            libpango-1.0-0 \
+            xvfb \
+            libatk1.0-0 \
+            libatspi2.0-0 \
+            libcairo2 \
+            libdbus-1-3 \
+            libexpat1 \
+            libfontconfig1 \
+            libgcc-s1 \
+            libgdk-pixbuf2.0-0 \
+            libnspr4 \
+            libstdc++6 \
+            libuuid1 \
+            libx11-6 \
+            libxcb1 \
+            libxcursor1 \
+            libxext6 \
+            libxfixes3 \
+            libxi6 \
+            libxrender1 || true
+
+      - name: Setup Electron sandbox permissions
+        run: |
+          if command -v sudo >/dev/null 2>&1; then
+            SANDBOX_PATH=$(node -p "require('path').join(require('path').dirname(require.resolve('electron')), 'dist', 'chrome-sandbox')" 2>/dev/null) || true
+            if [ -f "$SANDBOX_PATH" ]; then
+              echo "Setting up sandbox permissions for $SANDBOX_PATH"
+              sudo chown root:root "$SANDBOX_PATH" 2>/dev/null || true
+              sudo chmod 4755 "$SANDBOX_PATH" 2>/dev/null || true
+            else
+              echo "Sandbox not found at expected path, using --no-sandbox flag"
+            fi
+          fi
+
+      - name: Run E2E tests
+        timeout-minutes: 20
+        env:
+          S3_12_SHOTS_DIR: ${{ github.workspace }}/s3-12-shots
+          IMPL_SHOTS_DIR: ${{ github.workspace }}/impl-shots
+        run: |
+          if command -v xvfb-run >/dev/null 2>&1; then
+            echo "Running E2E tests with xvfb..."
+            xvfb-run -a -s "-screen 0 1280x800x24" pnpm run test:e2e:ci
+          else
+            echo "Running E2E tests without xvfb..."
+            pnpm run test:e2e:ci
+          fi
+
+      - name: Upload S3§12 screenshots
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: s3-12-screenshots-${{ github.sha }}
+          path: s3-12-shots/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload IMPL_SHOTS design screenshots
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: impl-shots-${{ github.sha }}
+          path: impl-shots/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload Playwright traces (on failure)
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-traces-${{ github.run_id }}
+          path: |
+            tests/e2e/test-results/**/trace.zip
+            tests/e2e/test-results/**/screenshot.png
+            tests/e2e/test-results/**/video.webm
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Map real Electron coverage to source and enforce 80% across every metric
+        run: |
+          pnpm run coverage:remap:e2e
+          pnpm run coverage:check
+
+      - name: Upload combined source coverage
+        uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: combined-source-coverage
+          path: |
+            coverage/
+            tests/e2e/coverage/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v7
+        with:
+          files: ./coverage/lcov.info
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload Playwright HTML report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-${{ github.run_id }}
+          path: |
+            html-report/
+            tests/e2e/test-results/junit.xml
+          if-no-files-found: ignore
+          retention-days: 7
