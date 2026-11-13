@@ -9,6 +9,7 @@ import {
   signal,
   type OnDestroy,
   ViewChild,
+  ChangeDetectionStrategy,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import {
@@ -168,6 +169,7 @@ import { EditModeStore } from './okr-sticky/state/edit-mode.store';
     <!-- Quit / restart confirmation (spec §1.2c), in whichever window the main process picks. -->
     <clarityokr-exit-confirm />
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./app.component.scss'],
 })
 export class AppComponent implements OnDestroy {
