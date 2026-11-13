@@ -20,7 +20,6 @@ function toDocument(objective: ObjectiveWithKeyResults): OKRDocument {
     sourceSessionId: objective.sourceSessionId ?? '',
     generatedAt: objective.createdAt,
     lastEditedAt: objective.updatedAt === objective.createdAt ? null : objective.updatedAt,
-    regenerationPolicy: 'overwrite',
     manualEdits: [],
   };
 }

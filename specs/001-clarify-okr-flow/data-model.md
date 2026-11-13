@@ -31,7 +31,6 @@
 - **sourceSessionId**: string – references ClarificationSession.
 - **generatedAt**: ISO8601 timestamp – AI generation time.
 - **lastEditedAt**: ISO8601 timestamp | null – last manual edit time.
-- **regenerationPolicy**: `"overwrite" | "append"` – last user choice on regenerate.
 - **manualEdits**: ManualEdit[] – history of user adjustments.
 
 ## KeyResult

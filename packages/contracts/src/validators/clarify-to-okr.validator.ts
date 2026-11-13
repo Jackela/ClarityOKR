@@ -80,6 +80,8 @@ export const manualEditRecordSchema = z.object({
   editedAt: z.string().datetime(),
 });
 
+// z.object() strips unknown keys, so a stored or imported document that still
+// carries leftover fields from earlier shapes will parse and not fail.
 export const okrDocumentSchema = z.object({
   id: z.string().min(1),
   objective: graphemeText(TEXT_LIMITS.objective).refine((v) => v.length > 0, 'empty'),
@@ -87,7 +89,6 @@ export const okrDocumentSchema = z.object({
   sourceSessionId: z.string().min(1),
   generatedAt: z.string().datetime(),
   lastEditedAt: z.string().datetime().nullable().optional(),
-  regenerationPolicy: z.enum(['overwrite', 'append']),
   manualEdits: z.array(manualEditRecordSchema),
 });
 
@@ -110,15 +111,6 @@ export const generateOKRResponseSchema = z.object({
   session: clarificationSessionSchema,
 });
 
-export const regenerateOKRRequestSchema = z.object({
-  sessionId: z.string().min(1),
-  policy: z.enum(['overwrite', 'append']),
-});
-
-export const regenerateOKRResponseSchema = z.object({
-  okr: okrDocumentSchema,
-  session: clarificationSessionSchema,
-});
 
 export const persistClarificationRequestSchema = z.object({
   session: clarificationSessionSchema,

@@ -21,7 +21,6 @@ import type {
 } from '../clarification/index.js';
 import type { OkrStoreRepository as OkrRepository } from '../persistence/okr-store/okr-store-repository.js';
 import type { ActionLogService } from '../services/action-log.service.js';
-import type { OkrRegenerationService } from '../services/okr-regeneration.service.js';
 import type { StickyWindowManager } from './sticky-window-manager.js';
 import {
   isGenerateDraftPayloadNew,
@@ -52,8 +51,6 @@ export interface ClarificationIpcRouterDeps {
   okrRepository: OkrRepository;
   /** Manager for sticky window lifecycle */
   stickyWindowManager: StickyWindowManager;
-  /** Service for OKR regeneration */
-  okrRegenerationService: OkrRegenerationService;
   /** Service for action logging */
   actionLogService: ActionLogService;
 }

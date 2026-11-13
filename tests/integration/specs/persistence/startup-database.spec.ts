@@ -210,7 +210,6 @@ describe('startup: opening the database', () => {
         sourceSessionId: 's1',
         generatedAt: '2026-10-12T00:00:00.000Z',
         lastEditedAt: null,
-        regenerationPolicy: 'overwrite',
         manualEdits: [],
       });
       expect((await repo.loadLatest())?.objective).toBe('Fresh start');
@@ -677,7 +676,6 @@ describe('startup: opening the database', () => {
         sourceSessionId: 's',
         generatedAt: '2026-10-12T00:00:00.000Z',
         lastEditedAt: null,
-        regenerationPolicy: 'overwrite',
         manualEdits: [],
       });
       expect((await repo.loadLatest())?.objective).toBe('In memory');

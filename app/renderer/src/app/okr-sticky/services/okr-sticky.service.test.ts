@@ -13,7 +13,6 @@ const document: OKRDocument = {
     { id: 'b', statement: 'Second result', successMetric: '90%' },
   ],
   generatedAt: time,
-  regenerationPolicy: 'append',
   manualEdits: [],
 };
 const session = {

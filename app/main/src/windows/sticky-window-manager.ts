@@ -10,7 +10,6 @@ import type { OKRRepository } from '../persistence/okr-repository.types.js';
 import type { IActionLogWriter } from '../persistence/action-log-writer.js';
 import type { OkrAgentService } from '../services/okr-agent.service.js';
 import type { ISessionRepository } from '../persistence/interfaces/index.js';
-import type { OkrRegenerationService } from '../services/okr-regeneration.service.js';
 
 /**
  * Configuration for sticky window manager
@@ -22,7 +21,6 @@ export interface StickyWindowConfig {
   actionLogWriter: IActionLogWriter;
   okrAgentService: OkrAgentService;
   sessionRepository: ISessionRepository;
-  okrRegeneration: OkrRegenerationService;
   isQuitting: () => boolean;
   /** N15: closing this window is a quit instead of a hide (no tray, last visible window). */
   closeQuits?: () => boolean;
@@ -211,42 +209,6 @@ export class StickyWindowManager {
    */
   async reopen(): Promise<void> {
     await this.reopenStickyWindow();
-  }
-
-  /**
-   * Regenerates an OKR with the specified policy.
-   * Retrieves clarification context from session, calls LLM to generate new OKR draft,
-   * applies the policy (overwrite or append), saves to repository, broadcasts update,
-   * and logs the action.
-   *
-   * @param sessionId - The clarification session ID
-   * @param policy - The regeneration policy ('overwrite' or 'append')
-   * @throws Error if session not found, LLM generation fails, or persistence fails
-   *
-   * @usage
-   * ```typescript
-   * await stickyWindowManager.regenerateOkr('session-123', 'overwrite');
-   * // or
-   * await stickyWindowManager.regenerateOkr('session-123', 'append');
-   * ```
-   */
-  async regenerateOkr(sessionId: string, policy: 'overwrite' | 'append'): Promise<void> {
-    Logger.info('[main] regenerating OKR', { sessionId, policy });
-
-    const result = await this.config.okrRegeneration.regenerate(sessionId, policy);
-
-    if (!result.ok) {
-      Logger.error('[main] Failed to regenerate OKR', { sessionId, policy, error: result.error });
-      throw result.error;
-    }
-
-    const newOkr = result.value;
-
-    this.lastDocument = newOkr;
-    this.sendDocument(newOkr);
-    await this.config.actionLogWriter.logRegenerate(sessionId, newOkr.id, policy);
-
-    Logger.info('[main] OKR regenerated successfully', { okrId: newOkr.id, policy });
   }
 
   private sendDocument(document: OKRDocument): void {

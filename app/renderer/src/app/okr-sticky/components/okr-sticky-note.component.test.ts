@@ -38,7 +38,6 @@ describe('OkrStickyNoteComponent', () => {
     generatedAt: '2025-10-31T10:12:00.000Z',
     lastEditedAt: null,
     hasManualEdits: false,
-    regenerationPolicy: 'append',
   };
 
   beforeEach(async () => {
@@ -128,7 +127,6 @@ describe('Sticky note DOM with actual edit store and gateway', () => {
       { id: 'second', statement: 'Second result' },
     ],
     generatedAt: time,
-    regenerationPolicy: 'append',
     manualEdits: [],
   };
   let fixture: ComponentFixture<StickyInteractionHost>;

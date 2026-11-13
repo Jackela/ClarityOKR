@@ -23,7 +23,6 @@ const okr: OKRDocument = {
   sourceSessionId: '12345678-1234-4234-8234-123456789012',
   generatedAt: '2026-01-01T00:00:00.000Z',
   lastEditedAt: null,
-  regenerationPolicy: 'append',
   manualEdits: [],
 };
 

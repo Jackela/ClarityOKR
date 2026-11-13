@@ -18,7 +18,6 @@ interface OkrStickyViewModel {
   generatedAt: string; // formatted ISO string
   lastEditedAt: string | null;
   hasManualEdits: boolean;
-  regenerationPolicy: 'overwrite' | 'append';
 }
 
 /**
@@ -84,7 +83,6 @@ describe('OkrProjectionService', () => {
       sourceSessionId: 'session-123',
       generatedAt: '2025-03-27T10:00:00.000Z',
       lastEditedAt: null,
-      regenerationPolicy: 'overwrite',
       manualEdits: [],
       ...overrides,
     };
@@ -237,23 +235,6 @@ describe('OkrProjectionService', () => {
     });
   });
 
-  describe('regeneration policy display', () => {
-    it("should display 'overwrite' policy correctly", () => {
-      const okr = buildOKRDocument({ regenerationPolicy: 'overwrite' });
-
-      const viewModel = service.project(okr);
-
-      expect(viewModel.regenerationPolicy).toBe('overwrite');
-    });
-
-    it("should display 'append' policy correctly", () => {
-      const okr = buildOKRDocument({ regenerationPolicy: 'append' });
-
-      const viewModel = service.project(okr);
-
-      expect(viewModel.regenerationPolicy).toBe('append');
-    });
-  });
 
   describe('optional fields handling', () => {
     it('should handle missing successMetric on KeyResult', () => {

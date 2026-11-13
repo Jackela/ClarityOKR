@@ -30,7 +30,6 @@ const view: OkrStickyViewModel = {
   generatedAt: '2026-10-09T08:00:00.000Z',
   lastEditedAt: null,
   hasManualEdits: false,
-  regenerationPolicy: 'append',
 };
 
 const local = (y: number, m: number, d: number) => new Date(y, m - 1, d, 10, 0, 0);
