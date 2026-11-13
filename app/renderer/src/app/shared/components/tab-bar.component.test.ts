@@ -1,9 +1,10 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 
 import { TabBarComponent } from './tab-bar.component';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   standalone: true,
   imports: [TabBarComponent],
   template: `<clarityokr-tab-bar

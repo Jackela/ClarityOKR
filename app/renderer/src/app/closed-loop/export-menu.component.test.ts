@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 
 import { ClosedLoopApi } from './closed-loop-api.service';
@@ -7,6 +7,7 @@ import { ExportFlow } from './export-flow.service';
 import { ExportMenuComponent } from './export-menu.component';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   standalone: true,
   imports: [ExportMenuComponent],
   template: `<button id="before" type="button">before</button>

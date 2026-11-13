@@ -22,7 +22,7 @@
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",
     "@types/opossum": "^8.1.8",
-    "typescript": "~5.9.3",
+    "typescript": "~6.0.3",
     "esbuild": "0.28.1"
   }
 }

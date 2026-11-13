@@ -1,5 +1,5 @@
 import { IPC_CHANNELS } from '@clarityokr/contracts';
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import type { OkrDetail } from '@clarityokr/contracts';
 
@@ -15,6 +15,7 @@ import { makeDetail, makeEntry, makeInfo, makeKr, makeListItem } from './testing
 
 /** #54 in-app reminders (S1§11) inside the real sticky shell. */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   standalone: true,
   imports: [StickyShellComponent],
   template: `<clarityokr-sticky-shell [okr]="okr" />`,

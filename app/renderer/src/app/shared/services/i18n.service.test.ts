@@ -1,9 +1,10 @@
-import { Component, inject } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { TranslatePipe } from '../pipes/translate.pipe';
 import { I18nService, type InterpolationParams } from './i18n.service';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   standalone: true,
   imports: [TranslatePipe],
   template: `

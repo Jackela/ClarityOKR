@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 
 import { PopupSelectComponent, type PopupOption } from './popup-select.component';
@@ -10,6 +10,7 @@ const OPTIONS: PopupOption[] = [
 ];
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   standalone: true,
   imports: [PopupSelectComponent],
   template: `

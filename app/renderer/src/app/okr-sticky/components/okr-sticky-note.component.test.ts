@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject } from '@angular/core';
 import { By } from '@angular/platform-browser';
 import type { OKRDocument } from '@clarityokr/contracts';
 import { Logger } from '../../core/services/logger.service';
@@ -108,6 +108,7 @@ describe('OkrStickyNoteComponent', () => {
 });
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   standalone: true,
   imports: [OkrStickyNoteComponent],
   template: `<clarityokr-sticky-note [okr]="gateway.viewModel()" />`,

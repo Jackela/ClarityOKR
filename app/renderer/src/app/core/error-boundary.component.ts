@@ -6,7 +6,7 @@
  */
 
 /* eslint-disable @typescript-eslint/consistent-type-imports */
-import { Component, Input } from '@angular/core';
+import { Component, Input, ChangeDetectionStrategy } from '@angular/core';
 import type { TemplateRef } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { ClarityOkrError, getRecoverySuggestion, isClarityOkrError } from '@clarityokr/contracts';
@@ -60,6 +60,7 @@ import { ErrorBoundaryService } from './error-boundary.service.js';
       <ng-content></ng-content>
     }
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [
     `
       :host {

@@ -1,4 +1,4 @@
-import { Component, NgZone } from '@angular/core';
+import { Component, ChangeDetectionStrategy, NgZone } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ClarityOkrError, ErrorCodes } from '@clarityokr/contracts';
 import { ErrorBoundaryService } from './error-boundary.service';
@@ -7,6 +7,7 @@ import { GlobalErrorHandler } from './error-handler';
 import { Logger } from './services/logger.service';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   standalone: true,
   imports: [ErrorBoundaryComponent],
   template: ` <app-error-boundary [fallbackTemplate]="fallback"
