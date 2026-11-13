@@ -18,7 +18,7 @@
     "@angular/platform-browser-dynamic": "22.2.6",
     "@angular/router": "22.2.6",
     "@clarityokr/contracts": "workspace:^",
-    "@ngrx/component-store": "21.1.1",
+    "@ngrx/component-store": "22.0.1",
     "rxjs": "^7.8.1",
     "zod": "^4.6.7",
     "zone.js": "~0.15.1"
