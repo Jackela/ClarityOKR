@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Internal
+
+- 仅开发与构建：因 [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) 已于 2026-10-23 撤回，去掉原先 must-keep 的 `braces` vendor patch（`file:vendor/braces`）与 pnpm override；锁文件改回上游 braces 3.0.3（仍覆盖 [GHSA-grv7-fg5c-xmjg](https://github.com/advisories/GHSA-grv7-fg5c-xmjg)）（[#107](https://github.com/Jackela/ClarityOKR/issues/107)，[#128](https://github.com/Jackela/ClarityOKR/issues/128)）
+
 ## [0.3.3] - 2026-11-13
 
 ### Fixed
