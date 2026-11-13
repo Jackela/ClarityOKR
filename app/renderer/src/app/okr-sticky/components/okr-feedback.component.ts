@@ -15,7 +15,6 @@
  *
  * @module okr-sticky/components/okr-feedback
  */
-import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -31,7 +30,7 @@ import type { FeedbackRating, FeedbackSubmission } from './okr-feedback.types.js
 @Component({
   selector: 'clarityokr-okr-feedback',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslatePipe],
+  imports: [FormsModule, TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="okr-feedback">

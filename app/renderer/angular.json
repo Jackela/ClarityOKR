@@ -16,12 +16,18 @@
             },
             "index": "src/index.html",
             "browser": "src/main.ts",
-            "polyfills": ["src/polyfills.ts"],
+            "polyfills": [
+              "src/polyfills.ts"
+            ],
             "tsConfig": "tsconfig.app.json",
             "inlineStyleLanguage": "css",
-            "styles": ["src/styles.css"],
+            "styles": [
+              "src/styles.css"
+            ],
             "scripts": [],
-            "assets": ["src/theme-bootstrap.js"],
+            "assets": [
+              "src/theme-bootstrap.js"
+            ],
             "aot": true,
             "optimization": {
               "scripts": true,
@@ -44,5 +50,8 @@
         }
       }
     }
+  },
+  "cli": {
+    "packageManager": "pnpm"
   }
 }

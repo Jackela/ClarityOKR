@@ -7,7 +7,6 @@
  * </clarityokr-button>
  */
 
-import { CommonModule } from '@angular/common';
 import type { ElementRef } from '@angular/core';
 import {
   ChangeDetectionStrategy,
@@ -28,7 +27,7 @@ import { createRipple } from './button.component.utils.js';
 @Component({
   selector: 'clarityokr-button',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <button

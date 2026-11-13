@@ -32,16 +32,16 @@ import { TranslatePipe } from '@shared/pipes/translate.pipe';
         <span class="okr-header__badge">
           {{ 'okr.header.generated' | translate }}: {{ generatedAt | date: 'medium' }}
         </span>
-        <span *ngIf="lastEditedAt" class="okr-header__badge okr-header__badge--edit">
-          {{ 'okr.header.lastEdited' | translate }}: {{ lastEditedAt | date: 'medium' }}
-        </span>
-        <span
-          *ngIf="hasManualEdits"
-          class="okr-header__badge okr-header__badge--edit"
-          data-testid="sticky-manual-edits"
-        >
-          {{ 'okr.header.manualEdits' | translate }}
-        </span>
+        @if (lastEditedAt) {
+          <span class="okr-header__badge okr-header__badge--edit">
+            {{ 'okr.header.lastEdited' | translate }}: {{ lastEditedAt | date: 'medium' }}
+          </span>
+        }
+        @if (hasManualEdits) {
+          <span class="okr-header__badge okr-header__badge--edit" data-testid="sticky-manual-edits">
+            {{ 'okr.header.manualEdits' | translate }}
+          </span>
+        }
       </div>
     </header>
   `,

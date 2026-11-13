@@ -26,7 +26,6 @@
  *   <clarityokr-skeleton type="circle" size="40"></clarityokr-skeleton>
  */
 
-import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 
 /**
@@ -41,7 +40,7 @@ export type SkeletonType = 'text' | 'card' | 'circle' | 'options' | 'custom';
 @Component({
   selector: 'clarityokr-skeleton',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div

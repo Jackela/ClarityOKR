@@ -5,7 +5,6 @@
  * <clarityokr-loading-spinner size="md" message="Loading..." />
  */
 
-import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 
 /**
@@ -20,7 +19,7 @@ export type SpinnerSize = 'sm' | 'md' | 'lg';
 @Component({
   selector: 'clarityokr-loading-spinner',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div

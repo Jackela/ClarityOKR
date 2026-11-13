@@ -1,4 +1,3 @@
-import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -47,7 +46,7 @@ const SLOW_SAVE_MS = 300;
 @Component({
   selector: 'li[clarityokr-kr-row]',
   standalone: true,
-  imports: [CommonModule, MeterBarComponent, PopupSelectComponent, KrProgressHistoryComponent],
+  imports: [MeterBarComponent, PopupSelectComponent, KrProgressHistoryComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="kr__top">
