@@ -160,7 +160,6 @@ const { restartService } = wireClosedLoop({
 const okrAgentService = new OkrAgentService();
 const okrRegenerationService = new OkrRegenerationService(
   sessionRepository,
-  okrRepository,
   okrAgentService,
 );
 const krRegeneration = new KrRegenerationService({
@@ -185,7 +184,6 @@ const stickyWindowManager: StickyWindowManager = new StickyWindowManager({
   actionLogWriter,
   okrAgentService,
   sessionRepository,
-  okrRegeneration: okrRegenerationService,
   isQuitting: () => quitGate.isQuitting(),
   closeQuits: (): boolean => lastVisibleQuits(stickyWindowManager.getWindow()),
   requestQuit: () => void exitCoordinator.requestQuit(),
@@ -232,7 +230,6 @@ const clarificationController = new ClarificationController(
   actionLogWriter,
   stickyWindowManager,
   okrAgentService,
-  okrRegenerationService,
 );
 
 let testMode: unknown = null;

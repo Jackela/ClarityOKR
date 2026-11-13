@@ -7,8 +7,6 @@
  * @module okr-sticky/components/types
  */
 
-import type { RegenerationPolicy } from '@clarityokr/contracts';
-
 /**
  * ViewModel for a single Key Result in the sticky note display.
  */
@@ -29,7 +27,6 @@ export interface OkrStickyViewModel {
   generatedAt: string;
   lastEditedAt: string | null;
   hasManualEdits: boolean;
-  regenerationPolicy: RegenerationPolicy;
 }
 
 /**

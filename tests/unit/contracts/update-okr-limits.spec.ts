@@ -68,7 +68,6 @@ describe('okr:update text limits (grapheme based)', () => {
       keyResults: [{ id: 'kr-1', statement: '结'.repeat(190), successMetric: '度'.repeat(190) }],
       sourceSessionId: 's',
       generatedAt: '2026-10-09T00:00:00.000Z',
-      regenerationPolicy: 'overwrite',
       manualEdits: [],
     });
     expect(doc.success).toBe(true);
@@ -83,7 +82,6 @@ describe('there is no owner field any more', () => {
       keyResults: [{ id: 'kr-1', statement: '关键结果', owner: '团队' }],
       sourceSessionId: 's',
       generatedAt: '2026-10-10T00:00:00.000Z',
-      regenerationPolicy: 'append',
       manualEdits: [],
     });
     expect(result.success).toBe(false);
@@ -97,7 +95,6 @@ describe('there is no owner field any more', () => {
       keyResults: [{ id: 'kr-1', statement: '关键结果', owner: undefined }],
       sourceSessionId: 's',
       generatedAt: '2026-10-10T00:00:00.000Z',
-      regenerationPolicy: 'append',
       manualEdits: [],
     });
     expect(result.success).toBe(false);
@@ -119,7 +116,6 @@ describe('there is no owner field any more', () => {
         keyResults: [{ id: 'kr-1', statement: '关键结果', successMetric: '度量' }],
         sourceSessionId: 's',
         generatedAt: '2026-10-10T00:00:00.000Z',
-        regenerationPolicy: 'append',
         manualEdits: [],
       }).success,
     ).toBe(true);

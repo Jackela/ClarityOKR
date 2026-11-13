@@ -146,7 +146,6 @@ export class ClarificationDraftHandler implements IClarificationDraftHandler {
       sourceSessionId: session.id,
       generatedAt: new Date().toISOString(),
       lastEditedAt: null,
-      regenerationPolicy: 'append',
       manualEdits: [],
     };
 

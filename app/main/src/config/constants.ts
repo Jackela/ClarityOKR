@@ -42,7 +42,6 @@ export const CLARIFICATION_CONFIG = {
 
   // OKR document defaults
   okrDefaults: {
-    regenerationPolicy: 'append' as const,
     lastEditedAt: null,
     manualEdits: [] as unknown[],
     maxKeyResultsFromDraft: 5,

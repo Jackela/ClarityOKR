@@ -25,7 +25,6 @@ const okr: OKRDocument = {
   sourceSessionId: 'synthetic-session',
   generatedAt: '2026-01-01T00:00:00.000Z',
   lastEditedAt: null,
-  regenerationPolicy: 'append',
   manualEdits: [],
 };
 

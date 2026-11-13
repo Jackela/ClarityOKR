@@ -3,7 +3,6 @@ import type {
   GenerateOKRRequest,
   OKRDocument,
   OkrDetail,
-  RegenerationPolicy,
 } from '@clarityokr/contracts';
 import {
   BridgeUnavailableError,
@@ -44,8 +43,6 @@ export interface OkrStickyViewModel {
   lastEditedAt: string | null;
   /** Whether the OKR has been manually edited since generation */
   hasManualEdits: boolean;
-  /** Policy controlling regeneration behavior */
-  regenerationPolicy: RegenerationPolicy;
 }
 
 /**
@@ -125,7 +122,6 @@ export class OkrStickyService implements OnDestroy {
       generatedAt: document.generatedAt,
       lastEditedAt: document.lastEditedAt ?? null,
       hasManualEdits: document.manualEdits.length > 0,
-      regenerationPolicy: document.regenerationPolicy,
     };
   }
 
@@ -197,7 +193,6 @@ export class OkrStickyService implements OnDestroy {
         sourceSessionId: objective.sourceSessionId ?? '',
         generatedAt: objective.createdAt,
         lastEditedAt: objective.updatedAt === objective.createdAt ? null : objective.updatedAt,
-        regenerationPolicy: 'overwrite',
         manualEdits: [],
       },
       { allowEmpty: true },

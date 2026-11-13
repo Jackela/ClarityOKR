@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import type { OKRDocument, RegenerationPolicy } from '@clarityokr/contracts';
+import type { OKRDocument } from '@clarityokr/contracts';
 
 export interface KeyResultViewModel {
   id: string;
@@ -13,7 +13,6 @@ export interface OkrStickyViewModel {
   generatedAt: string;
   lastEditedAt: string | null;
   hasManualEdits: boolean;
-  regenerationPolicy: RegenerationPolicy;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -32,7 +31,6 @@ export class OkrProjectionService {
       generatedAt: document.generatedAt,
       lastEditedAt: document.lastEditedAt ?? null,
       hasManualEdits: document.manualEdits.length > 0,
-      regenerationPolicy: document.regenerationPolicy,
     };
   }
 }

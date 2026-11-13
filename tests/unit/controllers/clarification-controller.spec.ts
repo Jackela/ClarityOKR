@@ -41,10 +41,6 @@ describe('ClarificationController', () => {
       generateDraft: jest.fn(),
     } as unknown as jest.Mocked<OkrAgentService>;
 
-    const mockOkrRegenerationService = {
-      regenerate: jest.fn(),
-    } as unknown as jest.Mocked<{ regenerate: jest.Mock }>;
-
     ipcHandlers = {};
     mockElectron = {
       ipcMain: {
@@ -70,7 +66,6 @@ describe('ClarificationController', () => {
       mockActionLogWriter,
       mockStickyWindowManager,
       mockOkrAgentService,
-      mockOkrRegenerationService,
       mockElectron,
     );
   });
@@ -114,7 +109,6 @@ describe('ClarificationController', () => {
         sourceSessionId: 'session-1',
         generatedAt: new Date().toISOString(),
         lastEditedAt: null,
-        regenerationPolicy: 'append',
         manualEdits: [],
       };
       mockOkrRepository.loadLatest.mockResolvedValue(mockOkr);
@@ -144,7 +138,6 @@ describe('ClarificationController', () => {
         sourceSessionId: 'session-1',
         generatedAt: new Date().toISOString(),
         lastEditedAt: null,
-        regenerationPolicy: 'append',
         manualEdits: [],
       };
       mockOkrRepository.loadLatest.mockResolvedValue(mockOkr);

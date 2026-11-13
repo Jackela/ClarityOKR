@@ -10,7 +10,6 @@ export interface DatabaseRow {
   source_session_id: string;
   generated_at: string;
   last_edited_at: string | null;
-  regeneration_policy: string;
   manual_edits: string;
 }
 

@@ -159,7 +159,6 @@ function createOkrViewModel(overrides: Partial<OkrStickyViewModel> = {}): OkrSti
     generatedAt: '2025-10-31T10:12:00.000Z',
     lastEditedAt: null,
     hasManualEdits: false,
-    regenerationPolicy: 'append',
     ...overrides,
   };
 }

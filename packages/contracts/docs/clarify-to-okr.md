@@ -61,57 +61,9 @@ Generated OKR Display
 
 ---
 
-## Regenerate
+## Key-result regeneration
 
-The Regenerate feature allows users to request fresh OKR suggestions based on the same clarification session, with control over how manual edits are handled.
-
-### API
-
-**Request: `RegenerateOKRRequest`**
-
-```typescript
-interface RegenerateOKRRequest {
-  sessionId: string; // Reference to clarification session
-  strategy: 'overwrite' | 'append';
-  preserveManualEdits: boolean;
-  contextHints?: string[]; // Optional guidance for LLM
-}
-```
-
-**Response: `RegenerateOKRResponse`**
-
-```typescript
-interface RegenerateOKRResponse {
-  okrDocument: OKRDocument;
-  generationId: string;
-  affectedEdits: ManualEdit[]; // Which manual edits were applied
-}
-```
-
-### Strategies
-
-| Strategy    | Behavior                        | Use Case                      |
-| ----------- | ------------------------------- | ----------------------------- |
-| `overwrite` | Completely replace previous OKR | User wants fresh suggestions  |
-| `append`    | Add new OKR as alternative      | User wants to compare options |
-
-### Preserve Manual Edits
-
-When `preserveManualEdits: true`:
-
-1. **Before Regeneration**: Capture current manual edit state
-2. **During Regeneration**: LLM receives hints about user preferences from previous edits
-3. **After Regeneration**: Re-apply compatible manual edits to new content
-
-```typescript
-// Example: Preserving edits across regeneration
-const request: RegenerateOKRRequest = {
-  sessionId: 'sess_abc123',
-  strategy: 'overwrite',
-  preserveManualEdits: true,
-  contextHints: ['Focus on metrics that are weekly measurable'],
-};
-```
+Whole-document regenerate request/response types were removed. The supported path is key-result regeneration via `KrRegenerationService` (main `app/main/src/regenerate/kr-regeneration.service.ts`), which asks the model for a new KR set on an existing objective and keeps progress on ids the model returns.
 
 ---
 
@@ -294,27 +246,7 @@ const result = await exportToClipboard({
 console.log(`Copied ${result.charCount} characters to clipboard`);
 ```
 
-### Example 2: Regenerate with Preserved Edits
-
-```typescript
-// Initial generation
-const okr = await generateOKR(sessionId);
-
-// User makes edits
-await editOKR(okr.id, { field: 'objective', newValue: 'Faster feature delivery' });
-await editOKR(okr.id, { field: 'kr_0', newValue: 'Reduce PR review time to 24 hours' });
-
-// User regenerates, preserving manual edits
-const regenerated = await regenerateOKR({
-  sessionId,
-  strategy: 'overwrite',
-  preserveManualEdits: true,
-});
-
-// Manual edits are re-applied to new generation
-```
-
-### Example 3: Multiple Export Formats
+### Example 2: Multiple Export Formats
 
 ```typescript
 const okrId = 'okr_xyz789';
@@ -340,7 +272,6 @@ const json = await exportToClipboard({
 | Operation              | Input                         | Output                  | Description                                |
 | ---------------------- | ----------------------------- | ----------------------- | ------------------------------------------ |
 | `GenerateOKR`          | `GenerateOKRRequest`          | `GenerateOKRResponse`   | Initial OKR creation from clarified intent |
-| `RegenerateOKR`        | `RegenerateOKRRequest`        | `RegenerateOKRResponse` | Fresh OKR with optional edit preservation  |
 | `EditOKR`              | `EditOKRRequest`              | `EditOKRResponse`       | Record manual edit to OKR document         |
 | `ExportToClipboard`    | `ClipboardExportRequest`      | `ClipboardExportResult` | Copy OKR in specified format               |
 | `PersistClarification` | `PersistClarificationRequest` | void                    | Save session state                         |
@@ -353,13 +284,12 @@ All payloads must pass Zod validation before processing:
 
 ```typescript
 import {
-  RegenerateOKRRequestSchema,
   ClipboardExportRequestSchema,
   ManualEditSchema,
 } from '@clarityokr/contracts';
 
 // Validate before processing
-const result = RegenerateOKRRequestSchema.safeParse(request);
+const result = ClipboardExportRequestSchema.safeParse(request);
 if (!result.success) {
   throw new ValidationError(result.error);
 }

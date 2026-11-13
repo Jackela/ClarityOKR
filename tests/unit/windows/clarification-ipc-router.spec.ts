@@ -34,7 +34,6 @@ it('returns next questions in the renderer shared response envelope', async () =
     draftHandler: {},
     okrRepository: {},
     stickyWindowManager: {},
-    okrRegenerationService: {},
     actionLogService: {},
   } as unknown as ClarificationIpcRouterDeps;
   ClarificationIpcRouter.registerHandlers(deps);
@@ -55,7 +54,6 @@ function editRouter() {
     objective: 'Original',
     sourceSessionId: 'session-1',
     generatedAt: '2026-10-09T00:00:00.000Z',
-    regenerationPolicy: 'append',
     manualEdits: [],
     keyResults: [{ id: 'kr-1', statement: 'Existing result' }],
   };
@@ -78,7 +76,6 @@ function editRouter() {
     responseHandler: {},
     draftHandler: {},
     stickyWindowManager: {},
-    okrRegenerationService: {},
   } as unknown as ClarificationIpcRouterDeps;
   ClarificationIpcRouter.registerHandlers(deps);
   return { handlers, document, save, send };

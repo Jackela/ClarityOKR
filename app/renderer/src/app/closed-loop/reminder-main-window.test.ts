@@ -33,7 +33,6 @@ const view: OkrStickyViewModel = {
   generatedAt: '2026-10-09T08:00:00.000Z',
   lastEditedAt: null,
   hasManualEdits: false,
-  regenerationPolicy: 'append',
 };
 
 describe('#84 review: reminders in the main-window results panel', () => {

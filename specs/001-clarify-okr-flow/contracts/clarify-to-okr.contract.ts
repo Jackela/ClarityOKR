@@ -40,8 +40,6 @@ export interface KeyResult {
   owner?: string;
 }
 
-export type RegenerationPolicy = "overwrite" | "append";
-
 export interface ManualEditRecord {
   id: string;
   fieldPath: string;
@@ -57,7 +55,6 @@ export interface OKRDocument {
   sourceSessionId: string;
   generatedAt: string; // ISO timestamp
   lastEditedAt?: string | null; // ISO timestamp
-  regenerationPolicy: RegenerationPolicy;
   manualEdits: ManualEditRecord[];
 }
 
@@ -78,16 +75,6 @@ export interface GenerateOKRRequest {
 }
 
 export interface GenerateOKRResponse {
-  okr: OKRDocument;
-  session: ClarificationSession;
-}
-
-export interface RegenerateOKRRequest {
-  sessionId: string;
-  policy: RegenerationPolicy;
-}
-
-export interface RegenerateOKRResponse {
   okr: OKRDocument;
   session: ClarificationSession;
 }

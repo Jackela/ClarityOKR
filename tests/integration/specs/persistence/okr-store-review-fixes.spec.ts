@@ -272,7 +272,6 @@ describe('OkrStore review fixes', () => {
         sourceSessionId: 's',
         generatedAt: '2026-10-11T00:00:00.000Z',
         lastEditedAt: null,
-        regenerationPolicy: 'overwrite',
         manualEdits: [],
       });
       expect(['a', 'b', 'c', 'd'].map(metricColumn)).toEqual([null, null, null, 'real']);

@@ -9,7 +9,6 @@ describe('StickyWindowManager Unit Tests', () => {
   let config: {
     preloadPath: string;
     rendererDistPath: string;
-    okrRegeneration?: { regenerate: jest.Mock };
     isQuitting?: () => boolean;
   };
   let mockDocument: OKRDocument;
@@ -22,7 +21,6 @@ describe('StickyWindowManager Unit Tests', () => {
     config = {
       preloadPath: '/mock/preload.js',
       rendererDistPath: '/mock/renderer/dist',
-      okrRegeneration: { regenerate: jest.fn() },
       isQuitting: () => false,
     };
 
@@ -34,7 +32,6 @@ describe('StickyWindowManager Unit Tests', () => {
       ],
       sourceSessionId: 'session-456',
       generatedAt: new Date().toISOString(),
-      regenerationPolicy: { type: 'conservative' },
       manualEdits: [],
     };
 
@@ -349,7 +346,6 @@ describe('StickyWindowManager Unit Tests', () => {
         keyResults: [],
         sourceSessionId: 's1',
         generatedAt: new Date().toISOString(),
-        regenerationPolicy: { type: 'conservative' },
         manualEdits: [],
       };
       
@@ -366,25 +362,6 @@ describe('StickyWindowManager Unit Tests', () => {
       );
     });
 
-    it('should handle document with complex regeneration policy', async () => {
-      const complexDoc: OKRDocument = {
-        ...mockDocument,
-        regenerationPolicy: {
-          type: 'targeted',
-          keyResultIndices: [0, 2],
-        },
-      };
-      
-      await manager.open(complexDoc);
-      
-      const mockWindow = createdWindows[0] as MockBrowserWindow;
-      mockWindow._triggerEvent('did-finish-load');
-      
-      expect(mockWindow.webContents.send).toHaveBeenCalledWith(
-        expect.any(String),
-        { okr: complexDoc }
-      );
-    });
   });
 
   describe('Edge Cases and Error Handling', () => {
