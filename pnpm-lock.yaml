@@ -9,7 +9,6 @@ overrides:
   '@istanbuljs/load-nyc-config>js-yaml': 4.3.2
   js-yaml@4: 4.3.2
   braces: file:vendor/braces
-  qs: ^6.16.1
 
 importers:
 

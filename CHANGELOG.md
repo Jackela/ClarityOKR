@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Internal
+
+- 仅开发与构建：去掉 `qs` 的 pnpm override；锁文件仍解析到 6.16.1（≥ 6.16.1 / GHSA-6pq8-jhm2-2vcw）（[#107](https://github.com/Jackela/ClarityOKR/issues/107)，[#114](https://github.com/Jackela/ClarityOKR/issues/114)）
+
 ## [0.3.3] - 2026-11-13
 
 ### Fixed
