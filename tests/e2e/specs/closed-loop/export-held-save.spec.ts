@@ -1,9 +1,3 @@
-/*
- * TODO(N5): the held review:save test below swaps the main-process handler through Electron's
- * PRIVATE `ipcMain._invokeHandlers` map (there is no public API to replace a handle()). If an
- * Electron upgrade renames it, that test fails loudly ("review:save is not registered"); replace
- * it then with a test-only hook in the main process (guarded by E2E_TEST) instead.
- */
 import {
   chmodSync,
   existsSync,
@@ -306,40 +300,34 @@ test.describe('closed loop: export UI (D1b-2)', () => {
     mockServer,
   }) => {
     const sticky = await openSticky(electronApp, mainWindow, mockServer);
-    // Hold the main-process handler of clarityokr:review:save until the test lets it go.
-    await electronApp.evaluate(({ ipcMain }) => {
-      const handlers = (
-        ipcMain as unknown as {
-          _invokeHandlers: Map<string, (event: unknown, payload: unknown) => Promise<unknown>>;
+    // Hold review:save through the test-mode hook on __clarityokrE2E (not Electron internals).
+    await electronApp.evaluate(() => {
+      const e2e = (
+        globalThis as unknown as {
+          __clarityokrE2E?: {
+            armReviewSaveHold: () => void;
+          };
         }
-      )._invokeHandlers;
-      const original = handlers.get('clarityokr:review:save');
-      if (!original) throw new Error('review:save is not registered');
-      const state = globalThis as unknown as {
-        __holdSave: { waiting: boolean; release: (mode: 'ok' | 'fail') => void };
-      };
-      handlers.set('clarityokr:review:save', async (event, payload) => {
-        const mode = await new Promise<'ok' | 'fail'>((resolve) => {
-          state.__holdSave = { waiting: true, release: resolve };
-        });
-        state.__holdSave.waiting = false;
-        if (mode === 'fail') {
-          return { ok: false, error: { code: 'INTERNAL', message: 'Something went wrong' } };
-        }
-        return original(event, payload);
-      });
+      ).__clarityokrE2E;
+      if (!e2e?.armReviewSaveHold) throw new Error('review:save hold hook is not installed');
+      e2e.armReviewSaveHold();
     });
     const waiting = (): Promise<boolean> =>
       electronApp.evaluate(
         () =>
-          (globalThis as unknown as { __holdSave?: { waiting: boolean } }).__holdSave?.waiting ===
-          true,
+          (
+            globalThis as unknown as { __clarityokrE2E?: { isReviewSaveHeld: () => boolean } }
+          ).__clarityokrE2E?.isReviewSaveHeld() === true,
       );
     const release = (mode: 'ok' | 'fail'): Promise<void> =>
       electronApp.evaluate((_, m) => {
-        (
-          globalThis as unknown as { __holdSave: { release: (v: string) => void } }
-        ).__holdSave.release(m);
+        const e2e = (
+          globalThis as unknown as {
+            __clarityokrE2E?: { releaseReviewSave: (mode: 'ok' | 'fail') => void };
+          }
+        ).__clarityokrE2E;
+        if (!e2e?.releaseReviewSave) throw new Error('review:save hold hook is not installed');
+        e2e.releaseReviewSave(m);
       }, mode);
 
     await sticky.getByTestId('tab-review').click();

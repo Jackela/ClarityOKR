@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Internal
 
+- 仅测试：复盘保存挂起的 E2E 改走测试模式钩子 `__clarityokrE2E.armReviewSaveHold`，不再替换 Electron 内部 `_invokeHandlers`（[#57](https://github.com/Jackela/ClarityOKR/issues/57)）
 - 删除旧的整份 OKR 重新生成路径：去掉 `OkrRegenerationService` 的 regenerate 方法、`StickyWindowManager` 的对应方法，以及已无生产调用方的请求 schema；视图模型与持久化映射不再读写该字段。现有库或导入文档里若仍带有该字段，`okrDocumentSchema`（zod object 默认 strip）会丢弃未知键并继续解析，不会失败（[#64](https://github.com/Jackela/ClarityOKR/issues/64)）
 
 - 仅开发与构建：去掉 `qs` 的 pnpm override；锁文件仍解析到 6.16.1（≥ 6.16.1 / GHSA-6pq8-jhm2-2vcw）（[#107](https://github.com/Jackela/ClarityOKR/issues/107)，[#114](https://github.com/Jackela/ClarityOKR/issues/114)）

@@ -122,6 +122,18 @@ function revertBlocker(store: OkrStore, krId: string): IpcResult<never> | null {
  * throws across IPC, and answers with `IpcResult`. Errors carry a code (and for validation
  * the field and reason) but never a filesystem path or a raw error message.
  */
+const closedLoopInvokeHandlers = new Map<
+  string,
+  (event: unknown, payload: unknown) => Promise<unknown>
+>();
+
+/** The listener last registered for a closed-loop channel (for test-mode wrapping). */
+export function getClosedLoopInvokeHandler(
+  channel: string,
+): ((event: unknown, payload: unknown) => Promise<unknown>) | undefined {
+  return closedLoopInvokeHandlers.get(channel);
+}
+
 export function registerClosedLoopHandlers(
   ipcMain: Pick<IpcMain, 'handle'>,
   deps: ClosedLoopHandlerDeps,
@@ -133,7 +145,7 @@ export function registerClosedLoopHandlers(
     parse: (payload: unknown) => Parsed<Req>,
     run: (request: Req) => IpcResult<Res> | Promise<IpcResult<Res>>,
   ): void {
-    ipcMain.handle(channel, async (_event, payload: unknown) => {
+    const listener = async (_event: unknown, payload: unknown): Promise<unknown> => {
       const parsed = parse(payload);
       if (!parsed.ok) {
         return parsed;
@@ -150,7 +162,9 @@ export function registerClosedLoopHandlers(
         Logger.error(`[ipc] ${channel} failed`, error);
         return ipcFail('INTERNAL', 'Something went wrong');
       }
-    });
+    };
+    closedLoopInvokeHandlers.set(channel, listener);
+    ipcMain.handle(channel, listener);
   }
 
   // The list ignores whatever the renderer sends.

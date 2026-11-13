@@ -63,7 +63,16 @@ writeFileSync(
     2,
   )}\n`,
 );
-cpSync(join(ROOT, 'app/main/dist'), join(OUT, 'app/main/dist'), { recursive: true });
+// #57: do not ship the test-mode dynamic-import chunk (including the review:save hold hook)
+// in the production staged app. E2E loads it from the workspace dist, not from this tree.
+const mainDist = join(ROOT, 'app/main/dist');
+cpSync(mainDist, join(OUT, 'app/main/dist'), {
+  recursive: true,
+  filter: (src) => {
+    const rel = src.slice(mainDist.length).replace(/^[/\\]/, '');
+    return rel !== 'test-mode.js' && !rel.startsWith('test-mode.') && !rel.startsWith('test-mode/') && !rel.startsWith('test-mode\\');
+  },
+});
 cpSync(join(ROOT, 'app/renderer/dist'), join(OUT, 'app/renderer/dist'), { recursive: true });
 // main.ts reads ../package.json (app/main/package.json) for the version when not packaged; keep it.
 writeFileSync(

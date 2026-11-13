@@ -479,7 +479,11 @@ app.on('browser-window-created', (_event, window) => sessionEnd.attach(window));
 
 if (testMode) {
   // E2E only: run as if the tray icon could not be created (N15).
+  // Spread any hooks already published by the dynamically imported test-mode module.
+  const existing =
+    (globalThis as { __clarityokrE2E?: Record<string, unknown> }).__clarityokrE2E ?? {};
   (globalThis as { __clarityokrE2E?: unknown }).__clarityokrE2E = {
+    ...existing,
     dropTray: () => {
       tray?.destroy();
       tray = null;
