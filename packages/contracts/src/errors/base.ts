@@ -44,9 +44,15 @@ export class ClarityOkrError extends Error {
     this.cause = options.cause;
     this.timestamp = new Date().toISOString();
 
-    // Maintain proper stack trace in V8 environments
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, this.constructor);
+    // Maintain proper stack trace in V8 environments.
+    // TypeScript 6's ErrorConstructor no longer includes this V8-only method.
+    const captureStackTrace = (
+      Error as unknown as {
+        captureStackTrace?: (target: object, constructor?: unknown) => void;
+      }
+    ).captureStackTrace;
+    if (typeof captureStackTrace === 'function') {
+      captureStackTrace(this, this.constructor);
     }
   }
 
