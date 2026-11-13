@@ -6,7 +6,6 @@ settings:
 
 overrides:
   braces: file:vendor/braces
-  qs: ^6.16.1
 
 importers:
 
