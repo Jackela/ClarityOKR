@@ -239,7 +239,7 @@ describe('#50 full backup', () => {
     expect(target.store.listObjectives()).toHaveLength(0);
   });
 
-  /** N31: 500 OKRs, 3 KRs each, several progress records per KR and a review per OKR. */
+  /** N31 / N38: 500 OKRs, 3 KRs each, several progress records per KR and a review per OKR. */
   function seedLarge(store: OkrStore): void {
     const text = (label: string, i: number) =>
       `${label} ${i}：${'本季度推进情况说明。'.repeat(12)}`;
@@ -267,7 +267,7 @@ describe('#50 full backup', () => {
     }
   }
 
-  it('AC5 / N31: 500 OKRs with progress records and reviews back up in under 2 seconds', async () => {
+  it('AC5 / N31 / N38: 500 OKRs back up in under 2 seconds, the file is under 50 MB, and a round-trip import preserves the data', async () => {
     seedLarge(source.store);
     wire(source.store);
     const started = performance.now();
@@ -277,9 +277,36 @@ describe('#50 full backup', () => {
     const size = statSync(savePath!).size;
     // eslint-disable-next-line no-console
     console.log(
-      `[N31] 500-OKR backup: ${(size / (1024 * 1024)).toFixed(2)} MB in ${Math.round(elapsed)} ms`,
+      `[N38] 500-OKR backup: ${size} bytes (${(size / (1024 * 1024)).toFixed(4)} MB) in ${Math.round(elapsed)} ms`,
     );
     expect(elapsed).toBeLessThan(2000);
+    // N38: the generated backup must stay under the 50 MB import ceiling, or it cannot be read back.
+    expect(size).toBeLessThan(IMPORT_BACKUP_MAX_BYTES);
+
+    wire(target.store);
+    const preview = await invoke<ImportReply>(IPC_CHANNELS.IMPORT_PICK);
+    expect(preview).toMatchObject({
+      ok: true,
+      data: { outcome: 'confirm', conflicts: [] },
+    });
+    const done = await invoke<ImportReply>(IPC_CHANNELS.IMPORT_COMMIT, {
+      token: (preview as any).data.token,
+      onConflict: 'skip',
+    });
+    expect((done as any).data.imported).toHaveLength(500);
+
+    const byTitle = (store: OkrStore) =>
+      new Map(store.listObjectives().map((o) => [o.title, o.id] as const));
+    const before = byTitle(source.store);
+    const after = byTitle(target.store);
+    expect(before.size).toBe(500);
+    expect(after.size).toBe(500);
+    for (const [title, id] of before) {
+      const importedId = after.get(title);
+      expect(importedId).toBeDefined();
+      expect(importedId).not.toBe(id);
+      expect(normalized(target.store, importedId!)).toEqual(normalized(source.store, id));
+    }
   });
 
   describe('B5: size limits', () => {
