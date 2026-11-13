@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - 仅开发与构建：去掉 `qs` 的 pnpm override；锁文件仍解析到 6.16.1（≥ 6.16.1 / GHSA-6pq8-jhm2-2vcw）（[#107](https://github.com/Jackela/ClarityOKR/issues/107)，[#114](https://github.com/Jackela/ClarityOKR/issues/114)）
 - 仅开发与构建：去掉 `js-yaml@3`、`js-yaml@4` 和 `@istanbuljs/load-nyc-config>js-yaml` 的 pnpm override；锁文件仍解析到 js-yaml 4.3.2（≥ 3.15.2 / ≥ 4.3.2 / GHSA-2883-xcg3-v3hh）（[#107](https://github.com/Jackela/ClarityOKR/issues/107)）
+- 仅开发与构建：因 [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) 已于 2026-10-23 撤回，去掉原先 must-keep 的 `braces` vendor patch（`file:vendor/braces`）与 pnpm override；锁文件改回上游 braces 3.0.3（仍覆盖 [GHSA-grv7-fg5c-xmjg](https://github.com/advisories/GHSA-grv7-fg5c-xmjg)）（[#107](https://github.com/Jackela/ClarityOKR/issues/107)，[#128](https://github.com/Jackela/ClarityOKR/issues/128)）
 
 ## [0.3.3] - 2026-11-13
 

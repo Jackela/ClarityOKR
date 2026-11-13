@@ -73,7 +73,6 @@
   "devDependencies": {
     "@ampproject/remapping": "^2.3.0",
     "@angular/build": "20.3.42",
-    "@clarityokr/braces": "file:vendor/braces",
     "@electron/rebuild": "4.2.1",
     "@playwright/test": "^1.44.0",
     "@types/node": "^24.9.0",
@@ -96,9 +95,7 @@
     "typescript": "~5.9.3"
   },
   "pnpm": {
-    "overrides": {
-      "braces": "file:vendor/braces"
-    }
+    "overrides": {}
   },
   "main": "app/main/dist/main.js"
 }

@@ -57,16 +57,18 @@ The clean lock was resolved from workspace manifests in an isolated directory be
 
 The main baseline `b2e257a65afb79a54bc2696145d79cbba992bc75` and initial PR head `dec82380f39ae2ccb23f33590aa82d9c0fe0ba13` each reproduced **10 critical / 99 high**. Published-version upgrades alone left **0 critical / 1 high / 1 moderate**. The controlled source repair now reports **0 critical / 0 high / 1 moderate**, under the same strict gate.
 
-The unpatched upstream finding is [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm), braces <=3.0.3. The published patched-version field is `None`; [upstream issue #70](https://github.com/micromatch/braces/issues/70) has no official fix commit. The active Jest chain is:
+The previous must-keep vendor copy (`file:vendor/braces`, `@clarityokr/braces`) existed because [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) listed braces ≤ 3.0.3 with no patched release. That advisory was **withdrawn on 2026-10-23** as “not a practically exploitable vulnerability.” Upstream has not published a release newer than 3.0.3. The only remaining non-withdrawn advisory on the 3.x line is [GHSA-grv7-fg5c-xmjg](https://github.com/advisories/GHSA-grv7-fg5c-xmjg) (CVE-2024-4068), already patched **in** 3.0.3 (`< 3.0.3`).
+
+The Jest chain now resolves published `braces@3.0.3`:
 
 ```text
 jest-environment-jsdom / jest-preset-angular
   Jest fake timers / message utilities
     micromatch 4.0.8
-      braces override: file:vendor/braces (@clarityokr/braces 0.0.0)
+      braces 3.0.3
 ```
 
-The private MIT source copy is identified explicitly as a local package, not a published upstream fix. [SOURCE.md](../../vendor/braces/SOURCE.md), its JSON manifest, complete patch, original PoC, and normal semantic oracle own its evidence. All six upstream API entry points retain ordinary semantics below fixed depth/AST/result/text/range bounds. Numeric endpoints and steps are checked before allocation or iteration. Independent review on 2026-10-09 confirmed the recorded scope and rechecked the initially discovered unsafe-integer bypass. All **15 installed-package security regressions**, including **732 normal semantic comparisons**, pass; the actual Jest/micromatch chain resolves the guarded code. No advisory is ignored and no upstream version is falsified.
+`vendor/braces` and the `braces` pnpm override have been removed. `test:dependency-security` checks that the active micromatch chain resolves npm `braces@3.0.3`. Rolling back the vendor patch also drops the local nesting / safe-integer hardening that was never an upstream release; ordinary micromatch globs used by this repo did not depend on those extra `RangeError`s.
 
 The moderate [sprintf-js advisory](https://github.com/advisories/GHSA-hp3w-g68c-fv3c) also has no published patch. Its active chain is Jest coverage tooling, JS-YAML 3, argparse 1, sprintf-js 1.0.3. The audit threshold is unchanged and this severity is recorded.
 
