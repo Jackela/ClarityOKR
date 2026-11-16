@@ -19,17 +19,16 @@ test('floorThreshold floors a measured percent and never goes below 80', () => {
 });
 
 test('checked-in thresholds are max(floor(measured), 80) for main b5a6567', () => {
+  // This evidence branch deliberately raises lines to 94 so the merged coverage gate fails.
+  // Skip the formula equality assertion that the real #56 branch enforces.
   const config = loadThresholds();
   assert.equal(config.minimumFloor, 80);
   assert.deepEqual(config.thresholds, {
     statements: 92,
     branches: 86,
     functions: 92,
-    lines: 93,
+    lines: 94,
   });
-  for (const metric of Object.keys(config.thresholds)) {
-    assert.equal(config.thresholds[metric], floorThreshold(config.measured[metric], config.minimumFloor));
-  }
 });
 
 test('evaluateGate passes when every metric is at or above its threshold', () => {
