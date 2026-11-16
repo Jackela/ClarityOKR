@@ -28,7 +28,7 @@
     "@angular/cli": "22.2.7",
     "@angular/compiler-cli": "22.2.6",
     "@types/jest": "^30.0.0",
-    "baseline-browser-mapping": "^2.10.0",
+    "baseline-browser-mapping": "^2.11.37",
     "eslint": "^9.1.0",
     "jest": "^30.5.2",
     "jest-environment-jsdom": "^30.5.2",
