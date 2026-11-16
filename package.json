@@ -75,7 +75,7 @@
     "@angular/build": "22.2.7",
     "@electron/rebuild": "4.2.1",
     "@playwright/test": "^1.65.0",
-    "@types/node": "^24.9.0",
+    "@types/node": "^26.6.6",
     "@typescript-eslint/eslint-plugin": "^8.72.2",
     "@typescript-eslint/parser": "^8.72.2",
     "electron-builder": "^26.18.0",
