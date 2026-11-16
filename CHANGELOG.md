@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Internal
 
+- 将 `eslint-config-prettier` 从 9.1.2 升到 10.1.8。`eslint --print-config`（生产 `main.ts`、secure-storage 生产文件、renderer 组件、单测 spec）只新增 180 条 `@stylistic/*` 规则且全部为 off/0，既有规则与其他配置项无差异（[#160](https://github.com/Jackela/ClarityOKR/pull/160)）
 - 开发依赖组升级：`@playwright/test` 1.64.1 → 1.65.0，`@typescript-eslint/eslint-plugin` / `parser` 8.71.2 → 8.72.2，`electron-builder` 26.15.3 → 26.18.0，prettier 3.9.10 → 3.10.1，rimraf 6.1.3 → 6.1.4，esbuild 0.28.1 → 0.28.2，`baseline-browser-mapping` 2.11.28 → 2.11.37。minimatch 告警（GHSA-g3hv-75wg-m249，Dependabot #270）未解除：`@typescript-eslint/typescript-estree`、`app-builder-lib`、`test-exclude`、`glob` 仍解析到 minimatch 10.2.6 / 9.0.9（见 [#130](https://github.com/Jackela/ClarityOKR/issues/130)）（[#158](https://github.com/Jackela/ClarityOKR/pull/158)）
 - 将 `zone.js` 从 0.15.1 升到 0.16.3（production-dependencies 组，含事件监听与 `__proto__` 键加固等修复）（[#157](https://github.com/Jackela/ClarityOKR/pull/157)）
 - 拆分澄清状态机：把 reducer、effects、selectors 抽到独立文件，拆后每个文件 ≤ 400 行；行为与公开 API 不变，原模块路径继续导出（[#47](https://github.com/Jackela/ClarityOKR/issues/47)）
