@@ -1,0 +1,17 @@
+<clarityokr-popup-select
+  class="regen-menu"
+  mode="menu"
+  testId="regenerate-button"
+  [ariaLabel]="t.regen.menuLabel"
+  [options]="regenOptions"
+  [disabled]="disabled()"
+  [attr.aria-busy]="regen.isRunning() ? 'true' : null"
+  (selected)="onMenu($event)"
+>
+  @if (regen.isRunning()) {
+    <span class="regen-menu__spinner" data-testid="regen-spinner" aria-hidden="true"></span>
+  } @else {
+    <span aria-hidden="true" data-testid="regen-icon">↻</span>
+  }
+  {{ t.regen.button }} <span aria-hidden="true">▾</span>
+</clarityokr-popup-select>
