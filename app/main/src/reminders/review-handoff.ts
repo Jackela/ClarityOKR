@@ -130,6 +130,18 @@ export class ReviewHandoff {
   }
 }
 
+export type TakeReviewInvokeHandler = (
+  event?: unknown,
+  ...args: unknown[]
+) => { okrId: string | null };
+
+let takeReviewInvokeHandler: TakeReviewInvokeHandler | undefined;
+
+/** The listener last registered for take-review (for test-mode wrapping). */
+export function getTakeReviewInvokeHandler(): TakeReviewInvokeHandler | undefined {
+  return takeReviewInvokeHandler;
+}
+
 export function registerReviewHandoffHandlers(
   ipcMain: Pick<IpcMain, 'handle'>,
   handoff: ReviewHandoff,
@@ -140,7 +152,9 @@ export function registerReviewHandoffHandlers(
     const outcome = await handoff.request(okrId);
     return { opened: outcome === 'opened', outcome };
   });
-  ipcMain.handle(IPC_CHANNELS.REMINDERS_TAKE_REVIEW, () => ({ okrId: handoff.take() }));
+  const take: TakeReviewInvokeHandler = () => ({ okrId: handoff.take() });
+  takeReviewInvokeHandler = take;
+  ipcMain.handle(IPC_CHANNELS.REMINDERS_TAKE_REVIEW, take);
   ipcMain.handle(IPC_CHANNELS.REMINDERS_REVIEW_READY, (event: IpcMainInvokeEvent) => {
     const id = event.sender.id;
     handoff.shellReady(id);

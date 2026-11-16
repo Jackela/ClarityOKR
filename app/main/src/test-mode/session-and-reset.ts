@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { ClarificationSession } from '@clarityokr/contracts';
 import { Logger } from '../core/logger.js';
 import { disarmReviewSaveHold } from './review-save-hold.js';
+import { resetTakeReviewCount } from './take-review-count.js';
 import type { ISessionControl, IStateReset, TestModeDependencies } from './types.js';
 import type { StateObservationModule } from './state-observation.js';
 import type { MockControlModule } from './mock-and-okr-control.js';
@@ -79,6 +80,7 @@ export class StateResetModule implements IStateReset {
 
     this.mockControl.clearMockResponses();
     disarmReviewSaveHold();
+    resetTakeReviewCount();
 
     Logger.info('[testMode] State reset complete');
   }
