@@ -1,0 +1,50 @@
+# Dependabot version updates for ClarityOKR (#52).
+#
+# package-ecosystem is "npm": Dependabot detects this pnpm workspace from
+# pnpm-lock.yaml and packageManager = pnpm@9.0.0 at the repo root. A single
+# root entry covers all workspace packages.
+#
+# #114 (qs security_update_not_possible) was a Dependabot *security* update
+# of a transitive, not a version update. This file does not disable
+# repo-level Dependabot security updates (already enabled; leave settings
+# unchanged). See the PR that added this file for the recurrence analysis.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      production-dependencies:
+        applies-to: version-updates
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+      development-dependencies:
+        applies-to: version-updates
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # Electron 45+ is a major, tracked in #154 and not scheduled this round.
+      # 44.x minor/patch version updates are still allowed.
+      - dependency-name: electron
+        update-types:
+          - version-update:semver-major
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      github-actions:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
