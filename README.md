@@ -219,7 +219,7 @@ pnpm run test:unit
 | ------------- | --------------------------- | ------------------------------------------------------------------------------------------------------- |
 | Lint          | `pnpm run lint`             | Zero errors                                                                                             |
 | Type Check    | `pnpm run typecheck`        | Zero errors                                                                                             |
-| Test coverage | `pnpm run test:coverage`    | 80% on complete product source coverage, merged across Jest layers and instrumented real Electron flows |
+| Test coverage | `pnpm run test:coverage`    | Merged product source coverage (Jest unit/component/integration + instrumented Electron E2E) must stay at or above the floored main baselines: statements 92%, branches 86%, functions 92%, lines 93% (measured on `b5a6567`, floored; never below 80%) |
 | Integration   | `pnpm run test:integration` | All passing                                                                                             |
 | E2E Tests     | `pnpm run test:e2e`         | All passing                                                                                             |
 | Build         | `pnpm run build`            | Clean build                                                                                             |

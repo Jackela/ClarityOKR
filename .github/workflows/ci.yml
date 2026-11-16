@@ -300,7 +300,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-      - name: Map real Electron coverage to source and enforce 80% across every metric
+      - name: Map real Electron coverage to source and enforce the merged coverage thresholds
         run: |
           pnpm run coverage:remap:e2e
           pnpm run coverage:check
@@ -516,6 +516,8 @@ jobs:
   coverage-report:
     name: Coverage Report
     needs: e2e
+    # Still run after a coverage-gate failure so the Job Summary table is published.
+    if: ${{ !cancelled() && needs.e2e.result != 'skipped' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -533,12 +535,8 @@ jobs:
           name: combined-source-coverage
           path: .
 
-      - name: Verify reported coverage retains the 80% contract
-        run: >-
-          node --input-type=module -e "import fs from 'node:fs';
-          const {total}=JSON.parse(fs.readFileSync('coverage/coverage-summary.json'));
-          for(const metric of ['lines','statements','functions','branches'])
-          if(!total[metric]?.total || total[metric].pct<80) throw new Error('Coverage below 80%: '+metric);"
+      - name: Verify reported coverage against floored main baselines and write the Job Summary
+        run: node scripts/coverage-job-summary.mjs
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v7
