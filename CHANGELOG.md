@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.5] - 2026-11-16
+
+### Security
+
+- 本版本将随安装包提供的 Electron 升到 44.11.3（44.9.3 → 44.11.3，当前 44.x 最新补丁），带上该系列的 Chromium 与 Node.js 安全补丁（[#52](https://github.com/Jackela/ClarityOKR/issues/52)）
+
 ### Internal
 
 - 增加 Dependabot version updates 配置（`.github/dependabot.yml`）：每周检查 npm（pnpm 工作区）和 GitHub Actions；生产/开发依赖的 minor 与 patch 分组开 PR，major 单独开 PR；`open-pull-requests-limit` 为 5；忽略 Electron 主版本（45 见 [#154](https://github.com/Jackela/ClarityOKR/issues/154)）。#114 的 qs 安全更新失败是传递依赖无法升到修复版本，不由本 version-updates 配置触发；当前锁文件已无 qs。未改仓库的 Dependabot 安全更新设置（[#52](https://github.com/Jackela/ClarityOKR/issues/52)、[#114](https://github.com/Jackela/ClarityOKR/issues/114)）
@@ -14,6 +20,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 以 main `b5a6567` 的合并覆盖率为基线（语句 92.36%、分支 86.13%、函数 92.18%、行 93.62%），将覆盖率门槛改为向下取整且不低于 80%：语句 92%、分支 86%、函数 92%、行 93%。Coverage Report 在 Job Summary 里写出当前值、门槛和差值；低于门槛时该任务失败。目录级门槛见 [#151](https://github.com/Jackela/ClarityOKR/issues/151)（[#56](https://github.com/Jackela/ClarityOKR/issues/56)）
 - 将 Playwright、typescript-eslint、prettier、ts-jest 升到当前次版本的最新补丁：`@playwright/test` / `playwright` / `playwright-core` 1.64.0 → 1.64.1，`@typescript-eslint/eslint-plugin` 与 `parser`（及其同版本套件）8.71.1 → 8.71.2，prettier 3.9.9 → 3.9.10，ts-jest 29.4.14 → 29.4.15。Electron 保持 44.9.3（已是 44.9 的最新补丁）。`@types/get-port` 已在 [#65](https://github.com/Jackela/ClarityOKR/pull/65) 随 `get-port` 一并移除，本分支再次确认锁文件与依赖树中均不存在（[#52](https://github.com/Jackela/ClarityOKR/issues/52) PR1）
 - N38：500 个 OKR 导出测得 3.41 MB（3,576,701 字节）；往返导入后数据一致（[#82](https://github.com/Jackela/ClarityOKR/issues/82)）
+
+### Known issues
+
+- 「未实测」：以下行为只有自动化测试，尚未在真机上手动验证
+  - 系统托盘（菜单「显示便签 / 退出」、点击唤回）：macOS、Windows、Linux 均未实测
+  - Dock 唤回便签：macOS 未实测
+  - ⌘Q 退出确认（含未保存修改的合并提示）：macOS 未实测
+  - Windows 注销 / 关机时保存草稿并在下次启动提供恢复（#110，跟踪 #45）
+- Windows / Linux 上无法创建托盘图标时，关闭或隐藏最后一个可见窗口会直接退出应用（按钮提示里有说明）
+- macOS 安装包未签名
 
 ## [0.3.4] - 2026-11-14
 
@@ -237,7 +253,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comprehensive test suite (unit, component, integration, E2E)
 - CI/CD pipeline with multi-platform builds
 
-[unreleased]: https://github.com/Jackela/ClarityOKR/compare/v0.3.4...HEAD
+[unreleased]: https://github.com/Jackela/ClarityOKR/compare/v0.3.5...HEAD
+[0.3.5]: https://github.com/Jackela/ClarityOKR/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/Jackela/ClarityOKR/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/Jackela/ClarityOKR/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/Jackela/ClarityOKR/compare/v0.3.1...v0.3.2
