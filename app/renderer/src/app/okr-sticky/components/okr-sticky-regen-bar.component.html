@@ -1,0 +1,21 @@
+<span class="regen-bar__count" data-testid="regen-selected-count">{{
+  t.regen.selectedCount(regen.selected().size)
+}}</span>
+<span class="regen-bar__actions">
+  @if (regen.selected().size === 0) {
+    <span class="regen-bar__hint" id="regen-hint">{{ t.regen.selectAtLeastOne }}</span>
+  }
+  <button type="button" class="regen-bar__btn" data-testid="regen-select-cancel" (click)="cancel()">
+    {{ t.regen.cancel }}
+  </button>
+  <button
+    type="button"
+    class="regen-bar__btn regen-bar__btn--primary"
+    data-testid="regen-select-confirm"
+    [attr.aria-disabled]="regen.selected().size === 0 ? 'true' : null"
+    [attr.aria-describedby]="regen.selected().size === 0 ? 'regen-hint' : null"
+    (click)="confirm()"
+  >
+    {{ t.regen.regenerateSelected }}
+  </button>
+</span>

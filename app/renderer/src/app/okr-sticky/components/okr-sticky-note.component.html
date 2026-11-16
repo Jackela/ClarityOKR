@@ -1,43 +1,262 @@
-<section class="sticky-note" *ngIf="okr as viewModel">
-  <header class="sticky-note__header">
-    <h1 data-testid="sticky-objective">{{ viewModel.objective }}</h1>
-    <div class="sticky-note__meta">
-      <span class="sticky-note__badge">
-        生成时间: {{ viewModel.generatedAt | date: 'medium' }}
-      </span>
-      <span *ngIf="viewModel.lastEditedAt" class="sticky-note__badge sticky-note__badge--edit">
-        最近编辑: {{ viewModel.lastEditedAt | date: 'medium' }}
-      </span>
-      <span
-        *ngIf="viewModel.hasManualEdits"
-        class="sticky-note__badge sticky-note__badge--edit"
-        data-testid="sticky-manual-edits"
-      >
-        含手动修改
-      </span>
-    </div>
-    <button
-      type="button"
-      class="sticky-note__action"
-      data-testid="sticky-add-kr"
-      (click)="addKr.emit()"
-    >
-      添加关键结果
-    </button>
-  </header>
-
-  <ol class="sticky-note__list">
-    <li
-      class="sticky-note__item"
-      *ngFor="let kr of viewModel.keyResults; trackBy: trackByKeyResultId"
-      data-testid="sticky-key-result"
-    >
-      <div class="sticky-note__item-text">{{ kr.statement }}</div>
-      <div class="sticky-note__item-badges">
-        <span *ngIf="kr.metricLabel" class="sticky-note__badge" data-testid="sticky-kr-badge">
-          {{ kr.metricLabel }}
-        </span>
+@if (okr; as viewModel) {
+  <section
+    class="sticky-note"
+    role="region"
+    aria-label="OKR 便利贴"
+    [attr.aria-busy]="store.detailState() === 'loading' || regen.isRunning() ? 'true' : null"
+  >
+    @if (regen.isRunning()) {
+      <div class="regen-progress" data-testid="regen-progress" aria-hidden="true"></div>
+    }
+    @if (editor.isEditing()) {
+      <clarityokr-text-edit
+        [objective]="editor.draftObjective()"
+        [keyResults]="editor.draftKeyResults()"
+        [canUndo]="editor.canUndo()"
+        [canRedo]="editor.canRedo()"
+        [canSave]="editor.isValid() && editor.isDirty() && !busy()"
+        [saving]="busy()"
+        [saveError]="editError()"
+        [focusTarget]="focusTarget()"
+        (objectiveChange)="editor.updateObjective($event)"
+        (statementChange)="editor.updateKeyResult($event.id, { statement: $event.value })"
+        (metricChange)="editor.updateKeyResult($event.id, { successMetric: $event.value })"
+        (undo)="editor.undo()"
+        (redo)="editor.redo()"
+        (boundary)="editor.breakCoalescing()"
+        (save)="save()"
+        (cancel)="cancel()"
+      />
+    } @else {
+      @if (showPinBanner()) {
+        @switch (store.pinNotice()) {
+          @case ('pinned') {
+            <div class="banner" role="status" data-testid="pin-banner-done">
+              {{ t.pin.done }}
+            </div>
+          }
+          @case ('failed') {
+            <div class="banner banner--error" role="alert" data-testid="pin-banner-failed">
+              <span>{{ t.pin.failed }}</span>
+              <button type="button" class="banner__btn" data-testid="pin-retry" (click)="pin()">
+                {{ t.pin.retry }}
+              </button>
+            </div>
+          }
+          @default {
+            <div class="banner" data-testid="pin-banner">
+              <span>{{ t.pin.notPinned }}</span>
+              <button
+                type="button"
+                class="banner__btn"
+                data-testid="pin-button"
+                [attr.aria-disabled]="store.pinNotice() === 'pinning' ? 'true' : null"
+                [attr.aria-busy]="store.pinNotice() === 'pinning' ? 'true' : null"
+                (click)="pin()"
+              >
+                {{ t.pin.action }}
+              </button>
+            </div>
+          }
+        }
+      }
+      <clarityokr-review-reminder-banner (closed)="focusPeriodPicker()" />
+      <div class="sticky-note__toprow" #toprow>
+        <clarityokr-period-picker
+          [value]="store.detail()?.objective?.period ?? null"
+          [disabled]="busy() || regen.isRunning() || store.detail() === null"
+          [disabledTitle]="regen.isRunning() ? t.regen.lockedTooltip : null"
+          (periodChange)="onPeriod($event)"
+        />
+        @if (viewModel.lastEditedAt) {
+          <span class="sticky-note__edited" data-testid="sticky-last-edited">
+            最近编辑 {{ formatTime(viewModel.lastEditedAt) }}
+          </span>
+        }
+        @if (viewModel.hasManualEdits) {
+          <span class="sticky-note__tag" data-testid="sticky-manual-edits">
+            {{ 'okr.header.manualEdits' | translate }}
+          </span>
+        }
+        <button
+          #editBtn
+          type="button"
+          class="sticky-note__text-btn sticky-note__edit"
+          data-testid="edit-button"
+          [attr.aria-disabled]="editBlocked() ? 'true' : null"
+          [attr.title]="regen.isRunning() ? t.regen.lockedTooltip : null"
+          (click)="beginEdit()"
+        >
+          {{ t.edit.action }}
+        </button>
       </div>
-    </li>
-  </ol>
-</section>
+      <span class="sr-only" role="status" data-testid="period-live">{{
+        periodAnnouncement()
+      }}</span>
+      <h1
+        #title
+        tabindex="-1"
+        class="sticky-note__title"
+        data-testid="sticky-objective"
+        [textContent]="viewModel.objective"
+      ></h1>
+      @switch (store.detailState()) {
+        @case ('error') {
+          <div class="panel" data-testid="detail-error">
+            <p role="alert">{{ t.note.loadFailed }}</p>
+            <button
+              type="button"
+              class="banner__btn"
+              data-testid="detail-retry"
+              (click)="store.reload()"
+            >
+              {{ t.note.retry }}
+            </button>
+          </div>
+        }
+        @case ('ready') {
+          @if (detail(); as d) {
+            <clarityokr-overall-progress
+              [value]="d.objective.overallProgress"
+              [total]="activeKrs(d.objective.keyResults).length"
+              [filled]="filledCount(d.objective.keyResults)"
+            />
+            <clarityokr-sticky-regen-banner (viewRemoved)="viewRemoved()" />
+            <div class="sticky-note__section-head">
+              <h2 class="sticky-note__section-title">
+                {{ t.kr.heading(activeKrs(d.objective.keyResults).length) }}
+              </h2>
+              <div class="sticky-note__section-actions">
+                <button
+                  type="button"
+                  class="sticky-note__text-btn"
+                  data-testid="sticky-add-kr"
+                  [attr.aria-disabled]="atKrLimit() || editBlocked() ? 'true' : null"
+                  [attr.title]="
+                    regen.isRunning() ? t.regen.lockedTooltip : atKrLimit() ? t.edit.maxKrs : null
+                  "
+                  (click)="addKr()"
+                >
+                  ＋ {{ t.addShort }}
+                </button>
+                <clarityokr-sticky-regen-menu [busy]="busy()" />
+              </div>
+            </div>
+            @if (activeKrs(d.objective.keyResults).length === 0) {
+              <div class="panel" data-testid="kr-empty">
+                <p>{{ t.kr.empty }}</p>
+                <button
+                  type="button"
+                  class="sticky-note__text-btn"
+                  data-testid="kr-empty-regenerate"
+                  (click)="regen.askAll()"
+                >
+                  {{ t.regen.all }}
+                </button>
+              </div>
+            } @else {
+              <ol class="sticky-note__list" data-testid="kr-list">
+                @for (kr of activeKrs(d.objective.keyResults); track kr.id; let i = $index) {
+                  @if (isRegenerating(kr.id)) {
+                    <!-- #40: the real row keeps its own height and single divider; a shimmer covers it -->
+                    <li
+                      clarityokr-kr-row
+                      class="regen-skeleton"
+                      data-testid="kr-skeleton"
+                      [kr]="kr"
+                      [n]="i + 1"
+                      [info]="d.progress[kr.id]"
+                      [blocked]="true"
+                      [history]="false"
+                    ></li>
+                  } @else {
+                    <li
+                      clarityokr-kr-row
+                      data-testid="sticky-key-result"
+                      [kr]="kr"
+                      [n]="i + 1"
+                      [info]="d.progress[kr.id]"
+                      [blocked]="busy() || regen.selecting() || regen.isRunning()"
+                      [selecting]="regen.selecting()"
+                      [selected]="regen.selected().has(kr.id)"
+                      [isNew]="regen.newIds().has(kr.id)"
+                      [stale]="reminders.staleIds().has(kr.id)"
+                      (toggle)="regen.toggle($event)"
+                      (addMetric)="beginEdit(false, $event)"
+                    ></li>
+                  }
+                }
+              </ol>
+            }
+            @if (removedKrs(d.objective.keyResults); as removed) {
+              @if (removed.length > 0) {
+                <section
+                  class="removed"
+                  data-testid="removed-section"
+                  clarityokr-sticky-removed
+                  [removed]="removed"
+                  [progress]="d.progress"
+                ></section>
+              }
+            }
+          }
+        }
+        @case ('idle') {
+          <ol class="sticky-note__list">
+            @for (kr of viewModel.keyResults; track kr.id) {
+              <li class="sticky-note__plain" data-testid="sticky-key-result">
+                {{ kr.statement }}
+              </li>
+            }
+          </ol>
+        }
+        @default {
+          <div aria-busy="true" data-testid="detail-loading">
+            <clarityokr-skeleton type="text" [lines]="3" [ariaLabel]="t.note.loadingLabel" />
+          </div>
+        }
+      }
+    }
+    @if (regen.selecting()) {
+      <div
+        class="regen-bar"
+        data-testid="regen-select-bar"
+        clarityokr-sticky-regen-bar
+        [activeIds]="activeIds()"
+      ></div>
+    }
+    <!-- no data-testid: a layout check in the e2e suite counts every test id -->
+    <span class="sr-only regen-live" role="status">{{ regenLive.message() }}</span>
+    <span class="sr-only sr-only--flow" role="status" data-testid="text-saved-live">{{
+      textSavedLive()
+    }}</span>
+    @if (error()) {
+      <p role="alert" data-testid="sticky-error">{{ error() }}</p>
+    }
+  </section>
+}
+<!-- Outside the section: its backdrop-filter would make the fixed dialog relative to it. -->
+@if (regen.confirm(); as c) {
+  <clarityokr-dialog
+    [title]="c.scope === 'all' ? t.regen.confirmTitleAll : t.regen.confirmTitleSome(c.ids.length)"
+    [body]="c.scope === 'all' ? t.regen.confirmBodyAll : t.regen.confirmBodySome(c.ids.length)"
+    [cancelLabel]="t.regen.cancel"
+    [confirmLabel]="t.regen.confirm"
+    [danger]="c.scope === 'all'"
+    testId="regen-dialog"
+    (cancelled)="regen.cancelConfirm()"
+    (confirmed)="confirmRegen()"
+  />
+}
+@if (editor.isEditing() && discardOpen()) {
+  <clarityokr-dialog
+    [title]="t.edit.discardTitle"
+    [body]="t.edit.discardBody"
+    [cancelLabel]="t.edit.keepEditing"
+    [confirmLabel]="t.edit.discard"
+    [danger]="true"
+    testId="discard-dialog"
+    (cancelled)="keepEditing()"
+    (confirmed)="discard()"
+  />
+}

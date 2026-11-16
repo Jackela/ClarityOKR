@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Internal
+
+- 拆分澄清状态机：把 reducer、effects、selectors 抽到独立文件，拆后每个文件 ≤ 400 行；行为与公开 API 不变，原模块路径继续导出（[#47](https://github.com/Jackela/ClarityOKR/issues/47)）
+- 拆分便签组件：模板移到 `.html`，把重新生成区（菜单 / 提示条 / 选择底栏）和已移除区抽成子组件，拆后每个文件 ≤ 400 行；DOM 结构、class、test id 与样式封装保持不变（[#47](https://github.com/Jackela/ClarityOKR/issues/47)）
+- 生产代码将 `@typescript-eslint/no-non-null-assertion` 升为 `error`，并用局部绑定替换 `KrRegenerationService` 中仅有的一处 `!`；清掉该规则与 `@typescript-eslint/no-unused-vars` 的既有 warning。测试目录（`tests/**`、`*.spec.ts`、`*.test.ts`）对该断言规则关闭；`no-unused-vars` 增加与已有 `argsIgnorePattern` 配套的 `varsIgnorePattern: '^_'`（[#46](https://github.com/Jackela/ClarityOKR/issues/46)）
+
 ## [0.3.5] - 2026-11-16
 
 ### Security
@@ -34,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.3.4] - 2026-11-14
 
 ### Internal
+
 - 将 Angular 从 21 升到 22：框架包 21.2.26 → 22.2.6，`@angular/cli` / `@angular/build` 21.2.30 → 22.2.7；TypeScript 5.9.3 → 6.0.3（Angular 22 要求 ≥6.0 <6.1）。继续通过已有的 `provideZoneChangeDetection()` 保留 ZoneJS 变更检测。v22 将未声明策略的组件默认改为 `OnPush`；官方 `change-detection-eager` 迁移给 `AppComponent` 和 `ErrorBoundaryComponent`（仅有的两个未声明策略的生产组件）加上 `ChangeDetectionStrategy.Eager`，其余 35 个生产组件本来就是 `OnPush`，测试夹具里的 host 组件也显式钉了 Eager，以保持 v22 之前的默认检查行为。为满足 peer，将 `@ngrx/component-store` 21.1.1 → 22.0.1。未改 Electron / Playwright / prettier / typescript-eslint / Jest，也未使用 pnpm.overrides（[#52](https://github.com/Jackela/ClarityOKR/issues/52) PR3）
 - 将 Angular 从 20 LTS 升到 21 LTS：框架包 20.3.34 → 21.2.26，`@angular/cli` / `@angular/build` 20.3.42 → 21.2.30；通过 `provideZoneChangeDetection()` 保留现有 ZoneJS 变更检测。为满足 peer，将 `@ngrx/component-store` 20.1.0 → 21.1.1，将 `jest-preset-angular` 升到 17.0.3，并把工作区 Jest 升到 30（jsdom 26）。未改 Electron / Playwright / prettier / typescript-eslint，也未使用 pnpm.overrides（[#52](https://github.com/Jackela/ClarityOKR/issues/52) PR2）
 - 仅测试：复盘保存挂起的 E2E 改走测试模式钩子 `__clarityokrE2E.armReviewSaveHold`，不再替换 Electron 内部 `_invokeHandlers`（[#57](https://github.com/Jackela/ClarityOKR/issues/57)）

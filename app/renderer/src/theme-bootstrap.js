@@ -14,7 +14,7 @@
         : theme;
     document.documentElement.dataset.theme = resolved;
     document.documentElement.style.colorScheme = resolved;
-  } catch (e) {
+  } catch {
     // localStorage may be unavailable in some Electron contexts
   }
 })();
