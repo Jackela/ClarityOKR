@@ -26,8 +26,11 @@ module.exports = {
 
     // 最佳实践
     'no-console': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
-    '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
-    '@typescript-eslint/no-non-null-assertion': 'warn',
+    '@typescript-eslint/no-unused-vars': [
+      'warn',
+      { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+    ],
+    '@typescript-eslint/no-non-null-assertion': 'error',
 
     // 代码风格 - 临时禁用以通过CI (太多遗留代码需要修复)
     '@typescript-eslint/consistent-type-imports': 'error',
@@ -47,9 +50,12 @@ module.exports = {
   },
   overrides: [
     {
-      files: ['**/*.spec.ts', '**/*.test.ts'],
+      // Tests use non-null assertions widely in fixtures and locators (883 sites on
+      // main 11ac380). Issue #46: disable the rule in test globs rather than a must() helper.
+      files: ['tests/**', '**/*.spec.ts', '**/*.test.ts'],
       rules: {
         '@typescript-eslint/no-explicit-any': 'off',
+        '@typescript-eslint/no-non-null-assertion': 'off',
       },
     },
   ],

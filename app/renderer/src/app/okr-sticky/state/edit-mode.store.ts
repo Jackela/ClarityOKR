@@ -394,8 +394,6 @@ export class EditModeStore {
     this.cursor.set(index);
     this.lastKey = null;
     this._state.update((state) => {
-      const previous = new Map(state.draftKeyResults.map((kr) => [kr.id, kr]));
-      const original = new Map(state.originalKeyResults.map((kr) => [kr.id, kr]));
       return recalculateState({
         ...state,
         draftObjective: target.objective,

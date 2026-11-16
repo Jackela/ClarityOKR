@@ -3,7 +3,6 @@ import { By } from '@angular/platform-browser';
 import type { OKRDocument } from '@clarityokr/contracts';
 import { Logger } from '../../core/services/logger.service';
 import { IPC_CHANNELS } from '../../shared/ipc-channel.tokens';
-import { ClosedLoopStore } from '../../closed-loop/closed-loop.store';
 import { makeDetail, makeKr } from '../../closed-loop/testing/fixtures';
 import { EditModeStore } from '../state/edit-mode.store';
 import { OkrStickyService } from '../services/okr-sticky.service';

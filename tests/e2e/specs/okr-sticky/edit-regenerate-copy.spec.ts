@@ -111,44 +111,6 @@ test.describe('Edit, Regenerate, and Copy OKR Workflow', () => {
     },
   });
 
-  /**
-   * Mock configuration for regeneration with append policy.
-   * Returns additional KRs to verify append behavior.
-   */
-  const getRegenerateAppendMockConfig = (): MockResponseConfig => ({
-    regenerate: {
-      draft: {
-        objectives: [
-          {
-            id: 'obj-001',
-            title: '提高团队开发效率',
-            description: '通过优化流程和工具，提升团队整体产出',
-            keyResults: [
-              {
-                id: 'kr-append-001',
-                statement: '新增：Bug修复时间缩短至4小时内',
-                target: '4小时',
-                measurement: 'time',
-              },
-              {
-                id: 'kr-append-002',
-                statement: '新增：文档覆盖率提升至95%',
-                target: '95%',
-                measurement: 'percentage',
-              },
-              {
-                id: 'kr-new-003',
-                statement: '新增培训覆盖率',
-                target: '100%',
-                measurement: 'percentage',
-              },
-            ],
-          },
-        ],
-      },
-    },
-  });
-
   test('edit, regenerate, and copy OKR', async ({ electronApp, mainWindow, mockServer }) => {
     // ==========================================
     // Step 1: Generate OKR and open sticky
