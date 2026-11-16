@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Internal
 
+- 将 Electron 从 44.9.3 升到 44.11.3（npm 上当前 44.x 的最新补丁）。未改 Electron 45（跟踪见 [#154](https://github.com/Jackela/ClarityOKR/issues/154)）（[#52](https://github.com/Jackela/ClarityOKR/issues/52)）
 - 以 main `b5a6567` 的合并覆盖率为基线（语句 92.36%、分支 86.13%、函数 92.18%、行 93.62%），将覆盖率门槛改为向下取整且不低于 80%：语句 92%、分支 86%、函数 92%、行 93%。Coverage Report 在 Job Summary 里写出当前值、门槛和差值；低于门槛时该任务失败。目录级门槛见 [#151](https://github.com/Jackela/ClarityOKR/issues/151)（[#56](https://github.com/Jackela/ClarityOKR/issues/56)）
 - 将 Playwright、typescript-eslint、prettier、ts-jest 升到当前次版本的最新补丁：`@playwright/test` / `playwright` / `playwright-core` 1.64.0 → 1.64.1，`@typescript-eslint/eslint-plugin` 与 `parser`（及其同版本套件）8.71.1 → 8.71.2，prettier 3.9.9 → 3.9.10，ts-jest 29.4.14 → 29.4.15。Electron 保持 44.9.3（已是 44.9 的最新补丁）。`@types/get-port` 已在 [#65](https://github.com/Jackela/ClarityOKR/pull/65) 随 `get-port` 一并移除，本分支再次确认锁文件与依赖树中均不存在（[#52](https://github.com/Jackela/ClarityOKR/issues/52) PR1）
 - N38：500 个 OKR 导出测得 3.41 MB（3,576,701 字节）；往返导入后数据一致（[#82](https://github.com/Jackela/ClarityOKR/issues/82)）
