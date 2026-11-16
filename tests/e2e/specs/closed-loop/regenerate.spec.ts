@@ -163,6 +163,8 @@ test.describe('D3: regenerate (§3.7)', () => {
     );
     await sticky.getByTestId('kr-select').nth(1).check();
     await expect(sticky.getByTestId('regen-selected-count')).toHaveText('已选 1 条');
+    // Selection footer must stay stuck to the window bottom (toBeVisible only checks render).
+    await expect(sticky.getByTestId('regen-select-bar')).toBeInViewport();
     await shot(sticky, 'D3-07-regenerate-selection');
     await setTheme(sticky, 'dark');
     await shot(sticky, 'D3-08-regenerate-selection-dark');
