@@ -9,7 +9,7 @@
   "dependencies": {
     "jest": "^30.5.2",
     "jest-resolve": "^30.5.1",
-    "nock": "^13.5.4",
+    "nock": "^15.0.6",
     "node-fetch": "^3.3.2",
     "ts-jest": "^29.4.15"
   },
