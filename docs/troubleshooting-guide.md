@@ -152,17 +152,19 @@ jq . clarification-session.json
 
 **症状**: GitHub Actions 工作流失败
 
-#### 测试覆盖率低于 80%
+#### 测试覆盖率低于门槛
+
+合并覆盖率门槛为：语句 92%、分支 86%、函数 92%、行 93%（main `b5a6567` 实测向下取整，且不低于 80%）。低于任一指标时 Coverage Report 失败。
 
 ```bash
-# 本地运行测试并生成覆盖率报告
-pnpm run test:unit --coverage
+# 本地跑完整合并覆盖率并检查门槛
+pnpm run test:coverage
 
-# 查看覆盖率报告
-cat coverage/lcov-report/index.html
+# 已有 coverage/coverage-summary.json 时只检查门槛
+pnpm run coverage:check
 
-# 检查未覆盖的代码
-# 打开 coverage/lcov-report/index.html 在浏览器中查看
+# 在浏览器中查看未覆盖的代码
+open coverage/lcov-report/index.html
 ```
 
 #### npm audit 安全扫描失败

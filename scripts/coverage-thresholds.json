@@ -1,0 +1,21 @@
+{
+  "source": {
+    "mainSha": "b5a65674676e3a00b5919f1958da285617df8ab6",
+    "ciRun": "https://github.com/Jackela/ClarityOKR/actions/runs/43494026799",
+    "artifact": "combined-source-coverage",
+    "note": "Merged unit + component + integration + remapped E2E coverage on main."
+  },
+  "measured": {
+    "statements": 92.36,
+    "branches": 86.13,
+    "functions": 92.18,
+    "lines": 93.62
+  },
+  "minimumFloor": 80,
+  "thresholds": {
+    "statements": 92,
+    "branches": 86,
+    "functions": 92,
+    "lines": 93
+  }
+}

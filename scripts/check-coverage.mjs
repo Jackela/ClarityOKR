@@ -12,6 +12,7 @@ import {
   validateOriginalCoverage,
   originalSourceMetadata,
 } from './coverage-integrity.mjs';
+import { evaluateGate, loadThresholds } from './coverage-gate.mjs';
 
 if (process.env.E2E_COVERAGE === 'true') {
   const evidence = JSON.parse(readFileSync('tests/e2e/coverage/evidence.json', 'utf8'));
@@ -75,10 +76,9 @@ writeFileSync('coverage/coverage-final.json', JSON.stringify(finalReport));
 writeFileSync('coverage/coverage-summary.json', JSON.stringify({ total: summary }, null, 2));
 const context = reporting.createContext({ dir: 'coverage', coverageMap: merged });
 for (const format of ['text-summary', 'lcov', 'html']) reports.create(format).execute(context);
-const failed = ['lines', 'statements', 'functions', 'branches']
-  .map((name) => [name, summary[name]])
-  .filter(([, metric]) => metric.total === 0 || metric.pct < 80);
-if (failed.length) {
-  console.error(JSON.stringify({ gate: 'coverage', minimum: 80, failed }, null, 2));
+const { thresholds } = loadThresholds();
+const result = evaluateGate(summary, thresholds);
+if (!result.passed) {
+  console.error(JSON.stringify({ gate: 'coverage', thresholds, failed: result.rows.filter((row) => !row.ok) }, null, 2));
   process.exitCode = 1;
 }

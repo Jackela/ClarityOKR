@@ -54,7 +54,7 @@
 8. **Typecheck** - TypeScript 类型检查
 9. **Build** - 完整构建
 10. **Unit tests with coverage** - 单元测试和覆盖率
-11. **Coverage gate (80%)** - 覆盖率门禁
+11. **Coverage gate** - 覆盖率门禁（合并覆盖率按 main 基线向下取整，且不低于 80%）
 12. **Component tests** - 组件测试
 13. **Integration tests** - 集成测试
 14. **Upload artifacts** - 上传构建产物（保留30天）
@@ -163,32 +163,35 @@ fi
 
 ### 目标
 
-- **总体覆盖率**: ≥ 80%
-- **关键模块**: ≥ 90%
+合并后的产品源码覆盖率（Jest unit / component / integration，再加上映射回源码的 Electron E2E）必须达到或超过以下门槛。门槛来自 main `b5a6567` 的实测值向下取整，且永远不低于 80%：
+
+| 指标 | 实测（main `b5a6567`） | 门槛 |
+| --- | ---: | ---: |
+| statements | 92.36% | 92% |
+| branches | 86.13% | 86% |
+| functions | 92.18% | 92% |
+| lines | 93.62% | 93% |
+
+目录级更高门槛（`app/main/src/lifecycle/**`、`app/main/src/persistence/okr-store/**`、`packages/contracts/**`）本轮未设，跟踪见 issue #151。
 
 ### 检查流程
 
+CI 的 Coverage Report 任务会核对 `coverage/coverage-summary.json`，并在 GitHub Job Summary 中写出 metric / current / threshold / delta。本地等价命令：
+
 ```bash
-# 生成覆盖率报告
-pnpm run test:unit --coverage
+# 完整合并覆盖率（含 E2E）并执行门槛检查
+pnpm run test:coverage
 
-# 提取覆盖率百分比
-COVERAGE=$(cat coverage/lcov-report/index.html | grep -oP 'data-value="\K[0-9.]+(?=%)' | head -1)
-
-# 门禁检查
-if (( $(echo "$COVERAGE < 80" | bc -l) )); then
-  echo "❌ Coverage is below 80% threshold!"
-  exit 1
-fi
+# 已有合并报告时，只跑门槛检查
+pnpm run coverage:check
 ```
+
+低于任一门槛时，`coverage:check` 与 Coverage Report 任务失败。
 
 ### 查看覆盖率报告
 
 ```bash
-# 生成 HTML 报告
-pnpm run test:unit --coverage
-
-# 在浏览器中查看
+pnpm run test:coverage
 open coverage/lcov-report/index.html
 ```
 
