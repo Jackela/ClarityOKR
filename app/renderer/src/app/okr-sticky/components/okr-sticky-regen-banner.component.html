@@ -1,0 +1,63 @@
+@switch (regen.result()?.kind) {
+  @case ('done') {
+    @if (doneBanner(); as b) {
+      <div
+        class="regen-banner"
+        [class.regen-banner--warn]="b.tone === 'warn'"
+        role="status"
+        data-testid="regen-banner"
+      >
+        <div class="regen-banner__text">
+          <p class="regen-banner__main">{{ b.main }}</p>
+          @if (b.sub) {
+            <p class="regen-banner__sub">{{ b.sub }}</p>
+          }
+        </div>
+        <div class="regen-banner__actions">
+          @if (b.viewRemoved) {
+            <button
+              type="button"
+              class="regen-banner__btn"
+              data-testid="regen-view-removed"
+              (click)="viewRemoved.emit()"
+            >
+              {{ t.regen.viewRemoved }}
+            </button>
+          }
+          <button
+            type="button"
+            class="regen-banner__btn"
+            data-testid="regen-dismiss"
+            (click)="dismiss()"
+          >
+            {{ t.regen.gotIt }}
+          </button>
+        </div>
+      </div>
+    }
+  }
+  @case ('failed') {
+    <div class="regen-banner regen-banner--error" role="alert" data-testid="regen-failed">
+      <div class="regen-banner__text">
+        <p class="regen-banner__main"><span aria-hidden="true">⚠ </span>{{ t.regen.failed }}</p>
+        <details class="regen-banner__details">
+          <summary data-testid="regen-details">{{ t.regen.details }}</summary>
+          <p>{{ t.regen.failedDetail(failedCode()) }}</p>
+        </details>
+      </div>
+      <div class="regen-banner__actions">
+        <button type="button" class="regen-banner__btn" data-testid="regen-retry" (click)="retry()">
+          {{ t.regen.retry }}
+        </button>
+        <button
+          type="button"
+          class="regen-banner__btn"
+          data-testid="regen-dismiss"
+          (click)="dismiss()"
+        >
+          {{ t.regen.gotIt }}
+        </button>
+      </div>
+    </div>
+  }
+}

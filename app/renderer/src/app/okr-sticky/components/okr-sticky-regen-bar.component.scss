@@ -1,0 +1,19 @@
+/*
+ * The host is `div.regen-bar` written in the parent template. Encapsulated
+ * `.regen-bar { … }` would not match that host (`_nghost` vs `_ngcontent`),
+ * so these layout rules must live on `:host`.
+ */
+:host {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 56px;
+  margin: 8px -16px 0;
+  padding: 0 16px;
+  border-top: 1px solid var(--color-border, rgba(0, 0, 0, 0.12));
+  background: var(--glass-bg, var(--color-surface, #fff));
+  font-size: var(--font-size-sm);
+}
