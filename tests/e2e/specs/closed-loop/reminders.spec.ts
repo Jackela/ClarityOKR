@@ -444,20 +444,15 @@ test.describe('#54 in-app reminders (fake time)', () => {
       for (const w of BrowserWindow.getAllWindows()) if (w.isAlwaysOnTop()) w.destroy();
     });
     await expect.poll(() => sticky.isClosed()).toBe(true);
-    // count the hand-overs the shell takes
-    await electronApp.evaluate(({ ipcMain }) => {
-      const g = globalThis as { __takes?: number };
-      g.__takes = 0;
-      const original = (
-        ipcMain as unknown as { _invokeHandlers: Map<string, (...args: unknown[]) => unknown> }
-      )._invokeHandlers;
-      const take = original.get('clarityokr:reminders:take-review')!;
-      ipcMain.removeHandler('clarityokr:reminders:take-review');
-      ipcMain.handle('clarityokr:reminders:take-review', (event, ...args) => {
-        const reply = take(event, ...args) as { okrId: string | null };
-        if (reply.okrId) g.__takes = (g.__takes ?? 0) + 1;
-        return reply;
-      });
+    // count the hand-overs the shell takes, via the test-mode hook (not Electron internals)
+    await electronApp.evaluate(() => {
+      const e2e = (
+        globalThis as unknown as {
+          __clarityokrE2E?: { resetTakeReviewCount?: () => void };
+        }
+      ).__clarityokrE2E;
+      if (!e2e?.resetTakeReviewCount) throw new Error('take-review count hook is not installed');
+      e2e.resetTakeReviewCount();
     });
     const next = electronApp.waitForEvent('window', { timeout: 30_000 });
     const go = panel.getByTestId('review-reminder-go');
@@ -468,7 +463,16 @@ test.describe('#54 in-app reminders (fake time)', () => {
     await expect(fresh.getByTestId('tab-review')).toHaveAttribute('aria-selected', 'true');
     await expect(fresh.getByTestId('review-period')).toHaveText('2026-Q3');
     await expect(fresh.getByTestId('review-objective')).toBeFocused();
-    expect(await electronApp.evaluate(() => (globalThis as { __takes?: number }).__takes)).toBe(1);
+    expect(
+      await electronApp.evaluate(
+        () =>
+          (
+            globalThis as unknown as {
+              __clarityokrE2E?: { getTakeReviewCount?: () => number };
+            }
+          ).__clarityokrE2E?.getTakeReviewCount(),
+      ),
+    ).toBe(1);
     const windows = await electronApp.evaluate(
       ({ BrowserWindow }) => BrowserWindow.getAllWindows().filter((w) => w.isAlwaysOnTop()).length,
     );

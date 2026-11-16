@@ -2,6 +2,7 @@ import { Logger } from '../core/logger.js';
 import type { TestModeDependencies } from './types.js';
 import { TestMode } from './test-mode-impl.js';
 import { installReviewSaveHoldHook } from './review-save-hold.js';
+import { installTakeReviewCountHook } from './take-review-count.js';
 
 let globalTestMode: TestMode | null = null;
 
@@ -15,6 +16,7 @@ export function initializeTestMode(deps: TestModeDependencies): TestMode {
     (global as unknown as TestGlobal).testMode = globalTestMode;
     if (process.env.E2E_TEST) {
       installReviewSaveHoldHook();
+      installTakeReviewCountHook();
     }
     Logger.info('[testMode] Exposed to global.testMode for E2E access');
   }

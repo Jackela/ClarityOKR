@@ -63,8 +63,8 @@ writeFileSync(
     2,
   )}\n`,
 );
-// #57: do not ship the test-mode dynamic-import chunk (including the review:save hold hook)
-// in the production staged app. E2E loads it from the workspace dist, not from this tree.
+// #57 / #144: do not ship the test-mode dynamic-import chunk (including the review:save hold
+// and take-review count hooks) in the production staged app. E2E loads it from the workspace dist, not from this tree.
 const mainDist = join(ROOT, 'app/main/dist');
 cpSync(mainDist, join(OUT, 'app/main/dist'), {
   recursive: true,
