@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Internal
 
+- 拆分澄清状态机：把 reducer、effects、selectors 抽到独立文件，拆后每个文件 ≤ 400 行；行为与公开 API 不变，原模块路径继续导出（[#47](https://github.com/Jackela/ClarityOKR/issues/47)）
 - 拆分便签组件：模板移到 `.html`，把重新生成区（菜单 / 提示条 / 选择底栏）和已移除区抽成子组件，拆后每个文件 ≤ 400 行；DOM 结构、class、test id 与样式封装保持不变（[#47](https://github.com/Jackela/ClarityOKR/issues/47)）
 - 生产代码将 `@typescript-eslint/no-non-null-assertion` 升为 `error`，并用局部绑定替换 `KrRegenerationService` 中仅有的一处 `!`；清掉该规则与 `@typescript-eslint/no-unused-vars` 的既有 warning。测试目录（`tests/**`、`*.spec.ts`、`*.test.ts`）对该断言规则关闭；`no-unused-vars` 增加与已有 `argsIgnorePattern` 配套的 `varsIgnorePattern: '^_'`（[#46](https://github.com/Jackela/ClarityOKR/issues/46)）
 
