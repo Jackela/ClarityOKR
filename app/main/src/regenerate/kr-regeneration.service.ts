@@ -57,7 +57,8 @@ export class KrRegenerationService {
     }
     this.running.add(objective.id);
     try {
-      const sent = request.krIds ? active.filter((kr) => request.krIds!.includes(kr.id)) : active;
+      const requestedIds = request.krIds;
+      const sent = requestedIds ? active.filter((kr) => requestedIds.includes(kr.id)) : active;
       const context: ClarificationContext = {
         turns: await this.deps.turnsFor(objective.sourceSessionId ?? null),
         ...(sent.length > 0

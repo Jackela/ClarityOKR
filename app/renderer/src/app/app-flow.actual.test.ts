@@ -2,7 +2,6 @@ import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import type { ClarificationPrompt, OKRDocument } from '@clarityokr/contracts';
 import { AppComponent } from './app.component';
 import { ClarificationStateMachine } from './clarification/services/clarification-state-machine.service';
-import { OkrStickyService } from './okr-sticky/services/okr-sticky.service';
 import { Logger } from './core/services/logger.service';
 import { IPC_CHANNELS } from './shared/ipc-channel.tokens';
 
@@ -35,7 +34,6 @@ describe('Actual root UI wiring with real state, orchestrator and sticky service
   let fixture: ComponentFixture<AppComponent>;
   let component: AppComponent;
   let state: ClarificationStateMachine;
-  let sticky: OkrStickyService;
   beforeEach(async () => {
     invoke.mockReset();
     send.mockReset();
@@ -80,7 +78,6 @@ describe('Actual root UI wiring with real state, orchestrator and sticky service
     fixture = TestBed.createComponent(AppComponent);
     component = fixture.componentInstance;
     state = TestBed.inject(ClarificationStateMachine);
-    sticky = TestBed.inject(OkrStickyService);
     fixture.detectChanges();
     await fixture.whenStable();
   });

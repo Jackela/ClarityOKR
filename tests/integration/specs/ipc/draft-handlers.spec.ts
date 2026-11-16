@@ -4,7 +4,6 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import BetterSqlite3 from 'better-sqlite3';
-import type { Database } from 'better-sqlite3';
 import {
   ALLOWED_CHANNELS,
   IPC_CHANNELS,
@@ -500,7 +499,6 @@ describe('#110 session-end drafts through the main process (real OkrStore, temp 
     expect(reply.ok && reply.data.rows.map((r) => r.row)).toEqual([wizardRow('wiz-session-2')]);
     second.db.close();
   });
-
 
   it('#124: the same damaged wizard draft logs wizard-draft-fallback only once across bar / 恢复 / restart', async () => {
     const intent = '独特目标文字甲乙丙XYZ';

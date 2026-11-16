@@ -10,7 +10,6 @@ import { IMPORT_ISSUE_UI } from '@clarityokr/contracts';
 
 import { ToastService } from '../shared/components/toast.service';
 import { ClosedLoopApi } from './closed-loop-api.service';
-import { ClosedLoopStore } from './closed-loop.store';
 import { IMPORT_SLOW_MS, ImportFlow } from './import-flow.service';
 
 describe('ImportFlow (#49, S1§8 + v3.1)', () => {
