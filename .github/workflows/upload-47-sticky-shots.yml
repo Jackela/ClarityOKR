@@ -1,0 +1,21 @@
+name: Upload #47 sticky screenshot pack
+
+# Temporary branch only — do not merge. Not part of PR #165.
+on:
+  push:
+    branches:
+      - ci/temp-e2e-impl-shots-47-report
+
+jobs:
+  upload:
+    name: Upload designer screenshot pack
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Upload 47-sticky-shots pack
+        uses: actions/upload-artifact@v7
+        with:
+          name: 47-sticky-shots-${{ github.sha }}
+          path: 47-sticky-shots/
+          if-no-files-found: error
+          retention-days: 30
