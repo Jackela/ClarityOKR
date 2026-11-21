@@ -29,8 +29,8 @@ updates:
           - minor
           - patch
     ignore:
-      # Electron 45+ is a major, tracked in #154 and not scheduled this round.
-      # 44.x minor/patch version updates are still allowed.
+      # Electron majors are upgraded in their own planned PR (44 -> 45 was #154).
+      # 45.x minor/patch version updates are still allowed.
       - dependency-name: electron
         update-types:
           - version-update:semver-major
@@ -40,7 +40,7 @@ updates:
         update-types:
           - version-update:semver-major
       # @types/node major must match the runtime Node major (CI/release NODE_VERSION
-      # 24, .nvmrc 24.19.0, Electron 44.11.3 bundled Node 24.22.2). #172 bumped to
+      # 24, .nvmrc 24.19.0, Electron 45.4.1 bundled Node 24.22.3). #172 bumped to
       # 26 and was closed. minor/patch version updates are still allowed.
       - dependency-name: "@types/node"
         update-types:
