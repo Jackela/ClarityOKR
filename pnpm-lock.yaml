@@ -87,8 +87,8 @@ importers:
         specifier: ^16.4.5
         version: 16.6.1
       electron:
-        specifier: 44.11.4
-        version: 44.11.4
+        specifier: 45.4.1
+        version: 45.4.1
       lru-cache:
         specifier: ^11.2.7
         version: 11.5.3
@@ -2883,8 +2883,8 @@ packages:
     resolution: {integrity: sha512-bO3y10YikuUwUuDUQRM4KfwNkKhnpVO7IPdbsrejwN9/AABJzzTQ4GeHwyzNSrVO+tEH3/Np255a3sVZpZDjvg==}
     engines: {node: '>=8.0.0'}
 
-  electron@44.11.4:
-    resolution: {integrity: sha512-AJRr0b0F+Kt+iqmdFGLNUhluVHhcNUfFCm6AFXY/l9TmUr+fE6hW4HWVaaJGdhKkZiiVJ7ZgbAo2vQqWJ1C4jQ==}
+  electron@45.4.1:
+    resolution: {integrity: sha512-DjsJ/eQhovkjf1vYFFyh5GB8NMx+L5bdYaonvGOlWselg3DQ0fwIF0N/+2hrPsoS4whmmNswh21ym/8dgt1y5Q==}
     engines: {node: '>= 22.12.0'}
     hasBin: true
 
@@ -8218,7 +8218,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  electron@44.11.4:
+  electron@45.4.1:
     dependencies:
       '@electron-internal/extract-zip': 1.0.8
       '@electron/get': 5.1.0

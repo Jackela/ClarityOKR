@@ -5,7 +5,7 @@
 [![Clarify OKR CI](https://github.com/Jackela/ClarityOKR/actions/workflows/clarify-okr.yml/badge.svg)](https://github.com/Jackela/ClarityOKR/actions/workflows/clarify-okr.yml)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue)](https://www.typescriptlang.org/)
 [![Angular](https://img.shields.io/badge/Angular-20-red)](https://angular.io/)
-[![Electron](https://img.shields.io/badge/Electron-44-47848F)](https://www.electronjs.org/)
+[![Electron](https://img.shields.io/badge/Electron-45-47848F)](https://www.electronjs.org/)
 
 ClarityOKR is a desktop AI assistant that turns fuzzy intent into actionable Objectives and Key Results (OKRs).  
 The app runs on an Electron + Angular stack written in strict TypeScript (ESM-only) and follows SOLID, Domain-Driven Design, and Fail-Fast principles across the main process, renderer, and shared contracts.
@@ -244,7 +244,7 @@ API keys are automatically encrypted and stored in the OS keychain on first run.
 
 | Layer             | Technology     | Purpose                                |
 | ----------------- | -------------- | -------------------------------------- |
-| Desktop Framework | Electron 44    | Cross-platform main + renderer process |
+| Desktop Framework | Electron 45    | Cross-platform main + renderer process |
 | UI Framework      | Angular 20     | Standalone components with Signals     |
 | Language          | TypeScript 5.9 | Strict mode, ESM-only                  |
 | Package Manager   | pnpm 9         | Workspace monorepo                     |
@@ -289,7 +289,7 @@ API keys are automatically encrypted and stored in the OS keychain on first run.
 │  └───────────────────────────┼──────────────────────────────────────────┘   │
 │                              │ IPC (Type-Safe)                               │
 │  ┌───────────────────────────▼──────────────────────────────────────────┐   │
-│  │                      MAIN PROCESS (Electron 44 / Node.js 24)           │   │
+│  │                      MAIN PROCESS (Electron 45 / Node.js 24)           │   │
 │  │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────┐  │   │
 │  │  │ Clarification   │  │   Window        │  │   Persistence       │  │   │
 │  │  │   Controller    │  │   Management    │  │    Layer            │  │   │
