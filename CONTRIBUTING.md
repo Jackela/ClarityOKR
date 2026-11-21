@@ -24,6 +24,11 @@ Thank you for your interest in improving ClarityOKR!
    - `better-sqlite3` is a native module built for one runtime at a time. `test:unit` /
      `test:integration` and `test:e2e` check it first (`scripts/ensure-native.mjs`) and rebuild
      it for Node or Electron only when needed, so you can switch freely.
+   - On Windows with Visual Studio 2026 (v18) and pnpm 9, `pnpm install` uses the bundled
+     node-gyp 10.3.1, which cannot detect that VS version. Install node-gyp 12 or newer and
+     point pnpm at it (`npm install -g node-gyp@12`, then set `npm_config_node_gyp` to that
+     `node-gyp.js`), or run `scripts/setup-windows-native-build.ps1`. See
+     [docs/ci-cd-architecture.md](docs/ci-cd-architecture.md).
    - `test:e2e` builds the app first, then runs the CI Playwright config (Electron only, one
      worker, no browser download needed). On Linux without a display, wrap it in
      `xvfb-run -a`. Set `IMPL_SHOTS_DIR=<dir>` to save the design screenshots.
