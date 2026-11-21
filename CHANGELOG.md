@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Internal
 
+- 将测试包里的 `cross-env` 从 7.0.3 升到 10.1.0（unit / integration / performance 用于设置 `NODE_OPTIONS`）（[#174](https://github.com/Jackela/ClarityOKR/pull/174)）
 - 将 better-sqlite3 从 12.11.1 升到 13.2.0（改为 node-addon-api / N-API；包内不再走 prebuild-install，需在各平台从源码编译）。应用只用 constructor、pragma、exec、prepare、transaction、close，未调用 unsafeMode（13.2.0 起对已关闭连接调用会抛错）。补了用 12.11.1 经 ConnectionManager / OkrStore 真实 schema 路径生成的库文件在 13 下打开、读取旧行、写入再重开仍能读到的集成测试（[#180](https://github.com/Jackela/ClarityOKR/pull/180)，取代 [#159](https://github.com/Jackela/ClarityOKR/pull/159)）
 
 ## [0.3.6] - 2026-11-21
@@ -19,12 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Internal
 
-<<<<<<< HEAD
-- 将测试包里的 `cross-env` 从 7.0.3 升到 10.1.0（unit / integration / performance 用于设置 `NODE_OPTIONS`）（[#174](https://github.com/Jackela/ClarityOKR/pull/174)）
-=======
 - 修正 Release dry run 在旧 tag 上跳过 Windows 工具链时，日志与 Job Summary 中「旧 tag，已跳过 Windows 工具链脚本」的编码：缺脚本时改由 bash 步骤写出该句（UTF-8）；脚本存在时仍用原来的 PowerShell 步骤调用 `setup-windows-native-build.ps1`，不改变脚本内检查（[#184](https://github.com/Jackela/ClarityOKR/pull/184)）
 - Release 工作流的 Windows 工具链步骤：仅在 `workflow_dispatch` 且 `upload=false`（dry run）、同时检出树没有 `scripts/setup-windows-native-build.ps1` 时跳过，并在日志与 Job Summary 写入「旧 tag，已跳过 Windows 工具链脚本」；正式发版（tag 推送，或 `upload` 为 true / 未提供）缺少该脚本则失败。未改脚本内的 vswhere 等检查（[#182](https://github.com/Jackela/ClarityOKR/pull/182)）
->>>>>>> origin/main
 - 将 `istanbul-lib-source-maps` 从 4.0.1 升到 5.0.6（覆盖率收集用的 source map 库；行为应与 4.x 一致）（[#173](https://github.com/Jackela/ClarityOKR/pull/173)）
 - Windows CI 与 Release 在安装依赖前改用 node-gyp ≥12.1.0（不再强制 msvs_version=2022），以便在 windows-latest 的 Visual Studio 2026（v18）上从源码编译原生模块；pnpm 9 自带的 10.3.1 无法识别该版本（为 better-sqlite3 13 / Electron 45 做准备）（[#154](https://github.com/Jackela/ClarityOKR/issues/154)、[#159](https://github.com/Jackela/ClarityOKR/pull/159)）
 - Dependabot 忽略 `@types/node` 的 semver-major（运行时为 Node 24：CI 与 release 的 `NODE_VERSION` 为 24、`.nvmrc` 为 24.19.0、Electron 44.11.3 内置 Node 24.22.2；类型定义主版本需与运行时对齐，因此关闭将 24.19.1 升到 26.6.6 的 [#172](https://github.com/Jackela/ClarityOKR/pull/172)；minor 与 patch 仍会开 PR）
