@@ -15,7 +15,7 @@ const configStore = new LlmConfigStore(fallbackProvider);
  * @throws SecureStorageError if key cannot be retrieved or created
  * @deprecated Use MasterKeyManager.getOrCreateKey() instead
  */
-export function getOrCreateMasterKey(): Buffer {
+export function getOrCreateMasterKey(): Promise<Buffer> {
   return keyManager.getOrCreateKey();
 }
 
@@ -25,7 +25,7 @@ export function getOrCreateMasterKey(): Buffer {
  * @throws SecureStorageError if storage fails
  * @deprecated Use LlmConfigStore.store() instead
  */
-export function storeLlmConfig(config: SecureLlmConfig): void {
+export function storeLlmConfig(config: SecureLlmConfig): Promise<void> {
   return configStore.store(config);
 }
 
@@ -35,7 +35,7 @@ export function storeLlmConfig(config: SecureLlmConfig): void {
  * @throws SecureStorageError if retrieval or decryption fails
  * @deprecated Use LlmConfigStore.retrieve() instead
  */
-export function retrieveLlmConfig(): SecureLlmConfig | null {
+export function retrieveLlmConfig(): Promise<SecureLlmConfig | null> {
   return configStore.retrieve();
 }
 
@@ -73,8 +73,8 @@ export function setFallbackConfig(config: SecureLlmConfig): void {
  * @throws SecureStorageError if no configuration is available
  * @deprecated Compose LlmConfigStore.retrieve() and FallbackKeyProvider for new code
  */
-export function getActiveLlmConfig(): SecureLlmConfig {
-  const secureConfig = configStore.retrieve();
+export async function getActiveLlmConfig(): Promise<SecureLlmConfig> {
+  const secureConfig = await configStore.retrieve();
   if (secureConfig) {
     return secureConfig;
   }

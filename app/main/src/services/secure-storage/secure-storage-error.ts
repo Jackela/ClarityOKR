@@ -8,7 +8,7 @@
  * @example
  * ```typescript
  * try {
- *   const key = keyManager.getOrCreateKey();
+ *   const key = await keyManager.getOrCreateKey();
  * } catch (error) {
  *   if (error instanceof SecureStorageError) {
  *     console.error('Storage failed:', error.message);

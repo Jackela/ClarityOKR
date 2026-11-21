@@ -47,7 +47,7 @@ export class EncryptedStorageService {
    */
   async set(key: string, data: unknown): Promise<void> {
     try {
-      const encryptionKey = this.keyManager.getOrCreateKey();
+      const encryptionKey = await this.keyManager.getOrCreateKey();
       const iv = randomBytes(16);
       const cipher = createCipheriv('aes-256-gcm', encryptionKey, iv);
 
@@ -88,7 +88,7 @@ export class EncryptedStorageService {
       const content = await fs.readFile(filePath, 'utf8');
       const encryptedData: EncryptedData = JSON.parse(content);
 
-      const encryptionKey = this.keyManager.getOrCreateKey();
+      const encryptionKey = await this.keyManager.getOrCreateKey();
       const iv = Buffer.from(encryptedData.iv, 'base64');
       const authTag = Buffer.from(encryptedData.authTag, 'base64');
       const encrypted = Buffer.from(encryptedData.encrypted, 'base64');

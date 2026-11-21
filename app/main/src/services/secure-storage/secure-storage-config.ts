@@ -81,11 +81,11 @@ export function getConfigFilePath(): string {
  *
  * @example
  * ```typescript
- * if (!isSafeStorageAvailable()) {
+ * if (!(await isSafeStorageAvailable())) {
  *   console.warn('Secure storage unavailable - falling back to test mode');
  * }
  * ```
  */
-export function isSafeStorageAvailable(): boolean {
-  return safeStorage.isEncryptionAvailable();
+export async function isSafeStorageAvailable(): Promise<boolean> {
+  return safeStorage.isAsyncEncryptionAvailable();
 }
