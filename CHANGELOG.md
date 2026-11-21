@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.6] - 2026-11-21
+
 ### Security
 
 - 将随安装包提供的 Electron 从 44.11.3 升到 44.11.4。Chromium 152.0.7977.169 与 V8 15.2.124.45 未变；内置 Node.js 从 24.22.2 升到 24.22.3，带上 2026-11-11 Node.js 安全发布中的补丁（High：CVE-2026-123863、CVE-2026-123864、CVE-2026-123865、CVE-2026-123866、CVE-2026-123872、CVE-2026-123874、CVE-2026-126051；另有 Medium/Low 项，见 [Node.js 24.22.3](https://nodejs.org/en/blog/release/v24.22.3)）（[#179](https://github.com/Jackela/ClarityOKR/pull/179)）
@@ -26,6 +28,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 拆分澄清状态机：把 reducer、effects、selectors 抽到独立文件，拆后每个文件 ≤ 400 行；行为与公开 API 不变，原模块路径继续导出（[#47](https://github.com/Jackela/ClarityOKR/issues/47)）
 - 拆分便签组件：模板移到 `.html`，把重新生成区（菜单 / 提示条 / 选择底栏）和已移除区抽成子组件，拆后每个文件 ≤ 400 行；DOM 结构、class、test id 与样式封装保持不变（[#47](https://github.com/Jackela/ClarityOKR/issues/47)）
 - 生产代码将 `@typescript-eslint/no-non-null-assertion` 升为 `error`，并用局部绑定替换 `KrRegenerationService` 中仅有的一处 `!`；清掉该规则与 `@typescript-eslint/no-unused-vars` 的既有 warning。测试目录（`tests/**`、`*.spec.ts`、`*.test.ts`）对该断言规则关闭；`no-unused-vars` 增加与已有 `argsIgnorePattern` 配套的 `varsIgnorePattern: '^_'`（[#46](https://github.com/Jackela/ClarityOKR/issues/46)）
+
+### Known issues
+
+- 「未实测」：以下行为只有自动化测试，尚未在真机上手动验证
+  - 系统托盘（菜单「显示便签 / 退出」、点击唤回）：macOS、Windows、Linux 均未实测
+  - Dock 唤回便签：macOS 未实测
+  - ⌘Q 退出确认（含未保存修改的合并提示）：macOS 未实测
+  - Windows 注销 / 关机时保存草稿并在下次启动提供恢复（#110，跟踪 #45）
+- Windows / Linux 上无法创建托盘图标时，关闭或隐藏最后一个可见窗口会直接退出应用（按钮提示里有说明）
+- macOS 安装包未签名
+
 
 ## [0.3.5] - 2026-11-16
 
@@ -274,7 +287,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comprehensive test suite (unit, component, integration, E2E)
 - CI/CD pipeline with multi-platform builds
 
-[unreleased]: https://github.com/Jackela/ClarityOKR/compare/v0.3.5...HEAD
+[unreleased]: https://github.com/Jackela/ClarityOKR/compare/v0.3.6...HEAD
+[0.3.6]: https://github.com/Jackela/ClarityOKR/compare/v0.3.5...v0.3.6
 [0.3.5]: https://github.com/Jackela/ClarityOKR/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/Jackela/ClarityOKR/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/Jackela/ClarityOKR/compare/v0.3.2...v0.3.3
