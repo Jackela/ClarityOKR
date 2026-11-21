@@ -88,6 +88,18 @@
 3. 生成安装包
 4. 上传产物
 
+### Windows 原生模块工具链
+
+`windows-latest` 当前只提供 Visual Studio 2026（内部版本 18，路径多为 `C:\Program Files\Microsoft Visual Studio\18\Enterprise`），没有 VS 2022。pnpm 9 自带 node-gyp 10.3.1，无法识别 v18，会在从源码编译原生模块时报 `unknown version "undefined"` / `Visual Studio 2017 or newer` 找不到。better-sqlite3 12 在 `pnpm install` 时还能走 Node 的 prebuild，所以这条问题在 main 上被掩盖；12 针对 Electron 的编译走的是 `@electron/rebuild` 自带的 node-gyp 12.4.0，因此还能过。better-sqlite3 13 没有 prebuild，`pnpm install` 必须在 Windows 上现场编译，#159 就是因此在 Install dependencies 失败的。
+
+处理方式（CI 的 `Build Release Artifacts` Windows 作业和 Release 工作流的 Windows 作业都会做）：
+
+1. 运行 `scripts/setup-windows-native-build.ps1`：安装 node-gyp 12.x（必须 ≥12.1.0，该版本起才识别 VS 2026），并把 `npm_config_node_gyp` 指到这份 `node-gyp.js`。pnpm 只有在这个变量未设置时才会改用自带的 10.3.1。
+2. 不再设置 `npm_package_config_node_gyp_msvs_version=2022`（或任何强制 2022 的 `msvs_version` / `GYP_MSVS_VERSION`）。镜像上没有 2022，强制指定只会让检测失败。
+3. 用 vswhere（需要 C++ 工具集）以及 `18` / `2026` / `2022` 路径确认已安装 Visual Studio；找不到则让该步骤失败，而不是只打 warning 后继续。
+
+不要把 Windows 作业改成 `windows-2022` 来回避这个问题（镜像退役后还会再出现），也不要为此下调、跳过或把任何检查改成可选；`CI Status` 仍只汇总 Lint/Typecheck/Unit/Component/Integration、E2E 和 Coverage Report。本地 Windows 开发环境如果同样是 VS 2026 + pnpm 9，也可以运行同一脚本，见 CONTRIBUTING 与 quickstart。
+
 ## 安全扫描
 
 ### npm audit 策略
