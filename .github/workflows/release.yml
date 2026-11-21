@@ -3,6 +3,9 @@
 #
 # - push of a tag v*            → build macOS / Windows / Linux, attach installers + SHA256SUMS.txt
 # - workflow_dispatch (tag)     → same for an existing tag; `upload: false` only builds (dry run)
+#   Dry run only: if the checked-out tag lacks scripts/setup-windows-native-build.ps1, skip that
+#   Windows step and write "旧 tag，已跳过 Windows 工具链脚本" to the log and Job Summary.
+#   A real release (tag push, or upload true / absent) must fail if the script is missing.
 #
 # An existing Release keeps its text: assets are added (same names replaced on a re-run) and an
 # "unsigned" note is appended once when no signing certificate was configured. A missing Release
@@ -66,10 +69,41 @@ jobs:
       - name: Install pnpm
         run: npm install -g pnpm@${{ env.PNPM_VERSION }}
 
-      - name: Setup Windows build environment
+      - name: Check Windows toolchain script
+        id: win-toolchain
         if: matrix.os == 'windows-latest'
+        shell: bash
+        run: |
+          if [ -f ./scripts/setup-windows-native-build.ps1 ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Windows build environment
+        if: matrix.os == 'windows-latest' && steps.win-toolchain.outputs.present == 'true'
         shell: powershell
         run: ./scripts/setup-windows-native-build.ps1
+
+      # When the checked-out tree has no toolchain script: bash writes the exact UTF-8
+      # skip message (Windows PowerShell 5.1 misreads a UTF-8 inline script as windows-1252).
+      # The script itself is unchanged.
+      - name: Setup Windows build environment (missing script)
+        if: matrix.os == 'windows-latest' && steps.win-toolchain.outputs.present == 'false'
+        shell: bash
+        env:
+          # Only workflow_dispatch with upload=false is a dry run. Tag pushes and a missing
+          # upload input are real releases (treat absent as true).
+          RELEASE_UPLOAD: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.upload == 'false' && 'false' || 'true' }}
+        run: |
+          if [ "$RELEASE_UPLOAD" = "false" ]; then
+            msg='旧 tag，已跳过 Windows 工具链脚本'
+            printf '%s\n' "$msg"
+            printf '%s\n' "$msg" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "::error::scripts/setup-windows-native-build.ps1 is missing, but this is a real release (upload is not false). The Windows toolchain step cannot be skipped."
+          exit 1
 
       - name: The tag matches package.json
         shell: bash
