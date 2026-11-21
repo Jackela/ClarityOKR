@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Internal
 
 - 将渲染进程测试用的 `jsdom` 从 26.1.0 升到 31.0.1（[#175](https://github.com/Jackela/ClarityOKR/pull/175)）
+- 将 Electron `safeStorage` 的同步 API（`isEncryptionAvailable` / `encryptString` / `decryptString`，9 处调用）迁到 Electron 44 已提供的异步 API（`isAsyncEncryptionAvailable` / `encryptStringAsync` / `decryptStringAsync`）。官方说明旧同步密文可用 async 解密；若 async 解密失败则回退到仍可用的同步解密（覆盖 KDE/KWallet 上已知的密钥条目不一致问题），并仅在 async 重新加密成功后才替换磁盘上的密文，失败时保留原密文（[#154](https://github.com/Jackela/ClarityOKR/issues/154)）
 - 将测试包里的 `cross-env` 从 7.0.3 升到 10.1.0（unit / integration / performance 用于设置 `NODE_OPTIONS`）（[#174](https://github.com/Jackela/ClarityOKR/pull/174)）
 - 将 better-sqlite3 从 12.11.1 升到 13.2.0（改为 node-addon-api / N-API；包内不再走 prebuild-install，需在各平台从源码编译）。应用只用 constructor、pragma、exec、prepare、transaction、close，未调用 unsafeMode（13.2.0 起对已关闭连接调用会抛错）。补了用 12.11.1 经 ConnectionManager / OkrStore 真实 schema 路径生成的库文件在 13 下打开、读取旧行、写入再重开仍能读到的集成测试（[#180](https://github.com/Jackela/ClarityOKR/pull/180)，取代 [#159](https://github.com/Jackela/ClarityOKR/pull/159)）
 

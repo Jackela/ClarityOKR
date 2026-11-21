@@ -34,9 +34,9 @@ export interface LlmConfig {
  *
  * @throws Error if no configuration is available
  */
-export function getLlmConfig(): LlmConfig {
+export async function getLlmConfig(): Promise<LlmConfig> {
   try {
-    const secureConfig = getActiveLlmConfig();
+    const secureConfig = await getActiveLlmConfig();
     return {
       apiKey: secureConfig.apiKey,
       baseUrl: secureConfig.baseUrl,
@@ -58,17 +58,17 @@ export function getLlmConfig(): LlmConfig {
  * @param config - The LLM configuration to store
  * @throws SecureStorageError if storage fails
  */
-export function setLlmConfig(config: SecureLlmConfig): void {
-  storeLlmConfig(config);
+export async function setLlmConfig(config: SecureLlmConfig): Promise<void> {
+  await storeLlmConfig(config);
 }
 
 /**
  * Checks if LLM configuration is available
  * @returns true if configuration exists
  */
-export function hasLlmConfiguration(): boolean {
+export async function hasLlmConfiguration(): Promise<boolean> {
   try {
-    getLlmConfig();
+    await getLlmConfig();
     return true;
   } catch {
     return false;
