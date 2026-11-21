@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Internal
 
 - Windows CI 与 Release 在安装依赖前改用 node-gyp ≥12.1.0（不再强制 msvs_version=2022），以便在 windows-latest 的 Visual Studio 2026（v18）上从源码编译原生模块；pnpm 9 自带的 10.3.1 无法识别该版本（为 better-sqlite3 13 / Electron 45 做准备）（[#154](https://github.com/Jackela/ClarityOKR/issues/154)、[#159](https://github.com/Jackela/ClarityOKR/pull/159)）
+- Dependabot 忽略 `@types/node` 的 semver-major（运行时为 Node 24：CI 与 release 的 `NODE_VERSION` 为 24、`.nvmrc` 为 24.19.0、Electron 44.11.3 内置 Node 24.22.2；类型定义主版本需与运行时对齐，因此关闭将 24.19.1 升到 26.6.6 的 [#172](https://github.com/Jackela/ClarityOKR/pull/172)；minor 与 patch 仍会开 PR）
 - Dependabot 忽略 nock 的 semver-major（integration 在 nock 15 上 jest SIGSEGV，推迟；minor 与 patch 仍会开 PR）（[#170](https://github.com/Jackela/ClarityOKR/issues/170)）
 - 仅测试：`reminders.spec.ts` 对「去复盘」交接次数的计数改走测试模式钩子 `__clarityokrE2E.resetTakeReviewCount` / `getTakeReviewCount`，不再替换 Electron 内部 `_invokeHandlers`（[#144](https://github.com/Jackela/ClarityOKR/issues/144)）
 - 将 `eslint-config-prettier` 从 9.1.2 升到 10.1.8。`eslint --print-config`（生产 `main.ts`、secure-storage 生产文件、renderer 组件、单测 spec）只新增 180 条 `@stylistic/*` 规则且全部为 off/0，既有规则与其他配置项无差异（[#160](https://github.com/Jackela/ClarityOKR/pull/160)）
