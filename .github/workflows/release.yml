@@ -66,6 +66,11 @@ jobs:
       - name: Install pnpm
         run: npm install -g pnpm@${{ env.PNPM_VERSION }}
 
+      - name: Setup Windows build environment
+        if: matrix.os == 'windows-latest'
+        shell: powershell
+        run: ./scripts/setup-windows-native-build.ps1
+
       - name: The tag matches package.json
         shell: bash
         run: |

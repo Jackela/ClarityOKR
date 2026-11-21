@@ -317,12 +317,19 @@ xattr -dr com.apple.quarantine node_modules/electron/dist/Electron.app
 
 **Solution:**
 
-```bash
-# Install Windows build tools (PowerShell as Admin)
-npm install --global windows-build-tools
+Install Visual Studio 2022 or 2026 (or Build Tools) with the "Desktop development with C++" workload.
 
-# Or use Visual Studio Build Tools
+pnpm 9 bundles node-gyp 10.3.1, which does not detect Visual Studio 2026 (v18). Install node-gyp 12 or newer and point pnpm at it, or run the repo script:
+
+```powershell
+# PowerShell
+./scripts/setup-windows-native-build.ps1
+# or:
+npm install -g node-gyp@12
+$env:npm_config_node_gyp = "$(npm root -g)\node-gyp\bin\node-gyp.js"
 ```
+
+See [docs/ci-cd-architecture.md](docs/ci-cd-architecture.md).
 
 ### Issue: Sticky window does not stay on top
 
@@ -384,15 +391,6 @@ pnpm run dev
 
 # Clear Angular cache
 rm -rf app/renderer/.angular
-```
-
-**Solution:**
-
-```bash
-# Install Windows build tools (PowerShell as Admin)
-npm install --global windows-build-tools
-
-# Or use Visual Studio Build Tools
 ```
 
 ## Next Steps
