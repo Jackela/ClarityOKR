@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- 将随安装包提供的 Electron 从 44.11.3 升到 44.11.4。Chromium 152.0.7977.169 与 V8 15.2.124.45 未变；内置 Node.js 从 24.22.2 升到 24.22.3，带上 2026-11-11 Node.js 安全发布中的补丁（High：CVE-2026-123863、CVE-2026-123864、CVE-2026-123865、CVE-2026-123866、CVE-2026-123872、CVE-2026-123874、CVE-2026-126051；另有 Medium/Low 项，见 [Node.js 24.22.3](https://nodejs.org/en/blog/release/v24.22.3)）（[#179](https://github.com/Jackela/ClarityOKR/pull/179)）
+
 ### Internal
 
 - 将测试包里的 `cross-env` 从 7.0.3 升到 10.1.0（unit / integration / performance 用于设置 `NODE_OPTIONS`）（[#174](https://github.com/Jackela/ClarityOKR/pull/174)）
