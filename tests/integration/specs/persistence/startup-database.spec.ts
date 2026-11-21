@@ -782,7 +782,7 @@ describe('startup: opening the database', () => {
   });
 
   describe('API key store is unaffected by retiring the database', () => {
-    it('the encrypted config in a temp config dir is unchanged and still readable after a legacy retirement', () => {
+    it('the encrypted config in a temp config dir is unchanged and still readable after a legacy retirement', async () => {
       const home = mkdtempSync(join(tmpdir(), 'okr-home-'));
       const saved = { HOME: process.env.HOME, USERPROFILE: process.env.USERPROFILE };
       process.env.HOME = home;
@@ -794,7 +794,7 @@ describe('startup: opening the database', () => {
           baseUrl: 'http://127.0.0.1:1',
           model: 'm',
         };
-        new LlmConfigStore(provider).store(secret);
+        await new LlmConfigStore(provider).store(secret);
         const configFile = join(home, '.clarityokr', 'llm-config.enc');
         const before = readFileSync(configFile);
 
@@ -804,7 +804,7 @@ describe('startup: opening the database', () => {
         opened.connectionManager.close();
 
         expect(readFileSync(configFile).equals(before)).toBe(true);
-        expect(new LlmConfigStore(new FallbackKeyProvider()).retrieve()).toEqual(secret);
+        expect(await new LlmConfigStore(new FallbackKeyProvider()).retrieve()).toEqual(secret);
         // the key never lives in, or moves with, the userData directory or the backups
         expect(readdirSync(userData)).not.toContain('llm-config.enc');
         expect(readdirSync(backupsDir()).some((f) => f.includes('llm-config'))).toBe(false);

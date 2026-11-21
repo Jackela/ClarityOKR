@@ -1,12 +1,14 @@
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 
-import { safeStorage } from 'electron';
-
 import { decrypt, encrypt, type EncryptedData } from '../encryption.service.js';
 import { SecureStorageError } from './secure-storage-error.js';
 import type { SecureLlmConfig } from './secure-llm-config.js';
 import { ensureConfigDir, getConfigFilePath } from './secure-storage-config.js';
 import type { FallbackKeyProvider } from './fallback-key-provider.js';
+import {
+  decryptStringWithSafeStorage,
+  encryptStringWithSafeStorage,
+} from './safe-storage-crypto.js';
 
 /**
  * Manages LLM configuration storage and retrieval.
@@ -26,7 +28,7 @@ export class LlmConfigStore {
    * @param config - The LLM configuration to store
    * @throws SecureStorageError if storage fails
    */
-  store(config: SecureLlmConfig): void {
+  async store(config: SecureLlmConfig): Promise<void> {
     try {
       ensureConfigDir();
 
@@ -43,12 +45,8 @@ export class LlmConfigStore {
         return;
       }
 
-      if (!safeStorage.isEncryptionAvailable()) {
-        throw new SecureStorageError('Safe storage is not available. Cannot store configuration.');
-      }
-
       const configJson = JSON.stringify(config);
-      const encryptedConfig = safeStorage.encryptString(configJson);
+      const encryptedConfig = await encryptStringWithSafeStorage(configJson);
 
       writeFileSync(getConfigFilePath(), encryptedConfig, { mode: 0o600 });
     } catch (error) {
@@ -68,7 +66,7 @@ export class LlmConfigStore {
    * @returns The stored LLM configuration, or null if not found
    * @throws SecureStorageError if retrieval or decryption fails
    */
-  retrieve(): SecureLlmConfig | null {
+  async retrieve(): Promise<SecureLlmConfig | null> {
     try {
       const configFilePath = getConfigFilePath();
 
@@ -86,14 +84,10 @@ export class LlmConfigStore {
         return JSON.parse(configJson) as SecureLlmConfig;
       }
 
-      if (!safeStorage.isEncryptionAvailable()) {
-        throw new SecureStorageError(
-          'Safe storage is not available. Cannot retrieve configuration.',
-        );
-      }
-
       const encryptedConfig = readFileSync(configFilePath);
-      const configJson = safeStorage.decryptString(encryptedConfig);
+      const configJson = await decryptStringWithSafeStorage(encryptedConfig, (next) => {
+        writeFileSync(configFilePath, next, { mode: 0o600 });
+      });
 
       return JSON.parse(configJson) as SecureLlmConfig;
     } catch (error) {

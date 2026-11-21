@@ -1,11 +1,13 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 
-import { safeStorage } from 'electron';
-
 import { generateEncryptionKey, isValidEncryptionKey } from '../encryption.service.js';
 import { SecureStorageError } from './secure-storage-error.js';
 import { ensureConfigDir, getKeyFilePath } from './secure-storage-config.js';
 import type { FallbackKeyProvider } from './fallback-key-provider.js';
+import {
+  decryptStringWithSafeStorage,
+  encryptStringWithSafeStorage,
+} from './safe-storage-crypto.js';
 
 /**
  * Manages the master encryption key lifecycle.
@@ -28,7 +30,7 @@ export class MasterKeyManager {
    * @returns The 256-bit encryption key as a Buffer
    * @throws SecureStorageError if key cannot be retrieved or created
    */
-  getOrCreateKey(): Buffer {
+  async getOrCreateKey(): Promise<Buffer> {
     try {
       ensureConfigDir();
       const keyFilePath = getKeyFilePath();
@@ -39,12 +41,9 @@ export class MasterKeyManager {
 
       if (existsSync(keyFilePath)) {
         const encryptedKey = readFileSync(keyFilePath);
-
-        if (!safeStorage.isEncryptionAvailable()) {
-          throw new SecureStorageError('Safe storage is not available. Cannot decrypt key.');
-        }
-
-        const decryptedKey = safeStorage.decryptString(encryptedKey);
+        const decryptedKey = await decryptStringWithSafeStorage(encryptedKey, (next) => {
+          writeFileSync(keyFilePath, next, { mode: 0o600 });
+        });
         const keyBuffer = Buffer.from(decryptedKey, 'base64');
 
         if (!isValidEncryptionKey(keyBuffer)) {
@@ -55,17 +54,7 @@ export class MasterKeyManager {
       }
 
       const newKey = generateEncryptionKey();
-
-      if (!safeStorage.isEncryptionAvailable()) {
-        throw new SecureStorageError(
-          'Safe storage is not available. Cannot securely store encryption key. ' +
-            'This may happen on Linux without a keyring service or on systems without ' +
-            'proper credential storage. Please ensure your system has a keychain or ' +
-            'credential manager installed.',
-        );
-      }
-
-      const encryptedKey = safeStorage.encryptString(newKey.toString('base64'));
+      const encryptedKey = await encryptStringWithSafeStorage(newKey.toString('base64'));
       writeFileSync(keyFilePath, encryptedKey, { mode: 0o600 });
 
       return newKey;
