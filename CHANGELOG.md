@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Internal
 
+- 将 better-sqlite3 从 12.11.1 升到 13.2.0（改为 node-addon-api / N-API；包内不再走 prebuild-install，需在各平台从源码编译）。应用只用 constructor、pragma、exec、prepare、transaction、close，未调用 unsafeMode（13.2.0 起对已关闭连接调用会抛错）。补了用 12.11.1 经 ConnectionManager / OkrStore 真实 schema 路径生成的库文件在 13 下打开、读取旧行、写入再重开仍能读到的集成测试（[#180](https://github.com/Jackela/ClarityOKR/pull/180)，取代 [#159](https://github.com/Jackela/ClarityOKR/pull/159)）
 - Windows CI 与 Release 在安装依赖前改用 node-gyp ≥12.1.0（不再强制 msvs_version=2022），以便在 windows-latest 的 Visual Studio 2026（v18）上从源码编译原生模块；pnpm 9 自带的 10.3.1 无法识别该版本（为 better-sqlite3 13 / Electron 45 做准备）（[#154](https://github.com/Jackela/ClarityOKR/issues/154)、[#159](https://github.com/Jackela/ClarityOKR/pull/159)）
 - Dependabot 忽略 `@types/node` 的 semver-major（运行时为 Node 24：CI 与 release 的 `NODE_VERSION` 为 24、`.nvmrc` 为 24.19.0、Electron 44.11.3 内置 Node 24.22.2；类型定义主版本需与运行时对齐，因此关闭将 24.19.1 升到 26.6.6 的 [#172](https://github.com/Jackela/ClarityOKR/pull/172)；minor 与 patch 仍会开 PR）
 - Dependabot 忽略 nock 的 semver-major（integration 在 nock 15 上 jest SIGSEGV，推迟；minor 与 patch 仍会开 PR）（[#170](https://github.com/Jackela/ClarityOKR/issues/170)）
