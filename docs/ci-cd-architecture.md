@@ -100,6 +100,8 @@
 
 不要把 Windows 作业改成 `windows-2022` 来回避这个问题（镜像退役后还会再出现），也不要为此下调、跳过或把任何检查改成可选；`CI Status` 仍只汇总 Lint/Typecheck/Unit/Component/Integration、E2E 和 Coverage Report。本地 Windows 开发环境如果同样是 VS 2026 + pnpm 9，也可以运行同一脚本，见 CONTRIBUTING 与 quickstart。
 
+Release 工作流（`.github/workflows/release.yml`）的 Windows 作业同样运行该脚本，且不得削弱其中的 vswhere 等检查。唯一例外：`workflow_dispatch` 且 `upload=false`（dry run）时，如果检出的旧 tag 里没有 `scripts/setup-windows-native-build.ps1`，则跳过该步骤，并在日志和 Job Summary 写入「旧 tag，已跳过 Windows 工具链脚本」。tag 推送，或 `upload=true`（`upload` 未提供时视为 true）时，缺少该脚本必须失败。
+
 ## 安全扫描
 
 ### npm audit 策略
