@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- 将随安装包提供的 Electron 从 44.11.3 升到 44.11.4。Chromium 152.0.7977.169 与 V8 15.2.124.45 未变；内置 Node.js 从 24.22.2 升到 24.22.3，带上 2026-11-11 Node.js 安全发布中的补丁（High：CVE-2026-123863、CVE-2026-123864、CVE-2026-123865、CVE-2026-123866、CVE-2026-123872、CVE-2026-123874、CVE-2026-126051；另有 Medium/Low 项，见 [Node.js 24.22.3](https://nodejs.org/en/blog/release/v24.22.3)）（[#179](https://github.com/Jackela/ClarityOKR/pull/179)）
+
 ### Internal
 
 - Windows CI 与 Release 在安装依赖前改用 node-gyp ≥12.1.0（不再强制 msvs_version=2022），以便在 windows-latest 的 Visual Studio 2026（v18）上从源码编译原生模块；pnpm 9 自带的 10.3.1 无法识别该版本（为 better-sqlite3 13 / Electron 45 做准备）（[#154](https://github.com/Jackela/ClarityOKR/issues/154)、[#159](https://github.com/Jackela/ClarityOKR/pull/159)）
