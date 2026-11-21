@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Internal
 
+- 将 `istanbul-lib-source-maps` 从 4.0.1 升到 5.0.6（覆盖率收集用的 source map 库；行为应与 4.x 一致）（[#173](https://github.com/Jackela/ClarityOKR/pull/173)）
 - Dependabot 忽略 `@types/node` 的 semver-major（运行时为 Node 24：CI 与 release 的 `NODE_VERSION` 为 24、`.nvmrc` 为 24.19.0、Electron 44.11.3 内置 Node 24.22.2；类型定义主版本需与运行时对齐，因此关闭将 24.19.1 升到 26.6.6 的 [#172](https://github.com/Jackela/ClarityOKR/pull/172)；minor 与 patch 仍会开 PR）
 - Dependabot 忽略 nock 的 semver-major（integration 在 nock 15 上 jest SIGSEGV，推迟；minor 与 patch 仍会开 PR）（[#170](https://github.com/Jackela/ClarityOKR/issues/170)）
 - 仅测试：`reminders.spec.ts` 对「去复盘」交接次数的计数改走测试模式钩子 `__clarityokrE2E.resetTakeReviewCount` / `getTakeReviewCount`，不再替换 Electron 内部 `_invokeHandlers`（[#144](https://github.com/Jackela/ClarityOKR/issues/144)）
