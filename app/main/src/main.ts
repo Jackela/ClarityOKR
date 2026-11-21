@@ -489,7 +489,12 @@ if (testMode) {
       tray = null;
     },
     // #110 e2e: show the sticky note of a relaunched app on one of its OKRs.
+    // Playwright's electronApp.evaluate arrives over the Node inspector, which V8 can run at an
+    // interrupt inside other main-process JS, including better-sqlite3 13's JS row factory while a
+    // statement is still stepping ("This database connection is busy executing a query"). Yield
+    // to the event loop first so the store is only touched outside any in-flight query.
     openSticky: async (okrId: string) => {
+      await new Promise<void>((resolve) => setImmediate(resolve));
       const okr = await okrRepository.findById(okrId);
       if (okr) await stickyWindowManager.open(okr);
     },
