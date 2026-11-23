@@ -41,6 +41,8 @@ import { ClarificationPage } from '../page-objects';
 const EXECUTABLE = process.env.SMOKE_APP_EXECUTABLE ?? '';
 const USER_DATA = process.env.SMOKE_USER_DATA_DIR ? resolve(process.env.SMOKE_USER_DATA_DIR) : '';
 const LABEL = process.env.SMOKE_LABEL ?? process.platform;
+/** The x64 build on Apple silicon runs under Rosetta, which translates the whole app on first launch. */
+const SLOW = LABEL === 'mac-x64' ? 5 : 1;
 const EXTRA_ARGS = (process.env.SMOKE_EXTRA_ARGS ?? '').split(/\s+/).filter(Boolean);
 const TITLE = '安装冒烟：提高团队交付效率';
 const DB_FILE = 'clarityokr.db';
@@ -110,7 +112,7 @@ async function launch(mockUrl: string, run: string): Promise<Launched> {
     executablePath: EXECUTABLE,
     args: EXTRA_ARGS,
     env: productionEnv(mockUrl),
-    timeout: 120_000,
+    timeout: 120_000 * SLOW,
   });
   const log: string[] = [];
   const logFile = join(artifactsDir(), `${LABEL}-${run}-app.log`);
@@ -122,7 +124,7 @@ async function launch(mockUrl: string, run: string): Promise<Launched> {
   child.stdout?.on('data', record);
   child.stderr?.on('data', record);
 
-  await app.firstWindow({ timeout: 120_000 });
+  await app.firstWindow({ timeout: 120_000 * SLOW });
   // the main window (the sticky note, when it opens, carries `view=sticky`)
   let main: Page | undefined;
   await expect
@@ -133,7 +135,7 @@ async function launch(mockUrl: string, run: string): Promise<Launched> {
           .find((w) => w.url().startsWith('file:') && !w.url().includes('view=sticky'));
         return main !== undefined;
       },
-      { timeout: 60_000 },
+      { timeout: 60_000 * SLOW },
     )
     .toBe(true);
   await main!.waitForLoadState('domcontentloaded');
@@ -220,13 +222,13 @@ async function quit(launched: Launched): Promise<void> {
       () =>
         child.exitCode !== null ||
         launched.log.join('').includes('Waiting for the debugger to disconnect'),
-      { timeout: 60_000, message: 'the app starts exiting after 「退出」' },
+      { timeout: 60_000 * SLOW, message: 'the app starts exiting after 「退出」' },
     )
     .toBe(true);
   await launched.app.close().catch(() => undefined);
   const code = await Promise.race([
     exited,
-    new Promise<'timeout'>((done) => setTimeout(() => done('timeout'), 30_000)),
+    new Promise<'timeout'>((done) => setTimeout(() => done('timeout'), 30_000 * SLOW)),
   ]);
   if (code === 'timeout') child.kill();
   expect(code, 'exit code after 「退出」').toBe(0);
@@ -334,7 +336,7 @@ async function checkSticky(launched: Launched, shots: string): Promise<void> {
         sticky = launched.app.windows().find((w) => w.url().includes('view=sticky'));
         return sticky !== undefined;
       },
-      { timeout: 30_000, message: 'the sticky note opens' },
+      { timeout: 30_000 * SLOW, message: 'the sticky note opens' },
     )
     .toBe(true);
   const page = sticky!;
@@ -365,7 +367,7 @@ interface SafeStorageProbe {
 
 /** First launch: encrypt a marker with the OS store (Keychain / DPAPI / libsecret). */
 /** An OS prompt (e.g. a Keychain access dialog) would block forever on a runner: fail clearly. */
-function within<T>(what: string, promise: Promise<T>, ms = 60_000): Promise<T> {
+function within<T>(what: string, promise: Promise<T>, ms = 60_000 * SLOW): Promise<T> {
   let timer: NodeJS.Timeout | undefined;
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(new Error(`${what} did not finish within ${ms} ms`)), ms);
@@ -395,8 +397,7 @@ const decryptMarker = (app: ElectronApplication, cipher: string): Promise<string
   }, cipher);
 
 test('installed app: fresh profile → OKR, progress, review → quit → relaunch → all still there', async () => {
-  // The x64 build on Apple silicon runs under Rosetta: first launches translate the whole app.
-  if (LABEL === 'mac-x64') test.setTimeout(900_000);
+  test.setTimeout(300_000 * SLOW);
   expect(EXECUTABLE, 'SMOKE_APP_EXECUTABLE').not.toBe('');
   expect(existsSync(EXECUTABLE), `${EXECUTABLE} exists`).toBe(true);
   expect(USER_DATA, 'SMOKE_USER_DATA_DIR').not.toBe('');
@@ -426,7 +427,7 @@ test('installed app: fresh profile → OKR, progress, review → quit → relaun
         selectOptionIndex: 0,
         finalOptionIndex: 1,
       });
-      await clarification.waitForOkrSummary(60_000);
+      await clarification.waitForOkrSummary(60_000 * SLOW);
       await expect.poll(() => listedTitles(first.main)).toEqual([TITLE]);
       okrId = await onlyOkrId(first.main);
       await writeProgressAndReview(first.main, okrId);
