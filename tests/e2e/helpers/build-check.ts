@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ElectronApplication, Page } from '@playwright/test';
 import { _electron } from '@playwright/test';
+import { fixMainContentSize } from './main-window-size';
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT = path.resolve(currentDir, '../../../');
@@ -83,6 +84,7 @@ export async function launchElectronApp(
     console.info('[renderer] console hook confirmation');
   });
   await mainWindow.waitForLoadState('domcontentloaded');
+  await fixMainContentSize(electronApp, mainWindow);
 
   return { electronApp, mainWindow };
 }

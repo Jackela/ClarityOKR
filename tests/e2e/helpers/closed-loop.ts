@@ -7,22 +7,11 @@ import { expect } from '../fixtures';
 import { ClarificationPage, waitForStickyWindow } from '../page-objects';
 import { forceClick, waitForElement } from './native-dom';
 import { runAxe } from './axe';
+import { MAIN_CONTENT_SIZE } from './main-window-size';
 
 /** Shared by the closed-loop e2e specs (screenshots, axe, themes, dialog geometry, real OKR). */
 
 const SHOTS_DIR = process.env.IMPL_SHOTS_DIR;
-
-/**
- * Fixed content size of every main-window design shot (#146).
- *
- * The main window is a framed 1200×800 *outer* window, so on Linux/Xvfb its client area is
- * 800 minus a native title bar that has measured 29px on some runs and 27px on others
- * (1200×771 vs 1200×773). The root component's `min-height: 100vh` follows that, so the
- * bottom bar and centred dialogs moved by 1–2px between otherwise identical builds.
- * Shots now lay the page out and capture it at this size, whatever the title bar is.
- * 771 = the long-standing design baseline (800 − 29). Test-only: the real window is untouched.
- */
-export const MAIN_SHOT_SIZE = { width: 1200, height: 771 } as const;
 
 const animationsDone = (page: Page): Promise<unknown> =>
   page.evaluate(() =>
@@ -33,14 +22,6 @@ const animationsDone = (page: Page): Promise<unknown> =>
         .filter((a) => a.effect?.getComputedTiming().iterations !== Infinity)
         .map((a) => a.finished.catch(() => undefined)),
     ),
-  );
-
-const twoFrames = (page: Page): Promise<void> =>
-  page.evaluate(
-    () =>
-      new Promise<void>((resolve) =>
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
-      ),
   );
 
 /** PNG width/height from the IHDR chunk. */
@@ -58,8 +39,9 @@ export async function shot(page: Page, name: string): Promise<void> {
 
 /**
  * Writes a PNG of `page`. Sticky notes are frameless (`frame: false`): their client size is
- * their window size, so they are captured as they are. The framed main window is laid out
- * and captured at {@link MAIN_SHOT_SIZE} (#146), then given back its real viewport.
+ * their window size, so they are captured as they are. A main-window shot must come from a
+ * {@link MAIN_CONTENT_SIZE} client area (#146): anything else fails the test instead of
+ * writing a shot of another size.
  */
 export async function capture(page: Page, path: string, name: string): Promise<void> {
   const sticky = await page.evaluate(
@@ -69,35 +51,13 @@ export async function capture(page: Page, path: string, name: string): Promise<v
     await page.screenshot({ path });
     return;
   }
-  const actual = await page.evaluate(() => ({
-    width: window.innerWidth,
-    height: window.innerHeight,
-  }));
-  expect(actual.width, `${name}: main-window shots are taken 1200 wide`).toBe(MAIN_SHOT_SIZE.width);
-  const cdp = await page.context().newCDPSession(page);
-  try {
-    await cdp.send('Emulation.setDeviceMetricsOverride', {
-      ...MAIN_SHOT_SIZE,
-      deviceScaleFactor: 1,
-      mobile: false,
-    });
-    await expect
-      .poll(() => page.evaluate(() => [window.innerWidth, window.innerHeight]), {
-        message: `${name}: viewport fixed at ${MAIN_SHOT_SIZE.width}×${MAIN_SHOT_SIZE.height}`,
-      })
-      .toEqual([MAIN_SHOT_SIZE.width, MAIN_SHOT_SIZE.height]);
-    await twoFrames(page);
-    await animationsDone(page);
-    const png = await page.screenshot({ path });
-    expect(pngSize(png), `${name}: main-window shot size`).toEqual(MAIN_SHOT_SIZE);
-  } finally {
-    await cdp.send('Emulation.clearDeviceMetricsOverride').catch(() => undefined);
-    await cdp.detach().catch(() => undefined);
-  }
-  if (actual.height !== MAIN_SHOT_SIZE.height) {
-    // the real client area is back; let the layout settle before the test goes on
-    await twoFrames(page);
-  }
+  await expect
+    .poll(() => page.evaluate(() => [window.innerWidth, window.innerHeight]), {
+      message: `${name}: main-window client area is ${MAIN_CONTENT_SIZE.width}×${MAIN_CONTENT_SIZE.height}`,
+    })
+    .toEqual([MAIN_CONTENT_SIZE.width, MAIN_CONTENT_SIZE.height]);
+  const png = await page.screenshot({ path });
+  expect(pngSize(png), `${name}: main-window shot size`).toEqual(MAIN_CONTENT_SIZE);
 }
 
 export async function axe(page: Page, name: string): Promise<void> {

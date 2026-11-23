@@ -18,6 +18,7 @@ import {
   logElectronState,
 } from '../helpers/ci-diagnostics';
 import { getElectronLaunchOptions } from '../helpers/electron-ci';
+import { fixMainContentSize } from '../helpers/main-window-size';
 import { SimpleMockServer } from '../helpers/simple-mock-server';
 import { collectSourceCoverage } from '../helpers/source-coverage';
 import { startXvfb, stopXvfb, isXvfbAvailable } from '../helpers/xvfb-config';
@@ -255,6 +256,7 @@ export const test = base.extend<E2EFixtures>({
         console.info('[renderer] console hook confirmation');
       });
       await window.waitForLoadState('domcontentloaded');
+      await fixMainContentSize(electronApp, window);
 
       await use(window);
     },
