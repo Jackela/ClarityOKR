@@ -7,6 +7,7 @@ import { IPC_CHANNELS, quarterBanner } from '@clarityokr/contracts';
 import { test, expect, cleanupPersistenceFiles } from '../../fixtures';
 import { MAIN_DIST, ROOT, extraElectronArgs, getElectronEnv } from '../../helpers/build-check';
 import { getElectronLaunchOptions } from '../../helpers/electron-ci';
+import { fixMainContentSize } from '../../helpers/main-window-size';
 import { axe, invoke, openSticky, setTheme, shot } from '../../helpers/closed-loop';
 
 /**
@@ -336,6 +337,7 @@ test.describe('#54 in-app reminders (fake time)', () => {
     try {
       const win = await again.firstWindow({ timeout: 60_000 });
       await win.waitForLoadState('domcontentloaded');
+      await fixMainContentSize(again, win);
       const list = await invoke(win, IPC_CHANNELS.OKR_LIST);
       const reminders = await invoke(win, IPC_CHANNELS.REMINDERS_GET);
       const prev = list.data.items.find((i: { id: string }) => i.id === 'okr-prev');

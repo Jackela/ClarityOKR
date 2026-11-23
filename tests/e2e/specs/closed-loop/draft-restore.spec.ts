@@ -15,7 +15,8 @@ import type { MockResponseConfig } from '@clarityokr/contracts';
 import { test, expect, cleanupPersistenceFiles } from '../../fixtures';
 import { MAIN_DIST, ROOT, extraElectronArgs, getElectronEnv } from '../../helpers/build-check';
 import { getElectronLaunchOptions } from '../../helpers/electron-ci';
-import { mockFor, setTheme, shot } from '../../helpers/closed-loop';
+import { fixMainContentSize } from '../../helpers/main-window-size';
+import { capture, mockFor, setTheme, shot } from '../../helpers/closed-loop';
 import { forceClick, waitForElement } from '../../helpers/native-dom';
 import { ClarificationPage, waitForStickyWindow } from '../../page-objects';
 
@@ -39,9 +40,9 @@ async function ciShot(page: Page, name: string): Promise<void> {
   const dir = process.env.S3_12_SHOTS_DIR;
   if (!dir) return;
   mkdirSync(dir, { recursive: true });
-  await page.screenshot({ path: join(dir, `${name}.png`) });
+  // same fixed main-window size as the design shots (#146)
+  await capture(page, join(dir, `${name}.png`), name);
 }
-
 
 /** #123: 「问题 n / total」 on question pages; absent on the ready screen. */
 async function expectQuestionCounter(page: Page, n: number, total = 5): Promise<void> {
@@ -131,6 +132,7 @@ async function relaunch(
   });
   const main = await app.firstWindow({ timeout: 60_000 });
   await main.waitForLoadState('domcontentloaded');
+  await fixMainContentSize(app, main);
   return { app, main };
 }
 
@@ -407,10 +409,7 @@ test.describe('S3§12 session-end draft restore (#110)', () => {
       rmSync(join(drafts, 'sticky.json'));
     });
     try {
-      await e.app.evaluate(({ BrowserWindow }) => {
-        const w = BrowserWindow.getAllWindows().find((x) => !x.isAlwaysOnTop())!;
-        w.setSize(1200, 800);
-      });
+      await fixMainContentSize(e.app, e.main);
       const bar = e.main.getByTestId('draft-bar');
       await expect(bar).toBeVisible({ timeout: 30_000 });
       const line = e.main.getByTestId('draft-line');
@@ -474,10 +473,7 @@ test.describe('S3§12 session-end draft restore (#110)', () => {
       rmSync(join(drafts, 'sticky.json'));
     });
     try {
-      await g.app.evaluate(({ BrowserWindow }) => {
-        const w = BrowserWindow.getAllWindows().find((x) => !x.isAlwaysOnTop())!;
-        w.setSize(1200, 800);
-      });
+      await fixMainContentSize(g.app, g.main);
       await expect(g.main.getByTestId('draft-bar')).toBeVisible({ timeout: 30_000 });
       // another OKR becomes the one shown in the main window
       await mockServer.setResponses(mockFor('另一个目标：缩短上线等待时间'));
@@ -552,10 +548,7 @@ test.describe('S3§12 session-end draft restore (#110)', () => {
       structural(drafts, 'main');
     });
     try {
-      await h.app.evaluate(({ BrowserWindow }) => {
-        const w = BrowserWindow.getAllWindows().find((x) => !x.isAlwaysOnTop())!;
-        w.setSize(1200, 800);
-      });
+      await fixMainContentSize(h.app, h.main);
       await expect(h.main.getByTestId('draft-bar')).toBeVisible({ timeout: 30_000 });
       await expect(h.main.getByTestId('draft-line').locator('[aria-hidden="true"]')).toHaveText(
         threeLines,
@@ -656,11 +649,8 @@ test.describe('S3§12.9 wizard restored to the step left (#116)', () => {
         );
     // Nothing is asked of the model on restore (asserted in the component tests).
     const mockUrl = mockServer.url;
-    const setWidth = (app: ElectronApplication) =>
-      app.evaluate(({ BrowserWindow }) => {
-        const w = BrowserWindow.getAllWindows().find((x) => !x.isAlwaysOnTop());
-        if (w) w.setSize(1200, w.getSize()[1]);
-      });
+    const setWidth = (l: { app: ElectronApplication; main: Page }) =>
+      fixMainContentSize(l.app, l.main);
 
     // ---------- S3-16: question 4 on screen, not answered ----------
     const a = await relaunch(
@@ -670,7 +660,7 @@ test.describe('S3§12.9 wizard restored to the step left (#116)', () => {
       wizardDraft(wizardSteps(3, 4)),
     );
     try {
-      await setWidth(a.app);
+      await setWidth(a);
       await expect(a.main.getByTestId('draft-bar')).toBeVisible({ timeout: 30_000 });
       await a.main.getByTestId('draft-restore').click();
       await expect(a.main.getByTestId('draft-bar')).toHaveCount(0);
@@ -701,7 +691,7 @@ test.describe('S3§12.9 wizard restored to the step left (#116)', () => {
       wizardDraft(wizardSteps(3, 3)),
     );
     try {
-      await setWidth(b.app);
+      await setWidth(b);
       await expect(b.main.getByTestId('draft-bar')).toBeVisible({ timeout: 30_000 });
       await b.main.getByTestId('draft-restore').click();
       await expect(b.main.getByTestId('prompt-question')).toContainText('第 3 个问题');
@@ -726,7 +716,7 @@ test.describe('S3§12.9 wizard restored to the step left (#116)', () => {
       wizardDraft(wizardSteps(3, 3), true),
     );
     try {
-      await setWidth(c.app);
+      await setWidth(c);
       await expect(c.main.getByTestId('draft-bar')).toBeVisible({ timeout: 30_000 });
       await c.main.getByTestId('draft-restore').click();
       const generate = c.main.locator('.ready-state [data-testid="clarification-generate"]');

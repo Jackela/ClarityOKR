@@ -7,15 +7,14 @@ import { expect } from '../fixtures';
 import { ClarificationPage, waitForStickyWindow } from '../page-objects';
 import { forceClick, waitForElement } from './native-dom';
 import { runAxe } from './axe';
+import { MAIN_CONTENT_SIZE } from './main-window-size';
 
 /** Shared by the closed-loop e2e specs (screenshots, axe, themes, dialog geometry, real OKR). */
 
 const SHOTS_DIR = process.env.IMPL_SHOTS_DIR;
 
-export async function shot(page: Page, name: string): Promise<void> {
-  if (!SHOTS_DIR) return;
-  mkdirSync(SHOTS_DIR, { recursive: true });
-  await page.evaluate(() =>
+const animationsDone = (page: Page): Promise<unknown> =>
+  page.evaluate(() =>
     Promise.all(
       document
         .getAnimations()
@@ -24,7 +23,41 @@ export async function shot(page: Page, name: string): Promise<void> {
         .map((a) => a.finished.catch(() => undefined)),
     ),
   );
-  await page.screenshot({ path: join(SHOTS_DIR, `${name}.png`) });
+
+/** PNG width/height from the IHDR chunk. */
+const pngSize = (png: Buffer): { width: number; height: number } => ({
+  width: png.readUInt32BE(16),
+  height: png.readUInt32BE(20),
+});
+
+export async function shot(page: Page, name: string): Promise<void> {
+  if (!SHOTS_DIR) return;
+  mkdirSync(SHOTS_DIR, { recursive: true });
+  await animationsDone(page);
+  await capture(page, join(SHOTS_DIR, `${name}.png`), name);
+}
+
+/**
+ * Writes a PNG of `page`. Sticky notes are frameless (`frame: false`): their client size is
+ * their window size, so they are captured as they are. A main-window shot must come from a
+ * {@link MAIN_CONTENT_SIZE} client area (#146): anything else fails the test instead of
+ * writing a shot of another size.
+ */
+export async function capture(page: Page, path: string, name: string): Promise<void> {
+  const sticky = await page.evaluate(
+    () => new URLSearchParams(window.location.search).get('view') === 'sticky',
+  );
+  if (sticky) {
+    await page.screenshot({ path });
+    return;
+  }
+  await expect
+    .poll(() => page.evaluate(() => [window.innerWidth, window.innerHeight]), {
+      message: `${name}: main-window client area is ${MAIN_CONTENT_SIZE.width}×${MAIN_CONTENT_SIZE.height}`,
+    })
+    .toEqual([MAIN_CONTENT_SIZE.width, MAIN_CONTENT_SIZE.height]);
+  const png = await page.screenshot({ path });
+  expect(pngSize(png), `${name}: main-window shot size`).toEqual(MAIN_CONTENT_SIZE);
 }
 
 export async function axe(page: Page, name: string): Promise<void> {
