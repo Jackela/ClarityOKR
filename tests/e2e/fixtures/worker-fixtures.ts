@@ -15,7 +15,6 @@ import {
   RENDERER_DIST,
 } from '../helpers/build-check';
 import { collectSourceCoverage } from '../helpers/source-coverage';
-import { fixMainContentSize } from '../helpers/main-window-size';
 import { pathToFileURL } from 'node:url';
 import { cleanupPersistenceFiles as indexCleanupPersistenceFiles } from './index';
 
@@ -330,7 +329,6 @@ export const workerTest = base.extend<TestFixtures, WorkerFixtures>({
       // 导航到首页（确保干净状态）
       await window.goto('about:blank');
       await window.goto(pathToFileURL(RENDERER_DIST).href);
-      await fixMainContentSize(electronApp, window);
 
       try {
         await use(window);
