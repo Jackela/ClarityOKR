@@ -12,8 +12,8 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   timeout: 300_000,
-  // The x64 build on Apple silicon runs under Rosetta (see SLOW in the spec).
-  expect: { timeout: process.env.SMOKE_LABEL === 'mac-x64' ? 150_000 : 30_000 },
+  // Headroom for the x64 build on the Intel macOS runner (see SLOW in the spec).
+  expect: { timeout: process.env.SMOKE_LABEL === 'mac-x64' ? 60_000 : 30_000 },
   outputDir: process.env.SMOKE_ARTIFACTS_DIR
     ? `${process.env.SMOKE_ARTIFACTS_DIR}/test-results`
     : 'test-results/install-smoke',

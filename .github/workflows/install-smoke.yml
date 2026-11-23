@@ -54,7 +54,7 @@ defaults:
 
 jobs:
   smoke:
-    name: Install smoke (${{ matrix.platform }})
+    name: Install smoke (${{ matrix.name }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     strategy:
@@ -63,10 +63,19 @@ jobs:
         include:
           - os: ubuntu-24.04
             platform: linux
+            name: linux
           - os: windows-latest
             platform: win
+            name: win
+          # each macOS build on its own CPU: x64 under Rosetta was too slow and flaky to smoke
           - os: macos-latest
             platform: mac
+            arch: arm64
+            name: mac-arm64
+          - os: macos-26-intel
+            platform: mac
+            arch: x64
+            name: mac-x64
     env:
       SMOKE_ARTIFACTS_DIR: ${{ github.workspace }}/install-smoke-out
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
@@ -161,28 +170,20 @@ jobs:
           Write-Host 'uninstalled'
 
       # ---------------------------------------------------------------- macOS: dmg → Applications
-      - name: 'macOS: Rosetta for the x64 build'
-        if: matrix.platform == 'mac'
-        run: |
-          if ! arch -x86_64 /usr/bin/true 2>/dev/null; then
-            sudo softwareupdate --install-rosetta --agree-to-license
-          fi
-          arch -x86_64 /usr/bin/true
-
-      - name: 'macOS: install each dmg and smoke it (arm64, then x64 under Rosetta)'
+      - name: 'macOS: install the dmg for this runner CPU and smoke it'
         if: matrix.platform == 'mac'
         run: |
           set -euo pipefail
           user_data="$HOME/Library/Application Support/ClarityOKR"
-          for arch in arm64 x64; do
+          for arch in ${{ matrix.arch }}; do
             dmg="$(ls dist/*-mac-${arch}.dmg)"
             echo "::group::${arch}: ${dmg}"
             mount="$RUNNER_TEMP/dmg-${arch}"
             hdiutil attach -nobrowse -readonly -mountpoint "$mount" "$dmg"
             rm -rf /Applications/ClarityOKR.app "$user_data"
-            # Fresh profile includes the Keychain: the previous architecture's unsigned build left
-            # a "ClarityOKR Safe Storage" item whose ACL names that binary, and macOS would ask (in
-            # a dialog nobody can answer on the runner) before letting this build read it.
+            # Fresh profile includes the Keychain: an earlier unsigned build may have left a
+            # "ClarityOKR Safe Storage" item whose ACL names that binary, and macOS would ask (in a
+            # dialog nobody can answer on the runner) before letting this build read it.
             while security delete-generic-password -s 'ClarityOKR Safe Storage' >/dev/null 2>&1; do :; done
             ditto "$mount/ClarityOKR.app" /Applications/ClarityOKR.app
             hdiutil detach "$mount"
@@ -236,9 +237,9 @@ jobs:
         if: always()
         run: |
           {
-            echo "## Install smoke (${{ matrix.platform }}): ${{ job.status }}"
+            echo "## Install smoke (${{ matrix.name }}): ${{ job.status }}"
             echo
-            echo "Screenshots, app logs and signature notes: artifact \`install-smoke-${{ matrix.platform }}\`."
+            echo "Screenshots, app logs and signature notes: artifact \`install-smoke-${{ matrix.name }}\`."
             echo
             ls "$SMOKE_ARTIFACTS_DIR" 2>/dev/null | sed 's/^/- /'
           } >> "$GITHUB_STEP_SUMMARY"
@@ -247,7 +248,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: install-smoke-${{ matrix.platform }}
+          name: install-smoke-${{ matrix.name }}
           path: install-smoke-out/
           retention-days: 30
           if-no-files-found: warn

@@ -41,8 +41,8 @@ import { ClarificationPage } from '../page-objects';
 const EXECUTABLE = process.env.SMOKE_APP_EXECUTABLE ?? '';
 const USER_DATA = process.env.SMOKE_USER_DATA_DIR ? resolve(process.env.SMOKE_USER_DATA_DIR) : '';
 const LABEL = process.env.SMOKE_LABEL ?? process.platform;
-/** The x64 build on Apple silicon runs under Rosetta, which translates the whole app on first launch. */
-const SLOW = LABEL === 'mac-x64' ? 5 : 1;
+/** Headroom for the x64 build on the (slower) Intel macOS runner. */
+const SLOW = LABEL === 'mac-x64' ? 2 : 1;
 const EXTRA_ARGS = (process.env.SMOKE_EXTRA_ARGS ?? '').split(/\s+/).filter(Boolean);
 const TITLE = '安装冒烟：提高团队交付效率';
 const DB_FILE = 'clarityokr.db';
@@ -234,6 +234,24 @@ async function quit(launched: Launched): Promise<void> {
   expect(code, 'exit code after 「退出」').toBe(0);
 }
 
+/**
+ * Runs `body` against a launched app, then leaves through 「退出」. If `body` fails, the app may
+ * be mid-edit (and 「退出」 would ask to confirm), so it is killed instead and the original error
+ * is reported, with a screenshot of where it stopped.
+ */
+async function using(launched: Launched, shot: string, body: () => Promise<void>): Promise<void> {
+  try {
+    await body();
+  } catch (error) {
+    await launched.main.screenshot({ path: shot }).catch(() => undefined);
+    const child = launched.app.process();
+    await launched.app.close().catch(() => undefined);
+    if (child.exitCode === null) child.kill();
+    throw error;
+  }
+  await quit(launched);
+}
+
 const REVIEW = {
   wentWell: '安装冒烟：复盘做得好',
   fellShort: '安装冒烟：不足',
@@ -412,7 +430,7 @@ test('installed app: fresh profile → OKR, progress, review → quit → relaun
   try {
     // ---------- first launch on a fresh profile ----------
     const first = await launch(mock.getUrl(), 'first');
-    try {
+    await using(first, join(shots, `${LABEL}-first-failure.png`), async () => {
       await expectShippedApp(first);
       expect(await invoke(first.main, 'clarityokr:app:storage-state')).toEqual({
         storageMode: 'normal',
@@ -439,14 +457,12 @@ test('installed app: fresh profile → OKR, progress, review → quit → relaun
       writeFileSync(join(shots, `${LABEL}-safe-storage.json`), JSON.stringify(probe, null, 2));
       // DPAPI and Keychain are always there on Windows / macOS; Linux depends on a secret service
       if (process.platform !== 'linux') expect(probe.available, 'safeStorage available').toBe(true);
-    } finally {
-      await quit(first);
-    }
+    });
     checkDatabase();
 
     // ---------- relaunch on the same profile ----------
     const second = await launch(mock.getUrl(), 'second');
-    try {
+    await using(second, join(shots, `${LABEL}-second-failure.png`), async () => {
       await expectShippedApp(second);
       expect(await invoke(second.main, 'clarityokr:app:storage-state')).toEqual({
         storageMode: 'normal',
@@ -460,9 +476,7 @@ test('installed app: fresh profile → OKR, progress, review → quit → relaun
         );
       }
       await second.main.screenshot({ path: join(shots, `${LABEL}-3-relaunch.png`) });
-    } finally {
-      await quit(second);
-    }
+    });
     checkDatabase();
   } finally {
     await mock.stop();
