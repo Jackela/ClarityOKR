@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Internal
+
+- 将主进程开发依赖 `@types/better-sqlite3` 从 7.6.13 升到 9.6.0。DefinitelyTyped 仅调整了版本号与最低 TypeScript（5.1 → 5.6），`index.d.ts` 与 7.6.13 逐字相同；better-sqlite3 13 不自带类型，仍用这份声明，类型检查通过。仅类型，无运行时改动（[#190](https://github.com/Jackela/ClarityOKR/pull/190)）
+
 ## [0.3.7] - 2026-11-21
 
 ### Changed
