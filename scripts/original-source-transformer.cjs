@@ -15,7 +15,7 @@ exports.createTransformer = (config) => {
     canInstrument: true,
     process(source, filename, options) {
       const product =
-        /\/app\/(?:main|renderer)\/src\/.+\.ts$/.test(filename.replaceAll('\\', '/')) &&
+        /\/(?:app\/(?:main|renderer)|packages\/contracts)\/src\/.+\.ts$/.test(filename.replaceAll('\\', '/')) &&
         !/(?:\.(?:spec|test|d)\.ts|\/jest\.setup\.ts|\/test\.ts)$/.test(
           filename.replaceAll('\\', '/'),
         );

@@ -19,6 +19,53 @@ export function floorThreshold(pct, minimumFloor = 80) {
 }
 
 /**
+ * #151: a directory's threshold is its measured coverage on main, floored, never below the
+ * global threshold for that metric.
+ */
+export function directoryThreshold(pct, globalThreshold) {
+  return Math.max(floorThreshold(pct, 0), globalThreshold);
+}
+
+/**
+ * Evaluates every directory in `config.directories` against its thresholds. A directory with no
+ * summary (no files measured) fails.
+ * @param {Record<string, Record<string, { total?: number, pct?: number }>> | undefined} summaries
+ */
+export function evaluateDirectories(summaries, config) {
+  const rows = Object.entries(config.directories ?? {}).map(([directory, gate]) => {
+    const summary = summaries?.[directory];
+    const { rows: metrics, passed } = evaluateGate(summary, gate.thresholds);
+    return { directory, metrics, passed: Boolean(summary?.files) && passed, files: summary?.files ?? 0 };
+  });
+  const failed = rows
+    .filter((row) => !row.passed)
+    .map((row) => ({
+      directory: row.directory,
+      files: row.files,
+      metrics: row.metrics.filter((metric) => !metric.ok),
+    }));
+  return { rows, passed: failed.length === 0, failed };
+}
+
+/** One Job Summary row per directory: each metric as current / threshold. */
+export function formatDirectorySummary(rows, { heading = 'Directory coverage gates (#151)' } = {}) {
+  const lines = [
+    `## ${heading}`,
+    '',
+    `| Directory | Files | ${METRICS.join(' | ')} | Result |`,
+    `| --- | ---: | ${METRICS.map(() => '---:').join(' | ')} | --- |`,
+  ];
+  for (const row of rows) {
+    const cells = row.metrics.map(
+      (metric) => `${formatPct(metric.current)} / ${formatPct(metric.threshold)}${metric.ok ? '' : ' ✗'}`,
+    );
+    lines.push(`| \`${row.directory}\` | ${row.files} | ${cells.join(' | ')} | ${row.passed ? 'pass' : 'FAIL'} |`);
+  }
+  lines.push('', 'Each cell: current / threshold. Threshold = floor(measured on main), never below the global threshold.', '');
+  return lines.join('\n');
+}
+
+/**
  * @param {Record<string, { total?: number, pct?: number }>} summaryTotal istanbul `total` object
  * @param {Record<string, number>} thresholds
  */
