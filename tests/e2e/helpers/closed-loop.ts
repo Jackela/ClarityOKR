@@ -52,14 +52,20 @@ const pngSize = (png: Buffer): { width: number; height: number } => ({
 export async function shot(page: Page, name: string): Promise<void> {
   if (!SHOTS_DIR) return;
   mkdirSync(SHOTS_DIR, { recursive: true });
-  const path = join(SHOTS_DIR, `${name}.png`);
-  // Sticky notes are frameless (`frame: false`): their client size is their window size,
-  // so they are captured as they are.
+  await animationsDone(page);
+  await capture(page, join(SHOTS_DIR, `${name}.png`), name);
+}
+
+/**
+ * Writes a PNG of `page`. Sticky notes are frameless (`frame: false`): their client size is
+ * their window size, so they are captured as they are. The framed main window is laid out
+ * and captured at {@link MAIN_SHOT_SIZE} (#146), then given back its real viewport.
+ */
+export async function capture(page: Page, path: string, name: string): Promise<void> {
   const sticky = await page.evaluate(
     () => new URLSearchParams(window.location.search).get('view') === 'sticky',
   );
   if (sticky) {
-    await animationsDone(page);
     await page.screenshot({ path });
     return;
   }

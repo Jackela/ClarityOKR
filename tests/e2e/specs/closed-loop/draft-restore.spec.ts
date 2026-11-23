@@ -15,7 +15,7 @@ import type { MockResponseConfig } from '@clarityokr/contracts';
 import { test, expect, cleanupPersistenceFiles } from '../../fixtures';
 import { MAIN_DIST, ROOT, extraElectronArgs, getElectronEnv } from '../../helpers/build-check';
 import { getElectronLaunchOptions } from '../../helpers/electron-ci';
-import { mockFor, setTheme, shot } from '../../helpers/closed-loop';
+import { capture, mockFor, setTheme, shot } from '../../helpers/closed-loop';
 import { forceClick, waitForElement } from '../../helpers/native-dom';
 import { ClarificationPage, waitForStickyWindow } from '../../page-objects';
 
@@ -39,9 +39,9 @@ async function ciShot(page: Page, name: string): Promise<void> {
   const dir = process.env.S3_12_SHOTS_DIR;
   if (!dir) return;
   mkdirSync(dir, { recursive: true });
-  await page.screenshot({ path: join(dir, `${name}.png`) });
+  // same fixed main-window size as the design shots (#146)
+  await capture(page, join(dir, `${name}.png`), name);
 }
-
 
 /** #123: 「问题 n / total」 on question pages; absent on the ready screen. */
 async function expectQuestionCounter(page: Page, n: number, total = 5): Promise<void> {

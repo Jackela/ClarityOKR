@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Internal
 
-- 仅 E2E：主窗设计截图（`shot()`，`IMPL_SHOTS_DIR`）固定按 **1200×771** 内容尺寸排版并截取。主窗是带框的 1200×800 外框窗口，Linux/Xvfb 下原生标题栏有时 29px、有时 27px，客户区于是在 1200×771 与 1200×773 之间跳动，根组件 `min-height: 100vh` 跟着变，底部操作栏下移 2px、居中对话框下移 1px。现在截图前用 CDP `Emulation.setDeviceMetricsOverride` 把视口固定为 1200×771（=历史设计基线 800 − 29），断言 `innerWidth/innerHeight` 与 PNG 尺寸都等于 1200×771，截完即清除覆盖；无框便签截图照旧按窗口实际尺寸。生产代码与真实窗口不变（[#146](https://github.com/Jackela/ClarityOKR/issues/146)）
+- 仅 E2E：主窗设计截图（`shot()`，`IMPL_SHOTS_DIR`；以及 CI 每次上传的 S3§12 截图 `S3_12_SHOTS_DIR`）固定按 **1200×771** 内容尺寸排版并截取。主窗是带框的 1200×800 外框窗口，Linux/Xvfb 下原生标题栏有时 29px、有时 27px，客户区于是在 1200×771 与 1200×773 之间跳动，根组件 `min-height: 100vh` 跟着变，底部操作栏下移 2px、居中对话框下移 1px。现在截图前用 CDP `Emulation.setDeviceMetricsOverride` 把视口固定为 1200×771（=历史设计基线 800 − 29），断言 `innerWidth/innerHeight` 与 PNG 尺寸都等于 1200×771，截完即清除覆盖；无框便签截图照旧按窗口实际尺寸。生产代码与真实窗口不变（[#146](https://github.com/Jackela/ClarityOKR/issues/146)）
 
 ## [0.3.7] - 2026-11-21
 
