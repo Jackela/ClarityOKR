@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Internal
+
+- 将主进程依赖 `opossum` 从 9.0.0 升到 10.0.0。10.0 唯一的破坏性变更是不再支持 Node 20（`engines` 为 `^26 || ^24 || ^22`）；应用运行在 Electron 45 内置的 Node.js 24.22.3，CI 用 Node 24。npm 包内 `index.js` 与 `lib/` 和 9.0.0 逐字相同，只改了 `engines` 与开发依赖；`LlmCircuitBreaker` 用到的构造参数（`timeout` / `resetTimeout` / `errorThresholdPercentage` / `rollingCountTimeout` / `rollingCountBuckets` / `name`）、事件（`open` / `halfOpen` / `close` / `fallback`）与 `fire` / `open` / `close` / `fallback` / `stats` 均未改动，行为不变（[#191](https://github.com/Jackela/ClarityOKR/pull/191)）
+
 ## [0.3.7] - 2026-11-21
 
 ### Changed
