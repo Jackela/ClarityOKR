@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Internal
+
+- 将主进程依赖 `dotenv` 从 16.6.1 升到 18.0.10。17 / 18 的变化（默认打印注入日志、日志改到 stderr、移除 `.env.vault` 与 preload、新增 CLI）都只在调用 `config()` / `dotenv/config` 时生效；本仓库源码、脚本与构建配置均未加载 dotenv，打包后的主进程不引用它，应用行为不变（[#192](https://github.com/Jackela/ClarityOKR/pull/192)）
+
 ## [0.3.7] - 2026-11-21
 
 ### Changed
