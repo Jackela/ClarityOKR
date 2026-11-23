@@ -1,0 +1,253 @@
+# #45 install smoke: build the real installers, install them silently, and drive the INSTALLED
+# app with a fresh profile: main window from app.asar, database opened (integrity_check = ok),
+# one OKR created through the UI, quit via 「退出」, relaunch, the OKR is still there.
+#
+# Separate from CI on purpose: CI's 7 required checks stay as they are (fast, stable). This
+# workflow is not a required check. It runs
+# - on every push to main (post-merge signal for the shipped packages),
+# - on pull requests that touch packaging or the smoke itself (paths below),
+# - on version tags (the same commit the Release workflow packages),
+# - weekly, and on demand (workflow_dispatch).
+#
+# The app runs as shipped: the test removes E2E_* / CI / NODE_ENV / ELECTRON_START_URL from its
+# environment and only points the LLM endpoint (read from env by the app) at a local mock.
+name: Install smoke
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    paths:
+      - '.github/workflows/install-smoke.yml'
+      - 'tests/e2e/install-smoke/**'
+      - 'tests/e2e/playwright.install-smoke.config.ts'
+      - 'electron-builder.config.cjs'
+      - 'scripts/stage-app.mjs'
+      - 'scripts/setup-windows-native-build.ps1'
+      - 'package.json'
+      - 'app/main/package.json'
+      - 'pnpm-lock.yaml'
+      - 'app/main/src/main.ts'
+      - 'app/main/src/startup/**'
+      - 'app/main/src/lifecycle/**'
+      - 'app/main/src/bootstrap/**'
+  schedule:
+    - cron: '17 3 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: install-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '24'
+  PNPM_VERSION: '9'
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  smoke:
+    name: Install smoke (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            platform: linux
+          - os: windows-latest
+            platform: win
+          - os: macos-latest
+            platform: mac
+    env:
+      SMOKE_ARTIFACTS_DIR: ${{ github.workspace }}/install-smoke-out
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install pnpm
+        run: npm install -g pnpm@${{ env.PNPM_VERSION }}
+
+      - name: Setup Windows build environment
+        if: matrix.platform == 'win'
+        shell: powershell
+        run: ./scripts/setup-windows-native-build.ps1
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        run: echo "STORE_PATH=$(pnpm store path)" >> "$GITHUB_OUTPUT"
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v6
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Linux packaging tools and desktop libraries
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            rpm libarchive-tools xvfb xauth fonts-noto-cjk \
+            libatk-bridge2.0-0 libgtk-3-0 libnss3 libxss1 libasound2t64 libxtst6 libdrm2 libgbm1
+
+      - name: Build installers (same steps as the Release workflow, unsigned)
+        run: |
+          pnpm run build:contracts
+          pnpm run build:ci
+          pnpm run build:electron
+          ls -la dist
+          mkdir -p "$SMOKE_ARTIFACTS_DIR"
+
+      # ---------------------------------------------------------------- Windows: NSIS /S
+      - name: 'Windows: silent install (NSIS /S)'
+        if: matrix.platform == 'win'
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installer = Get-ChildItem dist\*-win-*.exe | Select-Object -First 1
+          Write-Host "Installer: $($installer.Name)"
+          $sig = Get-AuthenticodeSignature $installer.FullName
+          "installer signature: $($sig.Status)" | Tee-Object -FilePath "$env:SMOKE_ARTIFACTS_DIR\win-signature.txt"
+          $p = Start-Process -FilePath $installer.FullName -ArgumentList '/S' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "installer exit code $($p.ExitCode)" }
+          $dir = Join-Path $env:LOCALAPPDATA 'Programs\ClarityOKR'
+          $exe = Join-Path $dir 'ClarityOKR.exe'
+          if (-not (Test-Path $exe)) { Get-ChildItem $env:LOCALAPPDATA\Programs -Recurse -Depth 1 | Out-Host; throw "not installed: $exe" }
+          if (-not (Test-Path (Join-Path $dir 'resources\app.asar'))) { throw 'resources\app.asar missing' }
+          $key = Get-ChildItem HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall | Get-ItemProperty | Where-Object DisplayName -like 'ClarityOKR*'
+          if (-not $key) { throw 'no uninstall entry in HKCU' }
+          "uninstall entry: $($key.DisplayName) $($key.DisplayVersion)" | Out-Host
+          "app signature: $((Get-AuthenticodeSignature $exe).Status)" | Add-Content "$env:SMOKE_ARTIFACTS_DIR\win-signature.txt"
+          "SMOKE_INSTALL_DIR=$dir" | Add-Content $env:GITHUB_ENV
+
+      - name: 'Windows: smoke the installed app'
+        if: matrix.platform == 'win'
+        run: |
+          export SMOKE_APP_EXECUTABLE="$SMOKE_INSTALL_DIR\\ClarityOKR.exe"
+          export SMOKE_USER_DATA_DIR="$APPDATA\\ClarityOKR"
+          export SMOKE_LABEL=win-nsis
+          pnpm --filter @clarityokr/tests-e2e exec playwright test --config playwright.install-smoke.config.ts
+
+      - name: 'Windows: silent uninstall'
+        if: matrix.platform == 'win'
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $uninstaller = Join-Path $env:SMOKE_INSTALL_DIR 'Uninstall ClarityOKR.exe'
+          Start-Process -FilePath $uninstaller -ArgumentList '/S' -Wait
+          # the NSIS uninstaller re-runs itself from %TEMP%: wait for the files to go
+          for ($i = 0; $i -lt 60 -and (Test-Path (Join-Path $env:SMOKE_INSTALL_DIR 'ClarityOKR.exe')); $i++) { Start-Sleep 1 }
+          if (Test-Path (Join-Path $env:SMOKE_INSTALL_DIR 'ClarityOKR.exe')) { throw 'still installed after uninstall /S' }
+          Write-Host 'uninstalled'
+
+      # ---------------------------------------------------------------- macOS: dmg → Applications
+      - name: 'macOS: Rosetta for the x64 build'
+        if: matrix.platform == 'mac'
+        run: |
+          if ! arch -x86_64 /usr/bin/true 2>/dev/null; then
+            sudo softwareupdate --install-rosetta --agree-to-license
+          fi
+          arch -x86_64 /usr/bin/true
+
+      - name: 'macOS: install each dmg and smoke it (arm64, then x64 under Rosetta)'
+        if: matrix.platform == 'mac'
+        run: |
+          set -euo pipefail
+          user_data="$HOME/Library/Application Support/ClarityOKR"
+          for arch in arm64 x64; do
+            dmg="$(ls dist/*-mac-${arch}.dmg)"
+            echo "::group::${arch}: ${dmg}"
+            mount="$RUNNER_TEMP/dmg-${arch}"
+            hdiutil attach -nobrowse -readonly -mountpoint "$mount" "$dmg"
+            rm -rf /Applications/ClarityOKR.app "$user_data"
+            # Fresh profile includes the Keychain: the previous architecture's unsigned build left
+            # a "ClarityOKR Safe Storage" item whose ACL names that binary, and macOS would ask (in
+            # a dialog nobody can answer on the runner) before letting this build read it.
+            while security delete-generic-password -s 'ClarityOKR Safe Storage' >/dev/null 2>&1; do :; done
+            ditto "$mount/ClarityOKR.app" /Applications/ClarityOKR.app
+            hdiutil detach "$mount"
+            exe=/Applications/ClarityOKR.app/Contents/MacOS/ClarityOKR
+            file "$exe"
+            {
+              echo "## ${arch}"
+              codesign -dv --verbose=2 /Applications/ClarityOKR.app 2>&1 || true
+              spctl --assess --type execute -vv /Applications/ClarityOKR.app 2>&1 || true
+            } >> "$SMOKE_ARTIFACTS_DIR/mac-signature.txt"
+            SMOKE_APP_EXECUTABLE="$exe" SMOKE_USER_DATA_DIR="$user_data" SMOKE_LABEL="mac-${arch}" \
+              pnpm --filter @clarityokr/tests-e2e exec playwright test --config playwright.install-smoke.config.ts
+            echo "::endgroup::"
+          done
+          cat "$SMOKE_ARTIFACTS_DIR/mac-signature.txt"
+
+      # ---------------------------------------------------------------- Linux: .deb and AppImage
+      - name: 'Linux: install the .deb and smoke it'
+        if: matrix.platform == 'linux'
+        run: |
+          set -euo pipefail
+          deb="$(ls dist/*.deb)"
+          pkg="$(dpkg-deb -f "$deb" Package)"
+          sudo apt-get install -y "./$deb"
+          exe="$(sed -n 's/^Exec=\([^ ]*\).*/\1/p' "/usr/share/applications/${pkg}.desktop")"
+          test -x "$exe"
+          export XDG_CONFIG_HOME="$RUNNER_TEMP/xdg-deb"
+          SMOKE_APP_EXECUTABLE="$exe" SMOKE_USER_DATA_DIR="$XDG_CONFIG_HOME/ClarityOKR" SMOKE_LABEL=linux-deb \
+            xvfb-run -a -s '-screen 0 1600x1000x24' \
+            pnpm --filter @clarityokr/tests-e2e exec playwright test --config playwright.install-smoke.config.ts
+          sudo apt-get remove -y "$pkg"
+          test ! -e "$exe"
+
+      - name: 'Linux: extract the AppImage and smoke it'
+        if: matrix.platform == 'linux'
+        run: |
+          set -euo pipefail
+          appimage="$(realpath dist/*.AppImage)"
+          chmod +x "$appimage"
+          cd "$RUNNER_TEMP" && "$appimage" --appimage-extract > /dev/null && cd - > /dev/null
+          root="$RUNNER_TEMP/squashfs-root"
+          # the AppImage's own launcher passes --no-sandbox (Exec=AppRun --no-sandbox %U)
+          grep -q '^Exec=AppRun --no-sandbox' "$root"/*.desktop
+          export XDG_CONFIG_HOME="$RUNNER_TEMP/xdg-appimage"
+          SMOKE_APP_EXECUTABLE="$root/clarityokr" SMOKE_EXTRA_ARGS=--no-sandbox \
+            SMOKE_USER_DATA_DIR="$XDG_CONFIG_HOME/ClarityOKR" SMOKE_LABEL=linux-appimage \
+            xvfb-run -a -s '-screen 0 1600x1000x24' \
+            pnpm --filter @clarityokr/tests-e2e exec playwright test --config playwright.install-smoke.config.ts
+
+      - name: Job Summary
+        if: always()
+        run: |
+          {
+            echo "## Install smoke (${{ matrix.platform }}): ${{ job.status }}"
+            echo
+            echo "Screenshots, app logs and signature notes: artifact \`install-smoke-${{ matrix.platform }}\`."
+            echo
+            ls "$SMOKE_ARTIFACTS_DIR" 2>/dev/null | sed 's/^/- /'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: install-smoke-${{ matrix.platform }}
+          path: install-smoke-out/
+          retention-days: 30
+          if-no-files-found: warn
