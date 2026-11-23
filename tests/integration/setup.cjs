@@ -35,4 +35,10 @@ afterEach(() => {
 
 afterAll(() => {
   nock?.enableNetConnect();
+  // #170: nock >= 14 intercepts through @mswjs/interceptors, which patches the shared core
+  // http / https / net modules. Jest gives every test file a fresh module registry, so each
+  // file's import('nock') above installs one more interceptor on top of the previous ones;
+  // without restore() they pile up (11 files -> MaxListenersExceededWarning on TLSSocket,
+  // then the worker dies with SIGSEGV). Restore this file's interceptor before the next file.
+  nock?.restore();
 });
