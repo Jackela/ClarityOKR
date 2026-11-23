@@ -10,8 +10,9 @@
  * through the real UI.
  *
  * Steps: fresh userData → launch → main window visible, renderer from app.asar, database opened
- * in normal mode → create one OKR → quit (exit code 0) → integrity_check = ok and the OKR row is
- * in the file → relaunch → the OKR is still listed → quit → integrity_check = ok again.
+ * in normal mode → create one OKR → quit via 「退出」 (exit code 0) → integrity_check = ok and the
+ * OKR row is in the file → relaunch → the OKR is still listed → quit via an outside `app.quit()`
+ * (what the Dock 「退出」 / log out do, #199; exit code 0) → integrity_check = ok again.
  * Also: two progress updates and a review survive the restart (history included), the sticky
  * note opens with its sandboxed preload and its always-on-top switch works, and a value encrypted
  * with safeStorage (DPAPI / Keychain / libsecret) on the first launch decrypts on the second.
@@ -186,18 +187,57 @@ async function listedTitles(page: Page): Promise<string[]> {
 }
 
 /**
- * Quits through the app's own 「退出」 (application menu, CmdOrCtrl+Q; the tray item calls the
- * same action) and waits for the process to end with exit code 0. Nothing is unsaved, so no
- * confirmation is asked. Node waits for the attached inspector before it exits, so the
+ * How the app is told to quit:
+ * - `menu`: the app's own 「退出」 (application menu, CmdOrCtrl+Q; the tray item calls the same
+ *   action);
+ * - `external`: a plain `app.quit()` from outside the app's own actions, which is what the
+ *   macOS Dock 「退出」 and a log out / shut down do (#199).
+ */
+type QuitVia = 'menu' | 'external';
+
+/**
+ * Quits (see `QuitVia`) and waits for the process to end with exit code 0. Nothing is unsaved,
+ * so no confirmation is asked. Node waits for the attached inspector before it exits, so the
  * Playwright connection is closed once the app is on its way out.
  */
-async function quit(launched: Launched): Promise<void> {
+async function quit(launched: Launched, via: QuitVia): Promise<void> {
   const child = launched.app.process();
   const exited = new Promise<number | null>((done) => {
     if (child.exitCode !== null) done(child.exitCode);
     else child.once('exit', (code) => done(code));
   });
-  const clicked = await launched.app.evaluate(({ Menu }) => {
+  const what = via === 'menu' ? '「退出」' : 'app.quit()';
+  const clicked =
+    via === 'external'
+      ? await launched.app.evaluate(({ app }) => {
+          // after this evaluate has answered: the quit ends the process
+          setTimeout(() => app.quit(), 0);
+          return true;
+        })
+      : await clickMenuQuit(launched);
+  expect(clicked, via === 'menu' ? 'application menu has 「退出」' : 'app.quit() scheduled').toBe(
+    true,
+  );
+  await expect
+    .poll(
+      () =>
+        child.exitCode !== null ||
+        launched.log.join('').includes('Waiting for the debugger to disconnect'),
+      { timeout: 60_000 * SLOW, message: `the app starts exiting after ${what}` },
+    )
+    .toBe(true);
+  await launched.app.close().catch(() => undefined);
+  const code = await Promise.race([
+    exited,
+    new Promise<'timeout'>((done) => setTimeout(() => done('timeout'), 30_000 * SLOW)),
+  ]);
+  if (code === 'timeout') child.kill();
+  expect(code, `exit code after ${what}`).toBe(0);
+}
+
+/** Clicks 「退出」 in the application menu (on the next turn); false when there is none. */
+function clickMenuQuit(launched: Launched): Promise<boolean> {
+  return launched.app.evaluate(({ Menu }) => {
     interface Item {
       label: string;
       click: () => void;
@@ -216,30 +256,19 @@ async function quit(launched: Launched): Promise<void> {
     if (item) setTimeout(() => item.click(), 0);
     return item !== null;
   });
-  expect(clicked, 'application menu has 「退出」').toBe(true);
-  await expect
-    .poll(
-      () =>
-        child.exitCode !== null ||
-        launched.log.join('').includes('Waiting for the debugger to disconnect'),
-      { timeout: 60_000 * SLOW, message: 'the app starts exiting after 「退出」' },
-    )
-    .toBe(true);
-  await launched.app.close().catch(() => undefined);
-  const code = await Promise.race([
-    exited,
-    new Promise<'timeout'>((done) => setTimeout(() => done('timeout'), 30_000 * SLOW)),
-  ]);
-  if (code === 'timeout') child.kill();
-  expect(code, 'exit code after 「退出」').toBe(0);
 }
 
 /**
- * Runs `body` against a launched app, then leaves through 「退出」. If `body` fails, the app may
- * be mid-edit (and 「退出」 would ask to confirm), so it is killed instead and the original error
- * is reported, with a screenshot of where it stopped.
+ * Runs `body` against a launched app, then quits it `via` the menu or an outside `app.quit()`.
+ * If `body` fails, the app may be mid-edit (and quitting would ask to confirm), so it is killed
+ * instead and the original error is reported, with a screenshot of where it stopped.
  */
-async function using(launched: Launched, shot: string, body: () => Promise<void>): Promise<void> {
+async function using(
+  launched: Launched,
+  shot: string,
+  via: QuitVia,
+  body: () => Promise<void>,
+): Promise<void> {
   try {
     await body();
   } catch (error) {
@@ -249,7 +278,7 @@ async function using(launched: Launched, shot: string, body: () => Promise<void>
     if (child.exitCode === null) child.kill();
     throw error;
   }
-  await quit(launched);
+  await quit(launched, via);
 }
 
 const REVIEW = {
@@ -430,7 +459,7 @@ test('installed app: fresh profile → OKR, progress, review → quit → relaun
   try {
     // ---------- first launch on a fresh profile ----------
     const first = await launch(mock.getUrl(), 'first');
-    await using(first, join(shots, `${LABEL}-first-failure.png`), async () => {
+    await using(first, join(shots, `${LABEL}-first-failure.png`), 'menu', async () => {
       await expectShippedApp(first);
       expect(await invoke(first.main, 'clarityokr:app:storage-state')).toEqual({
         storageMode: 'normal',
@@ -462,7 +491,8 @@ test('installed app: fresh profile → OKR, progress, review → quit → relaun
 
     // ---------- relaunch on the same profile ----------
     const second = await launch(mock.getUrl(), 'second');
-    await using(second, join(shots, `${LABEL}-second-failure.png`), async () => {
+    // #199: leave the second run the way the Dock 「退出」 / log out do
+    await using(second, join(shots, `${LABEL}-second-failure.png`), 'external', async () => {
       await expectShippedApp(second);
       expect(await invoke(second.main, 'clarityokr:app:storage-state')).toEqual({
         storageMode: 'normal',
