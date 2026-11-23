@@ -12,10 +12,20 @@ import { runAxe } from './axe';
 
 const SHOTS_DIR = process.env.IMPL_SHOTS_DIR;
 
-export async function shot(page: Page, name: string): Promise<void> {
-  if (!SHOTS_DIR) return;
-  mkdirSync(SHOTS_DIR, { recursive: true });
-  await page.evaluate(() =>
+/**
+ * Fixed content size of every main-window design shot (#146).
+ *
+ * The main window is a framed 1200×800 *outer* window, so on Linux/Xvfb its client area is
+ * 800 minus a native title bar that has measured 29px on some runs and 27px on others
+ * (1200×771 vs 1200×773). The root component's `min-height: 100vh` follows that, so the
+ * bottom bar and centred dialogs moved by 1–2px between otherwise identical builds.
+ * Shots now lay the page out and capture it at this size, whatever the title bar is.
+ * 771 = the long-standing design baseline (800 − 29). Test-only: the real window is untouched.
+ */
+export const MAIN_SHOT_SIZE = { width: 1200, height: 771 } as const;
+
+const animationsDone = (page: Page): Promise<unknown> =>
+  page.evaluate(() =>
     Promise.all(
       document
         .getAnimations()
@@ -24,7 +34,64 @@ export async function shot(page: Page, name: string): Promise<void> {
         .map((a) => a.finished.catch(() => undefined)),
     ),
   );
-  await page.screenshot({ path: join(SHOTS_DIR, `${name}.png`) });
+
+const twoFrames = (page: Page): Promise<void> =>
+  page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
+  );
+
+/** PNG width/height from the IHDR chunk. */
+const pngSize = (png: Buffer): { width: number; height: number } => ({
+  width: png.readUInt32BE(16),
+  height: png.readUInt32BE(20),
+});
+
+export async function shot(page: Page, name: string): Promise<void> {
+  if (!SHOTS_DIR) return;
+  mkdirSync(SHOTS_DIR, { recursive: true });
+  const path = join(SHOTS_DIR, `${name}.png`);
+  // Sticky notes are frameless (`frame: false`): their client size is their window size,
+  // so they are captured as they are.
+  const sticky = await page.evaluate(
+    () => new URLSearchParams(window.location.search).get('view') === 'sticky',
+  );
+  if (sticky) {
+    await animationsDone(page);
+    await page.screenshot({ path });
+    return;
+  }
+  const actual = await page.evaluate(() => ({
+    width: window.innerWidth,
+    height: window.innerHeight,
+  }));
+  expect(actual.width, `${name}: main-window shots are taken 1200 wide`).toBe(MAIN_SHOT_SIZE.width);
+  const cdp = await page.context().newCDPSession(page);
+  try {
+    await cdp.send('Emulation.setDeviceMetricsOverride', {
+      ...MAIN_SHOT_SIZE,
+      deviceScaleFactor: 1,
+      mobile: false,
+    });
+    await expect
+      .poll(() => page.evaluate(() => [window.innerWidth, window.innerHeight]), {
+        message: `${name}: viewport fixed at ${MAIN_SHOT_SIZE.width}×${MAIN_SHOT_SIZE.height}`,
+      })
+      .toEqual([MAIN_SHOT_SIZE.width, MAIN_SHOT_SIZE.height]);
+    await twoFrames(page);
+    await animationsDone(page);
+    const png = await page.screenshot({ path });
+    expect(pngSize(png), `${name}: main-window shot size`).toEqual(MAIN_SHOT_SIZE);
+  } finally {
+    await cdp.send('Emulation.clearDeviceMetricsOverride').catch(() => undefined);
+    await cdp.detach().catch(() => undefined);
+  }
+  if (actual.height !== MAIN_SHOT_SIZE.height) {
+    // the real client area is back; let the layout settle before the test goes on
+    await twoFrames(page);
+  }
 }
 
 export async function axe(page: Page, name: string): Promise<void> {
