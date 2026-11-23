@@ -394,6 +394,7 @@ Follow TDD/BDD loop: author specs before implementation, especially for sticky w
 5. 未配置签名证书时安装包未签名，工作流会在 Release 说明末尾追加一次「安装包未签名」提示。签名只通过仓库 secrets：`MACOS_CERTIFICATE` / `MACOS_CERTIFICATE_PASSWORD`（+ 公证用 `APPLE_ID` / `APPLE_APP_SPECIFIC_PASSWORD` / `APPLE_TEAM_ID`）、`WINDOWS_CERTIFICATE` / `WINDOWS_CERTIFICATE_PASSWORD`；证书不进仓库。
 
 试跑：Actions → Release → Run workflow，填一个已有 tag，`upload` 保持 `false` 只构建、不碰 Release；产物在该次运行的 artifacts 里。
+试跑未打 tag 的分支或提交：同样 Run workflow，`tag` 填要发的版本（如 `v0.3.8`，不必已存在，但必须等于 `v` + 该 ref 上 `package.json` 的版本），`ref` 填分支名或提交 SHA，`upload` 必须为 `false`（否则直接失败）。工作流、脚本和源码都来自该 ref（#183）。
 本地打包：`pnpm run build && pnpm run build:electron`（先把应用整理到 `build/app`，再由 electron-builder 输出到 `dist/`）。
 
 ## Troubleshooting

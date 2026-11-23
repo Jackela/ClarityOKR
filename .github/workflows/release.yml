@@ -3,6 +3,10 @@
 #
 # - push of a tag v*            → build macOS / Windows / Linux, attach installers + SHA256SUMS.txt
 # - workflow_dispatch (tag)     → same for an existing tag; `upload: false` only builds (dry run)
+# - workflow_dispatch (tag, ref) → dry run of a branch / commit (#183): checks out `ref` instead of
+#   the tag, so the workflow, scripts and sources all come from that ref and no tag has to exist.
+#   `tag` is still required and must still match package.json; `upload` must be false, or the
+#   run fails before building. Tag pushes never read `ref`.
 #   Dry run only: if the checked-out tag lacks scripts/setup-windows-native-build.ps1, skip that
 #   Windows step and write "旧 tag，已跳过 Windows 工具链脚本" to the log and Job Summary.
 #   A real release (tag push, or upload true / absent) must fail if the script is missing.
@@ -24,6 +28,10 @@ on:
         description: 'Attach the installers to the Release (false = build only)'
         type: boolean
         default: false
+      ref:
+        description: 'Dry run only (upload=false): branch or commit to build instead of the tag; the tag then need not exist but must still match package.json'
+        required: false
+        default: ''
 
 concurrency:
   group: release-${{ github.event.inputs.tag || github.ref_name }}
@@ -36,6 +44,8 @@ env:
   NODE_VERSION: '24'
   PNPM_VERSION: '9'
   TAG: ${{ github.event.inputs.tag || github.ref_name }}
+  # Empty unless a person asked for a dry run of a branch / commit (#183).
+  DRY_RUN_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || '' }}
 
 jobs:
   build:
@@ -56,10 +66,25 @@ jobs:
             platform: mac
             target: --mac
     steps:
-      - name: Checkout the tag
+      # A ref is only for a dry run: never build a branch for a real release.
+      - name: Dry-run ref only without upload
+        if: env.DRY_RUN_REF != ''
+        shell: bash
+        env:
+          UPLOAD_INPUT: ${{ github.event.inputs.upload }}
+        run: |
+          if [ "$UPLOAD_INPUT" != "false" ]; then
+            echo "::error::ref=${DRY_RUN_REF} is only for a dry run; set upload to false (a real release builds the tag ${TAG})."
+            exit 1
+          fi
+          msg="Dry run of ref ${DRY_RUN_REF} (version checked against ${TAG}; nothing is uploaded)"
+          printf '%s\n' "$msg"
+          printf '%s\n' "$msg" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Checkout the tag (or the dry-run ref)
         uses: actions/checkout@v7
         with:
-          ref: refs/tags/${{ env.TAG }}
+          ref: ${{ env.DRY_RUN_REF != '' && env.DRY_RUN_REF || format('refs/tags/{0}', env.TAG) }}
 
       - name: Setup Node.js ${{ env.NODE_VERSION }}
         uses: actions/setup-node@v7
@@ -179,6 +204,13 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
     steps:
+      # The build job already refuses this; never attach a branch build to a Release.
+      - name: No upload from a dry-run ref
+        if: env.DRY_RUN_REF != ''
+        run: |
+          echo "::error::ref=${DRY_RUN_REF} is a dry run; nothing is attached to ${TAG}."
+          exit 1
+
       - uses: actions/download-artifact@v8
         with:
           pattern: installers-*
