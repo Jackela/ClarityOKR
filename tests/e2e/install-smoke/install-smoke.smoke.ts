@@ -364,6 +364,15 @@ interface SafeStorageProbe {
 }
 
 /** First launch: encrypt a marker with the OS store (Keychain / DPAPI / libsecret). */
+/** An OS prompt (e.g. a Keychain access dialog) would block forever on a runner: fail clearly. */
+function within<T>(what: string, promise: Promise<T>, ms = 60_000): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${what} did not finish within ${ms} ms`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 const encryptMarker = (app: ElectronApplication): Promise<SafeStorageProbe> =>
   app.evaluate(async ({ safeStorage }) => {
     const available = await safeStorage.isAsyncEncryptionAvailable();
@@ -386,6 +395,8 @@ const decryptMarker = (app: ElectronApplication, cipher: string): Promise<string
   }, cipher);
 
 test('installed app: fresh profile → OKR, progress, review → quit → relaunch → all still there', async () => {
+  // The x64 build on Apple silicon runs under Rosetta: first launches translate the whole app.
+  if (LABEL === 'mac-x64') test.setTimeout(900_000);
   expect(EXECUTABLE, 'SMOKE_APP_EXECUTABLE').not.toBe('');
   expect(existsSync(EXECUTABLE), `${EXECUTABLE} exists`).toBe(true);
   expect(USER_DATA, 'SMOKE_USER_DATA_DIR').not.toBe('');
@@ -423,7 +434,7 @@ test('installed app: fresh profile → OKR, progress, review → quit → relaun
       await first.main.screenshot({ path: join(shots, `${LABEL}-2-okr-created.png`) });
       await checkSticky(first, shots);
 
-      probe = await encryptMarker(first.app);
+      probe = await within('safeStorage encrypt', encryptMarker(first.app));
       writeFileSync(join(shots, `${LABEL}-safe-storage.json`), JSON.stringify(probe, null, 2));
       // DPAPI and Keychain are always there on Windows / macOS; Linux depends on a secret service
       if (process.platform !== 'linux') expect(probe.available, 'safeStorage available').toBe(true);
@@ -443,7 +454,9 @@ test('installed app: fresh profile → OKR, progress, review → quit → relaun
       expect(await onlyOkrId(second.main)).toBe(okrId);
       await expectProgressAndReview(second.main, okrId);
       if (probe.cipher !== null) {
-        expect(await decryptMarker(second.app, probe.cipher)).toBe('install-smoke-marker');
+        expect(await within('safeStorage decrypt', decryptMarker(second.app, probe.cipher))).toBe(
+          'install-smoke-marker',
+        );
       }
       await second.main.screenshot({ path: join(shots, `${LABEL}-3-relaunch.png`) });
     } finally {

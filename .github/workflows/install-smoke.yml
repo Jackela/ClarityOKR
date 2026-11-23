@@ -180,6 +180,10 @@ jobs:
             mount="$RUNNER_TEMP/dmg-${arch}"
             hdiutil attach -nobrowse -readonly -mountpoint "$mount" "$dmg"
             rm -rf /Applications/ClarityOKR.app "$user_data"
+            # Fresh profile includes the Keychain: the previous architecture's unsigned build left
+            # a "ClarityOKR Safe Storage" item whose ACL names that binary, and macOS would ask (in
+            # a dialog nobody can answer on the runner) before letting this build read it.
+            while security delete-generic-password -s 'ClarityOKR Safe Storage' >/dev/null 2>&1; do :; done
             ditto "$mount/ClarityOKR.app" /Applications/ClarityOKR.app
             hdiutil detach "$mount"
             exe=/Applications/ClarityOKR.app/Contents/MacOS/ClarityOKR
