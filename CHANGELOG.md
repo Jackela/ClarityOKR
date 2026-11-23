@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- 没有未保存内容时，从应用外部发起的退出（macOS Dock 右键「退出」、注销 / 关机时系统发起的退出）现在会真正退出，不再关掉窗口后一直留在托盘 / Dock 里（[#199](https://github.com/Jackela/ClarityOKR/issues/199)）。原因：`before-quit` 拦下这次退出后在同一调用栈里立即再次 `app.quit()`，外层被拦下的退出返回时 Electron 复位了「正在退出」状态。现在退出确认推迟到下一轮事件循环（`setImmediate`）再进行。有未保存内容时仍会弹出确认（行为不变）；应用自己的「退出」（菜单 / ⌘Q / 托盘）不受影响。新增 5 个单元测试；`Install smoke` 第二次启动改为用外部 `app.quit()` 退出并断言退出码 0。
+
 ### Internal
 
 - integration 测试的 nock 从 13.5.6 升到 15.0.6（[#170](https://github.com/Jackela/ClarityOKR/issues/170)）：原先升级后 integration jest 在第 11 个套件后报 `MaxListenersExceededWarning`（TLSSocket）并被 SIGSEGV 杀掉。原因是 nock ≥ 14 通过 `@mswjs/interceptors` 修补共享的 http / https / net 核心模块，而 `tests/integration/setup.cjs` 在每个测试文件里都 `import('nock')`（Jest 每个文件一个新的模块注册表），却从不 `nock.restore()`，拦截器逐个文件叠加。`setup.cjs` 的 `afterAll` 加上 `nock.restore()` 后 28 个套件 / 399 个测试全过、无告警；同时去掉 `.github/dependabot.yml` 里对 nock major 的忽略。测试数量与断言不变，生产代码未改
