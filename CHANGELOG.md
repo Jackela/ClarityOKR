@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Internal
+
+- 将开发依赖组升级：`@playwright/test` 1.65.0 → 1.65.1、`@types/node` 24.19.1 → 24.19.2、`@typescript-eslint/eslint-plugin` / `@typescript-eslint/parser` 8.72.2 → 8.73.0、`baseline-browser-mapping` 2.11.37 → 2.11.38、`axe-core` 4.14.0 → 4.14.1。typescript-eslint 8.73 把 `consistent-type-imports` 的报错位置收窄到具体导入名，原来写在多行 `import {` 上方的 `eslint-disable-next-line` 不再覆盖 `Renderer2`，改为写在 `Renderer2` 那一行上方（它经构造函数注入，Angular DI 需要值导入，不能改成 `import type`）。无运行时改动（[#189](https://github.com/Jackela/ClarityOKR/pull/189)）
+
 ## [0.3.7] - 2026-11-21
 
 ### Changed

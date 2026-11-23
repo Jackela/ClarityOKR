@@ -1,8 +1,9 @@
-// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import {
   Component,
   Injector,
   NgZone,
+  // Renderer2 is injected through the constructor, so Angular DI needs the value import.
+  // eslint-disable-next-line @typescript-eslint/consistent-type-imports
   Renderer2,
   computed,
   inject,
