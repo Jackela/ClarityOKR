@@ -9,6 +9,8 @@ module.exports = {
   roots: [
     '<rootDir>/app/main/src',
     '<rootDir>/app/renderer/src',
+    // #151: so untested contracts files are reported (with zero coverage) too
+    '<rootDir>/packages/contracts/src',
     '<rootDir>/tests/unit/clarification',
     '<rootDir>/tests/unit/contracts',
     '<rootDir>/tests/unit/core',

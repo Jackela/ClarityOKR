@@ -6,6 +6,7 @@ import {
   reportFingerprint,
 } from './coverage-integrity.mjs';
 import { spawnSync } from 'node:child_process';
+import { separateLayerContracts } from './coverage-directories.mjs';
 
 for (const directory of [
   'tests/unit/coverage',
@@ -55,6 +56,8 @@ for (const script of scripts) {
       component: 'app/renderer',
       integration: 'tests/integration',
     }[layer];
+    if (!separateLayerContracts(directory))
+      throw new Error(`No contracts coverage collected by ${layer}`);
     const report = JSON.parse(readFileSync(`${directory}/coverage/coverage-final.json`, 'utf8'));
     const evidence = {
       schema: 1,

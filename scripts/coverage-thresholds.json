@@ -17,5 +17,54 @@
     "branches": 86,
     "functions": 92,
     "lines": 93
+  },
+  "directoriesSource": {
+    "rule": "#151 (2026-11-16): threshold = floor(directory measured on main), never below the global threshold",
+    "app": "app/main/src/lifecycle and app/main/src/persistence/okr-store: merged unit + component + integration + remapped E2E coverage on main 8f29a06 (CI run 45092531547); identical on 0558667 and 1cc73a2",
+    "contracts": "packages/contracts/src: merged unit + component + integration Jest coverage (E2E does not instrument the contracts), after #151 added contracts tests; product sources unchanged from main"
+  },
+  "directories": {
+    "app/main/src/lifecycle": {
+      "measured": {
+        "statements": 97.48,
+        "branches": 92.77,
+        "functions": 94.44,
+        "lines": 99.26
+      },
+      "thresholds": {
+        "statements": 97,
+        "branches": 92,
+        "functions": 94,
+        "lines": 99
+      }
+    },
+    "app/main/src/persistence/okr-store": {
+      "measured": {
+        "statements": 96.03,
+        "branches": 89.5,
+        "functions": 97.89,
+        "lines": 96.2
+      },
+      "thresholds": {
+        "statements": 96,
+        "branches": 89,
+        "functions": 97,
+        "lines": 96
+      }
+    },
+    "packages/contracts/src": {
+      "measured": {
+        "statements": 98.01,
+        "branches": 95.63,
+        "functions": 100,
+        "lines": 100
+      },
+      "thresholds": {
+        "statements": 98,
+        "branches": 95,
+        "functions": 100,
+        "lines": 100
+      }
+    }
   }
 }

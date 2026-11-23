@@ -12,7 +12,8 @@ import {
   validateOriginalCoverage,
   originalSourceMetadata,
 } from './coverage-integrity.mjs';
-import { evaluateGate, loadThresholds } from './coverage-gate.mjs';
+import { evaluateDirectories, evaluateGate, loadThresholds } from './coverage-gate.mjs';
+import { contractsCoverageMap, directorySummary, CONTRACTS_DIR } from './coverage-directories.mjs';
 
 if (process.env.E2E_COVERAGE === 'true') {
   const evidence = JSON.parse(readFileSync('tests/e2e/coverage/evidence.json', 'utf8'));
@@ -70,15 +71,36 @@ if (
   );
 validateOriginalCoverage(finalReport, originalSourceMetadata(inventory));
 const summary = merged.getCoverageSummary().toJSON();
+// #151: per-directory summaries. App directories come from the final merged product report;
+// the contracts from the unit/component/integration layers that instrument them.
+const contracts = contractsCoverageMap();
+const config = loadThresholds();
+const directories = Object.fromEntries(
+  Object.keys(config.directories).map((directory) => [
+    directory,
+    directorySummary(directory === CONTRACTS_DIR ? contracts : merged, directory),
+  ]),
+);
 mkdirSync('coverage', { recursive: true });
+writeFileSync('coverage/contracts-coverage-final.json', JSON.stringify(contracts.toJSON()));
 writeFileSync('coverage/source-inventory.json', JSON.stringify(inventory, null, 2));
 writeFileSync('coverage/coverage-final.json', JSON.stringify(finalReport));
-writeFileSync('coverage/coverage-summary.json', JSON.stringify({ total: summary }, null, 2));
+writeFileSync(
+  'coverage/coverage-summary.json',
+  JSON.stringify({ total: summary, directories }, null, 2),
+);
 const context = reporting.createContext({ dir: 'coverage', coverageMap: merged });
 for (const format of ['text-summary', 'lcov', 'html']) reports.create(format).execute(context);
-const { thresholds } = loadThresholds();
+const { thresholds } = config;
 const result = evaluateGate(summary, thresholds);
 if (!result.passed) {
   console.error(JSON.stringify({ gate: 'coverage', thresholds, failed: result.rows.filter((row) => !row.ok) }, null, 2));
+  process.exitCode = 1;
+}
+const perDirectory = evaluateDirectories(directories, config);
+if (!perDirectory.passed) {
+  console.error(
+    JSON.stringify({ gate: 'directory coverage', failed: perDirectory.failed }, null, 2),
+  );
   process.exitCode = 1;
 }
