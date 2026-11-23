@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Internal
 
+- 将主进程依赖 `opossum` 从 9.0.0 升到 10.0.0。10.0 唯一的破坏性变更是不再支持 Node 20（`engines` 为 `^26 || ^24 || ^22`）；应用运行在 Electron 45 内置的 Node.js 24.22.3，CI 用 Node 24。npm 包内 `index.js` 与 `lib/` 和 9.0.0 逐字相同，只改了 `engines` 与开发依赖；`LlmCircuitBreaker` 用到的构造参数（`timeout` / `resetTimeout` / `errorThresholdPercentage` / `rollingCountTimeout` / `rollingCountBuckets` / `name`）、事件（`open` / `halfOpen` / `close` / `fallback`）与 `fire` / `open` / `close` / `fallback` / `stats` 均未改动，行为不变（[#191](https://github.com/Jackela/ClarityOKR/pull/191)）
+- 将主进程开发依赖 `@types/better-sqlite3` 从 7.6.13 升到 9.6.0。DefinitelyTyped 仅调整了版本号与最低 TypeScript（5.1 → 5.6），`index.d.ts` 与 7.6.13 逐字相同；better-sqlite3 13 不自带类型，仍用这份声明，类型检查通过。仅类型，无运行时改动（[#190](https://github.com/Jackela/ClarityOKR/pull/190)）
 - 仅 E2E：主窗客户区固定为 **1200×771**，主窗设计截图（`shot()`，`IMPL_SHOTS_DIR`；以及 CI 每次上传的 S3§12 截图 `S3_12_SHOTS_DIR`）因此尺寸与排版稳定。主窗是带框的 1200×800 外框窗口，Linux 下标题栏由 Chromium 按 GTK 标题字体绘制，CI 上有时 29px、有时 27px，客户区于是在 1200×771 与 1200×773 之间跳动，根组件 `min-height: 100vh` 跟着变，底部操作栏下移 2px、居中对话框和滚动后的画面偏 1–2px。现在每次启动后（fixtures、`launchElectronApp`、两个 spec 里的重启）用 `setContentSize(1200, 771)` 设定客户区并等待 `innerWidth/innerHeight` 生效；截图时断言客户区与 PNG 都是 1200×771，否则用例失败。无框便签截图照旧按窗口实际尺寸。生产代码与应用自身的窗口尺寸不变（[#146](https://github.com/Jackela/ClarityOKR/issues/146)）
 
 ## [0.3.7] - 2026-11-21
