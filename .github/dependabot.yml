@@ -34,11 +34,6 @@ updates:
       - dependency-name: electron
         update-types:
           - version-update:semver-major
-      # nock 15 major hangs/SIGSEGV in integration jest (TLSSocket MaxListeners).
-      # Tracked in #170; not scheduled. minor/patch version updates are still allowed.
-      - dependency-name: nock
-        update-types:
-          - version-update:semver-major
       # @types/node major must match the runtime Node major (CI/release NODE_VERSION
       # 24, .nvmrc 24.19.0, Electron 45.4.1 bundled Node 24.22.3). #172 bumped to
       # 26 and was closed. minor/patch version updates are still allowed.
