@@ -1,223 +1,50 @@
-import { randomUUID } from 'node:crypto';
 import type { Database } from 'better-sqlite3';
 
 import {
-  TEXT_LIMITS,
   ValidationError,
-  checkText,
   isKrStatus,
   isPeriod,
   isValidProgress,
   type KeyResultRecord,
   type KrStatus,
   type NewObjectiveInput,
-  type ObjectiveRecord,
   type ObjectiveWithKeyResults,
   type Period,
   type ProgressEntryRecord,
-  type ReviewKrSnapshot,
   type ReviewRecord,
 } from '@clarityokr/contracts';
 
-interface ObjectiveRow {
-  id: string;
-  title: string;
-  period: string | null;
-  pinned: number;
-  source_session_id: string | null;
-  created_at: string;
-  updated_at: string;
-}
+import { insertImportedObjectives } from './okr-store-import.js';
+import { readReview, writeReview } from './okr-store-review.js';
+import {
+  computeOverallProgress,
+  toKeyResult,
+  toObjective,
+  toProgressEntry,
+  type KeyResultRow,
+  type ObjectiveRow,
+  type ProgressEntryRow,
+} from './okr-store-rows.js';
+import type {
+  ImportObjectiveInput,
+  KrProgressSummary,
+  ObjectiveSummary,
+  ReviewInput,
+  SetProgressInput,
+  SyncObjectiveInput,
+} from './okr-store-types.js';
+import { insertNewObjective, upsertSyncedObjective } from './okr-store-writes.js';
 
-interface KeyResultRow {
-  id: string;
-  objective_id: string;
-  position: number;
-  statement: string;
-  success_metric: string | null;
-  progress: number | null;
-  status: string;
-  removed_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-interface ProgressEntryRow {
-  id: number;
-  kr_id: string;
-  kind: string;
-  value: number | null;
-  status: string;
-  reverts_entry_id: number | null;
-  recorded_at: string;
-}
-
-interface ReviewRow {
-  objective_id: string;
-  went_well: string;
-  fell_short: string;
-  next_steps: string;
-  snapshot: string;
-  saved_at: string;
-  snapshot_at: string;
-}
-
-export interface SetProgressInput {
-  /** Integer 0-100, or null to clear the value. */
-  value: number | null;
-  status: KrStatus;
-}
-
-export interface SyncObjectiveInput {
-  id: string;
-  title: string;
-  period?: Period | null;
-  sourceSessionId?: string | null;
-  createdAt?: string;
-  keyResults: Array<{ id: string; statement: string; successMetric?: string | null }>;
-}
-
-export interface ObjectiveSummary {
-  id: string;
-  title: string;
-  period: Period | null;
-  pinned: boolean;
-  createdAt: string;
-  updatedAt: string;
-  overallProgress: number | null;
-  /** Key results that are not removed. */
-  keyResultCount: number;
-  filledKeyResultCount: number;
-  /** Every non-removed key result has status `done` (and there is at least one). */
-  allDone: boolean;
-  reviewed: boolean;
-}
-
-export interface KrProgressSummary {
-  latest: ProgressEntryRecord | null;
-  /** Value and status before the latest entry; null when there is no entry. */
-  before: { value: number | null; status: KrStatus } | null;
-  /** True when the latest entry is a `set` (a `revert` cannot be reverted again). */
-  canRevert: boolean;
-}
-
-/** A validated single-OKR export (see `ExportJsonDocument`), written as a new OKR by `importObjective`. */
-export interface ImportObjectiveInput {
-  objective: {
-    title: string;
-    period: string | null;
-    pinned: boolean;
-    createdAt: string;
-    updatedAt: string;
-  };
-  keyResults: ReadonlyArray<{
-    id: string;
-    statement: string;
-    successMetric: string | null;
-    progress: number | null;
-    status: KrStatus;
-    removedAt: string | null;
-  }>;
-  progressEntries: ReadonlyArray<{
-    id: number;
-    krId: string;
-    kind: 'set' | 'revert';
-    value: number | null;
-    status: KrStatus;
-    revertsEntryId: number | null;
-    recordedAt: string;
-  }>;
-  review: null | {
-    wentWell: string;
-    fellShort: string;
-    nextSteps: string;
-    snapshot: ReadonlyArray<ReviewKrSnapshot>;
-    savedAt: string;
-    snapshotAt: string;
-  };
-}
-
-export interface ReviewInput {
-  wentWell: string;
-  fellShort: string;
-  nextSteps: string;
-}
-
-function toObjective(row: ObjectiveRow): ObjectiveRecord {
-  return {
-    id: row.id,
-    title: row.title,
-    period: row.period as Period | null,
-    pinned: row.pinned === 1,
-    sourceSessionId: row.source_session_id,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}
-
-function toKeyResult(row: KeyResultRow): KeyResultRecord {
-  return {
-    id: row.id,
-    objectiveId: row.objective_id,
-    position: row.position,
-    statement: row.statement,
-    successMetric: row.success_metric,
-    progress: row.progress,
-    status: row.status as KrStatus,
-    removedAt: row.removed_at,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}
-
-function toProgressEntry(row: ProgressEntryRow): ProgressEntryRecord {
-  return {
-    id: row.id,
-    krId: row.kr_id,
-    kind: row.kind as ProgressEntryRecord['kind'],
-    value: row.value,
-    status: row.status as KrStatus,
-    revertsEntryId: row.reverts_entry_id,
-    recordedAt: row.recorded_at,
-  };
-}
-
-function requireText(label: string, text: string, max: number): void {
-  if (text.trim().length === 0) {
-    throw new ValidationError(`${label} must not be empty`);
-  }
-  assertTextWithinLimit(label, text, max);
-}
-
-function assertTextWithinLimit(label: string, text: string, max: number): void {
-  const check = checkText(text, max);
-  if (!check.ok) {
-    throw new ValidationError(
-      check.reason === 'too_long'
-        ? `${label} exceeds ${max} characters`
-        : `${label} contains an over-long character sequence`,
-    );
-  }
-}
-
-/** Empty or whitespace-only text means "no value" and is stored as NULL; real text is kept as typed. */
-export function normalizeSuccessMetric(value: string | null | undefined): string | null {
-  if (value === null || value === undefined || value.trim().length === 0) {
-    return null;
-  }
-  return value;
-}
-
-/** Rounded average of non-removed KRs that have a progress value; null when none do. */
-export function computeOverallProgress(keyResults: readonly KeyResultRecord[]): number | null {
-  const values = keyResults
-    .filter((kr) => kr.removedAt === null && kr.progress !== null)
-    .map((kr) => kr.progress as number);
-  if (values.length === 0) {
-    return null;
-  }
-  return Math.round(values.reduce((sum, v) => sum + v, 0) / values.length);
-}
+// Split into okr-store-*.ts (#164); these re-exports keep the original import paths working.
+export { computeOverallProgress, normalizeSuccessMetric } from './okr-store-rows.js';
+export type {
+  ImportObjectiveInput,
+  KrProgressSummary,
+  ObjectiveSummary,
+  ReviewInput,
+  SetProgressInput,
+  SyncObjectiveInput,
+} from './okr-store-types.js';
 
 /**
  * Repository for the closed-loop OKR model (objectives, key results, append-only
@@ -234,48 +61,7 @@ export class OkrStore {
   }
 
   createObjective(input: NewObjectiveInput): ObjectiveWithKeyResults {
-    requireText('Objective', input.title, TEXT_LIMITS.objective);
-    if (input.period !== undefined && input.period !== null && !isPeriod(input.period)) {
-      throw new ValidationError('Period must look like 2026-Q4');
-    }
-    if (input.keyResults.length === 0) {
-      throw new ValidationError('An objective needs at least one key result');
-    }
-    for (const kr of input.keyResults) {
-      requireText('Key result', kr.statement, TEXT_LIMITS.keyResult);
-      const metric = normalizeSuccessMetric(kr.successMetric);
-      if (metric !== null) {
-        assertTextWithinLimit('Success metric', metric, TEXT_LIMITS.successMetric);
-      }
-    }
-
-    const id = input.id ?? randomUUID();
-    const at = this.timestamp();
-    const create = this.db.transaction(() => {
-      this.db
-        .prepare(
-          `INSERT INTO objectives (id, title, period, pinned, source_session_id, created_at, updated_at)
-           VALUES (?, ?, ?, 0, ?, ?, ?)`,
-        )
-        .run(id, input.title, input.period ?? null, input.sourceSessionId ?? null, at, at);
-      const insertKr = this.db.prepare(
-        `INSERT INTO key_results
-           (id, objective_id, position, statement, success_metric, progress, status, removed_at, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, NULL, 'not_started', NULL, ?, ?)`,
-      );
-      input.keyResults.forEach((kr, index) => {
-        insertKr.run(
-          kr.id ?? randomUUID(),
-          id,
-          index,
-          kr.statement,
-          normalizeSuccessMetric(kr.successMetric),
-          at,
-          at,
-        );
-      });
-    });
-    create();
+    const id = insertNewObjective(this.db, input, () => this.timestamp());
     return this.requireObjective(id);
   }
 
@@ -291,88 +77,8 @@ export class OkrStore {
    * enters (IPC), because generated text is stored as-is.
    */
   syncObjective(input: SyncObjectiveInput): ObjectiveWithKeyResults {
-    if (input.title.trim().length === 0) {
-      throw new ValidationError('Objective must not be empty');
-    }
-    if (input.period !== undefined && input.period !== null && !isPeriod(input.period)) {
-      throw new ValidationError('Period must look like 2026-Q4');
-    }
-    for (const kr of input.keyResults) {
-      if (kr.statement.trim().length === 0) {
-        throw new ValidationError('Key result must not be empty');
-      }
-    }
-    const ids = new Set(input.keyResults.map((kr) => kr.id));
-    if (ids.size !== input.keyResults.length) {
-      throw new ValidationError('Key result ids must be unique');
-    }
-
-    const at = this.timestamp();
-    const existing = this.db.prepare('SELECT * FROM objectives WHERE id = ?').get(input.id) as
-      ObjectiveRow | undefined;
-    this.db.transaction(() => {
-      if (existing) {
-        this.db
-          .prepare('UPDATE objectives SET title = ?, updated_at = ? WHERE id = ?')
-          .run(input.title, at, input.id);
-        if (input.period !== undefined) {
-          this.db
-            .prepare('UPDATE objectives SET period = ? WHERE id = ?')
-            .run(input.period, input.id);
-        }
-      } else {
-        this.db
-          .prepare(
-            `INSERT INTO objectives (id, title, period, pinned, source_session_id, created_at, updated_at)
-             VALUES (?, ?, ?, 0, ?, ?, ?)`,
-          )
-          .run(
-            input.id,
-            input.title,
-            input.period ?? null,
-            input.sourceSessionId ?? null,
-            input.createdAt ?? at,
-            at,
-          );
-      }
-
-      const rows = this.db
-        .prepare('SELECT * FROM key_results WHERE objective_id = ?')
-        .all(input.id) as KeyResultRow[];
-      const known = new Map(rows.map((row) => [row.id, row]));
-      const update = this.db.prepare(
-        `UPDATE key_results SET position = ?, statement = ?, success_metric = ?, removed_at = NULL, updated_at = ?
-         WHERE id = ?`,
-      );
-      const insert = this.db.prepare(
-        `INSERT INTO key_results
-           (id, objective_id, position, statement, success_metric, progress, status, removed_at, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, NULL, 'not_started', NULL, ?, ?)`,
-      );
-      input.keyResults.forEach((kr, index) => {
-        if (known.has(kr.id)) {
-          update.run(index, kr.statement, normalizeSuccessMetric(kr.successMetric), at, kr.id);
-        } else {
-          insert.run(
-            kr.id,
-            input.id,
-            index,
-            kr.statement,
-            normalizeSuccessMetric(kr.successMetric),
-            at,
-            at,
-          );
-        }
-      });
-      for (const row of rows) {
-        if (!ids.has(row.id) && row.removed_at === null) {
-          this.db
-            .prepare('UPDATE key_results SET removed_at = ?, updated_at = ? WHERE id = ?')
-            .run(at, at, row.id);
-        }
-      }
-    })();
-    if (!existing) {
+    const existed = upsertSyncedObjective(this.db, input, () => this.timestamp());
+    if (!existed) {
       this.pinObjective(input.id);
     }
     return this.requireObjective(input.id);
@@ -554,69 +260,12 @@ export class OkrStore {
    */
   saveReview(objectiveId: string, input: ReviewInput): ReviewRecord {
     const objective = this.requireObjective(objectiveId);
-    const sections: Array<[string, string]> = [
-      ['What went well', input.wentWell],
-      ['What fell short', input.fellShort],
-      ['Next steps', input.nextSteps],
-    ];
-    if (sections.every(([, text]) => text.trim().length === 0)) {
-      throw new ValidationError('A review needs at least one non-empty section');
-    }
-    for (const [label, text] of sections) {
-      assertTextWithinLimit(label, text, TEXT_LIMITS.reviewSection);
-    }
-    const snapshot: ReviewKrSnapshot[] = objective.keyResults.map((kr) => ({
-      krId: kr.id,
-      statement: kr.statement,
-      successMetric: kr.successMetric,
-      progress: kr.progress,
-      status: kr.status,
-      removed: kr.removedAt !== null,
-    }));
-    const savedAt = this.timestamp();
-    const save = this.db.transaction(() => {
-      this.db
-        .prepare(
-          `INSERT INTO reviews (objective_id, went_well, fell_short, next_steps, snapshot, saved_at, snapshot_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT (objective_id) DO UPDATE SET
-             went_well = excluded.went_well,
-             fell_short = excluded.fell_short,
-             next_steps = excluded.next_steps,
-             saved_at = excluded.saved_at`,
-        )
-        .run(
-          objectiveId,
-          input.wentWell,
-          input.fellShort,
-          input.nextSteps,
-          JSON.stringify(snapshot),
-          savedAt,
-          savedAt,
-        );
-      this.db
-        .prepare('UPDATE objectives SET updated_at = ? WHERE id = ?')
-        .run(savedAt, objectiveId);
-    });
-    save();
+    writeReview(this.db, objectiveId, objective, input, () => this.timestamp());
     return this.getReview(objectiveId) as ReviewRecord;
   }
 
   getReview(objectiveId: string): ReviewRecord | null {
-    const row = this.db.prepare('SELECT * FROM reviews WHERE objective_id = ?').get(objectiveId) as
-      ReviewRow | undefined;
-    if (!row) {
-      return null;
-    }
-    return {
-      objectiveId: row.objective_id,
-      wentWell: row.went_well,
-      fellShort: row.fell_short,
-      nextSteps: row.next_steps,
-      snapshot: JSON.parse(row.snapshot) as ReviewKrSnapshot[],
-      savedAt: row.saved_at,
-      snapshotAt: row.snapshot_at,
-    };
+    return readReview(this.db, objectiveId);
   }
 
   /**
@@ -625,103 +274,7 @@ export class OkrStore {
    * file. An OKR keeps `pinned` only while no other OKR is pinned. Returns the new ids in order.
    */
   importObjectives(items: ReadonlyArray<{ input: ImportObjectiveInput; title: string }>): string[] {
-    const insertObjective = this.db.prepare(
-      `INSERT INTO objectives (id, title, period, pinned, source_session_id, created_at, updated_at)
-       VALUES (?, ?, ?, ?, NULL, ?, ?)`,
-    );
-    const insertKr = this.db.prepare(
-      `INSERT INTO key_results
-         (id, objective_id, position, statement, success_metric, progress, status, removed_at, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    );
-    const insertEntry = this.db.prepare(
-      `INSERT INTO progress_entries (kr_id, kind, value, status, reverts_entry_id, recorded_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-    );
-    const insertReview = this.db.prepare(
-      `INSERT INTO reviews (objective_id, went_well, fell_short, next_steps, snapshot, saved_at, snapshot_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    );
-    const hasPinned = this.db.prepare('SELECT 1 FROM objectives WHERE pinned = 1 LIMIT 1');
-
-    const run = this.db.transaction((): string[] =>
-      items.map(({ input, title }) => {
-        const { objective } = input;
-        const id = randomUUID();
-        const pinned = objective.pinned && hasPinned.get() === undefined ? 1 : 0;
-        insertObjective.run(
-          id,
-          title,
-          objective.period,
-          pinned,
-          objective.createdAt,
-          objective.updatedAt,
-        );
-        const krIds = new Map<string, string>();
-        input.keyResults.forEach((kr, position) => {
-          const krId = randomUUID();
-          krIds.set(kr.id, krId);
-          insertKr.run(
-            krId,
-            id,
-            position,
-            kr.statement,
-            normalizeSuccessMetric(kr.successMetric),
-            kr.progress,
-            kr.status,
-            kr.removedAt,
-            objective.createdAt,
-            kr.removedAt ?? objective.updatedAt,
-          );
-        });
-        const mapKr = (old: string): string => {
-          const mapped = krIds.get(old);
-          if (mapped === undefined) throw new ValidationError('Unknown key result reference');
-          return mapped;
-        };
-        const entryIds = new Map<number, number>();
-        [...input.progressEntries]
-          .sort((a, b) => a.id - b.id)
-          .forEach((entry) => {
-            const reverts =
-              entry.revertsEntryId === null ? null : entryIds.get(entry.revertsEntryId);
-            if (reverts === undefined)
-              throw new ValidationError('Unknown progress entry reference');
-            const result = insertEntry.run(
-              mapKr(entry.krId),
-              entry.kind,
-              entry.value,
-              entry.status,
-              reverts,
-              entry.recordedAt,
-            );
-            entryIds.set(entry.id, Number(result.lastInsertRowid));
-          });
-        const review = input.review;
-        if (review !== null) {
-          // Field by field: nothing from the file beyond the known keys is stored.
-          const snapshot: ReviewKrSnapshot[] = review.snapshot.map((item) => ({
-            krId: mapKr(item.krId),
-            statement: item.statement,
-            successMetric: item.successMetric,
-            progress: item.progress,
-            status: item.status,
-            removed: item.removed,
-          }));
-          insertReview.run(
-            id,
-            review.wentWell,
-            review.fellShort,
-            review.nextSteps,
-            JSON.stringify(snapshot),
-            review.savedAt,
-            review.snapshotAt,
-          );
-        }
-        return id;
-      }),
-    );
-    return run();
+    return insertImportedObjectives(this.db, items);
   }
 
   /** True when any objective or saved review exists (used for the in-memory quit/restart rule). */
