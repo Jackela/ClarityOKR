@@ -13,7 +13,7 @@
   "dependencies": {
     "@clarityokr/contracts": "workspace:^",
     "better-sqlite3": "^13.2.0",
-    "dotenv": "^16.4.5",
+    "dotenv": "^18.0.10",
     "electron": "45.4.1",
     "lru-cache": "^11.2.7",
     "opossum": "^10.0.0",
