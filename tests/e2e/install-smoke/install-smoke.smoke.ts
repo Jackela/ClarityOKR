@@ -12,6 +12,9 @@
  * Steps: fresh userData → launch → main window visible, renderer from app.asar, database opened
  * in normal mode → create one OKR → quit (exit code 0) → integrity_check = ok and the OKR row is
  * in the file → relaunch → the OKR is still listed → quit → integrity_check = ok again.
+ * Also: two progress updates and a review survive the restart (history included), the sticky
+ * note opens with its sandboxed preload and its always-on-top switch works, and a value encrypted
+ * with safeStorage (DPAPI / Keychain / libsecret) on the first launch decrypts on the second.
  *
  * Env:
  * - SMOKE_APP_EXECUTABLE  installed executable (required)
@@ -20,7 +23,7 @@
  * - SMOKE_ARTIFACTS_DIR   screenshots and app logs (default: test output dir)
  * - SMOKE_LABEL           name used in artifact files (e.g. `win-nsis`)
  */
-import { appendFileSync, existsSync, mkdirSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import {
@@ -229,7 +232,14 @@ async function quit(launched: Launched): Promise<void> {
   expect(code, 'exit code after 「退出」').toBe(0);
 }
 
-function checkDatabase(expectTitle: boolean): void {
+const REVIEW = {
+  wentWell: '安装冒烟：复盘做得好',
+  fellShort: '安装冒烟：不足',
+  nextSteps: '安装冒烟：下一步',
+};
+
+/** Reads the database file after the app has exited (read-only, nothing else has it open). */
+function checkDatabase(): void {
   const file = join(USER_DATA, DB_FILE);
   expect(existsSync(file), `${file} exists`).toBe(true);
   const db = new DatabaseSync(file, { readOnly: true });
@@ -237,21 +247,145 @@ function checkDatabase(expectTitle: boolean): void {
     const integrity = db.prepare('PRAGMA integrity_check').all() as Array<Record<string, string>>;
     expect(integrity.map((row) => Object.values(row)[0])).toEqual(['ok']);
     const rows = db.prepare('SELECT title FROM objectives').all() as Array<{ title: string }>;
-    expect(rows.map((r) => r.title)).toEqual(expectTitle ? [TITLE] : []);
-    if (expectTitle) {
-      const krs = db
-        .prepare(
-          'SELECT COUNT(*) AS n FROM key_results k JOIN objectives o ON o.id = k.objective_id',
-        )
-        .get() as { n: number };
-      expect(krs.n).toBe(3);
-    }
+    expect(rows.map((r) => r.title)).toEqual([TITLE]);
+    const count = (sql: string): number => (db.prepare(sql).get() as { n: number }).n;
+    expect(count('SELECT COUNT(*) AS n FROM key_results')).toBe(3);
+    expect(count('SELECT COUNT(*) AS n FROM progress_entries')).toBe(2);
+    expect(count('SELECT COUNT(*) AS n FROM reviews')).toBe(1);
   } finally {
     db.close();
   }
 }
 
-test('installed app: fresh profile → create OKR → quit → relaunch → OKR persists', async () => {
+async function onlyOkrId(page: Page): Promise<string> {
+  const reply = await invoke(page, 'clarityokr:okr:list');
+  expect(reply.ok, JSON.stringify(reply)).toBe(true);
+  expect(reply.data.items).toHaveLength(1);
+  return reply.data.items[0].id as string;
+}
+
+async function firstKrId(page: Page, okrId: string): Promise<string> {
+  const reply = await invoke(page, 'clarityokr:okr:open', { okrId });
+  expect(reply.ok, JSON.stringify(reply)).toBe(true);
+  return reply.data.objective.keyResults[0].id as string;
+}
+
+/** Two progress updates (history) and a saved review, through the channels the UI uses. */
+async function writeProgressAndReview(page: Page, okrId: string): Promise<void> {
+  const krId = await firstKrId(page, okrId);
+  for (const value of [40, 60]) {
+    const reply = await invoke(page, 'clarityokr:kr:set-progress', {
+      krId,
+      status: 'in_progress',
+      value,
+    });
+    expect(reply.ok, JSON.stringify(reply)).toBe(true);
+  }
+  const saved = await invoke(page, 'clarityokr:review:save', { okrId, ...REVIEW });
+  expect(saved.ok, JSON.stringify(saved)).toBe(true);
+}
+
+async function expectProgressAndReview(page: Page, okrId: string): Promise<void> {
+  const detail = await invoke(page, 'clarityokr:okr:open', { okrId });
+  expect(detail.ok, JSON.stringify(detail)).toBe(true);
+  const kr = detail.data.objective.keyResults[0];
+  expect({ progress: kr.progress, status: kr.status }).toEqual({
+    progress: 60,
+    status: 'in_progress',
+  });
+  const history = await invoke(page, 'clarityokr:kr:progress-history', { krId: kr.id });
+  expect(history.ok, JSON.stringify(history)).toBe(true);
+  expect(
+    (history.data.entries as Array<{ kind: string; value: number | null }>).map((e) => [
+      e.kind,
+      e.value,
+    ]),
+  ).toEqual([
+    ['set', 40],
+    ['set', 60],
+  ]);
+  const review = await invoke(page, 'clarityokr:review:get', { okrId });
+  expect(review.ok, JSON.stringify(review)).toBe(true);
+  expect({
+    wentWell: review.data.review?.wentWell,
+    fellShort: review.data.review?.fellShort,
+    nextSteps: review.data.review?.nextSteps,
+  }).toEqual(REVIEW);
+}
+
+const stickyOnTop = (app: ElectronApplication): Promise<boolean | null> =>
+  app.evaluate(({ BrowserWindow }) => {
+    const sticky = BrowserWindow.getAllWindows().find((w) =>
+      w.webContents.getURL().includes('view=sticky'),
+    );
+    return sticky && sticky.isVisible() ? sticky.isAlwaysOnTop() : null;
+  });
+
+/**
+ * The sticky note (sandboxed preload) opens from 「重开便签」, shows the OKR, and its 「⋯」 →
+ * 「窗口始终在最前」 switch really changes the window's always-on-top state (then back).
+ */
+async function checkSticky(launched: Launched, shots: string): Promise<void> {
+  await launched.main.getByTestId('sticky-reopen').click();
+  let sticky: Page | undefined;
+  await expect
+    .poll(
+      () => {
+        sticky = launched.app.windows().find((w) => w.url().includes('view=sticky'));
+        return sticky !== undefined;
+      },
+      { timeout: 30_000, message: 'the sticky note opens' },
+    )
+    .toBe(true);
+  const page = sticky!;
+  await page.waitForLoadState('domcontentloaded');
+  expect(
+    await page.evaluate(
+      () => typeof (window as unknown as { clarifyOkr?: { invoke?: unknown } }).clarifyOkr?.invoke,
+    ),
+    'sticky preload exposes the bridge',
+  ).toBe('function');
+  await expect(page.getByTestId('sticky-objective')).toContainText(TITLE);
+  await expect.poll(() => stickyOnTop(launched.app)).not.toBeNull();
+  const initial = (await stickyOnTop(launched.app)) as boolean;
+  for (const expected of [!initial, initial]) {
+    await page.getByTestId('more-button').click();
+    await page.getByTestId('always-on-top').click();
+    await expect.poll(() => stickyOnTop(launched.app)).toBe(expected);
+    await page.keyboard.press('Escape');
+  }
+  await page.screenshot({ path: join(shots, `${LABEL}-sticky.png`) });
+}
+
+interface SafeStorageProbe {
+  available: boolean;
+  backend: string | null;
+  cipher: string | null;
+}
+
+/** First launch: encrypt a marker with the OS store (Keychain / DPAPI / libsecret). */
+const encryptMarker = (app: ElectronApplication): Promise<SafeStorageProbe> =>
+  app.evaluate(async ({ safeStorage }) => {
+    const available = await safeStorage.isAsyncEncryptionAvailable();
+    const backend =
+      process.platform === 'linux'
+        ? (
+            safeStorage as unknown as { getSelectedStorageBackend: () => string }
+          ).getSelectedStorageBackend()
+        : null;
+    if (!available) return { available, backend, cipher: null };
+    const cipher = await safeStorage.encryptStringAsync('install-smoke-marker');
+    return { available, backend, cipher: cipher.toString('base64') };
+  });
+
+/** Relaunch: the same installed app decrypts it again. */
+const decryptMarker = (app: ElectronApplication, cipher: string): Promise<string> =>
+  app.evaluate(async ({ safeStorage }, data) => {
+    const outcome = await safeStorage.decryptStringAsync(Buffer.from(data, 'base64'));
+    return outcome.result;
+  }, cipher);
+
+test('installed app: fresh profile → OKR, progress, review → quit → relaunch → all still there', async () => {
   expect(EXECUTABLE, 'SMOKE_APP_EXECUTABLE').not.toBe('');
   expect(existsSync(EXECUTABLE), `${EXECUTABLE} exists`).toBe(true);
   expect(USER_DATA, 'SMOKE_USER_DATA_DIR').not.toBe('');
@@ -261,6 +395,8 @@ test('installed app: fresh profile → create OKR → quit → relaunch → OKR 
   await mock.start();
   mock.setResponses(mockResponses);
   const shots = artifactsDir();
+  let okrId = '';
+  let probe: SafeStorageProbe = { available: false, backend: null, cipher: null };
   try {
     // ---------- first launch on a fresh profile ----------
     const first = await launch(mock.getUrl(), 'first');
@@ -279,20 +415,22 @@ test('installed app: fresh profile → create OKR → quit → relaunch → OKR 
         selectOptionIndex: 0,
         finalOptionIndex: 1,
       });
-      await clarification.waitForOkrSummary(60_000).catch(async (error: unknown) => {
-        await first.main.screenshot({ path: join(shots, `${LABEL}-okr-summary-missing.png`) });
-        console.log(
-          '[install-smoke] mock requests:',
-          JSON.stringify(mock.getRequestLog().map((r) => r.url)),
-        );
-        throw error;
-      });
+      await clarification.waitForOkrSummary(60_000);
       await expect.poll(() => listedTitles(first.main)).toEqual([TITLE]);
+      okrId = await onlyOkrId(first.main);
+      await writeProgressAndReview(first.main, okrId);
+      await expectProgressAndReview(first.main, okrId);
       await first.main.screenshot({ path: join(shots, `${LABEL}-2-okr-created.png`) });
+      await checkSticky(first, shots);
+
+      probe = await encryptMarker(first.app);
+      writeFileSync(join(shots, `${LABEL}-safe-storage.json`), JSON.stringify(probe, null, 2));
+      // DPAPI and Keychain are always there on Windows / macOS; Linux depends on a secret service
+      if (process.platform !== 'linux') expect(probe.available, 'safeStorage available').toBe(true);
     } finally {
       await quit(first);
     }
-    checkDatabase(true);
+    checkDatabase();
 
     // ---------- relaunch on the same profile ----------
     const second = await launch(mock.getUrl(), 'second');
@@ -302,11 +440,16 @@ test('installed app: fresh profile → create OKR → quit → relaunch → OKR 
         storageMode: 'normal',
       });
       await expect.poll(() => listedTitles(second.main)).toEqual([TITLE]);
+      expect(await onlyOkrId(second.main)).toBe(okrId);
+      await expectProgressAndReview(second.main, okrId);
+      if (probe.cipher !== null) {
+        expect(await decryptMarker(second.app, probe.cipher)).toBe('install-smoke-marker');
+      }
       await second.main.screenshot({ path: join(shots, `${LABEL}-3-relaunch.png`) });
     } finally {
       await quit(second);
     }
-    checkDatabase(true);
+    checkDatabase();
   } finally {
     await mock.stop();
   }
