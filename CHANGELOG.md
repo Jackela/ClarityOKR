@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Internal
+
+- 仅 E2E（[#195](https://github.com/Jackela/ClarityOKR/issues/195)）：`fixMainContentSize` 改为按 Playwright 的 `electronApp.browserWindow(main)` 取「承载主窗口页面的那个窗口」来固定 1200×771 客户区，不再取「第一个非置顶窗口」（便签关掉「窗口始终在最前」、多开一个窗口或 DevTools 时会选错）；传入便签页面（`?view=sticky`）直接报错。新增 `tests/e2e/specs/ui/main-window-size.spec.ts`：便签置顶关闭再加一个普通窗口（共 3 个非置顶窗口）时只改主窗口尺寸，其余窗口尺寸不变；传便签页面会被拒绝。产品代码未改。
+
 ## [0.3.8] - 2026-11-24
 
 ### Fixed
