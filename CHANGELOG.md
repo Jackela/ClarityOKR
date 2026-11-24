@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.8] - 2026-11-24
+
 ### Fixed
 
 - 没有未保存内容时，从应用外部发起的退出（macOS Dock 右键「退出」、注销 / 关机时系统发起的退出）现在会真正退出，不再关掉窗口后一直留在托盘 / Dock 里（[#199](https://github.com/Jackela/ClarityOKR/issues/199)）。原因：`before-quit` 拦下这次退出后在同一调用栈里立即再次 `app.quit()`，外层被拦下的退出返回时 Electron 复位了「正在退出」状态。现在退出确认推迟到下一轮事件循环（`setImmediate`）再进行。有未保存内容时仍会弹出确认（行为不变）；应用自己的「退出」（菜单 / ⌘Q / 托盘）不受影响。新增 5 个单元测试；`Install smoke` 第二次启动改为用外部 `app.quit()` 退出并断言退出码 0。
@@ -30,6 +32,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 将主进程依赖 `opossum` 从 9.0.0 升到 10.0.0。10.0 唯一的破坏性变更是不再支持 Node 20（`engines` 为 `^26 || ^24 || ^22`）；应用运行在 Electron 45 内置的 Node.js 24.22.3，CI 用 Node 24。npm 包内 `index.js` 与 `lib/` 和 9.0.0 逐字相同，只改了 `engines` 与开发依赖；`LlmCircuitBreaker` 用到的构造参数（`timeout` / `resetTimeout` / `errorThresholdPercentage` / `rollingCountTimeout` / `rollingCountBuckets` / `name`）、事件（`open` / `halfOpen` / `close` / `fallback`）与 `fire` / `open` / `close` / `fallback` / `stats` 均未改动，行为不变（[#191](https://github.com/Jackela/ClarityOKR/pull/191)）
 - 将主进程开发依赖 `@types/better-sqlite3` 从 7.6.13 升到 9.6.0。DefinitelyTyped 仅调整了版本号与最低 TypeScript（5.1 → 5.6），`index.d.ts` 与 7.6.13 逐字相同；better-sqlite3 13 不自带类型，仍用这份声明，类型检查通过。仅类型，无运行时改动（[#190](https://github.com/Jackela/ClarityOKR/pull/190)）
 - 仅 E2E：主窗客户区固定为 **1200×771**，主窗设计截图（`shot()`，`IMPL_SHOTS_DIR`；以及 CI 每次上传的 S3§12 截图 `S3_12_SHOTS_DIR`）因此尺寸与排版稳定。主窗是带框的 1200×800 外框窗口，Linux 下标题栏由 Chromium 按 GTK 标题字体绘制，CI 上有时 29px、有时 27px，客户区于是在 1200×771 与 1200×773 之间跳动，根组件 `min-height: 100vh` 跟着变，底部操作栏下移 2px、居中对话框和滚动后的画面偏 1–2px。现在每次启动后（`fixtures/index.ts` 的 `mainWindow`、`launchElectronApp`、两个 spec 里的重启；worker 级 fixture 不动，`test-responsive-layout` 仍用它自己设定视口）用 `setContentSize(1200, 771)` 设定客户区并等待 `innerWidth/innerHeight` 生效；截图时断言客户区与 PNG 都是 1200×771，否则用例失败。无框便签截图照旧按窗口实际尺寸。生产代码与应用自身的窗口尺寸不变（[#146](https://github.com/Jackela/ClarityOKR/issues/146)）
+
+### Known issues
+
+- 「未实测」：以下行为只有自动化测试，尚未在真机上手动验证（真机清单 [#200](https://github.com/Jackela/ClarityOKR/issues/200)）
+  - 系统托盘（菜单「显示便签 / 退出」、点击唤回）：macOS、Windows、Linux 均未实测
+  - Dock 唤回便签、Dock「退出」与注销 / 关机时的退出（#199 已修复，Install smoke 在三个平台用外部 `app.quit()` 验证退出码 0）：macOS 未实测
+  - ⌘Q 退出确认（含未保存修改的合并提示）：macOS 未实测
+  - Windows 注销 / 关机时保存草稿并在下次启动提供恢复（#110）
+  - 安装包：Install smoke 在 CI 上对 Windows（NSIS）、macOS（dmg，arm64 与 x64）、Linux（deb、AppImage）做静默安装与启动冒烟（#45）；真机首次安装与启动未实测
+- Windows / Linux 上无法创建托盘图标时，关闭或隐藏最后一个可见窗口会直接退出应用（按钮提示里有说明）
+- macOS 安装包未签名
+
 
 ## [0.3.7] - 2026-11-21
 
@@ -338,7 +352,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comprehensive test suite (unit, component, integration, E2E)
 - CI/CD pipeline with multi-platform builds
 
-[unreleased]: https://github.com/Jackela/ClarityOKR/compare/v0.3.7...HEAD
+[unreleased]: https://github.com/Jackela/ClarityOKR/compare/v0.3.8...HEAD
+[0.3.8]: https://github.com/Jackela/ClarityOKR/compare/v0.3.7...v0.3.8
 [0.3.7]: https://github.com/Jackela/ClarityOKR/compare/v0.3.6...v0.3.7
 [0.3.6]: https://github.com/Jackela/ClarityOKR/compare/v0.3.5...v0.3.6
 [0.3.5]: https://github.com/Jackela/ClarityOKR/compare/v0.3.4...v0.3.5
