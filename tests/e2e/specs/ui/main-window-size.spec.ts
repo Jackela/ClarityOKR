@@ -40,20 +40,20 @@ test.beforeEach(async () => {
   await cleanupPersistenceFiles();
 });
 
-test('isStickyUrl: only ?view=sticky is the sticky page', () => {
+test('#195: picks the main window when several windows are not always on top', async ({
+  electronApp,
+  mainWindow,
+  mockServer,
+}) => {
+  // isStickyUrl: only ?view=sticky is the sticky page. Checked inside this Electron test so
+  // every E2E test still yields an Electron coverage capture (remap-source-coverage.mjs).
   expect(isStickyUrl('file:///app/index.html?view=sticky')).toBe(true);
   expect(isStickyUrl('clarityokr://app/index.html?view=sticky#/x')).toBe(true);
   expect(isStickyUrl('file:///app/index.html')).toBe(false);
   expect(isStickyUrl('file:///app/index.html?view=main')).toBe(false);
   expect(isStickyUrl('about:blank')).toBe(false);
   expect(isStickyUrl('not a url')).toBe(false);
-});
 
-test('#195: picks the main window when several windows are not always on top', async ({
-  electronApp,
-  mainWindow,
-  mockServer,
-}) => {
   const sticky = await openSticky(electronApp, mainWindow, mockServer);
 
   // Two more windows that are NOT always on top, created before the main window is resized:
