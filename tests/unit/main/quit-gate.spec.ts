@@ -22,18 +22,22 @@ class PlainWindow implements ExitWindow {
   focus(): void {}
 }
 
-function realApp() {
-  const calls = { quit: 0, relaunch: 0 };
+function realApp(storageMode: 'memory' | 'normal' = 'memory') {
+  const calls = { quit: 0, relaunch: 0, quitInsideBeforeQuit: 0 };
+  let insideBeforeQuit = false;
   let relaunchWorks = false;
   const gate = new QuitGate();
   const main = new PlainWindow(1);
   const flags: UnsavedFlags = { wizard: false, textEdit: false, reviewDraft: false };
   const coordinator = new ExitCoordinator({
-    evaluate: (unsaved) =>
-      decideExitConfirmation({ storageMode: 'memory', dbHasData: true, unsaved }),
+    evaluate: (unsaved) => decideExitConfirmation({ storageMode, dbHasData: true, unsaved }),
     reportedUnsaved: () => flags,
     showWindow: async () => main,
-    quit: () => gate.quit(() => (calls.quit += 1)),
+    quit: () =>
+      gate.quit(() => {
+        calls.quit += 1;
+        if (insideBeforeQuit) calls.quitInsideBeforeQuit += 1;
+      }),
     relaunch: () =>
       gate.relaunch(
         () => {
@@ -46,16 +50,22 @@ function realApp() {
   /** What Electron's `before-quit` does with our handler: true = the quit was stopped. */
   const beforeQuit = (): boolean => {
     let prevented = false;
-    guardBeforeQuit(gate, () => coordinator.requestQuit(), {
-      preventDefault: () => {
-        prevented = true;
-      },
-    });
+    insideBeforeQuit = true;
+    try {
+      guardBeforeQuit(gate, () => coordinator.requestQuit(), {
+        preventDefault: () => {
+          prevented = true;
+        },
+      });
+    } finally {
+      insideBeforeQuit = false;
+    }
     return prevented;
   };
   return {
     gate,
     main,
+    flags,
     coordinator,
     calls,
     beforeQuit,
@@ -65,7 +75,11 @@ function realApp() {
   };
 }
 
-const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+/** Lets the deferred confirmation (`setImmediate`, #199) and its async steps run. */
+const flush = async () => {
+  await new Promise((resolve) => setImmediate(resolve));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+};
 
 describe('QuitGate (B1: flags restored when relaunching fails)', () => {
   it('a plain gate stops before-quit; quit() lets it through', () => {
@@ -298,5 +312,71 @@ describe('QuitGate.sessionEnd (N16: Windows session end)', () => {
     expect(prevented).toBe(false);
     expect(asked).toBe(0);
     expect(gate.isQuitting()).toBe(true);
+  });
+});
+
+describe('guardBeforeQuit (#199: an outside app.quit() — Dock 「退出」, log out / shut down)', () => {
+  it('stops the quit but asks only on a later turn, never inside before-quit', () => {
+    const gate = new QuitGate();
+    const deferred: Array<() => void> = [];
+    let asked = 0;
+    let prevented = false;
+    guardBeforeQuit(
+      gate,
+      () => (asked += 1),
+      {
+        preventDefault: () => {
+          prevented = true;
+        },
+      },
+      (task) => deferred.push(task),
+    );
+    expect(prevented).toBe(true);
+    expect(asked).toBe(0); // not in the same call stack as the stopped quit
+    expect(deferred).toHaveLength(1);
+    deferred[0]!();
+    expect(asked).toBe(1);
+  });
+
+  it('defers with setImmediate by default', async () => {
+    const gate = new QuitGate();
+    let asked = 0;
+    guardBeforeQuit(gate, () => (asked += 1), { preventDefault: () => undefined });
+    expect(asked).toBe(0);
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(asked).toBe(1);
+  });
+
+  it('nothing unsaved: the app quits on the next turn and that quit passes before-quit', async () => {
+    const app = realApp('normal');
+    expect(app.beforeQuit()).toBe(true); // the outside quit is stopped …
+    expect(app.calls.quit).toBe(0); // … with no nested app.quit() inside the handler
+    await flush();
+    expect(app.calls.quit).toBe(1); // … then the real quit follows
+    expect(app.calls.quitInsideBeforeQuit).toBe(0);
+    expect(app.main.sent).toEqual([]); // no dialog
+    expect(app.gate.isQuitting()).toBe(true);
+    expect(app.beforeQuit()).toBe(false); // the app's own app.quit() goes through
+  });
+
+  it('unsaved content: an outside quit still asks (behaviour unchanged)', async () => {
+    const app = realApp('normal');
+    app.flags.textEdit = true;
+    expect(app.beforeQuit()).toBe(true);
+    await flush();
+    const dialogs = app.main.sent.filter(([c]) => c === 'clarityokr:app:confirm-exit');
+    expect(dialogs).toHaveLength(1);
+    expect(dialogs[0]![1]).toMatchObject({ kind: 'quit' });
+    expect(app.calls.quit).toBe(0);
+    expect(app.gate.isQuitting()).toBe(false);
+  });
+
+  it('two outside quits in a row ask once and quit once', async () => {
+    const app = realApp('normal');
+    expect(app.beforeQuit()).toBe(true);
+    expect(app.beforeQuit()).toBe(true);
+    await flush();
+    expect(app.calls.quit).toBe(1);
+    expect(app.calls.quitInsideBeforeQuit).toBe(0);
   });
 });

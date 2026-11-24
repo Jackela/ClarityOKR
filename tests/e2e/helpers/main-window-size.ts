@@ -17,15 +17,38 @@ import { expect } from '@playwright/test';
  */
 export const MAIN_CONTENT_SIZE = { width: 1200, height: 771 } as const;
 
-/** Sets the main (not always-on-top) window's client area to {@link MAIN_CONTENT_SIZE}. */
+/**
+ * Sets the client area of the window that hosts `main` to {@link MAIN_CONTENT_SIZE}.
+ *
+ * #195: the window is the one Playwright maps to the `main` page (`app.browserWindow(main)`),
+ * not "the first window that is not always on top": a sticky with 窗口始终在最前 off, a second
+ * window or DevTools would otherwise be resized instead. The sticky page is refused, so a
+ * mix-up fails loudly instead of resizing the wrong window.
+ */
 export async function fixMainContentSize(app: ElectronApplication, main: Page): Promise<void> {
-  await app.evaluate(({ BrowserWindow }, size) => {
-    const w = BrowserWindow.getAllWindows().find((x) => !x.isAlwaysOnTop());
-    w?.setContentSize(size.width, size.height);
-  }, MAIN_CONTENT_SIZE);
+  expect(isStickyUrl(main.url()), `fixMainContentSize got the sticky page (${main.url()})`).toBe(
+    false,
+  );
+  const host = await app.browserWindow(main);
+  try {
+    await host.evaluate((w, size) => {
+      w.setContentSize(size.width, size.height);
+    }, MAIN_CONTENT_SIZE);
+  } finally {
+    await host.dispose();
+  }
   await expect
     .poll(() => main.evaluate(() => [window.innerWidth, window.innerHeight]), {
       message: `main window client area is ${MAIN_CONTENT_SIZE.width}×${MAIN_CONTENT_SIZE.height}`,
     })
     .toEqual([MAIN_CONTENT_SIZE.width, MAIN_CONTENT_SIZE.height]);
+}
+
+/** The sticky window loads the renderer with `?view=sticky` (`sticky-window-manager.ts`). */
+export function isStickyUrl(url: string): boolean {
+  try {
+    return new URL(url).searchParams.get('view') === 'sticky';
+  } catch {
+    return false;
+  }
 }

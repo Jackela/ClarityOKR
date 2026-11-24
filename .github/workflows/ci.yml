@@ -31,8 +31,15 @@ jobs:
     name: Lint • Typecheck • Unit • Component • Integration
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    # #211: artifacts that a later job downloads carry the run attempt in their name. A re-run keeps
+    # the earlier attempts' artifacts, and download-artifact resolves a name (and filters by ids)
+    # to the artifact with the highest id, which is not always the newest one, so a re-run could
+    # read the previous attempt's files. Jobs that are not re-run keep their earlier outputs, so
+    # downstream jobs always get the name this job's own attempt uploaded.
     outputs:
       coverage-path: ${{ steps.coverage.outputs.path }}
+      build-artifacts: build-artifacts-${{ github.run_attempt }}
+      test-results: test-results-${{ github.run_attempt }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -103,7 +110,7 @@ jobs:
         uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with:
-          name: build-artifacts
+          name: build-artifacts-${{ github.run_attempt }}
           path: |
             app/main/dist
             app/renderer/dist
@@ -115,7 +122,7 @@ jobs:
         uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with:
-          name: test-results
+          name: test-results-${{ github.run_attempt }}
           path: |
             coverage/
             tests/unit/coverage/
@@ -128,6 +135,8 @@ jobs:
   e2e:
     name: E2E (Playwright + Electron)
     needs: build-and-test
+    outputs:
+      combined-source-coverage: combined-source-coverage-${{ github.run_attempt }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.skip_e2e != 'true' }}
@@ -185,13 +194,13 @@ jobs:
       - name: Download build artifacts
         uses: actions/download-artifact@v8
         with:
-          name: build-artifacts
+          name: ${{ needs.build-and-test.outputs.build-artifacts }}
           path: .
 
       - name: Download coverage from the same workflow head
         uses: actions/download-artifact@v8
         with:
-          name: test-results
+          name: ${{ needs.build-and-test.outputs.test-results }}
           path: .
 
       - name: Build instrumented main, sandboxed preload and Angular renderer
@@ -309,7 +318,7 @@ jobs:
         uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with:
-          name: combined-source-coverage
+          name: combined-source-coverage-${{ github.run_attempt }}
           path: |
             coverage/
             tests/e2e/coverage/
@@ -505,7 +514,7 @@ jobs:
       - name: Download combined source coverage
         uses: actions/download-artifact@v8
         with:
-          name: combined-source-coverage
+          name: ${{ needs.e2e.outputs.combined-source-coverage }}
           path: .
 
       - name: Verify reported coverage against floored main baselines and write the Job Summary

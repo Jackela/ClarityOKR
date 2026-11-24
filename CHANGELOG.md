@@ -10,6 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Internal
 
 - Angular 22.2 → 22.3（T-17，取代 Dependabot [#206](https://github.com/Jackela/ClarityOKR/pull/206) / [#207](https://github.com/Jackela/ClarityOKR/pull/207)）：`@angular/{animations,common,compiler,core,forms,platform-browser,platform-browser-dynamic,router}` 22.2.6 → 22.3.0，`@angular/{build,cli}` 22.2.7 → 22.3.0，`@angular/compiler-cli` 22.2.6 → 22.3.0，`baseline-browser-mapping` ^2.11.38 → ^2.11.39。两个 Dependabot PR 各自只升了一半：`@angular/compiler-cli` 依赖同版本 `@angular/compiler` 的内部导出，单独升任一边 `build:ci` 都失败。`.github/dependabot.yml` 新增 `angular` 组（`@angular/*`，生产 + 开发依赖一起，仅 minor / patch），避免再拆开。渲染进程源码与样式未改；`.deb` 的 `app.asar` 文件清单与 main 相同（1252 个），内容上只有 `app/renderer/dist/main.js`（打包进去的 Angular 运行时）不同；`styles.css`、`index.html`、`polyfills.js` 逐字节相同。
+- 仅 E2E（[#195](https://github.com/Jackela/ClarityOKR/issues/195)）：`fixMainContentSize` 改为按 Playwright 的 `electronApp.browserWindow(main)` 取「承载主窗口页面的那个窗口」来固定 1200×771 客户区，不再取「第一个非置顶窗口」（便签关掉「窗口始终在最前」、多开一个窗口或 DevTools 时会选错）；传入便签页面（`?view=sticky`）直接报错。新增 `tests/e2e/specs/ui/main-window-size.spec.ts`：便签置顶关闭再加一个普通窗口（共 3 个非置顶窗口）时只改主窗口尺寸，其余窗口尺寸不变；传便签页面会被拒绝。产品代码未改。
+
+## [0.3.8] - 2026-11-24
+
+### Fixed
+
+- 没有未保存内容时，从应用外部发起的退出（macOS Dock 右键「退出」、注销 / 关机时系统发起的退出）现在会真正退出，不再关掉窗口后一直留在托盘 / Dock 里（[#199](https://github.com/Jackela/ClarityOKR/issues/199)）。原因：`before-quit` 拦下这次退出后在同一调用栈里立即再次 `app.quit()`，外层被拦下的退出返回时 Electron 复位了「正在退出」状态。现在退出确认推迟到下一轮事件循环（`setImmediate`）再进行。有未保存内容时仍会弹出确认（行为不变）；应用自己的「退出」（菜单 / ⌘Q / 托盘）不受影响。新增 5 个单元测试；`Install smoke` 第二次启动改为用外部 `app.quit()` 退出并断言退出码 0。
+
+### Internal
+
+- CI：被后续 job 下载的产物（`build-artifacts`、`test-results`、`combined-source-coverage`）名字加上 `-${{ github.run_attempt }}`，下载方通过上游 job 的 outputs 取名字（[#211](https://github.com/Jackela/ClarityOKR/issues/211)）。原因：重跑会保留之前各次的同名产物，而 `download-artifact` 按名字（以及按 id）解析时取 id 最大的那个，产物 id 并不随时间递增；PR #210 的 run 45145123045 第 2 次运行里，E2E 上传了新的 `combined-source-coverage`（id 14804309877），Coverage Report 却下载了第 1 次的（id 14805900089），于是重跑后仍报 okr-store branches 88.95%。未重跑的 job 沿用原来的 outputs，下载方总拿到对应那次上传的产物。门槛与检查内容不变
 - 修复 main 上 okr-store 目录 branches 门槛偶发 88.95% < 89% 的抖动（[#211](https://github.com/Jackela/ClarityOKR/issues/211)）：`okr-store-repository.ts` 的 `toDocument()` 中「从未编辑 → `lastEditedAt` 为 null」一臂（`updated_at === created_at`）只有 E2E 里草稿的 `generatedAt` 与保存时间落在同一毫秒时才会走到，unit / integration 的注入时钟从不相等。integration 新增一条确定性测试（`createObjective` 后 `lastEditedAt` 为 null，编辑后为编辑时间），该分支不再依赖 E2E 时机；门槛不变、不排除文件，生产代码未改
 - 移除主进程未使用的运行时依赖 `dotenv`：源码、脚本、构建配置与 CI 均不导入 / 加载它（`dotenv/config`、`-r dotenv/config` 也无）。lockfile 去掉 dotenv 18.0.10；打出的 `.deb` 与 main 相比，`app.asar` 只少了 `node_modules/dotenv`（7 项，1259 → 1252）以及 `package.json` 依赖表中的这一行，其余内容与 unpacked 文件逐字节一致，应用行为不变
 - 移除 `tests/e2e` 未使用的开发依赖 `nock` ^14（E2E 用例、fixtures 与 Playwright 配置均未导入它，LLM 由本地 mock 服务替代）；lockfile 随之去掉 nock 14.0.17 及其独占的 `@mswjs/interceptors` 0.41.9、`@open-draft/*`、`propagate`、`strict-event-emitter`。integration 测试使用的 nock 15.0.6 不变，无运行时改动
@@ -26,6 +37,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 将主进程依赖 `opossum` 从 9.0.0 升到 10.0.0。10.0 唯一的破坏性变更是不再支持 Node 20（`engines` 为 `^26 || ^24 || ^22`）；应用运行在 Electron 45 内置的 Node.js 24.22.3，CI 用 Node 24。npm 包内 `index.js` 与 `lib/` 和 9.0.0 逐字相同，只改了 `engines` 与开发依赖；`LlmCircuitBreaker` 用到的构造参数（`timeout` / `resetTimeout` / `errorThresholdPercentage` / `rollingCountTimeout` / `rollingCountBuckets` / `name`）、事件（`open` / `halfOpen` / `close` / `fallback`）与 `fire` / `open` / `close` / `fallback` / `stats` 均未改动，行为不变（[#191](https://github.com/Jackela/ClarityOKR/pull/191)）
 - 将主进程开发依赖 `@types/better-sqlite3` 从 7.6.13 升到 9.6.0。DefinitelyTyped 仅调整了版本号与最低 TypeScript（5.1 → 5.6），`index.d.ts` 与 7.6.13 逐字相同；better-sqlite3 13 不自带类型，仍用这份声明，类型检查通过。仅类型，无运行时改动（[#190](https://github.com/Jackela/ClarityOKR/pull/190)）
 - 仅 E2E：主窗客户区固定为 **1200×771**，主窗设计截图（`shot()`，`IMPL_SHOTS_DIR`；以及 CI 每次上传的 S3§12 截图 `S3_12_SHOTS_DIR`）因此尺寸与排版稳定。主窗是带框的 1200×800 外框窗口，Linux 下标题栏由 Chromium 按 GTK 标题字体绘制，CI 上有时 29px、有时 27px，客户区于是在 1200×771 与 1200×773 之间跳动，根组件 `min-height: 100vh` 跟着变，底部操作栏下移 2px、居中对话框和滚动后的画面偏 1–2px。现在每次启动后（`fixtures/index.ts` 的 `mainWindow`、`launchElectronApp`、两个 spec 里的重启；worker 级 fixture 不动，`test-responsive-layout` 仍用它自己设定视口）用 `setContentSize(1200, 771)` 设定客户区并等待 `innerWidth/innerHeight` 生效；截图时断言客户区与 PNG 都是 1200×771，否则用例失败。无框便签截图照旧按窗口实际尺寸。生产代码与应用自身的窗口尺寸不变（[#146](https://github.com/Jackela/ClarityOKR/issues/146)）
+
+### Known issues
+
+- 「未实测」：以下行为只有自动化测试，尚未在真机上手动验证（真机清单 [#200](https://github.com/Jackela/ClarityOKR/issues/200)）
+  - 系统托盘（菜单「显示便签 / 退出」、点击唤回）：macOS、Windows、Linux 均未实测
+  - Dock 唤回便签、Dock「退出」与注销 / 关机时的退出（#199 已修复，Install smoke 在三个平台用外部 `app.quit()` 验证退出码 0）：macOS 未实测
+  - ⌘Q 退出确认（含未保存修改的合并提示）：macOS 未实测
+  - Windows 注销 / 关机时保存草稿并在下次启动提供恢复（#110）
+  - 安装包：Install smoke 在 CI 上对 Windows（NSIS）、macOS（dmg，arm64 与 x64）、Linux（deb、AppImage）做静默安装与启动冒烟（#45）；真机首次安装与启动未实测
+- Windows / Linux 上无法创建托盘图标时，关闭或隐藏最后一个可见窗口会直接退出应用（按钮提示里有说明）
+- macOS 安装包未签名
+
 
 ## [0.3.7] - 2026-11-21
 
@@ -334,7 +357,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comprehensive test suite (unit, component, integration, E2E)
 - CI/CD pipeline with multi-platform builds
 
-[unreleased]: https://github.com/Jackela/ClarityOKR/compare/v0.3.7...HEAD
+[unreleased]: https://github.com/Jackela/ClarityOKR/compare/v0.3.8...HEAD
+[0.3.8]: https://github.com/Jackela/ClarityOKR/compare/v0.3.7...v0.3.8
 [0.3.7]: https://github.com/Jackela/ClarityOKR/compare/v0.3.6...v0.3.7
 [0.3.6]: https://github.com/Jackela/ClarityOKR/compare/v0.3.5...v0.3.6
 [0.3.5]: https://github.com/Jackela/ClarityOKR/compare/v0.3.4...v0.3.5
