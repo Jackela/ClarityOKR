@@ -72,7 +72,7 @@
   },
   "devDependencies": {
     "@ampproject/remapping": "^2.3.0",
-    "@angular/build": "22.2.7",
+    "@angular/build": "22.3.0",
     "@electron/rebuild": "4.2.1",
     "@playwright/test": "^1.65.1",
     "@types/node": "^24.19.2",
