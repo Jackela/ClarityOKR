@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Internal
 
+- Angular 22.2 → 22.3（T-17，取代 Dependabot [#206](https://github.com/Jackela/ClarityOKR/pull/206) / [#207](https://github.com/Jackela/ClarityOKR/pull/207)）：`@angular/{animations,common,compiler,core,forms,platform-browser,platform-browser-dynamic,router}` 22.2.6 → 22.3.0，`@angular/{build,cli}` 22.2.7 → 22.3.0，`@angular/compiler-cli` 22.2.6 → 22.3.0，`baseline-browser-mapping` ^2.11.38 → ^2.11.39。两个 Dependabot PR 各自只升了一半：`@angular/compiler-cli` 依赖同版本 `@angular/compiler` 的内部导出，单独升任一边 `build:ci` 都失败。`.github/dependabot.yml` 新增 `angular` 组（`@angular/*`，生产 + 开发依赖一起，仅 minor / patch），避免再拆开。渲染进程源码与样式未改；`.deb` 的 `app.asar` 文件清单与 main 相同（1252 个），内容上只有 `app/renderer/dist/main.js`（打包进去的 Angular 运行时）不同；`styles.css`、`index.html`、`polyfills.js` 逐字节相同。
 - 仅 E2E（[#195](https://github.com/Jackela/ClarityOKR/issues/195)）：`fixMainContentSize` 改为按 Playwright 的 `electronApp.browserWindow(main)` 取「承载主窗口页面的那个窗口」来固定 1200×771 客户区，不再取「第一个非置顶窗口」（便签关掉「窗口始终在最前」、多开一个窗口或 DevTools 时会选错）；传入便签页面（`?view=sticky`）直接报错。新增 `tests/e2e/specs/ui/main-window-size.spec.ts`：便签置顶关闭再加一个普通窗口（共 3 个非置顶窗口）时只改主窗口尺寸，其余窗口尺寸不变；传便签页面会被拒绝。产品代码未改。
 
 ## [0.3.8] - 2026-11-24
