@@ -56,18 +56,32 @@ export class QuitGate {
   }
 }
 
+/** Runs `task` on a later turn of the event loop (`setImmediate` in the app). */
+export type Defer = (task: () => void) => void;
+
+const nextTurn: Defer = (task) => {
+  setImmediate(task);
+};
+
 /**
- * The `before-quit` handler: a quit the gate has not allowed (⌘Q, the system, anything) is
- * stopped and goes through the confirmation instead.
+ * The `before-quit` handler: a quit the gate has not allowed (⌘Q, the Dock 「退出」, log out /
+ * shut down, anything) is stopped and goes through the confirmation instead.
+ *
+ * #199: the confirmation is asked on the NEXT turn of the event loop, never inside this
+ * handler. With nothing unsaved `requestQuit` quits at once (`app.quit()` again); nested inside
+ * the stopped `before-quit`, that inner quit closed the windows but Electron reset its
+ * "quitting" state when the outer, prevented quit returned, so the app ended up in
+ * `window-all-closed` (still running) instead of exiting.
  */
 export function guardBeforeQuit(
   gate: QuitGate,
   requestQuit: () => unknown,
   event: { preventDefault(): void },
+  defer: Defer = nextTurn,
 ): void {
   if (gate.passesBeforeQuit()) return;
   event.preventDefault();
-  void requestQuit();
+  defer(() => void requestQuit());
 }
 
 /** A window that hides instead of closing until the app really quits (B2). */

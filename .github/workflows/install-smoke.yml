@@ -1,6 +1,7 @@
 # #45 install smoke: build the real installers, install them silently, and drive the INSTALLED
 # app with a fresh profile: main window from app.asar, database opened (integrity_check = ok),
-# one OKR created through the UI, quit via 「退出」, relaunch, the OKR is still there.
+# one OKR created through the UI, quit via 「退出」, relaunch, the OKR is still there, quit via an
+# outside app.quit() (Dock 「退出」 / log out, #199).
 #
 # Separate from CI on purpose: CI's 7 required checks stay as they are (fast, stable). This
 # workflow is not a required check. It runs

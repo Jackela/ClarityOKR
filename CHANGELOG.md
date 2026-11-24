@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- 没有未保存内容时，从应用外部发起的退出（macOS Dock 右键「退出」、注销 / 关机时系统发起的退出）现在会真正退出，不再关掉窗口后一直留在托盘 / Dock 里（[#199](https://github.com/Jackela/ClarityOKR/issues/199)）。原因：`before-quit` 拦下这次退出后在同一调用栈里立即再次 `app.quit()`，外层被拦下的退出返回时 Electron 复位了「正在退出」状态。现在退出确认推迟到下一轮事件循环（`setImmediate`）再进行。有未保存内容时仍会弹出确认（行为不变）；应用自己的「退出」（菜单 / ⌘Q / 托盘）不受影响。新增 5 个单元测试；`Install smoke` 第二次启动改为用外部 `app.quit()` 退出并断言退出码 0。
+
 ### Internal
 
 - CI：被后续 job 下载的产物（`build-artifacts`、`test-results`、`combined-source-coverage`）名字加上 `-${{ github.run_attempt }}`，下载方通过上游 job 的 outputs 取名字（[#211](https://github.com/Jackela/ClarityOKR/issues/211)）。原因：重跑会保留之前各次的同名产物，而 `download-artifact` 按名字（以及按 id）解析时取 id 最大的那个，产物 id 并不随时间递增；PR #210 的 run 45145123045 第 2 次运行里，E2E 上传了新的 `combined-source-coverage`（id 14804309877），Coverage Report 却下载了第 1 次的（id 14805900089），于是重跑后仍报 okr-store branches 88.95%。未重跑的 job 沿用原来的 outputs，下载方总拿到对应那次上传的产物。门槛与检查内容不变
