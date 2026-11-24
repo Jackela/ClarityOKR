@@ -228,7 +228,8 @@ open coverage/lcov-report/index.html
 
 ```bash
 # 从 GitHub Actions 下载
-gh run download --name build-artifacts
+# 名字带运行次数（#211），第 1 次运行为 build-artifacts-1，重跑一次为 build-artifacts-2
+gh run download <run-id> --name build-artifacts-1
 
 # 从发布页面下载
 curl -L -o clarityokr.dmg https://github.com/anomalyco/ClarityOKR/releases/latest/download/ClarityOKR.dmg
