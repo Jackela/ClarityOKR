@@ -466,6 +466,27 @@ describe('OkrStoreRepository (document view)', () => {
     });
   });
 
+  it('reports lastEditedAt as null until the objective is edited, then the edit time', async () => {
+    // updated_at === created_at means "never edited". The app only reaches this through a draft
+    // whose generatedAt lands in the same millisecond as the save, which E2E hit on some runs and
+    // not on others (okr-store branch gate flake, #211), so cover it here with the injected clock.
+    const created = store.createObjective({
+      id: 'o1',
+      title: 'Objective o1',
+      sourceSessionId: 'session-1',
+      keyResults: [{ id: 'k1', statement: 'First' }],
+    });
+    const fresh = await repo.findById('o1');
+    expect(fresh?.generatedAt).toBe(created.createdAt);
+    expect(fresh?.lastEditedAt).toBeNull();
+
+    await repo.save({ ...doc('o1', [['k1', 'First, edited']]), generatedAt: created.createdAt });
+    const edited = await repo.findById('o1');
+    expect(edited?.generatedAt).toBe(created.createdAt);
+    expect(edited?.lastEditedAt).toBe(store.getObjective('o1')?.updatedAt);
+    expect(edited?.lastEditedAt).not.toBe(created.createdAt);
+  });
+
   it('keeps progress and status when a saved document is edited, and hides removed key results', async () => {
     await repo.save(
       doc('o1', [
